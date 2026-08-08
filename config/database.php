@@ -114,6 +114,13 @@ return [
             // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
         ],
 
+
+        'mongodb' => [
+            'driver'   => 'mongodb',
+            'dsn'      => env('DB_URI'),
+            'database' => env('DB_DATABASE', 'renthome'),
+        ],
+
     ],
 
     /*
@@ -177,18 +184,6 @@ return [
             'backoff_algorithm' => env('REDIS_BACKOFF_ALGORITHM', 'decorrelated_jitter'),
             'backoff_base' => env('REDIS_BACKOFF_BASE', 100),
             'backoff_cap' => env('REDIS_BACKOFF_CAP', 1000),
-        ],
-
-        'mongodb' => [
-            'driver'   => 'mongodb',
-            'host'     => env('DB_HOST', '127.0.0.1'),
-            'port'     => env('DB_PORT', 27017),
-            'database' => env('DB_DATABASE', 'renthome'),
-            'username' => env('DB_USERNAME', ''),
-            'password' => env('DB_PASSWORD', ''),
-            'options'  => [
-                'database' => 'admin' // Bắt buộc để xác thực (nếu MongoDB có cài pass)
-            ]
         ],
 
     ],
