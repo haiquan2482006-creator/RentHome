@@ -10,30 +10,32 @@
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-    <!-- Thuần CSS (Vanilla CSS) -->
+    <!-- Thuần CSS (Vanilla CSS) - Chủ đạo Trắng & Xanh Nước Biển -->
     <style>
         :root {
             --font-family: 'Plus Jakarta Sans', sans-serif;
-
-            /* Bảng màu hệ thống */
-            --bg-main: #0f172a;
-            --bg-sidebar: rgba(2, 6, 23, 0.92);
-            --bg-card: rgba(30, 41, 59, 0.5);
-            --border-color: rgba(51, 65, 85, 0.6);
-
-            --brand-primary: #16a34a;
-            --brand-light: #22c55e;
-            --brand-bg: rgba(34, 197, 94, 0.15);
-
-            --text-primary: #f8fafc;
-            --text-secondary: #94a3b8;
-            --text-muted: #64748b;
-
-            --accent-emerald: #34d399;
-            --accent-amber: #fbbf24;
-            --accent-blue: #60a5fa;
-            --accent-red: #f87171;
-
+            
+            /* Bảng màu hệ thống Trắng & Xanh Nước Biển (Ocean Blue) */
+            --bg-main: #f4f6fa;
+            --bg-sidebar: #ffffff;
+            --bg-card: #ffffff;
+            --border-color: #e2e8f0;
+            --shadow-subtle: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+            
+            --brand-primary: #0284c7; /* Ocean Blue */
+            --brand-hover: #0369a1;
+            --brand-light: #38bdf8;
+            --brand-bg: rgba(2, 132, 199, 0.1);
+            
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #94a3b8;
+            
+            --accent-emerald: #059669;
+            --accent-amber: #d97706;
+            --accent-blue: #0284c7;
+            --accent-red: #dc2626;
+            
             --sidebar-width: 260px;
             --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
@@ -58,8 +60,6 @@
         .admin-sidebar {
             width: var(--sidebar-width);
             background-color: var(--bg-sidebar);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
             border-right: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
@@ -70,6 +70,7 @@
             left: 0;
             z-index: 1000;
             transition: var(--transition);
+            box-shadow: 2px 0 12px rgba(0, 0, 0, 0.03);
         }
 
         /* Header Sidebar: Logo & Tên trang */
@@ -82,16 +83,39 @@
         }
 
         .logo-icon {
-            width: 40px;
-            height: 40px;
+            width: 52px;
+            height: 52px;
             border-radius: 12px;
-            background: linear-gradient(135deg, var(--brand-primary), var(--brand-light));
+            background: transparent;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #ffffff;
-            font-size: 1.15rem;
-            box-shadow: 0 4px 14px rgba(34, 197, 94, 0.25);
+            overflow: hidden;
+            padding: 0;
+            transition: var(--transition);
+            flex-shrink: 0;
+        }
+
+        .logo-icon:hover {
+            transform: scale(1.05);
+        }
+
+        .logo-icon i {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            font-style: normal;
+        }
+
+        .logo-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
+            filter: drop-shadow(0 2px 6px rgba(2, 132, 199, 0.2));
         }
 
         .logo-details {
@@ -102,7 +126,7 @@
         .brand-name {
             font-weight: 800;
             font-size: 1.2rem;
-            color: #ffffff;
+            color: var(--text-primary);
             letter-spacing: -0.02em;
             display: flex;
             align-items: center;
@@ -116,14 +140,14 @@
             letter-spacing: 0.05em;
             padding: 2px 6px;
             background: var(--brand-bg);
-            color: var(--brand-light);
+            color: var(--brand-primary);
             border-radius: 4px;
-            border: 1px solid rgba(34, 197, 94, 0.3);
+            border: 1px solid rgba(2, 132, 199, 0.2);
         }
 
         .brand-subtext {
             font-size: 0.75rem;
-            color: var(--text-muted);
+            color: var(--text-secondary);
         }
 
         /* Danh sách Menu */
@@ -150,7 +174,7 @@
             padding: 10px 14px;
             border-radius: 10px;
             font-size: 0.9rem;
-            font-weight: 500;
+            font-weight: 600;
             color: var(--text-secondary);
             text-decoration: none;
             transition: var(--transition);
@@ -165,19 +189,19 @@
         }
 
         .nav-link:hover {
-            color: var(--text-primary);
-            background-color: rgba(51, 65, 85, 0.4);
+            color: var(--brand-primary);
+            background-color: var(--brand-bg);
         }
 
         .nav-link:hover i {
-            color: var(--brand-light);
+            color: var(--brand-primary);
         }
 
         /* Trạng thái Menu đang active */
         .nav-link.active {
             background-color: var(--brand-primary);
             color: #ffffff;
-            box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3);
+            box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
         }
 
         .nav-link.active i {
@@ -188,7 +212,7 @@
         .sidebar-footer {
             padding: 14px;
             margin: 12px;
-            background-color: rgba(15, 23, 42, 0.7);
+            background-color: #f8fafc;
             border: 1px solid var(--border-color);
             border-radius: 12px;
             display: flex;
@@ -206,14 +230,14 @@
             width: 36px;
             height: 36px;
             border-radius: 50%;
-            background-color: #334155;
-            color: var(--text-primary);
+            background-color: #e0f2fe;
+            color: var(--brand-primary);
             font-weight: 700;
             font-size: 0.85rem;
             display: flex;
             align-items: center;
             justify-content: center;
-            border: 1px solid #475569;
+            border: 1px solid rgba(2, 132, 199, 0.2);
         }
 
         .user-details {
@@ -224,13 +248,13 @@
         .user-name {
             font-size: 0.85rem;
             font-weight: 700;
-            color: #ffffff;
+            color: var(--text-primary);
             line-height: 1.2;
         }
 
         .user-email {
             font-size: 0.7rem;
-            color: var(--text-muted);
+            color: var(--text-secondary);
             line-height: 1.2;
         }
 
@@ -247,7 +271,7 @@
 
         .btn-logout:hover {
             color: var(--accent-red);
-            background-color: rgba(239, 68, 68, 0.1);
+            background-color: rgba(220, 38, 38, 0.08);
         }
 
         /* --- Vùng nội dung chính (Main Content) --- */
@@ -265,8 +289,8 @@
 
         .page-title {
             font-size: 1.5rem;
-            font-weight: 700;
-            color: #ffffff;
+            font-weight: 800;
+            color: var(--text-primary);
             letter-spacing: -0.02em;
         }
 
@@ -289,17 +313,19 @@
             border-radius: 16px;
             background-color: var(--bg-card);
             border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-subtle);
             transition: var(--transition);
         }
 
         .stat-card:hover {
-            border-color: rgba(148, 163, 184, 0.3);
+            border-color: var(--brand-primary);
             transform: translateY(-2px);
+            box-shadow: 0 8px 24px -4px rgba(2, 132, 199, 0.12);
         }
 
         .card-label {
             font-size: 0.85rem;
-            font-weight: 500;
+            font-weight: 600;
             color: var(--text-secondary);
             margin-bottom: 8px;
         }
@@ -307,20 +333,12 @@
         .card-value {
             font-size: 1.85rem;
             font-weight: 800;
-            color: #ffffff;
+            color: var(--text-primary);
         }
 
-        .text-emerald {
-            color: var(--accent-emerald);
-        }
-
-        .text-amber {
-            color: var(--accent-amber);
-        }
-
-        .text-blue {
-            color: var(--accent-blue);
-        }
+        .text-emerald { color: var(--accent-emerald); }
+        .text-amber { color: var(--accent-amber); }
+        .text-blue { color: var(--accent-blue); }
     </style>
 </head>
 
@@ -332,13 +350,10 @@
             <!-- Logo & Tên trang web -->
             <div class="sidebar-header">
                 <div class="logo-icon">
-                    <i class="fa-solid fa-house-chimney"></i>
+                    <i><img src="{{asset('img/logo.png')}}" alt="logo"></i>
                 </div>
                 <div class="logo-details">
-                    <span class="brand-name">
-                        RentHome
-                        <span class="admin-badge">Admin</span>
-                    </span>
+                    <span class="brand-name">RentHome<span class="admin-badge">Admin</span></span>
                     <span class="brand-subtext">Hệ thống quản trị</span>
                 </div>
             </div>
