@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quên Mật Khẩu - RentHome</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         body {
             margin: 0;
@@ -37,20 +38,49 @@
             font-size: 28px;
             margin-top: 0;
         }
-        .contact-container input {
+        .input-box {
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+            margin-bottom: 25px;
+            padding-bottom: 5px;
+        }
+        .input-box i {
+            color: #fff;
+            font-size: 18px;
+            margin-right: 12px;
+            width: 20px;
+            text-align: center;
+        }
+        .input-box input {
             width: 100%;
             background: transparent;
             border: none;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.5);
             color: #fff;
             padding: 10px 0;
-            margin-bottom: 25px;
             font-size: 16px;
             outline: none;
             box-sizing: border-box;
         }
-        .contact-container input::placeholder {
+        .input-box input::placeholder {
             color: rgba(255, 255, 255, 0.8);
+        }
+        button.btn-send-code {
+            width: auto !important;
+            white-space: nowrap;
+            padding: 8px 16px !important;
+            margin-top: 0 !important;
+            margin-left: 10px;
+            background-color: rgba(255, 255, 255, 0.2) !important;
+            border: 1px solid rgba(255, 255, 255, 0.5) !important;
+            color: white !important;
+            font-size: 14px !important;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button.btn-send-code:hover {
+            background-color: rgba(255, 255, 255, 0.3) !important;
         }
         .contact-container button {
             width: 100%;
@@ -68,33 +98,6 @@
         .contact-container button:hover {
             background-color: #003882;
         }
-        
-        .input-group {
-            display: flex;
-            gap: 15px;
-            align-items: flex-end;
-            margin-bottom: 25px;
-        }
-        
-        .input-group input {
-            margin-bottom: 0;
-        }
-        
-        .input-group button.btn-send-code {
-            width: auto;
-            white-space: nowrap;
-            padding: 10px 20px;
-            margin-top: 0;
-            background-color: rgba(255,255,255,0.2);
-            border: 1px solid rgba(255,255,255,0.5);
-            color: white;
-            font-size: 14px;
-        }
-        
-        .input-group button.btn-send-code:hover {
-            background-color: rgba(255,255,255,0.3);
-        }
-
         .login-link {
             display: block;
             text-align: center;
@@ -123,12 +126,16 @@
             <form action="/verify-reset-code" method="POST">
                 @csrf
                 
-                <div class="input-group">
+                <div class="input-box">
+                    <i class="fa-solid fa-envelope"></i>
                     <input type="email" id="email_input" name="email" placeholder="Gmail *" required>
                     <button type="button" class="btn-send-code" onclick="sendCode()">Gửi mã</button>
                 </div>
                 
-                <input type="text" name="code" placeholder="Mã xác nhận *" required>
+                <div class="input-box">
+                    <i class="fa-solid fa-key"></i>
+                    <input type="text" name="code" placeholder="Mã xác nhận *" required>
+                </div>
                 
                 <button type="submit">TIẾP TỤC</button>
                 

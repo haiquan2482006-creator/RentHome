@@ -38,22 +38,46 @@
             font-size: 28px;
             margin-top: 0;
         }
-        .contact-container input {
+        .input-box {
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+            margin-bottom: 25px;
+            padding-bottom: 5px;
+        }
+        .input-box i.icon-left {
+            color: #fff;
+            font-size: 18px;
+            margin-right: 12px;
+            width: 20px;
+            text-align: center;
+        }
+        .input-box input {
             width: 100%;
             background: transparent;
             border: none;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.5);
             color: #fff;
             padding: 10px 0;
-            margin-bottom: 25px;
             font-size: 16px;
             outline: none;
             box-sizing: border-box;
         }
-        .contact-container input::placeholder {
+        .input-box input::placeholder {
             color: rgba(255, 255, 255, 0.8);
         }
-        .contact-container button {
+        .input-box i.toggle-password {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 16px;
+            cursor: pointer;
+            margin-left: 10px;
+            margin-right: 0;
+            width: auto;
+            transition: color 0.3s;
+        }
+        .input-box i.toggle-password:hover {
+            color: #fff;
+        }
+        .contact-container button[type="submit"] {
             width: 100%;
             background-color: #004aad;
             color: white;
@@ -66,7 +90,7 @@
             transition: background-color 0.3s;
             margin-top: 5px;
         }
-        .contact-container button:hover {
+        .contact-container button[type="submit"]:hover {
             background-color: #003882;
         }
         .forgot-password {
@@ -116,9 +140,16 @@
 
             <form action="/login" method="POST">
                 @csrf
-                <input  type="text" name="username" value="{{ old('username') }}" placeholder="Tên đăng nhập hoặc Email *" required>
+                <div class="input-box">
+                    <i class="fa-solid fa-user icon-left"></i>
+                    <input type="text" name="username" value="{{ old('username') }}" placeholder="Tên đăng nhập hoặc Email *" required>
+                </div>
                 
-                <input  type="password" name="password" placeholder="Mật khẩu *" required>
+                <div class="input-box">
+                    <i class="fa-solid fa-lock icon-left"></i>
+                    <input type="password" id="password_input" name="password" placeholder="Mật khẩu *" required>
+                    <i class="fa-solid fa-eye toggle-password" id="toggle_password_icon" onclick="togglePasswordVisibility('password_input', 'toggle_password_icon')" title="Ẩn/Hiện mật khẩu"></i>
+                </div>
                 
                 <a href="/quen-mat-khau" class="forgot-password">Quên mật khẩu?</a>
                 
@@ -130,5 +161,22 @@
             </form>
         </div>
     </div>
+
+    <script>
+        function togglePasswordVisibility(inputId, iconId) {
+            const input = document.getElementById(inputId);
+            const icon = document.getElementById(iconId);
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+    </script>
 </body>
 </html>

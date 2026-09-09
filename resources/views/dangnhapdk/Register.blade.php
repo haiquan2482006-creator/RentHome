@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Đăng Ký - RentHome</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         body {
             margin: 0;
@@ -38,28 +39,64 @@
             font-size: 28px;
             margin-top: 0;
         }
-        .register-container input[type="text"],
-        .register-container input[type="email"],
-        .register-container input[type="password"],
-        .register-container input[type="tel"],
-        .register-container input[type="file"] {
+        .input-box {
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+            margin-bottom: 25px;
+            padding-bottom: 5px;
+        }
+        .input-box i.icon-left {
+            color: #fff;
+            font-size: 18px;
+            margin-right: 12px;
+            width: 20px;
+            text-align: center;
+        }
+        .input-box input {
             width: 100%;
             background: transparent;
             border: none;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.5);
             color: #fff;
             padding: 10px 0;
-            margin-bottom: 25px;
             font-size: 16px;
             outline: none;
             box-sizing: border-box;
         }
-        .register-container input::placeholder {
+        .input-box input::placeholder {
             color: rgba(255, 255, 255, 0.8);
         }
-        .register-container input[type="file"] {
+        .input-box i.toggle-password {
             color: rgba(255, 255, 255, 0.8);
-            padding: 10px 0;
+            font-size: 16px;
+            cursor: pointer;
+            margin-left: 10px;
+            margin-right: 0;
+            width: auto;
+            transition: color 0.3s;
+        }
+        .input-box i.toggle-password:hover {
+            color: #fff;
+        }
+        .file-box {
+            margin-bottom: 25px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+            padding-bottom: 5px;
+        }
+        .file-box label {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .file-box input[type="file"] {
+            color: rgba(255, 255, 255, 0.8);
+            width: 100%;
+            background: transparent;
+            border: none;
+            outline: none;
         }
         .radio-group {
             display: flex;
@@ -120,15 +157,40 @@
             <form action="/register" method="POST" enctype="multipart/form-data">
                 @csrf
                 
-                <input type="email" name="email" value="{{ old('email') }}" placeholder="Gmail *" required>
-                
-                <input type="text" name="username" value="{{ old('username') }}" placeholder="Tên đăng nhập *" required>
-                
-                <input type="tel" name="phone" value="{{ old('phone') }}" placeholder="Số điện thoại *" required>
-                
-                <input type="password" name="password" placeholder="Mật khẩu *" required>
-                
-                <input type="password" name="password_confirmation" placeholder="Xác nhận mật khẩu *" required>
+                <div class="input-box">
+                    <i class="fa-solid fa-envelope icon-left"></i>
+                    <input type="email" name="email" value="{{ old('email') }}" placeholder="Gmail *" required>
+                </div>
+
+                <div class="input-box">
+                    <i class="fa-solid fa-user icon-left"></i>
+                    <input type="text" name="username" value="{{ old('username') }}" placeholder="Tên đăng nhập *" required>
+                </div>
+
+                <!-- Phần dành riêng cho Cá nhân -->
+                <div id="form_canhan">
+                    <div class="input-box">
+                        <i class="fa-solid fa-id-card icon-left"></i>
+                        <input type="text" name="account_name" value="{{ old('account_name') }}" placeholder="Tên tài khoản *">
+                    </div>
+                </div>
+
+                <div class="input-box">
+                    <i class="fa-solid fa-phone icon-left"></i>
+                    <input type="tel" name="phone" value="{{ old('phone') }}" placeholder="Số điện thoại *" required>
+                </div>
+
+                <div class="input-box">
+                    <i class="fa-solid fa-lock icon-left"></i>
+                    <input type="password" id="register_password" name="password" placeholder="Mật khẩu *" required>
+                    <i class="fa-solid fa-eye toggle-password" id="toggle_reg_pass" onclick="togglePasswordVisibility('register_password', 'toggle_reg_pass')" title="Ẩn/Hiện mật khẩu"></i>
+                </div>
+
+                <div class="input-box">
+                    <i class="fa-solid fa-shield-halved icon-left"></i>
+                    <input type="password" id="register_password_confirm" name="password_confirmation" placeholder="Xác nhận mật khẩu *" required>
+                    <i class="fa-solid fa-eye toggle-password" id="toggle_reg_pass_confirm" onclick="togglePasswordVisibility('register_password_confirm', 'toggle_reg_pass_confirm')" title="Ẩn/Hiện mật khẩu"></i>
+                </div>
 
                 <div class="radio-group">
                     <label>
@@ -141,24 +203,31 @@
                     </label>
                 </div>
 
-                <!-- Phần dành riêng cho Cá nhân -->
-                <div id="form_canhan">
-                    <input type="text" name="account_name" value="{{ old('account_name') }}" placeholder="Tên tài khoản *">
-                </div>
-
                 <!-- Phần dành riêng cho Doanh nghiệp (Mặc định ẩn) -->
                 <div id="form_doanhnghiep" style="display: none;">
-                    <input type="text" name="company_name" value="{{ old('company_name') }}" placeholder="Tên doanh nghiệp *">
+                    <div class="input-box">
+                        <i class="fa-solid fa-building icon-left"></i>
+                        <input type="text" name="company_name" value="{{ old('company_name') }}" placeholder="Tên doanh nghiệp *">
+                    </div>
                     
-                    <input type="text" name="company_address" value="{{ old('company_address') }}" placeholder="Địa chỉ doanh nghiệp *">
+                    <div class="input-box">
+                        <i class="fa-solid fa-location-dot icon-left"></i>
+                        <input type="text" name="company_address" value="{{ old('company_address') }}" placeholder="Địa chỉ doanh nghiệp *">
+                    </div>
                     
-                    <input type="text" name="tax_code" value="{{ old('tax_code') }}" placeholder="Mã số thuế *">
+                    <div class="input-box">
+                        <i class="fa-solid fa-file-invoice-dollar icon-left"></i>
+                        <input type="text" name="tax_code" value="{{ old('tax_code') }}" placeholder="Mã số thuế *">
+                    </div>
                     
-                    <input type="email" name="company_email" value="{{ old('company_email') }}" placeholder="Gmail doanh nghiệp *">
+                    <div class="input-box">
+                        <i class="fa-solid fa-envelope-open-text icon-left"></i>
+                        <input type="email" name="company_email" value="{{ old('company_email') }}" placeholder="Gmail doanh nghiệp *">
+                    </div>
                     
-                    <div style="margin-bottom: 25px;">
-                        <label style="color: rgba(255, 255, 255, 0.8); font-size: 14px; display: block; margin-bottom: 5px;">Giấy phép kinh doanh</label>
-                        <input type="file" name="business_license" accept="image/*,.pdf" style="margin-bottom: 0;">
+                    <div class="file-box">
+                        <label><i class="fa-solid fa-file-contract"></i> Giấy phép kinh doanh</label>
+                        <input type="file" name="business_license" accept="image/*,.pdf">
                     </div>
                 </div>
 
@@ -183,6 +252,21 @@
             } else {
                 formCaNhan.style.display = 'block';
                 formDoanhNghiep.style.display = 'none';
+            }
+        }
+
+        function togglePasswordVisibility(inputId, iconId) {
+            const input = document.getElementById(inputId);
+            const icon = document.getElementById(iconId);
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
             }
         }
 

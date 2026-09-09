@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Đặt Lại Mật Khẩu - RentHome</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         body {
             margin: 0;
@@ -37,19 +38,31 @@
             font-size: 28px;
             margin-top: 0;
         }
-        .contact-container input {
+        .input-box {
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+            margin-bottom: 25px;
+            padding-bottom: 5px;
+        }
+        .input-box i {
+            color: #fff;
+            font-size: 18px;
+            margin-right: 12px;
+            width: 20px;
+            text-align: center;
+        }
+        .input-box input {
             width: 100%;
             background: transparent;
             border: none;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.5);
             color: #fff;
             padding: 10px 0;
-            margin-bottom: 25px;
             font-size: 16px;
             outline: none;
             box-sizing: border-box;
         }
-        .contact-container input::placeholder {
+        .input-box input::placeholder {
             color: rgba(255, 255, 255, 0.8);
         }
         .contact-container button {
@@ -83,9 +96,15 @@
 
             <form action="/dat-lai-mat-khau" method="POST">
                 @csrf
-                <input type="password" name="new_password" placeholder="Nhập mật khẩu mới *" required>
+                <div class="input-box">
+                    <i class="fa-solid fa-lock"></i>
+                    <input type="password" name="new_password" placeholder="Nhập mật khẩu mới *" required>
+                </div>
                 
-                <input type="password" name="confirm_password" placeholder="Xác nhận mật khẩu *" required>
+                <div class="input-box">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <input type="password" name="confirm_password" placeholder="Xác nhận mật khẩu *" required>
+                </div>
                 
                 <button type="submit">XÁC NHẬN</button>
             </form>
