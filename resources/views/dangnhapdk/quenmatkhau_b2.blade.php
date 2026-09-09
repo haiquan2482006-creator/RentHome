@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Đăng Nhập - RentHome</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <title>Đặt Lại Mật Khẩu - RentHome</title>
     <style>
         body {
             margin: 0;
@@ -69,64 +68,26 @@
         .contact-container button:hover {
             background-color: #003882;
         }
-        .forgot-password {
-            display: block;
-            text-align: right;
-            color: white;
-            text-decoration: none;
-            font-size: 14px;
-            margin-top: -15px;
-            margin-bottom: 25px;
-        }
-        .forgot-password:hover {
-            text-decoration: underline;
-        }
-        .register-link {
-            display: block;
-            text-align: center;
-            color: white;
-            margin-top: 25px;
-            font-size: 15px;
-        }
-        .register-link a {
-            color: #fff;
-            font-weight: bold;
-            text-decoration: underline;
-        }
     </style>
 </head>
 <body>
     <div class="form-wrapper">
         <div class="contact-container">
-            <h2>Đăng Nhập</h2>
-            
-            @if(session('success'))
-                <div style="background-color: rgba(40, 167, 69, 0.8); color: white; padding: 10px; border-radius: 4px; text-align: center; margin-bottom: 20px;">
-                    {{ session('success') }}
-                </div>
-            @endif
-
+            <h2>Đặt Lại Mật Khẩu</h2>
+            <!-- Hiển thị thông báo lỗi nếu có -->
             @if($errors->any())
-                <div style="background-color: rgba(220, 53, 69, 0.85); color: white; padding: 10px; border-radius: 4px; text-align: left; margin-bottom: 20px; font-size: 14px;">
-                    @foreach($errors->all() as $error)
-                        <div>• {{ $error }}</div>
-                    @endforeach
+                <div style="color: #ff4d4d; margin-bottom: 15px; text-align: center; font-size: 14px;">
+                    {{ $errors->first() }}
                 </div>
             @endif
 
-            <form action="/login" method="POST">
+            <form action="/dat-lai-mat-khau" method="POST">
                 @csrf
-                <input  type="text" name="username" value="{{ old('username') }}" placeholder="Tên đăng nhập hoặc Email *" required>
+                <input type="password" name="new_password" placeholder="Nhập mật khẩu mới *" required>
                 
-                <input  type="password" name="password" placeholder="Mật khẩu *" required>
+                <input type="password" name="confirm_password" placeholder="Xác nhận mật khẩu *" required>
                 
-                <a href="/quen-mat-khau" class="forgot-password">Quên mật khẩu?</a>
-                
-                <button type="submit">ĐĂNG NHẬP</button>
-                
-                <div class="register-link">
-                    Bạn chưa có tài khoản? <a href="/Register">Đăng ký</a>
-                </div>
+                <button type="submit">XÁC NHẬN</button>
             </form>
         </div>
     </div>

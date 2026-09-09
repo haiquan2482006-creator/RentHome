@@ -106,19 +106,30 @@
 
             <!-- Action Buttons -->
             <div class="flex items-center gap-2 sm:gap-3">
-                <button onclick="openAuthModal('/login')"
-                    class="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-semibold text-slate-700 hover:text-brand-600 transition-colors">
-                    <i class="fa-regular fa-user"></i> Đăng nhập
-                </button>
-                <button onclick="openAuthModal('/register')"
-                    class="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-semibold transition-colors">
-                    <i class="fa-solid fa-user-plus text-brand-600"></i> Đăng ký
-                </button>
+                @auth
+                    <span class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                        <i class="fa-solid fa-circle-user text-brand-600 text-base"></i> {{ Auth::user()->username ?? Auth::user()->account_name ?? 'Thành viên' }}
+                    </span>
+                    <a href="/logout"
+                        class="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold text-rose-600 hover:text-rose-700 transition-colors">
+                        <i class="fa-solid fa-right-from-bracket"></i> Đăng xuất
+                    </a>
+                @else
+                    <a href="/login"
+                        class="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-semibold text-slate-700 hover:text-brand-600 transition-colors">
+                        <i class="fa-regular fa-user"></i> Đăng nhập
+                    </a>
+                    <a href="/Register"
+                        class="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-semibold transition-colors">
+                        <i class="fa-solid fa-user-plus text-brand-600"></i> Đăng ký
+                    </a>
+                @endauth
                 <a href="#post-house"
                     class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-700 hover:to-emerald-600 text-white font-semibold text-sm shadow-md hover:shadow-glow transition-all duration-300 transform hover:-translate-y-0.5">
                     <i class="fa-solid fa-plus-circle"></i> Đăng tin cho thuê
                 </a>
             </div>
+
         </div>
     </header>
 
