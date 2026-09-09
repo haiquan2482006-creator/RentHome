@@ -8,7 +8,13 @@ Route::get('/', function () {
 });
 
 Route::get('/Admin', function (){
-    return view('Admin.Overview');
+    $recentUsers = \App\Models\User::where('role', '!=', 'admin')
+        ->where('account_type', '!=', 'admin')
+        ->orderBy('created_at', 'desc')
+        ->take(10)
+        ->get();
+    $totalUsers = \App\Models\User::count();
+    return view('Admin.Overview', compact('recentUsers', 'totalUsers'));
 });
 
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');

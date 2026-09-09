@@ -285,6 +285,11 @@
 
         .page-header {
             margin-bottom: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
         }
 
         .page-title {
@@ -298,6 +303,30 @@
             font-size: 0.875rem;
             color: var(--text-secondary);
             margin-top: 4px;
+        }
+
+        .btn-main-site {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 18px;
+            background-color: var(--bg-card);
+            color: var(--brand-primary);
+            font-size: 0.875rem;
+            font-weight: 700;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            text-decoration: none;
+            box-shadow: var(--shadow-subtle);
+            transition: var(--transition);
+        }
+
+        .btn-main-site:hover {
+            background-color: var(--brand-primary);
+            color: #ffffff;
+            border-color: var(--brand-primary);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 14px rgba(2, 132, 199, 0.25);
         }
 
         /* Grid thẻ thống kê tổng quan */
@@ -339,6 +368,219 @@
         .text-emerald { color: var(--accent-emerald); }
         .text-amber { color: var(--accent-amber); }
         .text-blue { color: var(--accent-blue); }
+
+        /* CSS cho phần Tài khoản đăng ký mới */
+        .recent-users-card {
+            background-color: var(--bg-card);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-subtle);
+            padding: 24px;
+            margin-top: 8px;
+        }
+
+        .card-header-flex {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .card-title {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-subtitle {
+            font-size: 0.825rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .btn-secondary {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background-color: var(--brand-bg);
+            color: var(--brand-primary);
+            font-size: 0.85rem;
+            font-weight: 700;
+            border-radius: 8px;
+            text-decoration: none;
+            transition: var(--transition);
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--brand-primary);
+            color: #ffffff;
+        }
+
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        .data-table th {
+            padding: 12px 16px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border-color);
+            background-color: #f8fafc;
+        }
+
+        .data-table th:first-child {
+            border-top-left-radius: 8px;
+            border-bottom-left-radius: 8px;
+        }
+
+        .data-table th:last-child {
+            border-top-right-radius: 8px;
+            border-bottom-right-radius: 8px;
+        }
+
+        .data-table td {
+            padding: 14px 16px;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: middle;
+        }
+
+        .data-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .data-table tr:hover td {
+            background-color: #f8fafc;
+        }
+
+        .user-meta-cell {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-avatar-sm {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            background-color: var(--brand-bg);
+            color: var(--brand-primary);
+            font-weight: 700;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .user-avatar-sm.bg-blue { background-color: #e0f2fe; color: #0284c7; }
+        .user-avatar-sm.bg-purple { background-color: #f3e8ff; color: #9333ea; }
+        .user-avatar-sm.bg-emerald { background-color: #d1fae5; color: #059669; }
+        .user-avatar-sm.bg-amber { background-color: #fef3c7; color: #d97706; }
+
+        .user-meta-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .user-name-text {
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.3;
+        }
+
+        .user-username-sub {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .badge-personal {
+            background-color: #e0f2fe;
+            color: #0284c7;
+        }
+
+        .badge-business {
+            background-color: #f3e8ff;
+            color: #7e22ce;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 20px;
+        }
+
+        .status-active {
+            background-color: #d1fae5;
+            color: #047857;
+        }
+
+        .status-pending {
+            background-color: #fef3c7;
+            color: #b45309;
+        }
+
+        .action-buttons {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .btn-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background-color: #ffffff;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .btn-icon:hover {
+            color: var(--brand-primary);
+            border-color: var(--brand-primary);
+            background-color: var(--brand-bg);
+        }
+
+        .btn-icon-danger:hover {
+            color: var(--accent-red);
+            border-color: var(--accent-red);
+            background-color: rgba(220, 38, 38, 0.08);
+        }
     </style>
 </head>
 
@@ -403,30 +645,45 @@
         <!-- Thông tin User Admin / Đăng xuất -->
         <div class="sidebar-footer">
             <div class="user-profile">
-                <div class="avatar">AD</div>
+                @php
+                    $adminUser = Auth::user();
+                    $adminName = $adminUser ? ($adminUser->account_name ?? $adminUser->username ?? 'Admin') : 'Admin';
+                    $adminEmail = $adminUser->email ?? 'admin@renthome.vn';
+                    $adminInitials = strtoupper(mb_substr($adminName, 0, 2, 'UTF-8'));
+                @endphp
+                <div class="avatar">{{ $adminInitials }}</div>
                 <div class="user-details">
-                    <span class="user-name">Admin</span>
-                    <span class="user-email">admin@renthome.vn</span>
+                    <span class="user-name">{{ $adminName }}</span>
+                    <span class="user-email">{{ $adminEmail }}</span>
                 </div>
             </div>
-            <button title="Đăng xuất" class="btn-logout">
-                <i class="fa-solid fa-right-from-bracket"></i>
-            </button>
+            <form action="{{ route('logout') }}" method="POST" style="margin: 0; padding: 0;">
+                @csrf
+                <button type="submit" title="Đăng xuất" class="btn-logout">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+            </form>
         </div>
     </aside>
 
     <!-- Khu vực nội dung chính (Main Content) -->
     <main class="admin-main">
         <header class="page-header">
-            <h1 class="page-title">Tổng quan hệ thống</h1>
-            <p class="page-subtitle">Chào mừng trở lại trang quản trị RentHome.</p>
+            <div>
+                <h1 class="page-title">Tổng quan hệ thống</h1>
+                <p class="page-subtitle">Chào mừng trở lại trang quản trị RentHome.</p>
+            </div>
+            <a href="/" class="btn-main-site">
+                <i class="fa-solid fa-globe"></i>
+                <span>Xem giao diện</span>
+            </a>
         </header>
 
-        <!-- Nội dung minh họa -->
+        <!-- 4 thẻ thống kê -->
         <div class="dashboard-grid">
             <div class="stat-card">
                 <div class="card-label">Tổng người dùng</div>
-                <div class="card-value">1,248</div>
+                <div class="card-value">{{ isset($totalUsers) ? number_format($totalUsers) : '1,248' }}</div>
             </div>
             <div class="stat-card">
                 <div class="card-label">Tổng số bài đăng</div>
@@ -439,6 +696,98 @@
             <div class="stat-card">
                 <div class="card-label">Lượt truy cập</div>
                 <div class="card-value text-blue">8,920</div>
+            </div>
+        </div>
+
+        <!-- Phần tài khoản đăng ký mới -->
+        <div class="recent-users-card">
+            <div class="card-header-flex">
+                <div>
+                    <h2 class="card-title">
+                        <i class="fa-solid fa-user-plus text-blue"></i>
+                        Tài khoản đăng ký mới
+                    </h2>
+                    <p class="card-subtitle">Danh sách tài khoản vừa đăng ký tham gia hệ thống gần đây</p>
+                </div>
+                <a href="#" class="btn-secondary">
+                    <span>Xem tất cả</span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </a>
+            </div>
+
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Người dùng</th>
+                            <th>Email</th>
+                            <th>Số điện thoại</th>
+                            <th>Loại tài khoản</th>
+                            <th>Ngày đăng ký</th>
+                            <th>Trạng thái</th>
+                            <th style="text-align: right;">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($recentUsers ?? [] as $user)
+                            @if(($user->role ?? '') !== 'admin' && ($user->account_type ?? '') !== 'admin')
+                                @php
+                                    $displayName = $user->account_type === 'doanhnghiep' 
+                                        ? ($user->company_name ?? $user->username) 
+                                        : ($user->account_name ?? $user->username);
+                                    $initials = mb_substr($displayName, 0, 2, 'UTF-8');
+                                @endphp
+                                <tr>
+                                    <td>
+                                        <div class="user-meta-cell">
+                                            <div class="user-avatar-sm bg-blue">
+                                                {{ strtoupper($initials) }}
+                                            </div>
+                                            <div class="user-meta-info">
+                                                <span class="user-name-text">{{ $displayName }}</span>
+                                                <span class="user-username-sub">{{ '@' . $user->username }}</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>{{ $user->email }}</td>
+                                    <td>{{ $user->phone ?? '---' }}</td>
+                                    <td>
+                                        @if($user->account_type === 'doanhnghiep')
+                                            <span class="badge badge-business">Doanh nghiệp</span>
+                                        @else
+                                            <span class="badge badge-personal">Cá nhân</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        {{ $user->created_at ? $user->created_at->format('d/m/Y H:i') : 'Mới đây' }}
+                                    </td>
+                                    <td>
+                                        <span class="status-pill status-active">
+                                            <i class="fa-solid fa-circle-check"></i> Hoạt động
+                                        </span>
+                                    </td>
+                                    <td style="text-align: right;">
+                                        <div class="action-buttons">
+                                            <button class="btn-icon" title="Xem chi tiết">
+                                                <i class="fa-solid fa-eye"></i>
+                                            </button>
+                                            <button class="btn-icon btn-icon-danger" title="Khóa tài khoản">
+                                                <i class="fa-solid fa-user-slash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endif
+                        @empty
+                            <tr>
+                                <td colspan="7" style="text-align: center; padding: 40px 20px; color: var(--text-muted);">
+                                    <i class="fa-solid fa-users-slash" style="font-size: 2.2rem; margin-bottom: 10px; color: #cbd5e1; display: block;"></i>
+                                    <span style="font-size: 0.9rem; font-weight: 600;">Chưa có tài khoản mới nào đăng ký</span>
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
             </div>
         </div>
     </main>

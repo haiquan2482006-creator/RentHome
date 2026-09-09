@@ -17,16 +17,15 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $credentials = $request->validate([
-            'username' => 'required|string',
+            'email' => 'required|email',
             'password' => 'required|string',
         ], [
-            'username.required' => 'Vui lòng nhập tên đăng nhập hoặc email.',
+            'email.required' => 'Vui lòng nhập địa chỉ Email.',
+            'email.email' => 'Địa chỉ Email không hợp lệ.',
             'password.required' => 'Vui lòng nhập mật khẩu.',
         ]);
 
-        $loginType = filter_var($request->username, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
-
-        if (Auth::attempt([$loginType => $request->username, 'password' => $request->password])) {
+        if (Auth::attempt(['email' => $request->email, 'password' => $request->password])) {
             $request->session()->regenerate();
             $user = Auth::user();
 
@@ -37,10 +36,9 @@ class AuthController extends Controller
             return redirect()->intended('/')->with('success', 'Đăng nhập thành công!');
         }
 
-
         return back()->withErrors([
-            'login_error' => 'Tên đăng nhập hoặc mật khẩu không chính xác.',
-        ])->withInput($request->only('username'));
+            'login_error' => 'Email hoặc mật khẩu không chính xác.',
+        ])->withInput($request->only('email'));
     }
 
     public function showRegisterForm()
@@ -52,7 +50,6 @@ class AuthController extends Controller
     {
         $rules = [
             'email' => 'required|email|unique:users,email',
-            'username' => 'required|string|max:255|unique:users,username',
             'phone' => 'required|string|max:20',
             'password' => 'required|string|min:6|confirmed',
             'account_type' => 'required|in:canhan,doanhnghiep',
@@ -62,8 +59,6 @@ class AuthController extends Controller
             'email.required' => 'Vui lòng nhập địa chỉ Email.',
             'email.email' => 'Email không hợp lệ.',
             'email.unique' => 'Email này đã được sử dụng.',
-            'username.required' => 'Vui lòng nhập tên đăng nhập.',
-            'username.unique' => 'Tên đăng nhập này đã tồn tại.',
             'phone.required' => 'Vui lòng nhập số điện thoại.',
             'password.required' => 'Vui lòng nhập mật khẩu.',
             'password.min' => 'Mật khẩu phải chứa ít nhất 6 ký tự.',
@@ -72,7 +67,6 @@ class AuthController extends Controller
             'company_name.required' => 'Vui lòng nhập tên doanh nghiệp.',
             'company_address.required' => 'Vui lòng nhập địa chỉ doanh nghiệp.',
             'tax_code.required' => 'Vui lòng nhập mã số thuế.',
-            'company_email.required' => 'Vui lòng nhập email doanh nghiệp.',
         ];
 
         if ($request->account_type === 'canhan') {
@@ -81,7 +75,6 @@ class AuthController extends Controller
             $rules['company_name'] = 'required|string|max:255';
             $rules['company_address'] = 'required|string|max:255';
             $rules['tax_code'] = 'required|string|max:50';
-            $rules['company_email'] = 'required|email';
             $rules['business_license'] = 'nullable|file|mimes:jpeg,png,jpg,pdf|max:5120';
         }
 
@@ -94,7 +87,7 @@ class AuthController extends Controller
 
         $userData = [
             'email' => $validated['email'],
-            'username' => $validated['username'],
+            'username' => explode('@', $validated['email'])[0],
             'phone' => $validated['phone'],
             'password' => Hash::make($validated['password']),
             'account_type' => $validated['account_type'],
@@ -106,7 +99,7 @@ class AuthController extends Controller
             $userData['company_name'] = $validated['company_name'];
             $userData['company_address'] = $validated['company_address'];
             $userData['tax_code'] = $validated['tax_code'];
-            $userData['company_email'] = $validated['company_email'];
+            $userData['company_email'] = $validated['email'];
             $userData['business_license'] = $licensePath;
         }
 

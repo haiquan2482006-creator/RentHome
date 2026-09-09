@@ -107,13 +107,96 @@
             <!-- Action Buttons -->
             <div class="flex items-center gap-2 sm:gap-3">
                 @auth
-                    <span class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-                        <i class="fa-solid fa-circle-user text-brand-600 text-base"></i> {{ Auth::user()->username ?? Auth::user()->account_name ?? 'Thành viên' }}
-                    </span>
-                    <a href="/logout"
-                        class="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold text-rose-600 hover:text-rose-700 transition-colors">
-                        <i class="fa-solid fa-right-from-bracket"></i> Đăng xuất
-                    </a>
+                    @if((Auth::user()->account_type ?? '') === 'admin' || (Auth::user()->role ?? '') === 'admin')
+                        <a href="/Admin"
+                            class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-200">
+                            <i class="fa-solid fa-user-gear"></i> Vào trang quản trị
+                        </a>
+                    @endif
+
+                    <!-- User Menu Dropdown Container -->
+                    <div class="relative inline-block text-left" id="user-dropdown-container">
+                        <button type="button" id="user-menu-button" onclick="toggleUserDropdown(event)"
+                            class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl hover:bg-slate-100/80 transition-all cursor-pointer focus:outline-none">
+                            <div class="w-8 h-8 rounded-full bg-brand-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+                                <i class="fa-solid fa-user"></i>
+                            </div>
+                            <div class="flex flex-col text-left leading-tight">
+                                <span class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                                    {{ Auth::user()->username ?? Auth::user()->account_name ?? 'Thành viên' }}
+                                    <i class="fa-solid fa-chevron-down text-xs text-slate-400"></i>
+                                </span>
+                                <span class="text-[10px] font-semibold">
+                                    @if((Auth::user()->account_type ?? '') === 'doanhnghiep')
+                                        <span class="text-purple-600 font-bold">• Doanh nghiệp</span>
+                                    @else
+                                        <span class="text-sky-600 font-bold">• Cá nhân</span>
+                                    @endif
+                                </span>
+                            </div>
+                        </button>
+
+                        <!-- Dropdown Menu Items -->
+                        <div id="user-dropdown-menu"
+                            class="hidden absolute right-0 mt-2 w-60 rounded-2xl bg-white shadow-2xl border border-slate-100 py-2 z-50 animate-fadeIn">
+                            
+                            <div class="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between gap-2">
+                                <div class="truncate">
+                                    <p class="text-[11px] font-medium text-slate-400">Tài khoản đang đăng nhập</p>
+                                    <p class="text-sm font-bold text-slate-900 truncate">{{ Auth::user()->email ?? Auth::user()->username }}</p>
+                                </div>
+                                <div class="shrink-0">
+                                    @if((Auth::user()->account_type ?? '') === 'doanhnghiep')
+                                        <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-bold text-[10px]">Doanh nghiệp</span>
+                                    @else
+                                        <span class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 font-bold text-[10px]">Cá nhân</span>
+                                    @endif
+                                </div>
+                            </div>
+
+                            <a href="#" class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
+                                <i class="fa-solid fa-circle-user text-brand-600 w-4 text-center"></i>
+                                <span>Tài khoản</span>
+                            </a>
+
+                            @if((Auth::user()->account_type ?? 'canhan') !== 'doanhnghiep')
+                                <a href="#" class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
+                                    <i class="fa-solid fa-house-user text-brand-600 w-4 text-center"></i>
+                                    <span>Nhà đang thuê</span>
+                                </a>
+                            @endif
+
+                            <a href="#" class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
+                                <i class="fa-solid fa-newspaper text-brand-600 w-4 text-center"></i>
+                                <span>Quản lý bài đăng</span>
+                            </a>
+
+                            <a href="#" class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
+                                <i class="fa-solid fa-gears text-brand-600 w-4 text-center"></i>
+                                <span>Quản lý vận hành</span>
+                            </a>
+
+                            <a href="#" class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
+                                <i class="fa-solid fa-envelope-open-text text-brand-600 w-4 text-center"></i>
+                                <span>Yêu cầu thuê phòng</span>
+                            </a>
+
+                            <a href="/dat-lai-mat-khau" class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
+                                <i class="fa-solid fa-key text-brand-600 w-4 text-center"></i>
+                                <span>Đổi mật khẩu</span>
+                            </a>
+
+                            <div class="my-1 border-t border-slate-100"></div>
+
+                            <form action="{{ route('logout') }}" method="POST" class="m-0 p-0">
+                                @csrf
+                                <button type="submit" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-rose-600 hover:bg-rose-50 transition-colors text-left">
+                                    <i class="fa-solid fa-right-from-bracket w-4 text-center"></i>
+                                    <span>Đăng xuất</span>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
                 @else
                     <a href="/login"
                         class="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-semibold text-slate-700 hover:text-brand-600 transition-colors">
@@ -124,10 +207,6 @@
                         <i class="fa-solid fa-user-plus text-brand-600"></i> Đăng ký
                     </a>
                 @endauth
-                <a href="#post-house"
-                    class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-700 hover:to-emerald-600 text-white font-semibold text-sm shadow-md hover:shadow-glow transition-all duration-300 transform hover:-translate-y-0.5">
-                    <i class="fa-solid fa-plus-circle"></i> Đăng tin cho thuê
-                </a>
             </div>
 
         </div>
@@ -1044,6 +1123,23 @@
             }
             closeAuthModal();
         }
+
+        // Xử lý đóng/mở Dropdown Menu tài khoản người dùng
+        function toggleUserDropdown(event) {
+            event.stopPropagation();
+            const menu = document.getElementById('user-dropdown-menu');
+            if (menu) {
+                menu.classList.toggle('hidden');
+            }
+        }
+
+        document.addEventListener('click', function(event) {
+            const container = document.getElementById('user-dropdown-container');
+            const menu = document.getElementById('user-dropdown-menu');
+            if (container && menu && !container.contains(event.target)) {
+                menu.classList.add('hidden');
+            }
+        });
     </script>
 </body>
 
