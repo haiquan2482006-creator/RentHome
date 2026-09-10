@@ -51,8 +51,7 @@
             border-radius: 20px;
             width: 100%;
             max-width: 520px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 
-                        0 0 0 1px rgba(255, 255, 255, 0.2) inset;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.2) inset;
             color: #ffffff;
         }
         
