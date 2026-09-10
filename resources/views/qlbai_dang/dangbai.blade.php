@@ -54,6 +54,18 @@
 
 <body class="bg-slate-900/60 min-h-screen flex items-center justify-center p-3 sm:p-6 antialiased overflow-y-auto">
 
+@php
+    $currentUser = Auth::user();
+    $reqType = request()->query('account_type', request()->query('type', ''));
+    $accountType = (!empty($reqType) && in_array($reqType, ['canhan', 'doanhnghiep'])) ? $reqType : ($currentUser->account_type ?? 'canhan');
+    $isEnterprise = ($accountType === 'doanhnghiep');
+    $displayName = $currentUser 
+        ? ($isEnterprise ? ($currentUser->company_name ?? $currentUser->account_name ?? 'Tập Đoàn BĐS Đạt Phát') : ($currentUser->account_name ?? $currentUser->username ?? 'Nguyễn Văn Tuấn'))
+        : ($isEnterprise ? 'Tập Đoàn BĐS Đạt Phát' : 'Nguyễn Văn Tuấn');
+    $badgeText = $isEnterprise ? 'Doanh Nghiệp' : 'Cá Nhân';
+    $subTitle = $isEnterprise ? 'Đối tác Doanh Nghiệp' : 'Tài khoản Cá nhân';
+@endphp
+
     <!-- Modal Container -->
     <div
         class="bg-white rounded-3xl max-w-2xl w-full my-auto shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[88vh]">
@@ -173,29 +185,30 @@
                         class="w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
                 </div>
 
-                <!-- Phân quyền Loại tài khoản (Doanh nghiệp vs Cá nhân) -->
+                <!-- Thông tin Loại tài khoản đăng tin (Cố định theo tài khoản đang đăng nhập) -->
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1.5">Loại tài khoản đăng tin</label>
-                    <div class="grid grid-cols-2 gap-3">
-                        <label
-                            class="flex items-center gap-2 p-3 rounded-2xl border border-slate-200 cursor-pointer hover:bg-slate-50 has-[:checked]:border-purple-600 has-[:checked]:bg-purple-50/30">
-                            <input type="radio" name="account_role" value="doanhnghiep" checked
-                                onchange="toggleRoleForm('doanhnghiep')" class="text-purple-600 focus:ring-purple-500">
-                            <span class="text-xs font-bold text-slate-800">Doanh nghiệp</span>
-                        </label>
-                        <label
-                            class="flex items-center gap-2 p-3 rounded-2xl border border-slate-200 cursor-pointer hover:bg-slate-50 has-[:checked]:border-sky-600 has-[:checked]:bg-sky-50/30">
-                            <input type="radio" name="account_role" value="canhan" onchange="toggleRoleForm('canhan')"
-                                class="text-sky-600 focus:ring-sky-500">
-                            <span class="text-xs font-bold text-slate-800">Cá nhân</span>
-                        </label>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5">Tài khoản đăng tin</label>
+                    <div class="p-3.5 rounded-2xl border {{ $isEnterprise ? 'border-purple-200 bg-purple-50/40' : 'border-emerald-200 bg-emerald-50/40' }} flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-xl {{ $isEnterprise ? 'bg-purple-600 text-white' : 'bg-emerald-600 text-white' }} flex items-center justify-center text-sm font-bold shadow-xs">
+                                <i class="{{ $isEnterprise ? 'fa-solid fa-building-user' : 'fa-solid fa-user-check' }}"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-xs font-extrabold text-slate-900">{{ $displayName }}</h4>
+                                <p class="text-[11px] font-medium text-slate-500">{{ $subTitle }}</p>
+                            </div>
+                        </div>
+                        <span class="px-2.5 py-1 rounded-full text-[11px] font-bold {{ $isEnterprise ? 'bg-purple-100 text-purple-700 border border-purple-200' : 'bg-emerald-100 text-emerald-700 border border-emerald-200' }}">
+                            {{ $badgeText }}
+                        </span>
                     </div>
+                    <input type="hidden" name="account_role" value="{{ $accountType }}">
                 </div>
 
                 <!-- Loại hình BĐS -->
                 <div class="space-y-3">
                     <!-- Mục dành cho Doanh nghiệp -->
-                    <div id="building-select-box">
+                    <div id="building-select-box" class="{{ $isEnterprise ? '' : 'hidden' }}">
                         <label class="block text-xs font-bold text-slate-700 mb-1.5">Chọn tòa nhà đã tạo <span
                                 class="text-purple-600">(Doanh nghiệp)</span></label>
                         <div class="relative">
