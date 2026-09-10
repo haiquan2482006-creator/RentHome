@@ -89,3 +89,6 @@ Route::get('/lich_su', function () {
     return view('Admin.lich_su');
 });
 
+Route::get('/Overview', function(){
+    return view('qlbai_dang.Overview');
+});
