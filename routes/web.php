@@ -216,3 +216,7 @@ Route::delete('/qlnguoi_dung/force-delete/{id}', function ($id) {
 Route::get('/Overview', function(){
     return view('qlbai_dang.Overview');
 });
+
+Route::get('/dangbai', function(){
+    return view('qlbai_dang.dangbai');
+})->name('dangbai');
