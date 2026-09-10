@@ -119,13 +119,13 @@
                             </a>
                         @endif
 
-                        <a href="#"
+                        <a href="{{ url('Overview') }}"
                             class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
                             <i class="fa-solid fa-newspaper text-brand-600 w-4 text-center"></i>
                             <span>Quản lý bài đăng</span>
                         </a>
 
-                        <a href="{{ route('quan-ly-van-hanh') }}"
+                        <a href="{{ url('quan-ly-van-hanh') }}"
                             class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
                             <i class="fa-solid fa-gears text-brand-600 w-4 text-center"></i>
                             <span>Quản lý vận hành</span>
