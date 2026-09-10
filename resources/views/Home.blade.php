@@ -62,8 +62,12 @@
         }
 
         @keyframes pulse-ring {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
         }
 
         /* Chuyển mờ hình ảnh mượt mà */
@@ -89,28 +93,41 @@
                 <div class="flex flex-col">
                     <span class="text-xl font-extrabold tracking-tight text-slate-900 leading-none">Rent<span
                             class="text-brand-600">Home</span></span>
-                    <span class="text-[10px] font-medium text-slate-500 uppercase tracking-widest mt-0.5">Thuê nhà ước mơ</span>
+                    <span class="text-[10px] font-medium text-slate-500 uppercase tracking-widest mt-0.5">Thuê nhà ước
+                        mơ</span>
                 </div>
             </a>
 
-            <!-- Navigation Links -->
+            <!-- Navigation Links (Đã thêm hiệu ứng gạch ngang khi hover) -->
             <nav class="hidden md:flex items-center gap-8">
-                <a href="#hero" class="text-sm font-semibold text-brand-600">Trang chủ</a>
+                <a href="#hero" class="relative py-1 text-sm font-semibold text-brand-600 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-brand-600">
+                    Trang chủ
+                </a>
                 <a href="#featured"
-                    class="text-sm font-medium text-slate-600 hover:text-brand-600 transition-colors">Nhà nổi bật</a>
-                <a href="#features" class="text-sm font-medium text-slate-600 hover:text-brand-600 transition-colors">Ưu điểm</a>
-                <a href="#news" class="text-sm font-medium text-slate-600 hover:text-brand-600 transition-colors">Tin tức</a>
+                    class="relative py-1 text-sm font-medium text-slate-600 hover:text-brand-600 transition-colors after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-brand-600 hover:after:w-full after:transition-all after:duration-300">
+                    Nhà nổi bật
+                </a>
+                <a href="#features" 
+                    class="relative py-1 text-sm font-medium text-slate-600 hover:text-brand-600 transition-colors after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-brand-600 hover:after:w-full after:transition-all after:duration-300">
+                    Ưu điểm
+                </a>
+                <a href="#news" 
+                    class="relative py-1 text-sm font-medium text-slate-600 hover:text-brand-600 transition-colors after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-brand-600 hover:after:w-full after:transition-all after:duration-300">
+                    Tin tức
+                </a>
                 <a href="#contact"
-                    class="text-sm font-medium text-slate-600 hover:text-brand-600 transition-colors">Liên hệ</a>
+                    class="relative py-1 text-sm font-medium text-slate-600 hover:text-brand-600 transition-colors after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-brand-600 hover:after:w-full after:transition-all after:duration-300">
+                    Liên hệ
+                </a>
             </nav>
 
             <!-- Action Buttons -->
             <div class="flex items-center gap-2 sm:gap-3">
                 @auth
-                    @if((Auth::user()->account_type ?? '') === 'admin' || (Auth::user()->role ?? '') === 'admin')
+                    @if ((Auth::user()->account_type ?? '') === 'admin' || (Auth::user()->role ?? '') === 'admin')
                         <a href="/Admin"
                             class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-200">
-                            <i class="fa-solid fa-user-gear"></i> Vào trang quản trị
+                            <i class="fa-solid fa-user-gear"></i>Vào trang quản trị
                         </a>
                     @endif
 
@@ -118,16 +135,17 @@
                     <div class="relative inline-block text-left" id="user-dropdown-container">
                         <button type="button" id="user-menu-button" onclick="toggleUserDropdown(event)"
                             class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl hover:bg-slate-100/80 transition-all cursor-pointer focus:outline-none">
-                            <div class="w-8 h-8 rounded-full bg-brand-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+                            <div
+                                class="w-8 h-8 rounded-full bg-brand-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
                                 <i class="fa-solid fa-user"></i>
                             </div>
                             <div class="flex flex-col text-left leading-tight">
                                 <span class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-                                    {{ Auth::user()->username ?? Auth::user()->account_name ?? 'Thành viên' }}
+                                    {{ Auth::user()->username ?? (Auth::user()->account_name ?? 'Thành viên') }}
                                     <i class="fa-solid fa-chevron-down text-xs text-slate-400"></i>
                                 </span>
                                 <span class="text-[10px] font-semibold">
-                                    @if((Auth::user()->account_type ?? '') === 'doanhnghiep')
+                                    @if ((Auth::user()->account_type ?? '') === 'doanhnghiep')
                                         <span class="text-purple-600 font-bold">• Doanh nghiệp</span>
                                     @else
                                         <span class="text-sky-600 font-bold">• Cá nhân</span>
@@ -139,49 +157,60 @@
                         <!-- Dropdown Menu Items -->
                         <div id="user-dropdown-menu"
                             class="hidden absolute right-0 mt-2 w-60 rounded-2xl bg-white shadow-2xl border border-slate-100 py-2 z-50 animate-fadeIn">
-                            
+
                             <div class="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between gap-2">
                                 <div class="truncate">
                                     <p class="text-[11px] font-medium text-slate-400">Tài khoản đang đăng nhập</p>
-                                    <p class="text-sm font-bold text-slate-900 truncate">{{ Auth::user()->email ?? Auth::user()->username }}</p>
+                                    <p class="text-sm font-bold text-slate-900 truncate">
+                                        {{ Auth::user()->email ?? Auth::user()->username }}</p>
                                 </div>
                                 <div class="shrink-0">
-                                    @if((Auth::user()->account_type ?? '') === 'doanhnghiep')
-                                        <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-bold text-[10px]">Doanh nghiệp</span>
+                                    @if ((Auth::user()->account_type ?? '') === 'doanhnghiep')
+                                        <span
+                                            class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-bold text-[10px]">Doanh
+                                            nghiệp</span>
                                     @else
-                                        <span class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 font-bold text-[10px]">Cá nhân</span>
+                                        <span
+                                            class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 font-bold text-[10px]">Cá
+                                            nhân</span>
                                     @endif
                                 </div>
                             </div>
 
-                            <a href="#" class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
+                            <a href="#"
+                                class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
                                 <i class="fa-solid fa-circle-user text-brand-600 w-4 text-center"></i>
                                 <span>Tài khoản</span>
                             </a>
 
-                            @if((Auth::user()->account_type ?? 'canhan') !== 'doanhnghiep')
-                                <a href="#" class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
+                            @if ((Auth::user()->account_type ?? 'canhan') !== 'doanhnghiep')
+                                <a href="#"
+                                    class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
                                     <i class="fa-solid fa-house-user text-brand-600 w-4 text-center"></i>
                                     <span>Nhà đang thuê</span>
                                 </a>
                             @endif
 
-                            <a href="#" class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
+                            <a href="#"
+                                class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
                                 <i class="fa-solid fa-newspaper text-brand-600 w-4 text-center"></i>
                                 <span>Quản lý bài đăng</span>
                             </a>
 
-                            <a href="#" class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
+                            <a href="#"
+                                class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
                                 <i class="fa-solid fa-gears text-brand-600 w-4 text-center"></i>
                                 <span>Quản lý vận hành</span>
                             </a>
 
-                            <a href="#" class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
+                            <a href="#"
+                                class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
                                 <i class="fa-solid fa-envelope-open-text text-brand-600 w-4 text-center"></i>
-                                <span>Yêu cầu thuê phòng</span>
+                                <span>Thông báo liên hệ</span>
                             </a>
 
-                            <a href="/dat-lai-mat-khau" class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
+                            <a href="/dat-lai-mat-khau"
+                                class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
                                 <i class="fa-solid fa-key text-brand-600 w-4 text-center"></i>
                                 <span>Đổi mật khẩu</span>
                             </a>
@@ -190,7 +219,8 @@
 
                             <form action="{{ route('logout') }}" method="POST" class="m-0 p-0">
                                 @csrf
-                                <button type="submit" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-rose-600 hover:bg-rose-50 transition-colors text-left">
+                                <button type="submit"
+                                    class="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-rose-600 hover:bg-rose-50 transition-colors text-left">
                                     <i class="fa-solid fa-right-from-bracket w-4 text-center"></i>
                                     <span>Đăng xuất</span>
                                 </button>
@@ -215,20 +245,25 @@
     <!-- Hero Section -->
     <section id="hero"
         class="min-h-screen pt-32 pb-20 px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center relative overflow-hidden bg-slate-950">
-        
+
         <!-- Background Crossfade Images -->
         <div class="absolute inset-0 z-0 pointer-events-none">
             <div class="hero-bg-slide absolute inset-0 bg-cover bg-center opacity-100"
-                style="background-image: url('https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1920&q=80');"></div>
+                style="background-image: url('https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1920&q=80');">
+            </div>
             <div class="hero-bg-slide absolute inset-0 bg-cover bg-center opacity-0"
-                style="background-image: url('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1920&q=80');"></div>
+                style="background-image: url('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1920&q=80');">
+            </div>
             <div class="hero-bg-slide absolute inset-0 bg-cover bg-center opacity-0"
-                style="background-image: url('https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1920&q=80');"></div>
+                style="background-image: url('https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1920&q=80');">
+            </div>
             <div class="hero-bg-slide absolute inset-0 bg-cover bg-center opacity-0"
-                style="background-image: url('https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=1920&q=80');"></div>
+                style="background-image: url('https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=1920&q=80');">
+            </div>
             <div class="hero-bg-slide absolute inset-0 bg-cover bg-center opacity-0"
-                style="background-image: url('https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1920&q=80');"></div>
-            
+                style="background-image: url('https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1920&q=80');">
+            </div>
+
             <!-- Lớp phủ cố định giúp chữ luôn rõ nét -->
             <div class="absolute inset-0 bg-slate-950/70 pointer-events-none"></div>
         </div>
@@ -239,7 +274,8 @@
                 class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-emerald-300 text-xs font-semibold uppercase tracking-wider mb-6 shadow-md">
                 <i class="fa-solid fa-bolt text-yellow-400"></i> Hơn 50,000+ Căn nhà sẵn sàng cho thuê
             </span>
-            <h1 class="text-4xl sm:text-5xl lg:text-6xl font-black text-white leading-tight tracking-tight drop-shadow-md">
+            <h1
+                class="text-4xl sm:text-5xl lg:text-6xl font-black text-white leading-tight tracking-tight drop-shadow-md">
                 Tìm Ngôi Nhà Hoàn Hảo <br class="hidden sm:inline">Cho Cuộc Sống Tương Lai
             </h1>
             <p class="mt-4 text-lg sm:text-xl text-slate-200 max-w-2xl mx-auto font-normal drop-shadow">
@@ -275,9 +311,11 @@
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <!-- Location Selector -->
                     <div class="relative">
-                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Khu vực / Tỉnh thành</label>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Khu vực /
+                            Tỉnh thành</label>
                         <div class="relative">
-                            <i class="fa-solid fa-location-dot absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <i
+                                class="fa-solid fa-location-dot absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
                             <select
                                 class="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold text-slate-700 text-sm">
                                 <option value="">Tất cả địa điểm</option>
@@ -291,9 +329,11 @@
 
                     <!-- Property Type -->
                     <div class="relative">
-                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Loại Bất Động Sản</label>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Loại Bất
+                            Động Sản</label>
                         <div class="relative">
-                            <i class="fa-solid fa-layer-group absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <i
+                                class="fa-solid fa-layer-group absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
                             <select
                                 class="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold text-slate-700 text-sm">
                                 <option value="">Tất cả kiểu nhà</option>
@@ -307,9 +347,11 @@
 
                     <!-- Price Range -->
                     <div class="relative">
-                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Mức Giá Mẫu</label>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Mức Giá
+                            Mẫu</label>
                         <div class="relative">
-                            <i class="fa-solid fa-money-bill-wave absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <i
+                                class="fa-solid fa-money-bill-wave absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
                             <select
                                 class="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold text-slate-700 text-sm">
                                 <option value="">Tất cả mức giá</option>
@@ -364,7 +406,8 @@
 
             <!-- Quick Filter Tags -->
             <div class="mt-4 md:mt-0 flex items-center gap-2 overflow-x-auto pb-2">
-                <button class="px-4 py-2 rounded-xl bg-brand-600 text-white font-bold text-xs shadow-sm">Tất cả</button>
+                <button class="px-4 py-2 rounded-xl bg-brand-600 text-white font-bold text-xs shadow-sm">Tất
+                    cả</button>
                 <button
                     class="px-4 py-2 rounded-xl bg-white text-slate-600 hover:bg-slate-200 font-semibold text-xs transition-colors">TP.
                     Hồ Chí Minh</button>
@@ -391,7 +434,8 @@
                         <span
                             class="px-3 py-1 rounded-full bg-brand-600 text-white font-bold text-xs uppercase tracking-wider shadow-md">HOT</span>
                         <span
-                            class="px-3 py-1 rounded-full bg-slate-900/80 backdrop-blur-md text-white font-semibold text-xs">Chính chủ</span>
+                            class="px-3 py-1 rounded-full bg-slate-900/80 backdrop-blur-md text-white font-semibold text-xs">Chính
+                            chủ</span>
                     </div>
                     <button onclick="toggleWishlist(this)"
                         class="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/80 backdrop-blur-md hover:bg-white text-slate-600 hover:text-rose-500 flex items-center justify-center transition-colors shadow-md">
@@ -413,7 +457,8 @@
                             Căn Hộ Vinhomes Central Park 2PN Full Nội Thất
                         </h3>
                         <p class="mt-2 text-xs text-slate-500 flex items-center gap-1.5 line-clamp-1">
-                            <i class="fa-solid fa-location-dot text-rose-500"></i> Nguyễn Hữu Cảnh, Quận Bình Thạnh, TP. Hồ Chí Minh
+                            <i class="fa-solid fa-location-dot text-rose-500"></i> Nguyễn Hữu Cảnh, Quận Bình Thạnh,
+                            TP. Hồ Chí Minh
                         </p>
                     </div>
 
@@ -454,7 +499,8 @@
                         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                     <div class="absolute top-4 left-4 flex gap-2">
                         <span
-                            class="px-3 py-1 rounded-full bg-emerald-600 text-white font-bold text-xs uppercase tracking-wider shadow-md">MỚI NĂM 2026</span>
+                            class="px-3 py-1 rounded-full bg-emerald-600 text-white font-bold text-xs uppercase tracking-wider shadow-md">MỚI
+                            NĂM 2026</span>
                     </div>
                     <button onclick="toggleWishlist(this)"
                         class="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/80 backdrop-blur-md hover:bg-white text-slate-600 hover:text-rose-500 flex items-center justify-center transition-colors shadow-md">
@@ -476,7 +522,8 @@
                             Nhà Phố 1 Trệt 2 Lầu Hẻm Xe Hơi Quận 7
                         </h3>
                         <p class="mt-2 text-xs text-slate-500 flex items-center gap-1.5 line-clamp-1">
-                            <i class="fa-solid fa-location-dot text-rose-500"></i> Đường Lâm Văn Bền, Quận 7, TP. Hồ Chí Minh
+                            <i class="fa-solid fa-location-dot text-rose-500"></i> Đường Lâm Văn Bền, Quận 7, TP. Hồ
+                            Chí Minh
                         </p>
                     </div>
 
@@ -499,8 +546,7 @@
                                 alt="Chủ nhà" class="w-8 h-8 rounded-full object-cover">
                             <span class="text-xs font-bold text-slate-700">Anh Hoàng Nam</span>
                         </div>
-                        <button
-                            onclick="openModal('Nhà Phố 1 Trệt 2 Lầu Hẻm Xe Hơi', '18 triệu', 'Quận 7, TP.HCM')"
+                        <button onclick="openModal('Nhà Phố 1 Trệt 2 Lầu Hẻm Xe Hơi', '18 triệu', 'Quận 7, TP.HCM')"
                             class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-brand-600 text-white text-xs font-bold transition-colors">
                             Xem chi tiết
                         </button>
@@ -562,8 +608,7 @@
                                 alt="Chủ nhà" class="w-8 h-8 rounded-full object-cover">
                             <span class="text-xs font-bold text-slate-700">Cô Minh Hải</span>
                         </div>
-                        <button
-                            onclick="openModal('Phòng Studio Ban Công Cầu Giấy', '5.8 triệu', 'Cầu Giấy, Hà Nội')"
+                        <button onclick="openModal('Phòng Studio Ban Công Cầu Giấy', '5.8 triệu', 'Cầu Giấy, Hà Nội')"
                             class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-brand-600 text-white text-xs font-bold transition-colors">
                             Xem chi tiết
                         </button>
@@ -585,12 +630,14 @@
     <section id="features" class="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
-                <span class="text-xs font-extrabold uppercase tracking-widest text-brand-600">Tại sao chọn RentHome?</span>
+                <span class="text-xs font-extrabold uppercase tracking-widest text-brand-600">Tại sao chọn
+                    RentHome?</span>
                 <h2 class="text-3xl sm:text-4xl font-black text-slate-900 mt-2 leading-tight">
                     Trải Nghiệm Thuê Nhà An Toàn, Nhanh Chóng & Minh Bạch
                 </h2>
                 <p class="text-slate-600 mt-4 text-sm leading-relaxed">
-                    RentHome giải quyết nỗi lo tìm nhà trọ trôi nổi, giá ảo. Chúng tôi kiểm duyệt 100% hình ảnh và thông tin từ chủ nhà thực tế.
+                    RentHome giải quyết nỗi lo tìm nhà trọ trôi nổi, giá ảo. Chúng tôi kiểm duyệt 100% hình ảnh và thông
+                    tin từ chủ nhà thực tế.
                 </p>
 
                 <div class="mt-8 space-y-6">
@@ -601,7 +648,8 @@
                         </div>
                         <div>
                             <h4 class="font-bold text-slate-900 text-base">Thông tin đã xác minh chính chủ</h4>
-                            <p class="text-xs text-slate-500 mt-1">Tất cả bài đăng đều được kiểm tra địa chỉ, hợp đồng và giấy tờ rõ ràng trước khi hiển thị.</p>
+                            <p class="text-xs text-slate-500 mt-1">Tất cả bài đăng đều được kiểm tra địa chỉ, hợp đồng
+                                và giấy tờ rõ ràng trước khi hiển thị.</p>
                         </div>
                     </div>
 
@@ -612,7 +660,8 @@
                         </div>
                         <div>
                             <h4 class="font-bold text-slate-900 text-base">Không tốn phí môi giới gian lận</h4>
-                            <p class="text-xs text-slate-500 mt-1">Kết nối trực tiếp khách thuê với chủ nhà, không qua trung gian nâng giá.</p>
+                            <p class="text-xs text-slate-500 mt-1">Kết nối trực tiếp khách thuê với chủ nhà, không qua
+                                trung gian nâng giá.</p>
                         </div>
                     </div>
 
@@ -623,7 +672,8 @@
                         </div>
                         <div>
                             <h4 class="font-bold text-slate-900 text-base">Hợp đồng thuê nhà trực tuyến</h4>
-                            <p class="text-xs text-slate-500 mt-1">Hỗ trợ tạo hợp đồng thuê nhà điện tử đúng chuẩn pháp lý nhanh chóng trong 5 phút.</p>
+                            <p class="text-xs text-slate-500 mt-1">Hỗ trợ tạo hợp đồng thuê nhà điện tử đúng chuẩn pháp
+                                lý nhanh chóng trong 5 phút.</p>
                         </div>
                     </div>
                 </div>
@@ -657,7 +707,8 @@
     <section id="news" class="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <div class="flex flex-col sm:flex-row sm:items-end justify-between mb-10">
             <div>
-                <span class="text-xs font-extrabold uppercase tracking-widest text-brand-600">Thị trường & Xu hướng</span>
+                <span class="text-xs font-extrabold uppercase tracking-widest text-brand-600">Thị trường & Xu
+                    hướng</span>
                 <h2 class="text-3xl font-black text-slate-900 mt-1">Tin Tức Cho Thuê & Dự Án Nổi Bật</h2>
             </div>
             <a href="https://batdongsan.com.vn/tin-thi-truong" target="_blank" rel="noopener noreferrer"
@@ -668,113 +719,143 @@
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <!-- News Item 1 -->
-            <article class="bg-white rounded-3xl overflow-hidden border border-slate-200/80 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group">
-                <a href="https://vnexpress.net/bat-dong-san" target="_blank" rel="noopener noreferrer" class="relative block aspect-[16/10] overflow-hidden">
+            <article
+                class="bg-white rounded-3xl overflow-hidden border border-slate-200/80 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group">
+                <a href="https://vnexpress.net/bat-dong-san" target="_blank" rel="noopener noreferrer"
+                    class="relative block aspect-[16/10] overflow-hidden">
                     <img src="https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=600&q=80"
-                        alt="Xu hướng thuê căn hộ" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-                    <span class="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur-sm text-[10px] font-bold text-white uppercase">VnExpress</span>
+                        alt="Xu hướng thuê căn hộ"
+                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                    <span
+                        class="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur-sm text-[10px] font-bold text-white uppercase">VnExpress</span>
                 </a>
                 <div class="p-5 flex-1 flex flex-col justify-between">
                     <div>
                         <div class="flex items-center gap-2 text-[11px] text-slate-400 mb-2 font-medium">
                             <i class="fa-regular fa-clock"></i> 2 giờ trước
                         </div>
-                        <h3 class="text-base font-bold text-slate-900 group-hover:text-brand-600 transition-colors line-clamp-2 leading-snug">
+                        <h3
+                            class="text-base font-bold text-slate-900 group-hover:text-brand-600 transition-colors line-clamp-2 leading-snug">
                             <a href="https://vnexpress.net/bat-dong-san" target="_blank" rel="noopener noreferrer">
                                 Nhu cầu thuê chung cư và nhà trọ tại các đô thị lớn tiếp tục tăng mạnh
                             </a>
                         </h3>
                         <p class="text-xs text-slate-500 mt-2 line-clamp-2 leading-relaxed">
-                            Thị trường bất động sản cho thuê ghi nhận lượng quan tâm tăng cao vào quý mới, đặc biệt ở phân khúc studio và căn hộ 2 phòng ngủ.
+                            Thị trường bất động sản cho thuê ghi nhận lượng quan tâm tăng cao vào quý mới, đặc biệt ở
+                            phân khúc studio và căn hộ 2 phòng ngủ.
                         </p>
                     </div>
                     <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
                         <span class="text-[11px] font-semibold text-brand-600">Đọc trên VnExpress</span>
-                        <i class="fa-solid fa-arrow-right text-xs text-slate-400 group-hover:text-brand-600 group-hover:translate-x-1 transition-all"></i>
+                        <i
+                            class="fa-solid fa-arrow-right text-xs text-slate-400 group-hover:text-brand-600 group-hover:translate-x-1 transition-all"></i>
                     </div>
                 </div>
             </article>
 
             <!-- News Item 2 -->
-            <article class="bg-white rounded-3xl overflow-hidden border border-slate-200/80 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group">
-                <a href="https://batdongsan.com.vn/tin-thi-truong" target="_blank" rel="noopener noreferrer" class="relative block aspect-[16/10] overflow-hidden">
+            <article
+                class="bg-white rounded-3xl overflow-hidden border border-slate-200/80 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group">
+                <a href="https://batdongsan.com.vn/tin-thi-truong" target="_blank" rel="noopener noreferrer"
+                    class="relative block aspect-[16/10] overflow-hidden">
                     <img src="https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80"
-                        alt="Đại đô thị mới" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-                    <span class="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-blue-600/90 backdrop-blur-sm text-[10px] font-bold text-white uppercase">Batdongsan</span>
+                        alt="Đại đô thị mới"
+                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                    <span
+                        class="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-blue-600/90 backdrop-blur-sm text-[10px] font-bold text-white uppercase">Batdongsan</span>
                 </a>
                 <div class="p-5 flex-1 flex flex-col justify-between">
                     <div>
                         <div class="flex items-center gap-2 text-[11px] text-slate-400 mb-2 font-medium">
                             <i class="fa-regular fa-clock"></i> 5 giờ trước
                         </div>
-                        <h3 class="text-base font-bold text-slate-900 group-hover:text-brand-600 transition-colors line-clamp-2 leading-snug">
-                            <a href="https://batdongsan.com.vn/tin-thi-truong" target="_blank" rel="noopener noreferrer">
+                        <h3
+                            class="text-base font-bold text-slate-900 group-hover:text-brand-600 transition-colors line-clamp-2 leading-snug">
+                            <a href="https://batdongsan.com.vn/tin-thi-truong" target="_blank"
+                                rel="noopener noreferrer">
                                 Điểm mặt loạt dự án căn hộ sắp bàn giao mở ra nguồn cung nhà thuê mới
                             </a>
                         </h3>
                         <p class="text-xs text-slate-500 mt-2 line-clamp-2 leading-relaxed">
-                            Hàng loạt đại đô thị vùng ven hoàn thiện hạ tầng, bổ sung nguồn cung chất lượng cao cho người đi làm và gia đình trẻ.
+                            Hàng loạt đại đô thị vùng ven hoàn thiện hạ tầng, bổ sung nguồn cung chất lượng cao cho
+                            người đi làm và gia đình trẻ.
                         </p>
                     </div>
                     <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
                         <span class="text-[11px] font-semibold text-brand-600">Đọc trên Batdongsan.com.vn</span>
-                        <i class="fa-solid fa-arrow-right text-xs text-slate-400 group-hover:text-brand-600 group-hover:translate-x-1 transition-all"></i>
+                        <i
+                            class="fa-solid fa-arrow-right text-xs text-slate-400 group-hover:text-brand-600 group-hover:translate-x-1 transition-all"></i>
                     </div>
                 </div>
             </article>
 
             <!-- News Item 3 -->
-            <article class="bg-white rounded-3xl overflow-hidden border border-slate-200/80 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group">
-                <a href="https://cafef.vn/bat-dong-san.chn" target="_blank" rel="noopener noreferrer" class="relative block aspect-[16/10] overflow-hidden">
+            <article
+                class="bg-white rounded-3xl overflow-hidden border border-slate-200/80 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group">
+                <a href="https://cafef.vn/bat-dong-san.chn" target="_blank" rel="noopener noreferrer"
+                    class="relative block aspect-[16/10] overflow-hidden">
                     <img src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=600&q=80"
-                        alt="Luật nhà ở" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-                    <span class="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-amber-600/90 backdrop-blur-sm text-[10px] font-bold text-white uppercase">CafeF</span>
+                        alt="Luật nhà ở"
+                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                    <span
+                        class="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-amber-600/90 backdrop-blur-sm text-[10px] font-bold text-white uppercase">CafeF</span>
                 </a>
                 <div class="p-5 flex-1 flex flex-col justify-between">
                     <div>
                         <div class="flex items-center gap-2 text-[11px] text-slate-400 mb-2 font-medium">
                             <i class="fa-regular fa-clock"></i> 1 ngày trước
                         </div>
-                        <h3 class="text-base font-bold text-slate-900 group-hover:text-brand-600 transition-colors line-clamp-2 leading-snug">
+                        <h3
+                            class="text-base font-bold text-slate-900 group-hover:text-brand-600 transition-colors line-clamp-2 leading-snug">
                             <a href="https://cafef.vn/bat-dong-san.chn" target="_blank" rel="noopener noreferrer">
                                 Những lưu ý pháp lý quan trọng khi ký hợp đồng thuê nhà theo quy định mới
                             </a>
                         </h3>
                         <p class="text-xs text-slate-500 mt-2 line-clamp-2 leading-relaxed">
-                            Cẩm nang hướng dẫn người thuê và chủ nhà bảo vệ quyền lợi hợp pháp, tránh các điều khoản tranh chấp phổ biến.
+                            Cẩm nang hướng dẫn người thuê và chủ nhà bảo vệ quyền lợi hợp pháp, tránh các điều khoản
+                            tranh chấp phổ biến.
                         </p>
                     </div>
                     <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
                         <span class="text-[11px] font-semibold text-brand-600">Đọc trên CafeF</span>
-                        <i class="fa-solid fa-arrow-right text-xs text-slate-400 group-hover:text-brand-600 group-hover:translate-x-1 transition-all"></i>
+                        <i
+                            class="fa-solid fa-arrow-right text-xs text-slate-400 group-hover:text-brand-600 group-hover:translate-x-1 transition-all"></i>
                     </div>
                 </div>
             </article>
 
             <!-- News Item 4 -->
-            <article class="bg-white rounded-3xl overflow-hidden border border-slate-200/80 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group">
-                <a href="https://vnexpress.net/kinh-doanh/bat-dong-san" target="_blank" rel="noopener noreferrer" class="relative block aspect-[16/10] overflow-hidden">
+            <article
+                class="bg-white rounded-3xl overflow-hidden border border-slate-200/80 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group">
+                <a href="https://vnexpress.net/kinh-doanh/bat-dong-san" target="_blank" rel="noopener noreferrer"
+                    class="relative block aspect-[16/10] overflow-hidden">
                     <img src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=600&q=80"
-                        alt="Nhà trọ sinh viên" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-                    <span class="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur-sm text-[10px] font-bold text-white uppercase">VnExpress</span>
+                        alt="Nhà trọ sinh viên"
+                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                    <span
+                        class="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur-sm text-[10px] font-bold text-white uppercase">VnExpress</span>
                 </a>
                 <div class="p-5 flex-1 flex flex-col justify-between">
                     <div>
                         <div class="flex items-center gap-2 text-[11px] text-slate-400 mb-2 font-medium">
                             <i class="fa-regular fa-clock"></i> 2 ngày trước
                         </div>
-                        <h3 class="text-base font-bold text-slate-900 group-hover:text-brand-600 transition-colors line-clamp-2 leading-snug">
-                            <a href="https://vnexpress.net/kinh-doanh/bat-dong-san" target="_blank" rel="noopener noreferrer">
+                        <h3
+                            class="text-base font-bold text-slate-900 group-hover:text-brand-600 transition-colors line-clamp-2 leading-snug">
+                            <a href="https://vnexpress.net/kinh-doanh/bat-dong-san" target="_blank"
+                                rel="noopener noreferrer">
                                 Xu hướng thuê trọ 'All-in-one' tích hợp tiện ích thông minh hút giới trẻ
                             </a>
                         </h3>
                         <p class="text-xs text-slate-500 mt-2 line-clamp-2 leading-relaxed">
-                            Mô hình phòng trọ kiểu mới có máy giặt chung, khóa cửa vân tay và bảo vệ 24/7 đang dần thay thế phòng trọ truyền thống.
+                            Mô hình phòng trọ kiểu mới có máy giặt chung, khóa cửa vân tay và bảo vệ 24/7 đang dần thay
+                            thế phòng trọ truyền thống.
                         </p>
                     </div>
                     <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
                         <span class="text-[11px] font-semibold text-brand-600">Đọc trên VnExpress</span>
-                        <i class="fa-solid fa-arrow-right text-xs text-slate-400 group-hover:text-brand-600 group-hover:translate-x-1 transition-all"></i>
+                        <i
+                            class="fa-solid fa-arrow-right text-xs text-slate-400 group-hover:text-brand-600 group-hover:translate-x-1 transition-all"></i>
                     </div>
                 </div>
             </article>
@@ -787,12 +868,14 @@
             class="relative rounded-3xl bg-gradient-to-r from-slate-900 via-brand-900 to-slate-950 p-8 sm:p-14 overflow-hidden shadow-2xl text-white">
             <div class="relative z-10 max-w-2xl">
                 <span
-                    class="px-3.5 py-1 rounded-full bg-brand-500/20 text-brand-300 border border-brand-400/30 text-xs font-bold uppercase tracking-wider">Dành cho chủ nhà</span>
+                    class="px-3.5 py-1 rounded-full bg-brand-500/20 text-brand-300 border border-brand-400/30 text-xs font-bold uppercase tracking-wider">Dành
+                    cho chủ nhà</span>
                 <h2 class="text-3xl sm:text-4xl font-black mt-4 leading-tight">
                     Bạn Có Phòng Cho Thuê? <br> Đăng Tin Ngay Hôm Nay!
                 </h2>
                 <p class="mt-3 text-slate-300 text-sm sm:text-base">
-                    Tiếp cận hàng triệu người thuê nhà tiềm năng mỗi tháng. Đăng tin miễn phí, duyệt nhanh trong 15 phút.
+                    Tiếp cận hàng triệu người thuê nhà tiềm năng mỗi tháng. Đăng tin miễn phí, duyệt nhanh trong 15
+                    phút.
                 </p>
                 <div class="mt-8 flex flex-wrap items-center gap-4">
                     <a href="#"
@@ -826,7 +909,8 @@
                                 class="text-brand-500">Home</span></span>
                     </div>
                     <p class="text-xs leading-relaxed text-slate-400">
-                        Nền tảng công nghệ hỗ trợ tìm kiếm và cho thuê bất động sản, căn hộ, phòng trọ minh bạch và hiệu quả hàng đầu Việt Nam.
+                        Nền tảng công nghệ hỗ trợ tìm kiếm và cho thuê bất động sản, căn hộ, phòng trọ minh bạch và hiệu
+                        quả hàng đầu Việt Nam.
                     </p>
                     <div class="flex gap-3 pt-2">
                         <a href="#"
@@ -845,10 +929,14 @@
                 <div>
                     <h4 class="text-sm font-bold text-white uppercase tracking-wider mb-4">Danh Mục Hot</h4>
                     <ul class="space-y-2.5 text-xs">
-                        <li><a href="#" class="hover:text-brand-400 transition-colors">Cho thuê căn hộ TP.HCM</a></li>
-                        <li><a href="#" class="hover:text-brand-400 transition-colors">Cho thuê nhà nguyên căn Hà Nội</a></li>
-                        <li><a href="#" class="hover:text-brand-400 transition-colors">Phòng trọ giá rẻ sinh viên</a></li>
-                        <li><a href="#" class="hover:text-brand-400 transition-colors">Biệt thự Villa nghỉ dưỡng</a></li>
+                        <li><a href="#" class="hover:text-brand-400 transition-colors">Cho thuê căn hộ
+                                TP.HCM</a></li>
+                        <li><a href="#" class="hover:text-brand-400 transition-colors">Cho thuê nhà nguyên căn
+                                Hà Nội</a></li>
+                        <li><a href="#" class="hover:text-brand-400 transition-colors">Phòng trọ giá rẻ sinh
+                                viên</a></li>
+                        <li><a href="#" class="hover:text-brand-400 transition-colors">Biệt thự Villa nghỉ
+                                dưỡng</a></li>
                     </ul>
                 </div>
 
@@ -856,10 +944,13 @@
                 <div>
                     <h4 class="text-sm font-bold text-white uppercase tracking-wider mb-4">Hỗ Trợ Khách Hàng</h4>
                     <ul class="space-y-2.5 text-xs">
-                        <li><a href="#" class="hover:text-brand-400 transition-colors">Trung tâm trợ giúp</a></li>
+                        <li><a href="#" class="hover:text-brand-400 transition-colors">Trung tâm trợ giúp</a>
+                        </li>
                         <li><a href="#" class="hover:text-brand-400 transition-colors">Quy định dịch vụ</a></li>
-                        <li><a href="#" class="hover:text-brand-400 transition-colors">Chính sách bảo mật</a></li>
-                        <li><a href="#" class="hover:text-brand-400 transition-colors">Giải quyết tranh chấp</a></li>
+                        <li><a href="#" class="hover:text-brand-400 transition-colors">Chính sách bảo mật</a>
+                        </li>
+                        <li><a href="#" class="hover:text-brand-400 transition-colors">Giải quyết tranh chấp</a>
+                        </li>
                     </ul>
                 </div>
 
@@ -874,7 +965,8 @@
                             <i class="fa-solid fa-envelope text-brand-500"></i> Email: huydepgai@gmail.com
                         </li>
                         <li class="flex items-start gap-2.5">
-                            <i class="fa-solid fa-location-dot text-brand-500 mt-0.5"></i> Tòa nhà Landmark 81, Bình Thạnh, TP.HCM
+                            <i class="fa-solid fa-location-dot text-brand-500 mt-0.5"></i> Tòa nhà Landmark 81, Bình
+                            Thạnh, TP.HCM
                         </li>
                     </ul>
                 </div>
@@ -940,16 +1032,19 @@
             <!-- Login Form -->
             <form id="loginForm" onsubmit="event.preventDefault(); handleAuthSubmit('login');" class="space-y-4">
                 <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Email / Số điện thoại</label>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Email / Số
+                        điện thoại</label>
                     <div class="relative">
-                        <i class="fa-regular fa-envelope absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <i
+                            class="fa-regular fa-envelope absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
                         <input type="text" required placeholder="example@gmail.com hoặc 0903..."
                             class="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium text-slate-800 text-sm">
                     </div>
                 </div>
 
                 <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Mật khẩu</label>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Mật
+                        khẩu</label>
                     <div class="relative">
                         <i class="fa-solid fa-lock absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
                         <input type="password" required placeholder="••••••••"
@@ -959,7 +1054,8 @@
 
                 <div class="flex items-center justify-between text-xs">
                     <label class="flex items-center gap-2 cursor-pointer text-slate-600 font-medium">
-                        <input type="checkbox" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500"> Ghi nhớ đăng nhập
+                        <input type="checkbox" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                        Ghi nhớ đăng nhập
                     </label>
                     <a href="#" class="font-semibold text-brand-600 hover:underline">Quên mật khẩu?</a>
                 </div>
@@ -970,15 +1066,18 @@
                 </button>
 
                 <p class="text-center text-xs text-slate-500 mt-4">
-                    Chưa có tài khoản? 
-                    <button type="button" onclick="switchAuthTab('register')" class="font-bold text-brand-600 hover:underline">Đăng ký ngay</button>
+                    Chưa có tài khoản?
+                    <button type="button" onclick="switchAuthTab('register')"
+                        class="font-bold text-brand-600 hover:underline">Đăng ký ngay</button>
                 </p>
             </form>
 
             <!-- Register Form -->
-            <form id="registerForm" onsubmit="event.preventDefault(); handleAuthSubmit('register');" class="space-y-4 hidden">
+            <form id="registerForm" onsubmit="event.preventDefault(); handleAuthSubmit('register');"
+                class="space-y-4 hidden">
                 <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Họ và tên</label>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Họ và
+                        tên</label>
                     <div class="relative">
                         <i class="fa-regular fa-user absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
                         <input type="text" required placeholder="Nguyễn Văn A"
@@ -987,16 +1086,19 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Email / Số điện thoại</label>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Email / Số
+                        điện thoại</label>
                     <div class="relative">
-                        <i class="fa-regular fa-envelope absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <i
+                            class="fa-regular fa-envelope absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
                         <input type="text" required placeholder="example@gmail.com"
                             class="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium text-slate-800 text-sm">
                     </div>
                 </div>
 
                 <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Mật khẩu</label>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Mật
+                        khẩu</label>
                     <div class="relative">
                         <i class="fa-solid fa-lock absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
                         <input type="password" required placeholder="Tối thiểu 6 ký tự"
@@ -1005,16 +1107,20 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Xác nhận mật khẩu</label>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Xác nhận mật
+                        khẩu</label>
                     <div class="relative">
-                        <i class="fa-solid fa-shield-halved absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <i
+                            class="fa-solid fa-shield-halved absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
                         <input type="password" required placeholder="Nhập lại mật khẩu"
                             class="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium text-slate-800 text-sm">
                     </div>
                 </div>
 
                 <div class="text-xs text-slate-500 leading-relaxed">
-                    Bằng việc đăng ký, bạn đồng ý với <a href="#" class="text-brand-600 font-medium hover:underline">Điều khoản dịch vụ</a> & <a href="#" class="text-brand-600 font-medium hover:underline">Chính sách bảo mật</a> của RentHome.
+                    Bằng việc đăng ký, bạn đồng ý với <a href="#"
+                        class="text-brand-600 font-medium hover:underline">Điều khoản dịch vụ</a> & <a href="#"
+                        class="text-brand-600 font-medium hover:underline">Chính sách bảo mật</a> của RentHome.
                 </div>
 
                 <button type="submit"
@@ -1023,8 +1129,9 @@
                 </button>
 
                 <p class="text-center text-xs text-slate-500 mt-4">
-                    Đã có tài khoản? 
-                    <button type="button" onclick="switchAuthTab('login')" class="font-bold text-brand-600 hover:underline">Đăng nhập</button>
+                    Đã có tài khoản?
+                    <button type="button" onclick="switchAuthTab('login')"
+                        class="font-bold text-brand-600 hover:underline">Đăng nhập</button>
                 </p>
             </form>
         </div>
@@ -1035,17 +1142,17 @@
         // Crossfade background transition mỗi 3.5 giây
         let currentSlide = 0;
         const slides = document.querySelectorAll('.hero-bg-slide');
-        
+
         function nextSlide() {
             slides[currentSlide].classList.remove('opacity-100');
             slides[currentSlide].classList.add('opacity-0');
-            
+
             currentSlide = (currentSlide + 1) % slides.length;
-            
+
             slides[currentSlide].classList.remove('opacity-0');
             slides[currentSlide].classList.add('opacity-100');
         }
-        
+
         setInterval(nextSlide, 3500);
 
         function toggleWishlist(btn) {
@@ -1097,19 +1204,19 @@
             if (tab === 'login') {
                 loginForm.classList.remove('hidden');
                 registerForm.classList.add('hidden');
-                
+
                 tabLoginBtn.classList.add('text-brand-600', 'border-brand-600');
                 tabLoginBtn.classList.remove('text-slate-400', 'border-transparent');
-                
+
                 tabRegisterBtn.classList.remove('text-brand-600', 'border-brand-600');
                 tabRegisterBtn.classList.add('text-slate-400', 'border-transparent');
             } else {
                 registerForm.classList.remove('hidden');
                 loginForm.classList.add('hidden');
-                
+
                 tabRegisterBtn.classList.add('text-brand-600', 'border-brand-600');
                 tabRegisterBtn.classList.remove('text-slate-400', 'border-transparent');
-                
+
                 tabLoginBtn.classList.remove('text-brand-600', 'border-brand-600');
                 tabLoginBtn.classList.add('text-slate-400', 'border-transparent');
             }
