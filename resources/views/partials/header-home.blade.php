@@ -7,28 +7,50 @@
     }
 </style>
 
+@php
+    $bName = $themeSettings['brand_name'] ?? 'RentHome';
+    $tColor = $themeSettings['theme_color'] ?? '#16a34a';
+    if (str_ends_with(strtolower($bName), 'home')) {
+        $p1 = substr($bName, 0, strlen($bName) - 4);
+        $p2 = 'Home';
+    } elseif (strlen($bName) > 4) {
+        $mid = floor(strlen($bName) / 2);
+        $p1 = substr($bName, 0, $mid);
+        $p2 = substr($bName, $mid);
+    } else {
+        $p1 = $bName;
+        $p2 = '';
+    }
+@endphp
+
 <!-- Header Navigation -->
 <header id="navbar"
     class="fixed top-0 left-0 right-0 z-50 transition-all duration-300 py-4 glass-panel border-b border-slate-200/50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
         <!-- Brand Logo -->
         <a href="#" class="flex items-center gap-3 group">
-            <div
-                class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center text-white shadow-glow group-hover:scale-105 transition-transform">
-                <i class="fa-solid fa-house-chimney text-lg"></i>
-            </div>
+            @if(!empty($themeSettings['logo_url']))
+                <img src="{{ $themeSettings['logo_url'] }}" alt="Logo" class="w-10 h-10 object-contain rounded-xl shadow-sm">
+            @else
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-glow group-hover:scale-105 transition-transform" style="background-color: {{ $tColor }}">
+                    <i class="fa-solid fa-house-chimney text-lg"></i>
+                </div>
+            @endif
             <div class="flex flex-col">
-                <span class="text-xl font-extrabold tracking-tight text-slate-900 leading-none">Rent<span
-                        class="text-brand-600">Home</span></span>
-                <span class="text-[10px] font-medium text-slate-500 uppercase tracking-widest mt-0.5">Thuê nhà ước
-                    mơ</span>
+                <span class="text-xl font-extrabold tracking-tight text-slate-900 leading-none">
+                    {{ $p1 }}<span style="color: {{ $tColor }}">{{ $p2 }}</span>
+                </span>
+                <span class="text-[10px] font-medium text-slate-500 uppercase tracking-widest mt-0.5">
+                    {{ $themeSettings['brand_slogan'] ?? 'Thuê nhà ước mơ' }}
+                </span>
             </div>
         </a>
 
         <!-- Navigation Links (Đã thêm hiệu ứng gạch ngang khi hover) -->
         <nav class="hidden md:flex items-center gap-8">
             <a href="#hero"
-                class="relative py-1 text-sm font-semibold text-brand-600 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-brand-600">
+                class="relative py-1 text-sm font-semibold transition-colors after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5"
+                style="color: {{ $tColor }}; --tw-after-bg: {{ $tColor }}">
                 Trang chủ
             </a>
             <a href="#featured"

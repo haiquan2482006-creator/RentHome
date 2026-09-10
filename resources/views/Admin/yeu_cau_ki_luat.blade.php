@@ -14,7 +14,14 @@
 
     <main class="admin-main">
         <div class="page-header">
-            <h1 class="page-title">Yêu Cầu Kỷ Luật</h1>
+            <div>
+                <h1 class="page-title">Yêu Cầu Kỷ Luật</h1>
+                <p class="page-subtitle">Xử lý các báo cáo vi phạm và yêu cầu kỷ luật tài khoản</p>
+            </div>
+            <a href="{{ url('/') }}" class="btn-main-site">
+                <i class="fa-solid fa-globe"></i>
+                <span>Xem giao diện</span>
+            </a>
         </div>
     </main>
 </body>

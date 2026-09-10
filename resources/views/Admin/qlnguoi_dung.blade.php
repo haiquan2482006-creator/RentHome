@@ -271,6 +271,22 @@
             font-weight: 700;
             color: var(--text-primary);
             line-height: 1.3;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .user-id-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 6px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--brand-primary);
+            background-color: rgba(2, 132, 199, 0.1);
+            border-radius: 4px;
+            letter-spacing: 0.02em;
         }
 
         .user-subtext {
@@ -338,10 +354,37 @@
             background-color: var(--brand-bg);
         }
 
+        .btn-icon-danger {
+            color: var(--accent-red, #dc2626);
+        }
+
         .btn-icon-danger:hover {
-            border-color: var(--accent-red);
-            color: var(--accent-red);
-            background-color: rgba(220, 38, 38, 0.08);
+            border-color: var(--accent-red, #dc2626);
+            color: #ffffff;
+            background-color: var(--accent-red, #dc2626);
+        }
+
+        .alert-message {
+            padding: 14px 18px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .alert-success {
+            background-color: #dcfce7;
+            color: #15803d;
+            border: 1px solid #bbf7d0;
+        }
+
+        .alert-error {
+            background-color: #fee2e2;
+            color: #b91c1c;
+            border: 1px solid #fecaca;
         }
 
         .pagination-container {
@@ -364,7 +407,23 @@
                 <h1 class="page-title">Quản Lý Người Dùng</h1>
                 <p class="page-subtitle">Tìm kiếm, lọc và xem thông tin danh sách tài khoản thành viên hệ thống</p>
             </div>
+            <a href="{{ url('/') }}" class="btn-main-site">
+                <i class="fa-solid fa-globe"></i>
+                <span>Xem giao diện</span>
+            </a>
         </div>
+
+        @if (session('success'))
+            <div class="alert-message alert-success">
+                <i class="fa-solid fa-circle-check"></i> {{ session('success') }}
+            </div>
+        @endif
+
+        @if (session('error'))
+            <div class="alert-message alert-error">
+                <i class="fa-solid fa-circle-exclamation"></i> {{ session('error') }}
+            </div>
+        @endif
 
         <!-- Thanh Tìm Kiếm & Bộ Lọc Tài Khoản -->
         <div class="search-card">
@@ -376,7 +435,7 @@
                         type="text" 
                         name="search" 
                         class="search-input" 
-                        placeholder="Tìm kiếm theo Tên tài khoản, Email, SĐT, Tên doanh nghiệp..." 
+                        placeholder="Tìm kiếm theo ID, Tên tài khoản, Email, SĐT, Tên doanh nghiệp..." 
                         value="{{ $search ?? '' }}"
                         autocomplete="off"
                     >
@@ -444,7 +503,10 @@
                                     <div class="user-info-flex">
                                         <div class="user-avatar-circle">{{ $initials }}</div>
                                         <div>
-                                            <div class="user-name-text">{{ $name }}</div>
+                                            <div class="user-name-text">
+                                                <span>{{ $name }}</span>
+                                                <span class="user-id-badge">ID: #{{ $user->id }}</span>
+                                            </div>
                                             <div class="user-subtext">{{ '@' . ($user->username ?? 'user') }}</div>
                                         </div>
                                     </div>
@@ -479,9 +541,19 @@
                                         <button class="btn-icon" title="Xem chi tiết tài khoản">
                                             <i class="fa-solid fa-eye"></i>
                                         </button>
-                                        <button class="btn-icon btn-icon-danger" title="Khóa tài khoản">
-                                            <i class="fa-solid fa-user-slash"></i>
-                                        </button>
+                                        <form action="{{ url('qlnguoi_dung/lock/' . $user->id) }}" method="POST" style="display: inline-block;" onsubmit="return confirm('Bạn có chắc chắn muốn khóa tài khoản {{ $name }} (ID: #{{ $user->id }}) không?');">
+                                            @csrf
+                                            <button type="submit" class="btn-icon btn-icon-warning" title="Khóa tài khoản">
+                                                <i class="fa-solid fa-user-slash"></i>
+                                            </button>
+                                        </form>
+                                        <form action="{{ url('qlnguoi_dung/' . $user->id) }}" method="POST" style="display: inline-block;" onsubmit="return confirm('Bạn có chắc chắn muốn xóa tài khoản {{ $name }} (ID: #{{ $user->id }}) không? Tài khoản sẽ được chuyển vào mục Lịch Sử.');">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="btn-icon btn-icon-danger" title="Xóa tài khoản">
+                                                <i class="fa-solid fa-trash-can"></i>
+                                            </button>
+                                        </form>
                                     </div>
                                 </td>
                             </tr>

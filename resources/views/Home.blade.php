@@ -89,9 +89,18 @@
 
         <!-- Background Crossfade Images -->
         <div class="absolute inset-0 z-0 pointer-events-none">
+            @if(!empty($themeSettings['banner_url']))
+            <div class="hero-bg-slide absolute inset-0 bg-cover bg-center opacity-100"
+                style="background-image: url('{{ $themeSettings['banner_url'] }}');">
+            </div>
+            <div class="hero-bg-slide absolute inset-0 bg-cover bg-center opacity-0"
+                style="background-image: url('https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1920&q=80');">
+            </div>
+            @else
             <div class="hero-bg-slide absolute inset-0 bg-cover bg-center opacity-100"
                 style="background-image: url('https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1920&q=80');">
             </div>
+            @endif
             <div class="hero-bg-slide absolute inset-0 bg-cover bg-center opacity-0"
                 style="background-image: url('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1920&q=80');">
             </div>
@@ -117,11 +126,10 @@
             </span>
             <h1
                 class="text-4xl sm:text-5xl lg:text-6xl font-black text-white leading-tight tracking-tight drop-shadow-md">
-                Tìm Ngôi Nhà Hoàn Hảo <br class="hidden sm:inline">Cho Cuộc Sống Tương Lai
+                {{ $themeSettings['banner_title'] ?? 'Tìm Ngôi Nhà Hoàn Hảo Cho Cuộc Sống Tương Lai' }}
             </h1>
             <p class="mt-4 text-lg sm:text-xl text-slate-200 max-w-2xl mx-auto font-normal drop-shadow">
-                Khám phá hàng ngàn phòng trọ, căn hộ cao cấp, và nhà nguyên căn chính chủ với mức giá tốt nhất, không
-                qua trung gian.
+                {{ $themeSettings['banner_subtitle'] ?? 'Khám phá hàng ngàn phòng trọ, căn hộ cao cấp, và nhà nguyên căn chính chủ với mức giá tốt nhất, không qua trung gian.' }}
             </p>
         </div>
 
@@ -741,27 +749,41 @@
             <div class="grid grid-cols-1 md:grid-cols-4 gap-10 pb-12 border-b border-slate-800">
                 <!-- Brand Info -->
                 <div class="space-y-4">
+                    @php
+                        $fBrandName = $themeSettings['brand_name'] ?? 'RentHome';
+                        $fColor = $themeSettings['theme_color'] ?? '#16a34a';
+                        if (str_ends_with(strtolower($fBrandName), 'home')) {
+                            $fp1 = substr($fBrandName, 0, strlen($fBrandName) - 4);
+                            $fp2 = 'Home';
+                        } elseif (strlen($fBrandName) > 4) {
+                            $fmid = floor(strlen($fBrandName) / 2);
+                            $fp1 = substr($fBrandName, 0, $fmid);
+                            $fp2 = substr($fBrandName, $fmid);
+                        } else {
+                            $fp1 = $fBrandName;
+                            $fp2 = '';
+                        }
+                    @endphp
                     <div class="flex items-center gap-3">
                         <div
-                            class="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center text-white font-bold">
+                            class="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold" style="background-color: {{ $fColor }}">
                             <i class="fa-solid fa-house-chimney"></i>
                         </div>
-                        <span class="text-xl font-extrabold text-white">Rent<span
-                                class="text-brand-500">Home</span></span>
+                        <span class="text-xl font-extrabold text-white">{{ $fp1 }}<span
+                                style="color: {{ $fColor }}">{{ $fp2 }}</span></span>
                     </div>
                     <p class="text-xs leading-relaxed text-slate-400">
-                        Nền tảng công nghệ hỗ trợ tìm kiếm và cho thuê bất động sản, căn hộ, phòng trọ minh bạch và hiệu
-                        quả hàng đầu Việt Nam.
+                        {{ $themeSettings['brand_slogan'] ?? 'Nền tảng công nghệ hỗ trợ tìm kiếm và cho thuê bất động sản, căn hộ, phòng trọ minh bạch và hiệu quả hàng đầu Việt Nam.' }}
                     </p>
                     <div class="flex gap-3 pt-2">
                         <a href="#"
-                            class="w-8 h-8 rounded-full bg-slate-800 hover:bg-brand-600 text-white flex items-center justify-center text-xs transition-colors"><i
+                            class="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center text-xs transition-colors hover:opacity-80" style="background-color: {{ $fColor }}"><i
                                 class="fa-brands fa-facebook-f"></i></a>
                         <a href="#"
-                            class="w-8 h-8 rounded-full bg-slate-800 hover:bg-brand-600 text-white flex items-center justify-center text-xs transition-colors"><i
+                            class="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center text-xs transition-colors hover:opacity-80" style="background-color: {{ $fColor }}"><i
                                 class="fa-brands fa-youtube"></i></a>
                         <a href="#"
-                            class="w-8 h-8 rounded-full bg-slate-800 hover:bg-brand-600 text-white flex items-center justify-center text-xs transition-colors"><i
+                            class="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center text-xs transition-colors hover:opacity-80" style="background-color: {{ $fColor }}"><i
                                 class="fa-brands fa-tiktok"></i></a>
                     </div>
                 </div>
@@ -770,14 +792,10 @@
                 <div>
                     <h4 class="text-sm font-bold text-white uppercase tracking-wider mb-4">Danh Mục Hot</h4>
                     <ul class="space-y-2.5 text-xs">
-                        <li><a href="#" class="hover:text-brand-400 transition-colors">Cho thuê căn hộ
-                                TP.HCM</a></li>
-                        <li><a href="#" class="hover:text-brand-400 transition-colors">Cho thuê nhà nguyên căn
-                                Hà Nội</a></li>
-                        <li><a href="#" class="hover:text-brand-400 transition-colors">Phòng trọ giá rẻ sinh
-                                viên</a></li>
-                        <li><a href="#" class="hover:text-brand-400 transition-colors">Biệt thự Villa nghỉ
-                                dưỡng</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Cho thuê căn hộ TP.HCM</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Cho thuê nhà nguyên căn Hà Nội</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Phòng trọ giá rẻ sinh viên</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Biệt thự Villa nghỉ dưỡng</a></li>
                     </ul>
                 </div>
 
@@ -785,13 +803,10 @@
                 <div>
                     <h4 class="text-sm font-bold text-white uppercase tracking-wider mb-4">Hỗ Trợ Khách Hàng</h4>
                     <ul class="space-y-2.5 text-xs">
-                        <li><a href="#" class="hover:text-brand-400 transition-colors">Trung tâm trợ giúp</a>
-                        </li>
-                        <li><a href="#" class="hover:text-brand-400 transition-colors">Quy định dịch vụ</a></li>
-                        <li><a href="#" class="hover:text-brand-400 transition-colors">Chính sách bảo mật</a>
-                        </li>
-                        <li><a href="#" class="hover:text-brand-400 transition-colors">Giải quyết tranh chấp</a>
-                        </li>
+                        <li><a href="#" class="hover:text-white transition-colors">Trung tâm trợ giúp</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Quy định dịch vụ</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Chính sách bảo mật</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Giải quyết tranh chấp</a></li>
                     </ul>
                 </div>
 
@@ -800,21 +815,20 @@
                     <h4 class="text-sm font-bold text-white uppercase tracking-wider mb-4">Liên Hệ</h4>
                     <ul class="space-y-3 text-xs">
                         <li class="flex items-center gap-2.5">
-                            <i class="fa-solid fa-phone text-brand-500"></i> Hotline: 0903990706
+                            <i class="fa-solid fa-phone" style="color: {{ $fColor }}"></i> Hotline: {{ $themeSettings['footer_phone'] ?? '0903990706' }}
                         </li>
                         <li class="flex items-center gap-2.5">
-                            <i class="fa-solid fa-envelope text-brand-500"></i> Email: huydepgai@gmail.com
+                            <i class="fa-solid fa-envelope" style="color: {{ $fColor }}"></i> Email: {{ $themeSettings['footer_email'] ?? 'cskh@renthome.vn' }}
                         </li>
                         <li class="flex items-start gap-2.5">
-                            <i class="fa-solid fa-location-dot text-brand-500 mt-0.5"></i> Tòa nhà Landmark 81, Bình
-                            Thạnh, TP.HCM
+                            <i class="fa-solid fa-location-dot mt-0.5" style="color: {{ $fColor }}"></i> {{ $themeSettings['footer_address'] ?? 'Tòa nhà Landmark 81, Bình Thạnh, TP.HCM' }}
                         </li>
                     </ul>
                 </div>
             </div>
 
             <div class="pt-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-4">
-                <p>&copy; 2026 RentHome Inc. Tất cả quyền được bảo lưu.</p>
+                <p>{{ $themeSettings['footer_copyright'] ?? '© 2026 RentHome Inc. Tất cả quyền được bảo lưu.' }}</p>
                 <p>Thiết kế bởi Hoàng Hải - Laravel Framework 12</p>
             </div>
         </div>

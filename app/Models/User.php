@@ -34,6 +34,13 @@ class User extends Authenticatable
         'company_email',
         'business_license',
         'role',
+        'status',
+        'is_deleted',
+        'is_locked',
+        'lock_reason',
+        'locked_at',
+        'deleted_at',
+        'deleted_by',
     ];
 
 
