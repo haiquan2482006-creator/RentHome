@@ -38,8 +38,31 @@ Route::post('/send-reset-code', [\App\Http\Controllers\PasswordResetController::
 Route::post('/verify-reset-code', [\App\Http\Controllers\PasswordResetController::class, 'verifyCode']);
 Route::post('/dat-lai-mat-khau', [\App\Http\Controllers\PasswordResetController::class, 'resetPassword']);
 
-Route::get('/qlnguoi_dung', function () {
-    return view('Admin.qlnguoi_dung');
+Route::get('/qlnguoi_dung', function (\Illuminate\Http\Request $request) {
+    $search = trim($request->query('search', ''));
+    $accountType = $request->query('account_type', '');
+
+    $query = \App\Models\User::where('role', '!=', 'admin')
+        ->where('account_type', '!=', 'admin');
+
+    if (!empty($search)) {
+        $query->where(function ($q) use ($search) {
+            $q->where('username', 'like', "%{$search}%")
+              ->orWhere('email', 'like', "%{$search}%")
+              ->orWhere('account_name', 'like', "%{$search}%")
+              ->orWhere('phone', 'like', "%{$search}%")
+              ->orWhere('company_name', 'like', "%{$search}%");
+        });
+    }
+
+    if (!empty($accountType) && in_array($accountType, ['canhan', 'doanhnghiep'])) {
+        $query->where('account_type', $accountType);
+    }
+
+    $users = $query->orderBy('created_at', 'desc')->paginate(15);
+    $totalUsers = \App\Models\User::where('role', '!=', 'admin')->where('account_type', '!=', 'admin')->count();
+
+    return view('Admin.qlnguoi_dung', compact('users', 'search', 'accountType', 'totalUsers'));
 });
 
 Route::get('/sua_giao_dien', function () {
@@ -57,3 +80,4 @@ Route::get('/yeu_cau_ki_luat', function () {
 Route::get('/lich_su', function () {
     return view('Admin.lich_su');
 });
+
