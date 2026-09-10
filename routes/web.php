@@ -37,3 +37,23 @@ Route::get('/dat-lai-mat-khau', function () {
 Route::post('/send-reset-code', [\App\Http\Controllers\PasswordResetController::class, 'sendCode']);
 Route::post('/verify-reset-code', [\App\Http\Controllers\PasswordResetController::class, 'verifyCode']);
 Route::post('/dat-lai-mat-khau', [\App\Http\Controllers\PasswordResetController::class, 'resetPassword']);
+
+Route::get('/qlnguoi_dung', function () {
+    return view('Admin.qlnguoi_dung');
+});
+
+Route::get('/sua_giao_dien', function () {
+    return view('Admin.sua_giao_dien');
+});
+
+Route::get('/qltin_tuc', function () {
+    return view('Admin.qltin_tuc');
+});
+
+Route::get('/yeu_cau_ki_luat', function () {
+    return view('Admin.yeu_cau_ki_luat');
+});
+
+Route::get('/lich_su', function () {
+    return view('Admin.lich_su');
+});

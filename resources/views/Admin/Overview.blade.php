@@ -605,13 +605,13 @@
                 <div class="menu-title">Danh mục quản lý</div>
 
                 <!-- 1. Tổng quan -->
-                <a href="#" class="nav-link active">
+                <a href="{{ url('Admin') }}" class="nav-link {{ request()->is('Admin') ? 'active' : '' }}">
                     <i class="fa-solid fa-chart-pie"></i>
                     <span>Tổng quan</span>
                 </a>
 
                 <!-- 2. Quản lý người dùng -->
-                <a href="#" class="nav-link">
+                <a href="{{ url('qlnguoi_dung') }}" class="nav-link {{ request()->is('qlnguoi_dung') ? 'active' : '' }}">
                     <i class="fa-solid fa-users"></i>
                     <span>Quản lý người dùng</span>
                 </a>
