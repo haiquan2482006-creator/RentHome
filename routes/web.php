@@ -92,3 +92,7 @@ Route::get('/lich_su', function () {
 Route::get('/Overview', function(){
     return view('qlbai_dang.Overview');
 });
+
+Route::get('/dangbai', function(){
+    return view('qlbai_dang.dangbai');
+})->name('dangbai');
