@@ -183,9 +183,8 @@
                                 <span>Tài khoản</span>
                             </a>
 
-                            @if ((Auth::user()->account_type ?? 'canhan') !== 'doanhnghiep')
-                                <a href="#"
-                                    class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
+                            @if((Auth::user()->account_type ?? 'canhan') !== 'doanhnghiep')
+                                <a href="/nha-dang-thue" class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
                                     <i class="fa-solid fa-house-user text-brand-600 w-4 text-center"></i>
                                     <span>Nhà đang thuê</span>
                                 </a>
@@ -197,13 +196,13 @@
                                 <span>Quản lý bài đăng</span>
                             </a>
 
-                            <a href="#"
+                            <a href="/quan-ly-van-hanh"
                                 class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
                                 <i class="fa-solid fa-gears text-brand-600 w-4 text-center"></i>
                                 <span>Quản lý vận hành</span>
                             </a>
 
-                            <a href="#"
+                            <a href="/quan-ly-van-hanh"
                                 class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
                                 <i class="fa-solid fa-envelope-open-text text-brand-600 w-4 text-center"></i>
                                 <span>Thông báo liên hệ</span>

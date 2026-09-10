@@ -33,6 +33,14 @@ Route::get('/dat-lai-mat-khau', function () {
     return view('dangnhapdk.quenmatkhau_b2'); 
 });
 
+Route::get('/nha-dang-thue', function () {
+    return view('nhadangthue.index');
+})->name('nha-dang-thue');
+
+Route::get('/quan-ly-van-hanh', function () {
+    return view('qlvan_hanh.Room_list');
+})->name('quan-ly-van-hanh');
+
 // Các route POST xử lý logic gửi email và xác nhận
 Route::post('/send-reset-code', [\App\Http\Controllers\PasswordResetController::class, 'sendCode']);
 Route::post('/verify-reset-code', [\App\Http\Controllers\PasswordResetController::class, 'verifyCode']);
