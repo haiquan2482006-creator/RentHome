@@ -727,14 +727,28 @@
                     phút.
                 </p>
                 <div class="mt-8 flex flex-wrap items-center gap-4">
-                    <a href="#"
-                        class="px-8 py-3.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-sm shadow-glow transition-all">
-                        <i class="fa-solid fa-paper-plane mr-2"></i> Đăng tin cho thuê miễn phí
-                    </a>
-                    <a href="#"
-                        class="px-6 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-sm transition-colors">
-                        Tìm hiểu thêm
-                    </a>
+                    @auth
+                        <a href="{{ route('dangbai') }}"
+                            class="px-8 py-3.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-sm shadow-glow transition-all inline-flex items-center">
+                            <i class="fa-solid fa-paper-plane mr-2"></i> Đăng tin cho thuê miễn phí
+                        </a>
+                    @else
+                        <a href="{{ route('login') }}"
+                            class="px-8 py-3.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-sm shadow-glow transition-all inline-flex items-center">
+                            <i class="fa-solid fa-paper-plane mr-2"></i> Đăng tin cho thuê miễn phí
+                        </a>
+                    @endauth
+                    @auth
+                        <a href="{{ url('Overview') }}"
+                            class="px-6 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-sm transition-colors inline-flex items-center">
+                            Tìm hiểu thêm
+                        </a>
+                    @else
+                        <a href="{{ route('login') }}"
+                            class="px-6 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-sm transition-colors inline-flex items-center">
+                            Tìm hiểu thêm
+                        </a>
+                    @endauth
                 </div>
             </div>
             <!-- Decorative Icon -->
@@ -765,10 +779,7 @@
                         }
                     @endphp
                     <div class="flex items-center gap-3">
-                        <div
-                            class="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold" style="background-color: {{ $fColor }}">
-                            <i class="fa-solid fa-house-chimney"></i>
-                        </div>
+                        <img src="{{ !empty($themeSettings['logo_url']) ? $themeSettings['logo_url'] : asset('img/logo.png') }}" alt="RentHome Logo" class="w-9 h-9 object-contain rounded-xl shadow-sm">
                         <span class="text-xl font-extrabold text-white">{{ $fp1 }}<span
                                 style="color: {{ $fColor }}">{{ $fp2 }}</span></span>
                     </div>

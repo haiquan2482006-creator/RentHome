@@ -29,13 +29,7 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
         <!-- Brand Logo -->
         <a href="#" class="flex items-center gap-3 group">
-            @if(!empty($themeSettings['logo_url']))
-                <img src="{{ $themeSettings['logo_url'] }}" alt="Logo" class="w-10 h-10 object-contain rounded-xl shadow-sm">
-            @else
-                <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-glow group-hover:scale-105 transition-transform" style="background-color: {{ $tColor }}">
-                    <i class="fa-solid fa-house-chimney text-lg"></i>
-                </div>
-            @endif
+            <img src="{{ !empty($themeSettings['logo_url']) ? $themeSettings['logo_url'] : asset('img/logo.png') }}" alt="RentHome Logo" class="w-10 h-10 object-contain rounded-xl shadow-sm group-hover:scale-105 transition-transform">
             <div class="flex flex-col">
                 <span class="text-xl font-extrabold tracking-tight text-slate-900 leading-none">
                     {{ $p1 }}<span style="color: {{ $tColor }}">{{ $p2 }}</span>

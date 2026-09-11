@@ -93,10 +93,10 @@
                         <label class="block text-xs font-bold text-slate-700 mb-1.5">Tỉnh / Thành Phố <span
                                 class="text-rose-500">*</span></label>
                         <div class="relative">
-                            <select
+                            <select id="select-province"
                                 class="w-full px-4 py-3 rounded-2xl bg-slate-50/70 border border-slate-200 text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-amber-400 focus:outline-none appearance-none cursor-pointer">
                                 <option>Thành phố Hà Nội</option>
-                                <option>Thành phố Hồ Chí Minh</option>
+                                <option selected>Thành phố Hồ Chí Minh</option>
                                 <option>Thành phố Đà Nẵng</option>
                             </select>
                             <i
@@ -108,10 +108,10 @@
                         <label class="block text-xs font-bold text-slate-700 mb-1.5">Quận / Huyện <span
                                 class="text-rose-500">*</span></label>
                         <div class="relative">
-                            <select
+                            <select id="select-district"
                                 class="w-full px-4 py-3 rounded-2xl bg-slate-50/70 border border-slate-200 text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-amber-400 focus:outline-none appearance-none cursor-pointer">
                                 <option value="">Chọn Quận/Huyện</option>
-                                <option>Quận 1</option>
+                                <option selected>Quận 1</option>
                                 <option>Quận Bình Thạnh</option>
                                 <option>Quận Cầu Giấy</option>
                             </select>
@@ -125,10 +125,10 @@
                     <label class="block text-xs font-bold text-slate-700 mb-1.5">Phường / Xã <span
                             class="text-rose-500">*</span></label>
                     <div class="relative">
-                        <select
+                        <select id="select-ward"
                             class="w-full px-4 py-3 rounded-2xl bg-slate-50/70 border border-slate-200 text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-amber-400 focus:outline-none appearance-none cursor-pointer">
                             <option value="">Chọn phường/xã</option>
-                            <option>Phường Bến Nghé</option>
+                            <option selected>Phường Bến Nghé</option>
                             <option>Phường 22</option>
                             <option>Phường Dịch Vọng</option>
                         </select>
@@ -140,7 +140,7 @@
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1.5">Địa chỉ chi tiết (Tên đường, số
                         nhà)</label>
-                    <input type="text" placeholder="Ví dụ: Số 12, Ngõ 45"
+                    <input type="text" id="input-address" placeholder="Ví dụ: Số 12, Ngõ 45"
                         class="w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-amber-400 focus:outline-none transition-all">
                 </div>
             </div>
@@ -181,7 +181,7 @@
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1.5">Tiêu đề bài đăng <span
                             class="text-rose-500">*</span></label>
-                    <input type="text" placeholder="VD: Bán căn hộ cao cấp 2 phòng ngủ Quận 1"
+                    <input type="text" id="post-title" placeholder="VD: Bán căn hộ cao cấp 2 phòng ngủ Quận 1"
                         class="w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
                 </div>
 
@@ -256,7 +256,7 @@
                         <label class="block text-xs font-bold text-slate-700 mb-1.5">Giá mong muốn (Triệu, Tỷ / tháng)
                             <span class="text-rose-500">*</span></label>
                         <div class="relative">
-                            <input type="text" placeholder="VD: 14.5 Triệu hoặc 3.5 Tỷ"
+                            <input type="text" id="post-price" placeholder="VD: 14.5 Triệu hoặc 3.5 Tỷ"
                                 class="w-full pl-4 pr-10 py-3 rounded-2xl bg-white border border-slate-200 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
                             <span
                                 class="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-amber-600 text-xs">đ</span>
@@ -266,7 +266,7 @@
                         <label class="block text-xs font-bold text-slate-700 mb-1.5">Diện tích (m²) <span
                                 class="text-rose-500">*</span></label>
                         <div class="relative">
-                            <input type="number" placeholder="VD: 85"
+                            <input type="number" id="post-area" placeholder="VD: 85"
                                 class="w-full pl-4 pr-10 py-3 rounded-2xl bg-white border border-slate-200 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
                             <span
                                 class="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-amber-600 text-xs">m²</span>
@@ -344,7 +344,7 @@
                 <!-- Mô tả chi tiết -->
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1.5">Mô tả chi tiết</label>
-                    <textarea rows="3"
+                    <textarea id="post-description" rows="3"
                         placeholder="Mô tả thông tin chi tiết về căn nhà (vị trí địa lý, tiện ích xung quanh, phong thủy, pháp lý...)"
                         class="w-full px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none"></textarea>
                 </div>
@@ -388,7 +388,7 @@
                     class="px-6 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-colors">
                     Quay lại
                 </button>
-                <button type="button" onclick="alert('Đã gửi bài viết lên hệ thống chờ duyệt!')"
+                <button type="button" onclick="submitPost()"
                     class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition-all flex items-center gap-1.5">
                     <i class="fa-solid fa-paper-plane text-xs"></i> Đăng Bài Viết
                 </button>
@@ -511,6 +511,69 @@
                 `;
                 container.appendChild(card);
             });
+        }
+
+        // Xử lý gửi bài viết lên hệ thống chờ duyệt
+        function submitPost() {
+            const titleInput = document.getElementById('post-title');
+            const title = titleInput ? titleInput.value.trim() : '';
+
+            if (!title) {
+                alert('Vui lòng nhập tiêu đề bài đăng!');
+                if (titleInput) titleInput.focus();
+                return;
+            }
+
+            const province = document.getElementById('select-province')?.value || '';
+            const district = document.getElementById('select-district')?.value || '';
+            const ward = document.getElementById('select-ward')?.value || '';
+            const address = document.getElementById('input-address')?.value || '';
+
+            const price = document.getElementById('post-price')?.value.trim() || 'Thỏa thuận';
+            const area = document.getElementById('post-area')?.value ? document.getElementById('post-area').value + ' m²' : '';
+            const desc = document.getElementById('post-description')?.value.trim() || '';
+
+            let locationParts = [address, ward, district, province].filter(Boolean);
+            let locationStr = locationParts.length > 0 ? locationParts.join(', ') : 'TP. Hồ Chí Minh';
+
+            const postObj = {
+                id: '#RH-' + Math.floor(1000 + Math.random() * 9000),
+                title: title,
+                price: price.includes('Tr') || price.includes('Tỷ') || price.includes('đ') ? price : (price + ' Tr/tháng'),
+                location: locationStr,
+                time: 'Gửi lúc ' + new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' - Hôm nay',
+                image: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=120&q=80',
+                status: 'Chờ phê duyệt',
+                createdAt: Date.now()
+            };
+
+            const saveAndRedirect = (finalPost) => {
+                let existing = [];
+                try {
+                    existing = JSON.parse(localStorage.getItem('pendingPosts') || '[]');
+                } catch (e) {
+                    existing = [];
+                }
+                existing.unshift(finalPost);
+                localStorage.setItem('pendingPosts', JSON.stringify(existing));
+
+                alert('Đã gửi bài viết lên hệ thống chờ duyệt!');
+                window.location.href = "{{ url('Overview') }}?tab=pending-posts";
+            };
+
+            if (uploadedFilesArray && uploadedFilesArray.length > 0) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    postObj.image = e.target.result;
+                    saveAndRedirect(postObj);
+                };
+                reader.onerror = function () {
+                    saveAndRedirect(postObj);
+                };
+                reader.readAsDataURL(uploadedFilesArray[0]);
+            } else {
+                saveAndRedirect(postObj);
+            }
         }
     </script>
 </body>
