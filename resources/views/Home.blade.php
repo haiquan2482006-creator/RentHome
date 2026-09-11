@@ -486,7 +486,7 @@
         <div class="mt-12 text-center">
             <a href="#"
                 class="inline-flex items-center gap-2 px-8 py-3.5 rounded-2xl bg-white border border-slate-300 hover:border-brand-500 font-bold text-sm text-slate-800 hover:text-brand-600 shadow-sm hover:shadow-md transition-all">
-                Xem thêm 1,200+ căn nhà khác <i class="fa-solid fa-chevron-down"></i>
+                Xem thêm các căn nhà khác <i class="fa-solid fa-chevron-down"></i>
             </a>
         </div>
     </section>
