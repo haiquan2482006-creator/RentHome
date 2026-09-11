@@ -41,6 +41,18 @@ Route::get('/quan-ly-van-hanh', function () {
     return view('qlvan_hanh.Room_list');
 })->name('quan-ly-van-hanh');
 
+Route::get('/qlvan_hanh/Room_list', function () {
+    return view('qlvan_hanh.Room_list');
+});
+
+Route::get('/qlvan_hanh/thanh_ly_cong_no', function () {
+    return view('qlvan_hanh.thanh_ly_cong_no');
+});
+
+Route::get('/thanh-ly-cong-no', function () {
+    return view('qlvan_hanh.thanh_ly_cong_no');
+})->name('thanh-ly-cong-no');
+
 // Các route POST xử lý logic gửi email và xác nhận
 Route::post('/send-reset-code', [\App\Http\Controllers\PasswordResetController::class, 'sendCode']);
 Route::post('/verify-reset-code', [\App\Http\Controllers\PasswordResetController::class, 'verifyCode']);

@@ -96,9 +96,7 @@
             
             <!-- Logo & Brand -->
             <a href="/" class="flex items-center gap-3 group">
-                <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center text-white shadow-glow group-hover:scale-105 transition-transform">
-                    <i class="fa-solid fa-building-circle-check text-lg"></i>
-                </div>
+                <img src="{{ asset('img/logo.png') }}" alt="RentHome Logo" class="w-10 h-10 object-contain rounded-xl group-hover:scale-105 transition-transform">
                 <div class="flex flex-col">
                     <span class="text-xl font-extrabold tracking-tight text-slate-900 leading-none">Rent<span class="text-brand-600">Home</span></span>
                     <span class="text-[10px] font-bold text-skybrand-600 uppercase tracking-widest mt-0.5">Quản Lý Vận Hành Chủ Nhà</span>
@@ -114,36 +112,12 @@
                     <span>+ Tạo Hợp Đồng</span>
                 </button>
 
-                <!-- Profile Dropdown (Đổi Mật Khẩu & Đăng Xuất) -->
-                <div class="relative inline-block text-left" id="landlord-menu-container">
-                    <button type="button" onclick="toggleLandlordMenu(event)"
-                            class="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200/80 transition-all border border-slate-200 text-xs font-bold text-slate-800">
-                        <div class="w-7 h-7 rounded-full bg-skybrand-600 text-white flex items-center justify-center font-bold text-xs shadow-sm">
-                            <i class="fa-solid fa-user-tie"></i>
-                        </div>
-                        <span class="hidden sm:inline">{{ Auth::user()->name ?? 'Chủ Nhà Admin' }}</span>
-                        <i class="fa-solid fa-chevron-down text-slate-400 text-[10px]"></i>
-                    </button>
-
-                    <div id="landlord-dropdown-menu" class="hidden absolute right-0 mt-2 w-56 rounded-2xl bg-white shadow-2xl border border-slate-100 py-2 z-50">
-                        <div class="px-4 py-2 border-b border-slate-100">
-                            <p class="text-[10px] font-bold text-slate-400 uppercase">Tài khoản Chủ Nhà</p>
-                            <p class="text-xs font-bold text-slate-900 truncate">{{ Auth::user()->email ?? 'chunha@renthome.vn' }}</p>
-                        </div>
-                        <a href="/dat-lai-mat-khau" class="flex items-center gap-3 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
-                            <i class="fa-solid fa-key text-slate-400 w-4 text-center"></i>
-                            <span>Đổi mật khẩu</span>
-                        </a>
-                        <div class="my-1 border-t border-slate-100"></div>
-                        <form action="{{ route('logout') }}" method="POST" class="m-0 p-0">
-                            @csrf
-                            <button type="submit" class="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors text-left">
-                                <i class="fa-solid fa-right-from-bracket w-4 text-center"></i>
-                                <span>Đăng xuất</span>
-                            </button>
-                        </form>
-                    </div>
-                </div>
+                <!-- Nút Trở Về Trang Chủ -->
+                <a href="{{ url('/') }}" 
+                   class="py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs sm:text-sm flex items-center gap-2 border border-slate-200 shadow-sm hover:shadow transition-all">
+                    <i class="fa-solid fa-house text-skybrand-600"></i>
+                    <span>Trở Về Trang Chủ</span>
+                </a>
             </div>
         </div>
     </header>
@@ -252,12 +226,12 @@
 
                 <!-- NÚT THAO TÁC CHO PHÒNG 1 -->
                 <div class="flex flex-wrap items-center lg:justify-end gap-2 shrink-0 border-t lg:border-t-0 pt-4 lg:pt-0 border-slate-100">
-                    <!-- Nút Thanh lý hợp đồng (Tích hợp Chốt Công Nợ) -->
-                    <button onclick="openLiquidationModal('NH-302', 'Nguyễn Văn An', 3500000, 3500000, 1420, 1500, 50, 55)"
-                            class="py-2.5 px-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                    <!-- Nút Thanh Lý Hợp Đồng (Mở Form Chốt Công Nợ) -->
+                    <a href="{{ url('qlvan_hanh/thanh_ly_cong_no') }}"
+                       class="py-2.5 px-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
                         <i class="fa-solid fa-file-contract"></i>
                         <span>Thanh Lý Hợp Đồng</span>
-                    </button>
+                    </a>
 
                     <!-- Nút Chốt Điện Nước -->
                     <button onclick="openMonthlyBillModal('NH-302', 'Nguyễn Văn An', 1500, 55)"
@@ -313,11 +287,11 @@
                 </div>
 
                 <div class="flex flex-wrap items-center lg:justify-end gap-2 shrink-0 border-t lg:border-t-0 pt-4 lg:pt-0 border-slate-100">
-                    <button onclick="openLiquidationModal('VH-1208', 'Trần Thị Minh', 7500000, 7500000, 2100, 2250, 100, 115)"
-                            class="py-2.5 px-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                    <a href="{{ url('qlvan_hanh/thanh_ly_cong_no') }}"
+                       class="py-2.5 px-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
                         <i class="fa-solid fa-file-contract"></i>
                         <span>Thanh Lý Hợp Đồng</span>
-                    </button>
+                    </a>
 
                     <button onclick="openMonthlyBillModal('VH-1208', 'Trần Thị Minh', 2250, 115)"
                             class="py-2.5 px-3.5 rounded-xl bg-skybrand-600 hover:bg-skybrand-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
@@ -369,11 +343,11 @@
                 </div>
 
                 <div class="flex flex-wrap items-center lg:justify-end gap-2 shrink-0 border-t lg:border-t-0 pt-4 lg:pt-0 border-slate-100">
-                    <button onclick="openLiquidationModal('MT-1504', 'Lê Hoàng Nam', 10500000, 10500000, 1800, 1920, 80, 92)"
-                            class="py-2.5 px-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                    <a href="{{ url('qlvan_hanh/thanh_ly_cong_no') }}"
+                       class="py-2.5 px-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
                         <i class="fa-solid fa-file-contract"></i>
                         <span>Thanh Lý Hợp Đồng</span>
-                    </button>
+                    </a>
 
                     <button onclick="openMonthlyBillModal('MT-1504', 'Lê Hoàng Nam', 1920, 92)"
                             class="py-2.5 px-3.5 rounded-xl bg-skybrand-600 hover:bg-skybrand-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
@@ -427,12 +401,12 @@
                 </div>
 
                 <div class="flex flex-wrap items-center lg:justify-end gap-2 shrink-0 border-t lg:border-t-0 pt-4 lg:pt-0 border-slate-100">
-                    <!-- Nút Thanh lý hợp đồng (Tích hợp Chốt Công Nợ) -->
-                    <button onclick="openLiquidationModal('KVC-201', 'Phạm Văn Hải', 4200000, 4200000, 950, 1020, 35, 42)"
-                            class="py-2.5 px-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                    <!-- Nút Thanh Lý Hợp Đồng (Mở Form Chốt Công Nợ) -->
+                    <a href="{{ url('qlvan_hanh/thanh_ly_cong_no') }}"
+                       class="py-2.5 px-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
                         <i class="fa-solid fa-file-contract"></i>
                         <span>Thanh Lý Hợp Đồng</span>
-                    </button>
+                    </a>
 
                     <!-- Nút Chốt Điện Nước -->
                     <button onclick="openMonthlyBillModal('KVC-201', 'Phạm Văn Hải', 1020, 42)"
@@ -487,11 +461,11 @@
                 </div>
 
                 <div class="flex flex-wrap items-center lg:justify-end gap-2 shrink-0 border-t lg:border-t-0 pt-4 lg:pt-0 border-slate-100">
-                    <button onclick="openLiquidationModal('NX-101', 'Vũ Thị Lan', 12000000, 12000000, 3100, 3280, 150, 175)"
-                            class="py-2.5 px-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                    <a href="{{ url('qlvan_hanh/thanh_ly_cong_no') }}"
+                       class="py-2.5 px-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
                         <i class="fa-solid fa-file-contract"></i>
                         <span>Thanh Lý Hợp Đồng</span>
-                    </button>
+                    </a>
 
                     <button onclick="openMonthlyBillModal('NX-101', 'Vũ Thị Lan', 3280, 175)"
                             class="py-2.5 px-3.5 rounded-xl bg-skybrand-600 hover:bg-skybrand-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
@@ -521,9 +495,7 @@
     <footer class="bg-slate-900 text-slate-400 text-xs py-8 border-t border-slate-800 mt-12">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div class="flex items-center gap-2">
-                <div class="w-6 h-6 rounded-lg bg-brand-600 text-white flex items-center justify-center text-xs font-bold">
-                    <i class="fa-solid fa-house-chimney"></i>
-                </div>
+                <img src="{{ asset('img/logo.png') }}" alt="RentHome Logo" class="w-6 h-6 object-contain">
                 <span class="font-bold text-white text-sm">RentHome Việt Nam</span>
                 <span>© 2026 Hệ thống quản lý vận hành chủ nhà.</span>
             </div>
@@ -635,208 +607,7 @@
     </div>
 
 
-    <!-- ========================================================================= -->
-    <!-- MODAL 2: FORM CHỐT CÔNG NỢ THANH LÝ HỢP ĐỒNG (KỊCH BẢN A & B) -->
-    <!-- ========================================================================= -->
-    <div id="liquidationModal" class="fixed inset-0 z-50 hidden bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-5 border border-slate-100 max-h-[90vh] overflow-y-auto custom-scrollbar">
-            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center font-bold">
-                        <i class="fa-solid fa-calculator text-xl"></i>
-                    </div>
-                    <div>
-                        <h3 class="text-base font-bold text-slate-900">Form Chốt Công Nợ Thanh Lý Hợp Đồng</h3>
-                        <p class="text-xs text-slate-500" id="liqRoomTitle">Mã phòng: NH-302</p>
-                    </div>
-                </div>
-                <button onclick="closeLiquidationModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </div>
 
-            <form onsubmit="handleLiquidationSubmit(event)" class="space-y-4 text-xs">
-                
-                <!-- 1. THÔNG TIN KHÁCH THUÊ & TIỀN CỌC ĐANG GIỮ -->
-                <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 grid grid-cols-2 gap-3">
-                    <div>
-                        <span class="text-slate-500 block">Khách thuê thanh lý:</span>
-                        <strong class="text-slate-900 text-sm" id="liqTenantName">Nguyễn Văn An</strong>
-                    </div>
-                    <div>
-                        <span class="text-slate-500 block">Tiền cọc đang giữ (Tự động từ tbl_hop_dong):</span>
-                        <strong class="text-skybrand-600 text-sm" id="liqDepositDisplay">3,500,000 VNĐ</strong>
-                    </div>
-                </div>
-
-                <!-- 2. CHỐT ĐIỆN NƯỚC LẦN CUỐI & SỐ NGÀY Ở LẺ -->
-                <div class="p-4 rounded-2xl bg-skybrand-50/60 border border-skybrand-200 space-y-3">
-                    <h4 class="font-extrabold text-slate-900 text-xs flex items-center gap-1.5">
-                        <i class="fa-solid fa-bolt text-amber-500"></i> 1. Chốt Chỉ Số Điện Nước Lần Cuối (Ngày Khách Dọn Đi):
-                    </h4>
-                    
-                    <div class="grid grid-cols-3 gap-3">
-                        <div>
-                            <label class="font-bold text-slate-700 block mb-1">Số ngày ở lẻ tháng này:</label>
-                            <input type="number" id="liqDays" value="10" min="1" max="31" oninput="calculateLiquidation()" class="w-full p-2 rounded-xl border border-slate-200 font-bold">
-                        </div>
-                        <div>
-                            <label class="font-bold text-slate-700 block mb-1">Chỉ số Điện mới (kWh):</label>
-                            <input type="number" id="liqElecEnd" value="1500" oninput="calculateLiquidation()" class="w-full p-2 rounded-xl border border-slate-200 font-mono">
-                        </div>
-                        <div>
-                            <label class="font-bold text-slate-700 block mb-1">Chỉ số Nước mới (m3):</label>
-                            <input type="number" id="liqWaterEnd" value="55" oninput="calculateLiquidation()" class="w-full p-2 rounded-xl border border-slate-200 font-mono">
-                        </div>
-                    </div>
-
-                    <p class="text-[11px] text-slate-500">
-                        * Tiền điện lẻ (3.500đ/kWh) + Tiền nước lẻ (14.000đ/m3) + Tiền phòng lẻ theo 10 ngày ở.
-                    </p>
-                </div>
-
-                <!-- 3. PHÍ BỒI THƯỜNG (DAMAGE FEE) -->
-                <div>
-                    <label class="font-bold text-slate-700 block mb-1">2. Phí Bồi Thường Tài Sản / Vệ Sinh (Damage Fee):</label>
-                    <input type="number" id="liqDamageFee" value="500000" placeholder="Nhập số tiền phạt nếu khách làm hỏng giường, tủ hoặc bẩn tường..." oninput="calculateLiquidation()" 
-                           class="w-full p-2.5 rounded-xl border border-slate-200 font-bold text-rose-600 focus:ring-2 focus:ring-rose-500 focus:outline-none">
-                    <span class="text-[10px] text-slate-400 mt-1 block">Ô để chủ nhà nhập tiền phạt nếu khách làm hỏng thiết bị hoặc vệ sinh bẩn.</span>
-                </div>
-
-                <!-- 4. NỢ CŨ CHƯA ĐÓNG -->
-                <div>
-                    <label class="font-bold text-slate-700 block mb-1">3. Các Khoản Nợ Cũ Chưa Thanh Toán (Nếu có):</label>
-                    <input type="number" id="liqOldDebt" value="3850000" oninput="calculateLiquidation()" 
-                           class="w-full p-2.5 rounded-xl border border-slate-200 font-bold text-amber-600">
-                </div>
-
-                <!-- ========================================================================= -->
-                <!-- 5. TỔNG KẾT TỰ ĐỘNG (RẼ NHÁNH 2 KỊCH BẢN A & B) -->
-                <!-- ========================================================================= -->
-                <div class="pt-2 border-t border-slate-200 space-y-3">
-                    <h4 class="font-black text-slate-900 text-xs">KẾT QUẢ TỔNG KẾT CHỐT CÔNG NỢ (RẼ NHÁNH 2 KỊCH BẢN):</h4>
-                    
-                    <!-- KỊCH BẢN A: Khách nợ nhiều hơn Cọc (Hiển thị CHỮ ĐỎ) -->
-                    <div id="scenarioA" class="p-4 rounded-2xl bg-rose-50 border-2 border-rose-300 space-y-1">
-                        <div class="flex items-center gap-2 text-rose-700 font-extrabold text-sm">
-                            <i class="fa-solid fa-triangle-exclamation text-lg"></i>
-                            <span>KỊCH BẢN A: Khách nợ nhiều hơn Cọc</span>
-                        </div>
-                        <p class="text-xs text-slate-700">Tổng nợ phát sinh: <strong id="totalDebtA">0đ</strong> | Trừ Tiền Cọc đang giữ: <strong id="depositA">0đ</strong></p>
-                        <p class="text-base font-black text-rose-600 pt-1">
-                            <i class="fa-solid fa-arrow-circle-right"></i> KẾT QUẢ: KHÁCH CẦN ĐÓNG THÊM: <span id="amountClientMustPay" class="text-lg underline">0 VNĐ</span>
-                        </p>
-                    </div>
-
-                    <!-- KỊCH BẢN B: Cọc nhiều hơn số nợ (Hiển thị CHỮ XANH) -->
-                    <div id="scenarioB" class="hidden p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-300 space-y-1">
-                        <div class="flex items-center gap-2 text-emerald-700 font-extrabold text-sm">
-                            <i class="fa-solid fa-circle-check text-lg"></i>
-                            <span>KỊCH BẢN B: Cọc nhiều hơn số nợ</span>
-                        </div>
-                        <p class="text-xs text-slate-700">Tiền cọc giữ: <strong id="depositB">0đ</strong> | Trừ Tổng nợ phát sinh: <strong id="totalDebtB">0đ</strong></p>
-                        <p class="text-base font-black text-emerald-600 pt-1">
-                            <i class="fa-solid fa-arrow-circle-right"></i> KẾT QUẢ: CHỦ NHÀ CẦN HOÀN TRẢ LẠI KHÁCH: <span id="amountOwnerMustReturn" class="text-lg underline">0 VNĐ</span>
-                        </p>
-                    </div>
-                </div>
-
-                <div class="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-end gap-2.5">
-                    <button type="button" onclick="closeLiquidationModal()" 
-                            class="w-full sm:w-auto py-2.5 px-4 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-all">
-                        Hủy bỏ
-                    </button>
-                    <button type="button" onclick="openLiquidationDetailsModal()" 
-                            class="w-full sm:w-auto py-2.5 px-4 rounded-xl bg-skybrand-600 hover:bg-skybrand-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all">
-                        <i class="fa-solid fa-file-invoice-dollar"></i>
-                        <span>Xem chi tiết</span>
-                    </button>
-                    <button type="submit" 
-                            class="w-full sm:w-auto py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md transition-all">
-                        <i class="fa-solid fa-check"></i>
-                        <span>Xác nhận thanh lý &amp; trả phòng</span>
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-
-    <!-- ========================================================================= -->
-    <!-- MODAL XEM CHI TIẾT BẢNG TÍNH CÔNG NỢ THANH LÝ HỢP ĐỒNG -->
-    <!-- ========================================================================= -->
-    <div id="liquidationDetailsModal" class="fixed inset-0 z-[60] hidden bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5 border border-slate-100 max-h-[90vh] overflow-y-auto custom-scrollbar">
-            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-2xl bg-skybrand-100 text-skybrand-600 flex items-center justify-center font-bold">
-                        <i class="fa-solid fa-list-check text-xl"></i>
-                    </div>
-                    <div>
-                        <h3 class="text-base font-bold text-slate-900">Chi Tiết Bảng Tính Công Nợ Thanh Lý</h3>
-                        <p class="text-xs text-slate-500" id="detRoomTitle">Mã phòng: <span id="detRoomCode">NH-302</span></p>
-                    </div>
-                </div>
-                <button onclick="closeLiquidationDetailsModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </div>
-
-            <div class="space-y-4 text-xs">
-                <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 flex justify-between items-center">
-                    <span class="text-slate-600 font-bold">Khách thuê:</span>
-                    <strong class="text-slate-900 font-extrabold" id="detTenant">Nguyễn Văn An</strong>
-                </div>
-
-                <div class="space-y-2 border-t border-b border-slate-100 py-3">
-                    <h4 class="font-extrabold text-slate-800 uppercase tracking-wider text-[10px]">Danh sách các khoản nợ &amp; chi phí:</h4>
-                    
-                    <div class="flex justify-between items-center py-1 border-b border-dashed border-slate-200">
-                        <span class="text-slate-600">1. Tiền ở lẻ trong tháng:</span>
-                        <strong class="text-slate-800 font-mono" id="detDays">10 ngày (1,166,667đ)</strong>
-                    </div>
-                    <div class="flex justify-between items-center py-1 border-b border-dashed border-slate-200">
-                        <span class="text-slate-600">2. Tiền điện lẻ sử dụng:</span>
-                        <strong class="text-slate-800 font-mono" id="detElec">80 kWh (280,000đ)</strong>
-                    </div>
-                    <div class="flex justify-between items-center py-1 border-b border-dashed border-slate-200">
-                        <span class="text-slate-600">3. Tiền nước lẻ sử dụng:</span>
-                        <strong class="text-slate-800 font-mono" id="detWater">5 m3 (70,000đ)</strong>
-                    </div>
-                    <div class="flex justify-between items-center py-1 border-b border-dashed border-slate-200">
-                        <span class="text-slate-600">4. Phí phạt bồi thường hỏng hóc:</span>
-                        <strong class="text-rose-600 font-mono" id="detDamage">500,000đ</strong>
-                    </div>
-                    <div class="flex justify-between items-center py-1">
-                        <span class="text-slate-600">5. Các khoản nợ cũ đọng lại:</span>
-                        <strong class="text-amber-600 font-mono" id="detOldDebt">3,850,000đ</strong>
-                    </div>
-                </div>
-
-                <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-                    <div class="flex justify-between items-center text-slate-700">
-                        <span>TỔNG NỢ PHÁT SINH:</span>
-                        <strong class="text-slate-900 font-bold" id="detTotalDebt">5,866,667 VNĐ</strong>
-                    </div>
-                    <div class="flex justify-between items-center text-skybrand-700">
-                        <span>TIỀN CỌC ĐANG GIỮ (Khấu trừ):</span>
-                        <strong class="font-bold" id="detDeposit">- 3,500,000 VNĐ</strong>
-                    </div>
-                    <div class="my-2 border-t border-slate-300"></div>
-                    <div class="flex justify-between items-center">
-                        <span class="font-black text-slate-900">KẾT QUẢ CUỐI CÙNG:</span>
-                        <span id="detFinalResult" class="text-rose-600 font-extrabold text-sm">Khách cần đóng thêm: 2,366,667 VNĐ</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pt-2 flex justify-end">
-                <button type="button" onclick="closeLiquidationDetailsModal()" class="py-2.5 px-6 rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-800 transition-all">
-                    Đóng Chi Tiết
-                </button>
-            </div>
-        </div>
-    </div>
 
 
     <!-- ========================================================================= -->
@@ -1151,150 +922,7 @@
             showToast("Đã khởi tạo hợp đồng cho thuê thành công và lưu vào hệ thống!");
         }
 
-        // 2. MODAL FORM CHỐT CÔNG NỢ THANH LÝ HỢP ĐỒNG & RẼ NHÁNH 2 KỊCH BẢN A / B
-        let currentLiquidationRoomCode = 'NH-302';
-        let currentLiqDeposit = 3500000;
-        let currentLiqRent = 3500000;
 
-        function openLiquidationModal(roomCode, tenantName, deposit, rentPrice, elecStart, elecEnd, waterStart, waterEnd) {
-            currentLiquidationRoomCode = roomCode;
-            currentLiqDeposit = deposit;
-            currentLiqRent = rentPrice;
-
-            document.getElementById('liqRoomTitle').innerText = "Mã phòng thanh lý: " + roomCode;
-            document.getElementById('liqTenantName').innerText = tenantName;
-            document.getElementById('liqDepositDisplay').innerText = deposit.toLocaleString('vi-VN') + " VNĐ";
-            
-            document.getElementById('liqElecEnd').value = elecEnd;
-            document.getElementById('liqWaterEnd').value = waterEnd;
-            document.getElementById('liqDays').value = 10;
-            document.getElementById('liqDamageFee').value = 500000;
-
-            calculateLiquidation();
-            document.getElementById('liquidationModal').classList.remove('hidden');
-        }
-
-        function closeLiquidationModal() {
-            document.getElementById('liquidationModal').classList.add('hidden');
-        }
-
-        // TÍNH TOÁN CÔNG NỢ TỰ ĐỘNG VÀ RẼ NHÁNH KỊCH BẢN A VÀ KỊCH BẢN B
-        function calculateLiquidation() {
-            const days = parseInt(document.getElementById('liqDays').value) || 0;
-            const damageFee = parseInt(document.getElementById('liqDamageFee').value) || 0;
-            const oldDebt = parseInt(document.getElementById('liqOldDebt').value) || 0;
-
-            // Tính tiền phòng lẻ theo số ngày ở
-            const proRatedRent = Math.round((currentLiqRent / 30) * days);
-            
-            // Tổng nợ = Tiền phòng lẻ + Phí phạt hỏng hóc + Nợ cũ chưa đóng
-            const totalDebt = proRatedRent + damageFee + oldDebt;
-            const deposit = currentLiqDeposit;
-
-            const scenarioA = document.getElementById('scenarioA');
-            const scenarioB = document.getElementById('scenarioB');
-
-            if (totalDebt > deposit) {
-                // KỊCH BẢN A: Khách nợ nhiều hơn Cọc -> Khách cần đóng thêm (CHỮ ĐỎ)
-                const clientMustPay = totalDebt - deposit;
-                scenarioA.classList.remove('hidden');
-                scenarioB.classList.add('hidden');
-
-                document.getElementById('totalDebtA').innerText = totalDebt.toLocaleString('vi-VN') + "đ";
-                document.getElementById('depositA').innerText = deposit.toLocaleString('vi-VN') + "đ";
-                document.getElementById('amountClientMustPay').innerText = clientMustPay.toLocaleString('vi-VN') + " VNĐ";
-            } else {
-                // KỊCH BẢN B: Cọc nhiều hơn Nợ -> Chủ nhà hoàn trả lại khách (CHỮ XANH)
-                const ownerMustReturn = deposit - totalDebt;
-                scenarioA.classList.add('hidden');
-                scenarioB.classList.remove('hidden');
-
-                document.getElementById('depositB').innerText = deposit.toLocaleString('vi-VN') + "đ";
-                document.getElementById('totalDebtB').innerText = totalDebt.toLocaleString('vi-VN') + "đ";
-                document.getElementById('amountOwnerMustReturn').innerText = ownerMustReturn.toLocaleString('vi-VN') + " VNĐ";
-            }
-        }
-
-        function handleLiquidationSubmit(e) {
-            e.preventDefault();
-            closeLiquidationModal();
-
-            const targetRoomCode = currentLiquidationRoomCode || 'NH-302';
-            const targetCard = document.getElementById('card-' + targetRoomCode);
-
-            if (targetCard) {
-                targetCard.classList.remove('unpaid', 'border-rose-200');
-                targetCard.classList.add('paid', 'border-slate-200/90');
-                targetCard.querySelector('.relative').innerHTML = `
-                    <div class="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-2xl border border-emerald-200">
-                        <i class="fa-solid fa-door-open"></i>
-                    </div>
-                    <span class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white shadow-md" title="Đã thu tiền / Đã thanh lý"></span>
-                `;
-                const badgeSpan = targetCard.querySelector('.space-y-1 .flex span');
-                if (badgeSpan) {
-                    badgeSpan.className = "px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-[11px] flex items-center gap-1";
-                    badgeSpan.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-600 inline-block"></span> ĐÃ THU TIỀN`;
-                }
-            }
-
-            // Tính toán lại số phòng chưa thu tiền còn lại
-            const remainingUnpaid = document.querySelectorAll('.room-card.unpaid').length;
-            const remainingPaid = 5 - remainingUnpaid;
-
-            const statPaid = document.getElementById('statPaidCount');
-            const statUnpaid = document.getElementById('statUnpaidCount');
-            if (statPaid) statPaid.innerText = remainingPaid + " Phòng";
-            if (statUnpaid) statUnpaid.innerText = remainingUnpaid + " Phòng";
-
-            showToast("Đã chốt công nợ & hoàn tất thanh lý hợp đồng phòng " + targetRoomCode + " thành công!");
-        }
-
-        // HÀM MỞ / ĐÓNG MODAL XEM CHI TIẾT CÔNG NỢ THANH LÝ
-        function openLiquidationDetailsModal() {
-            const days = parseInt(document.getElementById('liqDays').value) || 0;
-            const damageFee = parseInt(document.getElementById('liqDamageFee').value) || 0;
-            const oldDebt = parseInt(document.getElementById('liqOldDebt').value) || 0;
-
-            const roomCode = currentLiquidationRoomCode || 'NH-302';
-            const tenantName = document.getElementById('liqTenantName').innerText;
-
-            const proRatedRent = Math.round((currentLiqRent / 30) * days);
-            const elecUsage = 80;
-            const elecCost = elecUsage * 3500;
-            const waterUsage = 5;
-            const waterCost = waterUsage * 14000;
-
-            const totalDebt = proRatedRent + elecCost + waterCost + damageFee + oldDebt;
-            const deposit = currentLiqDeposit;
-            const balance = totalDebt - deposit;
-
-            document.getElementById('detRoomCode').innerText = roomCode;
-            document.getElementById('detTenant').innerText = tenantName;
-            document.getElementById('detDays').innerText = days + " ngày (" + proRatedRent.toLocaleString('vi-VN') + "đ)";
-            document.getElementById('detElec').innerText = elecUsage + " kWh (" + elecCost.toLocaleString('vi-VN') + "đ)";
-            document.getElementById('detWater').innerText = waterUsage + " m3 (" + waterCost.toLocaleString('vi-VN') + "đ)";
-            document.getElementById('detDamage').innerText = damageFee.toLocaleString('vi-VN') + "đ";
-            document.getElementById('detOldDebt').innerText = oldDebt.toLocaleString('vi-VN') + "đ";
-            document.getElementById('detTotalDebt').innerText = totalDebt.toLocaleString('vi-VN') + " VNĐ";
-            document.getElementById('detDeposit').innerText = "- " + deposit.toLocaleString('vi-VN') + " VNĐ";
-
-            const resultEl = document.getElementById('detFinalResult');
-            if (balance > 0) {
-                resultEl.className = "text-rose-600 font-extrabold text-sm";
-                resultEl.innerText = "Khách cần đóng thêm: " + balance.toLocaleString('vi-VN') + " VNĐ";
-            } else {
-                const refund = Math.abs(balance);
-                resultEl.className = "text-emerald-600 font-extrabold text-sm";
-                resultEl.innerText = "Chủ nhà cần hoàn trả lại khách: " + refund.toLocaleString('vi-VN') + " VNĐ";
-            }
-
-            document.getElementById('liquidationDetailsModal').classList.remove('hidden');
-        }
-
-        function closeLiquidationDetailsModal() {
-            document.getElementById('liquidationDetailsModal').classList.add('hidden');
-        }
 
         // 3. FORM CÔNG NỢ ĐANG CHỜ (MỞ TRỰC TIẾP TỪ NÚT "FORM CÔNG NỢ" VÀ CÓ NÚT XÁC NHẬN THU TIỀN)
         function openPendingDebtModal(roomCode, tenantName, amount, note) {
