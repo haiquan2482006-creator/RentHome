@@ -136,7 +136,7 @@
                         Danh Sách Tòa Nhà & Phòng Cho Thuê
                     </h1>
                     <p class="text-slate-300 text-sm sm:text-base max-w-2xl font-normal">
-                        Theo dõi tiến độ đóng tiền (Đã thu tiền / Chưa thu tiền), chốt điện nước hàng tháng, xem hợp đồng & chốt công nợ thanh lý.
+                        Theo dõi tiến độ đóng tiền (Đã thu tiền / Chưa thu tiền), chốt điện nước & tạo hóa đơn hàng tháng, xem hợp đồng & chốt công nợ thanh lý.
                     </p>
                 </div>
 
@@ -233,24 +233,24 @@
                         <span>Thanh Lý Hợp Đồng</span>
                     </a>
 
-                    <!-- Nút Chốt Điện Nước -->
-                    <button onclick="openMonthlyBillModal('NH-302', 'Nguyễn Văn An', 1500, 55)"
-                            class="py-2.5 px-3.5 rounded-xl bg-skybrand-600 hover:bg-skybrand-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
-                        <i class="fa-solid fa-bolt"></i>
-                        <span>Chốt Điện Nước</span>
-                    </button>
+                    <!-- Nút Tạo Hóa Đơn -->
+                    <a href="{{ url('qlvan_hanh/tao_hoa_don') }}?room=NH-302"
+                       class="py-2.5 px-3.5 rounded-xl bg-skybrand-600 hover:bg-skybrand-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                        <i class="fa-solid fa-file-invoice-dollar"></i>
+                        <span>Tạo Hóa Đơn</span>
+                    </a>
 
                     <!-- Nút Xem Hóa Đơn -->
                     <button onclick="openViewInvoiceModal('NH-302', 'HD-202610-302', 'Nguyễn Văn An', '3,850,000đ', 'Chưa thu tiền')"
-                            class="py-2.5 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center gap-1.5 transition-all">
+                            class="py-2.5 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
                         <i class="fa-solid fa-receipt"></i>
                         <span>Xem Hóa Đơn</span>
                     </button>
 
                     <!-- Nút Xem Hợp Đồng -->
                     <button onclick="openViewContractModal('NH-302', 'HD-2026-302', 'Nguyễn Văn An', '0912 345 678', '3,500,000đ', '3,500,000đ', '01/06/2026', '01/06/2027')"
-                            class="py-2.5 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center gap-1.5 transition-all">
-                        <i class="fa-solid fa-file-lines"></i>
+                            class="py-2.5 px-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                        <i class="fa-solid fa-file-signature"></i>
                         <span>Xem Hợp Đồng</span>
                     </button>
                 </div>
@@ -293,21 +293,21 @@
                         <span>Thanh Lý Hợp Đồng</span>
                     </a>
 
-                    <button onclick="openMonthlyBillModal('VH-1208', 'Trần Thị Minh', 2250, 115)"
-                            class="py-2.5 px-3.5 rounded-xl bg-skybrand-600 hover:bg-skybrand-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
-                        <i class="fa-solid fa-bolt"></i>
-                        <span>Chốt Điện Nước</span>
-                    </button>
+                    <a href="{{ url('qlvan_hanh/tao_hoa_don') }}?room=VH-1208"
+                       class="py-2.5 px-3.5 rounded-xl bg-skybrand-600 hover:bg-skybrand-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                        <i class="fa-solid fa-file-invoice-dollar"></i>
+                        <span>Tạo Hóa Đơn</span>
+                    </a>
 
                     <button onclick="openViewInvoiceModal('VH-1208', 'HD-202609-VH', 'Trần Thị Minh', '7,850,000đ', 'Đã thu tiền')"
-                            class="py-2.5 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center gap-1.5 transition-all">
+                            class="py-2.5 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
                         <i class="fa-solid fa-receipt"></i>
                         <span>Xem Hóa Đơn</span>
                     </button>
 
                     <button onclick="openViewContractModal('VH-1208', 'HD-2026-VH', 'Trần Thị Minh', '0908 777 666', '7,500,000đ', '7,500,000đ', '15/01/2026', '15/01/2027')"
-                            class="py-2.5 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center gap-1.5 transition-all">
-                        <i class="fa-solid fa-file-lines"></i>
+                            class="py-2.5 px-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                        <i class="fa-solid fa-file-signature"></i>
                         <span>Xem Hợp Đồng</span>
                     </button>
                 </div>
@@ -349,21 +349,21 @@
                         <span>Thanh Lý Hợp Đồng</span>
                     </a>
 
-                    <button onclick="openMonthlyBillModal('MT-1504', 'Lê Hoàng Nam', 1920, 92)"
-                            class="py-2.5 px-3.5 rounded-xl bg-skybrand-600 hover:bg-skybrand-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
-                        <i class="fa-solid fa-bolt"></i>
-                        <span>Chốt Điện Nước</span>
-                    </button>
+                    <a href="{{ url('qlvan_hanh/tao_hoa_don') }}?room=MT-1504"
+                       class="py-2.5 px-3.5 rounded-xl bg-skybrand-600 hover:bg-skybrand-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                        <i class="fa-solid fa-file-invoice-dollar"></i>
+                        <span>Tạo Hóa Đơn</span>
+                    </a>
 
                     <button onclick="openViewInvoiceModal('MT-1504', 'HD-202609-MT', 'Lê Hoàng Nam', '10,950,000đ', 'Đã thu tiền')"
-                            class="py-2.5 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center gap-1.5 transition-all">
+                            class="py-2.5 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
                         <i class="fa-solid fa-receipt"></i>
                         <span>Xem Hóa Đơn</span>
                     </button>
 
                     <button onclick="openViewContractModal('MT-1504', 'HD-2026-MT', 'Lê Hoàng Nam', '0938 111 222', '10,500,000đ', '10,500,000đ', '10/02/2026', '10/02/2027')"
-                            class="py-2.5 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center gap-1.5 transition-all">
-                        <i class="fa-solid fa-file-lines"></i>
+                            class="py-2.5 px-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                        <i class="fa-solid fa-file-signature"></i>
                         <span>Xem Hợp Đồng</span>
                     </button>
                 </div>
@@ -408,24 +408,24 @@
                         <span>Thanh Lý Hợp Đồng</span>
                     </a>
 
-                    <!-- Nút Chốt Điện Nước -->
-                    <button onclick="openMonthlyBillModal('KVC-201', 'Phạm Văn Hải', 1020, 42)"
-                            class="py-2.5 px-3.5 rounded-xl bg-skybrand-600 hover:bg-skybrand-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
-                        <i class="fa-solid fa-bolt"></i>
-                        <span>Chốt Điện Nước</span>
-                    </button>
+                    <!-- Nút Tạo Hóa Đơn -->
+                    <a href="{{ url('qlvan_hanh/tao_hoa_don') }}?room=KVC-201"
+                       class="py-2.5 px-3.5 rounded-xl bg-skybrand-600 hover:bg-skybrand-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                        <i class="fa-solid fa-file-invoice-dollar"></i>
+                        <span>Tạo Hóa Đơn</span>
+                    </a>
 
                     <!-- Nút Xem Hóa Đơn -->
                     <button onclick="openViewInvoiceModal('KVC-201', 'HD-202610-KVC', 'Phạm Văn Hải', '4,620,000đ', 'Chưa thu tiền')"
-                            class="py-2.5 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center gap-1.5 transition-all">
+                            class="py-2.5 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
                         <i class="fa-solid fa-receipt"></i>
                         <span>Xem Hóa Đơn</span>
                     </button>
 
                     <!-- Nút Xem Hợp Đồng -->
                     <button onclick="openViewContractModal('KVC-201', 'HD-2026-KVC', 'Phạm Văn Hải', '0977 444 333', '4,200,000đ', '4,200,000đ', '01/04/2026', '01/04/2027')"
-                            class="py-2.5 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center gap-1.5 transition-all">
-                        <i class="fa-solid fa-file-lines"></i>
+                            class="py-2.5 px-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                        <i class="fa-solid fa-file-signature"></i>
                         <span>Xem Hợp Đồng</span>
                     </button>
                 </div>
@@ -467,21 +467,21 @@
                         <span>Thanh Lý Hợp Đồng</span>
                     </a>
 
-                    <button onclick="openMonthlyBillModal('NX-101', 'Vũ Thị Lan', 3280, 175)"
-                            class="py-2.5 px-3.5 rounded-xl bg-skybrand-600 hover:bg-skybrand-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
-                        <i class="fa-solid fa-bolt"></i>
-                        <span>Chốt Điện Nước</span>
-                    </button>
+                    <a href="{{ url('qlvan_hanh/tao_hoa_don') }}?room=NX-101"
+                       class="py-2.5 px-3.5 rounded-xl bg-skybrand-600 hover:bg-skybrand-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                        <i class="fa-solid fa-file-invoice-dollar"></i>
+                        <span>Tạo Hóa Đơn</span>
+                    </a>
 
                     <button onclick="openViewInvoiceModal('NX-101', 'HD-202609-NX', 'Vũ Thị Lan', '12,650,000đ', 'Đã thu tiền')"
-                            class="py-2.5 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center gap-1.5 transition-all">
+                            class="py-2.5 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
                         <i class="fa-solid fa-receipt"></i>
                         <span>Xem Hóa Đơn</span>
                     </button>
 
                     <button onclick="openViewContractModal('NX-101', 'HD-2026-NX', 'Vũ Thị Lan', '0903 888 999', '12,000,000đ', '12,000,000đ', '15/08/2026', '15/08/2027')"
-                            class="py-2.5 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center gap-1.5 transition-all">
-                        <i class="fa-solid fa-file-lines"></i>
+                            class="py-2.5 px-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                        <i class="fa-solid fa-file-signature"></i>
                         <span>Xem Hợp Đồng</span>
                     </button>
                 </div>
@@ -709,107 +709,226 @@
 
 
     <!-- ========================================================================= -->
-    <!-- MODAL 5: XEM HÓA ĐƠN & CÓ NÚT XÁC NHẬN ĐÃ THU TIỀN -->
+    <!-- MODAL 5: XEM HÓA ĐƠN CHI TIẾT (DESIGN MỚI ĐẲNG CẤP DẠNG BẢNG & VIETQR) -->
     <!-- ========================================================================= -->
-    <div id="viewInvoiceModal" class="fixed inset-0 z-50 hidden bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5 border border-slate-100">
-            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold">
-                        <i class="fa-solid fa-receipt text-xl"></i>
+    <div id="viewInvoiceModal" class="fixed inset-0 z-50 hidden bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden border border-slate-100 max-h-[92vh] flex flex-col transform transition-all animate-in fade-in zoom-in duration-200">
+            
+            <!-- HEADER BANNER ĐÊM SANG TRỌNG -->
+            <div class="bg-[#0b132a] p-6 text-white relative overflow-hidden shrink-0">
+                <div class="relative z-10 flex items-center justify-between gap-4">
+                    <div class="space-y-1">
+                        <div class="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-bold uppercase tracking-wider">
+                            <i class="fa-solid fa-receipt"></i> Thông Tin Hóa Đơn Thuê Nhà
+                        </div>
+                        <h3 class="text-xl sm:text-2xl font-extrabold text-white">Chi Tiết Hóa Đơn Hàng Tháng</h3>
+                        <p class="text-xs text-slate-300 font-mono" id="viCode">Mã HĐ: HD-202610-302</p>
                     </div>
-                    <div>
-                        <h3 class="text-base font-bold text-slate-900">Chi Tiết Hóa Đơn</h3>
-                        <p class="text-xs text-slate-500" id="viCode">Mã HĐ: HD-202610-302</p>
-                    </div>
+
+                    <button onclick="closeViewInvoiceModal()" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
                 </div>
-                <button onclick="closeViewInvoiceModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
             </div>
 
-            <div class="space-y-4 text-xs">
-                <div class="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+            <!-- BODY CONTAINER -->
+            <div class="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1 text-xs">
+                
+                <!-- THÔNG TIN KHÁCH THUÊ & TRẠNG THÁI -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-200/90">
                     <div>
-                        <span class="text-slate-500 block">Khách thuê:</span>
-                        <strong class="text-slate-900 text-sm" id="viTenant">Nguyễn Văn An</strong>
+                        <span class="text-slate-400 font-medium block">Khách thuê đại diện:</span>
+                        <strong class="text-slate-900 text-sm font-bold block mt-0.5" id="viTenant">Nguyễn Văn An</strong>
                     </div>
-                    <div class="text-right">
-                        <span class="text-slate-500 block">Trạng thái:</span>
-                        <span id="viStatusBadge" class="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 font-extrabold text-[11px]">
-                            Chưa thu tiền
+                    <div>
+                        <span class="text-slate-400 font-medium block">Mã phòng:</span>
+                        <strong class="text-slate-900 text-sm font-bold block mt-0.5" id="viRoomCode">NH-302</strong>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 font-medium block">Trạng thái thanh toán:</span>
+                        <span id="viStatusBadge" class="mt-1 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-100 text-rose-700 font-extrabold text-xs">
+                            <span class="w-2 h-2 rounded-full bg-rose-600 inline-block"></span> Chưa Thu Tiền
                         </span>
                     </div>
                 </div>
 
-                <div class="border border-slate-200 rounded-xl overflow-hidden">
-                    <table class="w-full text-left text-xs">
-                        <thead class="bg-slate-100 text-slate-600 font-bold">
+                <!-- BẢNG CHI TIẾT HẠNG MỤC PHÍ -->
+                <div class="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead class="bg-slate-100 text-slate-700 font-extrabold uppercase tracking-wider text-[11px]">
                             <tr>
-                                <th class="p-2.5">Hạng mục</th>
-                                <th class="p-2.5 text-right">Thành tiền</th>
+                                <th class="py-3 px-4">Hạng mục chi phí</th>
+                                <th class="py-3 px-4 text-center">Số lượng / Gói</th>
+                                <th class="py-3 px-4 text-right">Thành tiền</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-100">
-                            <tr><td class="p-2.5">Tiền phòng tháng 10</td><td class="p-2.5 text-right font-bold">3,500,000đ</td></tr>
-                            <tr><td class="p-2.5">Tiền điện (80 kWh)</td><td class="p-2.5 text-right font-bold">280,000đ</td></tr>
-                            <tr><td class="p-2.5">Tiền nước (5 m3)</td><td class="p-2.5 text-right font-bold">70,000đ</td></tr>
-                            <tr><td class="p-2.5">Phí Internet / Dịch vụ</td><td class="p-2.5 text-right font-bold">100,000đ</td></tr>
+                        <tbody class="divide-y divide-slate-100 font-medium text-slate-800">
+                            <tr class="hover:bg-slate-50/80">
+                                <td class="py-3 px-4 flex items-center gap-2 font-bold">
+                                    <i class="fa-solid fa-house-user text-brand-600"></i> Tiền phòng kỳ này
+                                </td>
+                                <td class="py-3 px-4 text-center text-slate-500">Trọn 1 tháng</td>
+                                <td class="py-3 px-4 text-right font-extrabold text-slate-900">3,500,000đ</td>
+                            </tr>
+                            <tr class="hover:bg-slate-50/80">
+                                <td class="py-3 px-4 flex items-center gap-2 font-bold">
+                                    <i class="fa-solid fa-bolt text-amber-500"></i> Tiền điện hàng tháng
+                                </td>
+                                <td class="py-3 px-4 text-center text-slate-500">80 kWh x 3,500đ</td>
+                                <td class="py-3 px-4 text-right font-extrabold text-amber-700">280,000đ</td>
+                            </tr>
+                            <tr class="hover:bg-slate-50/80">
+                                <td class="py-3 px-4 flex items-center gap-2 font-bold">
+                                    <i class="fa-solid fa-droplet text-skybrand-500"></i> Tiền nước hàng tháng
+                                </td>
+                                <td class="py-3 px-4 text-center text-slate-500">10 m³ x 15,000đ</td>
+                                <td class="py-3 px-4 text-right font-extrabold text-skybrand-700">150,000đ</td>
+                            </tr>
+                            <tr class="hover:bg-slate-50/80">
+                                <td class="py-3 px-4 flex items-center gap-2 font-bold">
+                                    <i class="fa-solid fa-wifi text-indigo-500"></i> Phí Wifi & Vệ sinh rác
+                                </td>
+                                <td class="py-3 px-4 text-center text-slate-500">Gói cố định</td>
+                                <td class="py-3 px-4 text-right font-extrabold text-indigo-700">150,000đ</td>
+                            </tr>
                         </tbody>
-                        <tfoot class="bg-slate-50 font-bold border-t border-slate-200">
-                            <tr><td class="p-2.5 text-slate-900">Tổng cộng:</td><td class="p-2.5 text-right text-rose-600 text-sm font-black" id="viTotal">3,850,000đ</td></tr>
-                        </tfoot>
                     </table>
                 </div>
 
-                <!-- NÚT XÁC NHẬN ĐÃ THU TIỀN -->
-                <div id="viCollectBtnContainer" class="pt-2">
-                    <button onclick="confirmCollectMoneyFromInvoiceModal()" class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-all">
-                        <i class="fa-solid fa-circle-check text-sm"></i>
-                        <span>Xác Nhận Đã Thu Tiền</span>
-                    </button>
+                <!-- KHUNG HIGHLIGHT TỔNG TIỀN -->
+                <div id="viTotalBox" class="p-5 rounded-2xl bg-rose-50 border border-rose-200 text-center space-y-1">
+                    <span class="text-xs font-bold text-rose-600 uppercase tracking-wider block">TỔNG CỘNG TIỀN HÓA ĐƠN THÁNG</span>
+                    <div class="text-2xl sm:text-3xl font-black text-rose-600 tracking-tight" id="viTotal">
+                        3,850,000đ
+                    </div>
                 </div>
+
+                <!-- THANH TOÁN VIETQR PREVIEW -->
+                <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div class="space-y-1 text-center sm:text-left">
+                        <span class="font-extrabold text-slate-800 block text-xs flex items-center gap-1.5 justify-center sm:justify-start">
+                            <i class="fa-solid fa-qrcode text-emerald-600"></i> Quét VietQR Chuyển Khoản Nhanh
+                        </span>
+                        <p class="text-slate-500 text-[11px]">Ngân hàng MB Bank: <strong class="text-slate-800 font-mono">9999 8888 999</strong></p>
+                        <p class="text-slate-500 text-[11px]">Chủ TK: <strong class="text-slate-800">NGUYEN VAN CHU NHA</strong></p>
+                    </div>
+
+                    <div class="w-24 h-24 bg-white p-1.5 rounded-xl border border-slate-200 shadow-sm shrink-0">
+                        <img id="viQrCodeImg" src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=RentHome_Invoice_NH302_3850000" alt="VietQR" class="w-full h-full object-contain">
+                    </div>
+                </div>
+
+                <!-- BOTTOM ACTIONS TOOLBAR -->
+                <div class="space-y-2.5 pt-2">
+                    <div id="viCollectBtnContainer">
+                        <button onclick="confirmCollectMoneyFromInvoiceModal()" class="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-glow transition-all">
+                            <i class="fa-solid fa-circle-check text-sm"></i>
+                            <span>XÁC NHẬN ĐÃ THU TIỀN HÓA ĐƠN</span>
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        <button onclick="sendZaloInvoiceFromModal()" class="py-2.5 px-3 rounded-xl bg-skybrand-600 hover:bg-skybrand-700 text-white font-bold flex items-center justify-center gap-2 transition-all">
+                            <i class="fa-solid fa-paper-plane"></i>
+                            <span>Gửi Zalo Cho Khách</span>
+                        </button>
+                        <button onclick="window.print()" class="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold flex items-center justify-center gap-2 transition-all">
+                            <i class="fa-solid fa-print"></i>
+                            <span>In File PDF Hóa Đơn</span>
+                        </button>
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>
 
 
     <!-- ========================================================================= -->
-    <!-- MODAL 6: XEM HỢP ĐỒNG -->
+    <!-- MODAL 6: XEM HỢP ĐỒNG CHI TIẾT (DESIGN MỚI ĐẲNG CẤP VÀ ĐẦY ĐỦ THÔNG TIN) -->
     <!-- ========================================================================= -->
-    <div id="viewContractModal" class="fixed inset-0 z-50 hidden bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5 border border-slate-100 max-h-[90vh] overflow-y-auto custom-scrollbar">
-            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-2xl bg-skybrand-100 text-skybrand-600 flex items-center justify-center font-bold">
-                        <i class="fa-solid fa-file-contract text-xl"></i>
+    <div id="viewContractModal" class="fixed inset-0 z-50 hidden bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden border border-slate-100 max-h-[92vh] flex flex-col transform transition-all animate-in fade-in zoom-in duration-200">
+            
+            <!-- HEADER BANNER ĐÊM SANG TRỌNG -->
+            <div class="bg-[#0b132a] p-6 text-white relative overflow-hidden shrink-0">
+                <div class="relative z-10 flex items-center justify-between gap-4">
+                    <div class="space-y-1">
+                        <div class="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-bold uppercase tracking-wider">
+                            <i class="fa-solid fa-file-contract"></i> Hợp Đồng Cho Thuê Nhà Chính Thức
+                        </div>
+                        <h3 class="text-xl sm:text-2xl font-extrabold text-white">Chi Tiết Hợp Đồng & Cam Kết</h3>
+                        <p class="text-xs text-slate-300 font-mono" id="vcContractCode">Mã HĐ: HD-2026-302</p>
                     </div>
-                    <div>
-                        <h3 class="text-base font-bold text-slate-900">Hợp Đồng Cho Thuê Nhà</h3>
-                        <p class="text-xs text-slate-500" id="vcContractCode">Mã HĐ: HD-2026-302</p>
-                    </div>
+
+                    <button onclick="closeViewContractModal()" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
                 </div>
-                <button onclick="closeViewContractModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
             </div>
 
-            <div class="space-y-4 text-xs">
-                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
-                    <p class="flex justify-between"><span class="text-slate-500">Mã phòng cho thuê:</span> <strong id="vcRoomCode" class="text-slate-900">NH-302</strong></p>
-                    <p class="flex justify-between"><span class="text-slate-500">Khách thuê:</span> <strong id="vcTenant" class="text-slate-900">Nguyễn Văn An</strong></p>
-                    <p class="flex justify-between"><span class="text-slate-500">Số điện thoại liên hệ:</span> <strong id="vcPhone" class="text-skybrand-600 font-mono">0912 345 678</strong></p>
-                    <p class="flex justify-between"><span class="text-slate-500">Giá thuê thỏa thuận:</span> <strong id="vcRentPrice" class="text-brand-600 font-bold">3,500,000đ/tháng</strong></p>
-                    <p class="flex justify-between"><span class="text-slate-500">Tiền cọc đảm bảo:</span> <strong id="vcDeposit" class="text-skybrand-600 font-bold">3,500,000đ</strong></p>
-                    <p class="flex justify-between"><span class="text-slate-500">Thời hạn hợp đồng:</span> <strong id="vcDates" class="text-slate-800 font-semibold">01/06/2026 - 01/06/2027</strong></p>
+            <!-- BODY CONTAINER -->
+            <div class="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1 text-xs">
+                
+                <!-- 2 COLUMNS SUMMARY CARDS -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    
+                    <!-- THÔNG TIN PHÒNG & BÊN THUÊ -->
+                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/90 space-y-3">
+                        <h4 class="font-extrabold text-slate-900 text-xs border-b border-slate-200 pb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-user-gear text-indigo-600"></i> 1. Bên Thuê & Phòng Thuê
+                        </h4>
+                        <div class="space-y-2">
+                            <p class="flex justify-between"><span class="text-slate-500">Mã phòng:</span> <strong id="vcRoomCode" class="text-slate-900 font-bold">NH-302</strong></p>
+                            <p class="flex justify-between"><span class="text-slate-500">Khách thuê:</span> <strong id="vcTenant" class="text-slate-900 font-bold">Nguyễn Văn An</strong></p>
+                            <p class="flex justify-between"><span class="text-slate-500">Số điện thoại:</span> <strong id="vcPhone" class="text-skybrand-600 font-mono font-bold">0912 345 678</strong></p>
+                        </div>
+                    </div>
+
+                    <!-- THỎA THUẬN TÀI CHÍNH & THỜI HẠN -->
+                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/90 space-y-3">
+                        <h4 class="font-extrabold text-slate-900 text-xs border-b border-slate-200 pb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-coins text-amber-500"></i> 2. Giá Thuê & Tiền Cọc
+                        </h4>
+                        <div class="space-y-2">
+                            <p class="flex justify-between"><span class="text-slate-500">Giá thuê thỏa thuận:</span> <strong id="vcRentPrice" class="text-brand-600 font-extrabold">3,500,000đ/tháng</strong></p>
+                            <p class="flex justify-between"><span class="text-slate-500">Tiền cọc đảm bảo:</span> <strong id="vcDeposit" class="text-skybrand-600 font-extrabold">3,500,000đ</strong></p>
+                            <p class="flex justify-between"><span class="text-slate-500">Thời hạn hợp đồng:</span> <strong id="vcDates" class="text-slate-800 font-bold">01/06/2026 - 01/06/2027</strong></p>
+                        </div>
+                    </div>
+
                 </div>
 
-                <div class="p-3 bg-skybrand-50 rounded-xl border border-skybrand-200 text-slate-700 space-y-1">
-                    <p class="font-bold text-skybrand-800"><i class="fa-solid fa-shield-check"></i> Cam kết hợp đồng:</p>
-                    <p class="text-[11px] leading-relaxed">Hợp đồng có hiệu lực pháp lý đầy đủ. Khách thuê cam kết thanh toán đúng hạn trước ngày 05 hàng tháng.</p>
+                <!-- CAM KẾT & QUY ĐỊNH HỢP ĐỒNG -->
+                <div class="p-4 bg-skybrand-50/70 rounded-2xl border border-skybrand-200 text-slate-700 space-y-2">
+                    <p class="font-extrabold text-skybrand-900 text-xs flex items-center gap-2">
+                        <i class="fa-solid fa-shield-halved text-skybrand-600"></i> Cam Kết & Quyền Lợi Hợp Đồng:
+                    </p>
+                    <ul class="text-[11px] space-y-1.5 text-slate-600 list-disc list-inside leading-relaxed">
+                        <li>Hợp đồng được xác lập có đầy đủ hiệu lực pháp lý theo tiêu chuẩn hệ thống RentHome.</li>
+                        <li>Khách thuê cam kết thanh toán tiền thuê & điện nước đúng hạn trước ngày 05 hàng tháng.</li>
+                        <li>Tiền đặt cọc được chủ nhà cam kết bảo toàn và hoàn trả 100% khi thanh lý hợp đồng đúng điều khoản.</li>
+                    </ul>
                 </div>
 
-                <button onclick="closeViewContractModal()" class="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold">Đóng Cửa Sổ</button>
+                <!-- ACTION BUTTONS TOOLBAR -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2">
+                    <a href="{{ url('qlvan_hanh/thanh_ly_cong_no') }}" class="py-3 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all">
+                        <i class="fa-solid fa-file-contract"></i>
+                        <span>Thanh Lý Hợp Đồng</span>
+                    </a>
+
+                    <button onclick="window.print()" class="py-3 px-3 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all">
+                        <i class="fa-solid fa-print"></i>
+                        <span>In Hợp Đồng PDF</span>
+                    </button>
+
+                    <button onclick="closeViewContractModal()" class="py-3 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-2 transition-all">
+                        <i class="fa-solid fa-xmark"></i>
+                        <span>Đóng Cửa Sổ</span>
+                    </button>
+                </div>
+
             </div>
         </div>
     </div>
@@ -1017,22 +1136,59 @@
         function openViewInvoiceModal(roomCode, code, tenant, total, status) {
             document.getElementById('viCode').innerText = "Mã HĐ: " + code;
             document.getElementById('viTenant').innerText = tenant;
+            document.getElementById('viRoomCode').innerText = roomCode;
             document.getElementById('viTotal').innerText = total;
 
             const badge = document.getElementById('viStatusBadge');
             const btnBox = document.getElementById('viCollectBtnContainer');
+            const totalBox = document.getElementById('viTotalBox');
 
             if (status === 'Đã thu tiền') {
-                badge.className = "px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-[11px]";
-                badge.innerText = "Đã thu tiền";
+                badge.className = "mt-1 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-xs";
+                badge.innerHTML = "<span class='w-2 h-2 rounded-full bg-emerald-600 inline-block'></span> ĐÃ THU TIỀN";
                 btnBox.classList.add('hidden');
+                if (totalBox) {
+                    totalBox.className = "p-5 rounded-2xl bg-emerald-50 border border-emerald-200 text-center space-y-1";
+                    const spanLabel = totalBox.querySelector('span');
+                    const divAmount = totalBox.querySelector('div');
+                    if (spanLabel) spanLabel.className = "text-xs font-bold text-emerald-600 uppercase tracking-wider block";
+                    if (divAmount) divAmount.className = "text-2xl sm:text-3xl font-black text-emerald-600 tracking-tight";
+                }
             } else {
-                badge.className = "px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 font-extrabold text-[11px]";
-                badge.innerText = "Chưa thu tiền";
+                badge.className = "mt-1 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-100 text-rose-700 font-extrabold text-xs";
+                badge.innerHTML = "<span class='w-2 h-2 rounded-full bg-rose-600 inline-block'></span> CHƯA THU TIỀN";
                 btnBox.classList.remove('hidden');
+                if (totalBox) {
+                    totalBox.className = "p-5 rounded-2xl bg-rose-50 border border-rose-200 text-center space-y-1";
+                    const spanLabel = totalBox.querySelector('span');
+                    const divAmount = totalBox.querySelector('div');
+                    if (spanLabel) spanLabel.className = "text-xs font-bold text-rose-600 uppercase tracking-wider block";
+                    if (divAmount) divAmount.className = "text-2xl sm:text-3xl font-black text-rose-600 tracking-tight";
+                }
+            }
+
+            // Set QR code preview
+            const qrImg = document.getElementById('viQrCodeImg');
+            if (qrImg) {
+                qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=RentHome_Invoice_${roomCode}_${total}`;
             }
 
             document.getElementById('viewInvoiceModal').classList.remove('hidden');
+        }
+
+        function sendZaloInvoiceFromModal() {
+            const tenant = document.getElementById('viTenant').innerText;
+            const code = document.getElementById('viCode').innerText;
+            const total = document.getElementById('viTotal').innerText;
+            const roomCode = document.getElementById('viRoomCode').innerText;
+
+            const msg = `[RentHome] Kính gửi anh/chị ${tenant},\nRentHome xin gửi thông báo ${code} cho phòng ${roomCode}:\n- Tổng tiền thanh toán: ${total}.\n- Vui lòng chuyển khoản trước hạn. Xin cảm ơn!`;
+            
+            navigator.clipboard.writeText(msg).then(() => {
+                showToast("Đã sao chép tin nhắn Zalo hóa đơn gửi khách thuê!");
+            }).catch(() => {
+                alert("Nội dung tin nhắn Zalo:\n\n" + msg);
+            });
         }
 
         function closeViewInvoiceModal() {

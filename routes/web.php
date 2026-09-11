@@ -53,6 +53,15 @@ Route::get('/thanh-ly-cong-no', function () {
     return view('qlvan_hanh.thanh_ly_cong_no');
 })->name('thanh-ly-cong-no');
 
+Route::get('/qlvan_hanh/tao_hoa_don', function () {
+    return view('qlvan_hanh.tao_hoa_don');
+});
+
+Route::get('/tao-hoa-don', function () {
+    return view('qlvan_hanh.tao_hoa_don');
+})->name('tao-hoa-don');
+
+
 // Các route POST xử lý logic gửi email và xác nhận
 Route::post('/send-reset-code', [\App\Http\Controllers\PasswordResetController::class, 'sendCode']);
 Route::post('/verify-reset-code', [\App\Http\Controllers\PasswordResetController::class, 'verifyCode']);
