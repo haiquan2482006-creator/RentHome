@@ -158,6 +158,9 @@
             </div>
         </div>
 
+        <!-- BANNER THÔNG BÁO HÓA ĐƠN ĐÃ LƯU & GỬI -->
+        <div id="savedBannerContainer"></div>
+
         <!-- FORM LAYOUT (LEFT: FORM INPUTS | RIGHT: REALTIME SUMMARY) -->
         <form id="liquidationForm" onsubmit="handleLiquidationSubmit(event)" class="grid grid-cols-1 lg:grid-cols-12 gap-8">
             
@@ -553,10 +556,10 @@
 
                     <!-- HÀNH ĐỘNG CONFIRM -->
                     <div class="space-y-2 pt-2 no-print">
-                        <button type="submit" 
-                                class="w-full py-3.5 px-4 rounded-2xl bg-brand-600 hover:bg-brand-700 text-white font-extrabold text-sm shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2">
-                            <i class="fa-solid fa-circle-check text-base"></i>
-                            <span>Xác Nhận & Lưu Thanh Lý Hợp Đồng</span>
+                        <button type="button" onclick="openPreviewModal()" 
+                                class="w-full py-3.5 px-4 rounded-2xl bg-skybrand-600 hover:bg-skybrand-700 text-white font-extrabold text-sm shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-eye text-base"></i>
+                            <span>Xem Bảng Chi Tiết & Xác Nhận</span>
                         </button>
                         
                         <button type="button" onclick="window.print()" 
@@ -585,6 +588,121 @@
             <p class="text-slate-500">Form chốt công nợ & tự động thanh lý hợp đồng thuê nhà.</p>
         </div>
     </footer>
+
+
+    <!-- ========================================================================= -->
+    <!-- MODAL XEM BẢNG TỔNG HỢP CHI TIẾT CÔNG NỢ & NỘI DUNG ĐÃ ĐIỀN -->
+    <!-- ========================================================================= -->
+    <div id="previewLiquidationModal" class="fixed inset-0 z-50 hidden bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 no-print">
+        <div class="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-5 border border-slate-100 max-h-[90vh] overflow-y-auto custom-scrollbar">
+            
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-skybrand-100 text-skybrand-600 flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-file-invoice-dollar text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-extrabold text-slate-900">Bảng Tổng Hợp Chi Tiết Công Nợ & Biên Bản Thanh Lý</h3>
+                        <p class="text-xs text-slate-500">Xem lại toàn bộ thông tin đã điền và chi tiết số tiền trước khi xác nhận</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closePreviewModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Modal Content -->
+            <div class="space-y-4 text-xs">
+                
+                <!-- 1. Thông tin chung -->
+                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                    <h4 class="font-extrabold uppercase tracking-wider text-[10px] text-skybrand-700">1. Thông Tin Hợp Đồng & Ngày Ở Thực Tế</h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                        <div><span class="text-slate-500">Phòng cho thuê:</span> <strong id="pv_room" class="text-slate-900 block font-bold"></strong></div>
+                        <div><span class="text-slate-500">Khách thuê đại diện:</span> <strong id="pv_tenant" class="text-slate-900 block font-bold"></strong></div>
+                        <div><span class="text-slate-500">Thời gian thuê:</span> <strong id="pv_dates" class="text-slate-800 block font-semibold"></strong></div>
+                    </div>
+                </div>
+
+                <!-- 2. Chi tiết các khoản chi phí phát sinh -->
+                <div class="border border-slate-200 rounded-2xl overflow-hidden space-y-0">
+                    <div class="bg-slate-100 p-3 font-extrabold text-slate-800 uppercase tracking-wider text-[10px]">
+                        2. Bảng Chi Tiết Các Khoản Khách Cần Trả (Mục A)
+                    </div>
+                    <div class="divide-y divide-slate-100 p-3 space-y-2">
+                        <div class="flex justify-between items-center py-1">
+                            <span class="text-slate-600 font-semibold">• Tiền phòng tháng cuối:</span>
+                            <strong id="pv_rent" class="text-slate-900 font-bold"></strong>
+                        </div>
+                        <div class="flex justify-between items-center py-1">
+                            <span class="text-slate-600 font-semibold">• Tiền điện tháng cuối:</span>
+                            <strong id="pv_elec" class="text-amber-700 font-bold"></strong>
+                        </div>
+                        <div class="flex justify-between items-center py-1">
+                            <span class="text-slate-600 font-semibold">• Tiền nước tháng cuối:</span>
+                            <strong id="pv_water" class="text-skybrand-700 font-bold"></strong>
+                        </div>
+                        <div class="flex justify-between items-center py-1">
+                            <span class="text-slate-600 font-semibold">• Phí dịch vụ khác (Wifi/Rác...):</span>
+                            <strong id="pv_service" class="text-slate-900 font-bold"></strong>
+                        </div>
+                        <div class="flex justify-between items-center py-1">
+                            <span class="text-slate-600 font-semibold">• Đền bù tài sản hư hỏng:</span>
+                            <strong id="pv_damage" class="text-rose-600 font-bold"></strong>
+                        </div>
+                        <div class="flex justify-between items-center py-1">
+                            <span class="text-slate-600 font-semibold">• Phạt vi phạm hợp đồng:</span>
+                            <strong id="pv_penalty" class="text-orange-600 font-bold"></strong>
+                        </div>
+                        <div class="flex justify-between items-center pt-2 font-black text-rose-600 text-sm border-t border-slate-200">
+                            <span>TỔNG CÁC KHOẢN CẦN TRẢ (MỤC A):</span>
+                            <span id="pv_total_payable"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Tiền cọc giữ -->
+                <div class="bg-emerald-50/60 p-3.5 rounded-2xl border border-emerald-200 flex justify-between items-center">
+                    <span class="text-emerald-800 font-bold">• Tiền cọc đang giữ (Mục B):</span>
+                    <strong id="pv_deposit" class="text-emerald-700 font-black text-sm"></strong>
+                </div>
+
+                <!-- 4. Kết quả chốt & Hình thức thanh toán -->
+                <div id="pv_result_card"></div>
+
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 flex justify-between items-center">
+                    <span class="text-slate-600 font-bold">Hình thức thanh toán chọn:</span>
+                    <strong id="pv_payment_method" class="text-slate-900 font-extrabold"></strong>
+                </div>
+
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-end gap-2.5">
+                <button type="button" onclick="closePreviewModal()" 
+                        class="w-full sm:w-auto py-2.5 px-4 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-all">
+                    <i class="fa-solid fa-pen-to-square mr-1"></i> Quay Lại Chỉnh Sửa
+                </button>
+                <button type="button" onclick="window.print()" 
+                        class="w-full sm:w-auto py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 border border-slate-200 transition-all">
+                    <i class="fa-solid fa-print"></i>
+                    <span>In Biên Bản</span>
+                </button>
+                <button type="button" onclick="saveAndSendInvoice()" 
+                        class="w-full sm:w-auto py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md transition-all">
+                    <i class="fa-solid fa-paper-plane"></i>
+                    <span>Lưu &amp; Gửi Hóa Đơn</span>
+                </button>
+                <button type="button" onclick="completeLiquidation()" 
+                        class="w-full sm:w-auto py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md transition-all">
+                    <i class="fa-solid fa-circle-check"></i>
+                    <span>Đủ Tiền Hoàn Tất Thanh Lý</span>
+                </button>
+            </div>
+
+        </div>
+    </div>
 
 
     <!-- JAVASCRIPT LOGIC TÍNH TOÁN REAL-TIME & ĐỊNH DẠNG TIỀN TỆ -->
@@ -772,23 +890,241 @@
         // Xử lý gửi Form
         function handleLiquidationSubmit(event) {
             event.preventDefault();
-
-            const tenantName = document.getElementById('tenant_name').value;
-            const roomName = document.getElementById('room_name').value;
-            const totalPayable = document.getElementById('total_payable_display').innerText;
-            const totalPaid = document.getElementById('total_paid_display').innerText;
-            const resultText = document.getElementById('settlement_amount').innerText;
-
-            alert(`✅ XÁC NHẬN THANH LÝ HỢP ĐỒNG THÀNH CÔNG!\n\n• Phòng: ${roomName}\n• Khách thuê: ${tenantName}\n• Tổng chi phí phát sinh: ${totalPayable}\n• Tổng tiền cọc đã cấn trừ: ${totalPaid}\n• Kết quả thanh toán chốt: ${resultText}\n\nTrạng thái phòng đã được chuyển sang "Trống / Đã thanh lý"!`);
+            openPreviewModal();
         }
 
-        // Tự động khởi chạy tính toán khi tải trang
+        // Mở Modal Xem Bảng Chi Tiết & Xác Nhận
+        function openPreviewModal() {
+            const roomName = document.getElementById('room_name').value || 'N/A';
+            const tenantName = document.getElementById('tenant_name').value || 'N/A';
+            const startDate = document.getElementById('start_date').value || 'N/A';
+            const endDate = document.getElementById('end_date').value || 'N/A';
+            const daysStayed = document.getElementById('days_stayed').value || '0';
+
+            const rent = parseFloat(document.getElementById('rent_amount').value) || 0;
+            const elec = parseFloat(document.getElementById('elec_amount').value) || 0;
+            const water = parseFloat(document.getElementById('water_amount').value) || 0;
+            const service = parseFloat(document.getElementById('service_amount').value) || 0;
+            const damage = parseFloat(document.getElementById('damage_amount').value) || 0;
+            const damageReason = document.getElementById('damage_reason').value;
+            const penalty = parseFloat(document.getElementById('penalty_amount').value) || 0;
+            const penaltyReason = document.getElementById('penalty_reason').value;
+            const deposit = parseFloat(document.getElementById('deposit_amount').value) || 0;
+
+            const totalPayable = rent + elec + water + service + damage + penalty;
+            const isDeduct = document.getElementById('toggle_deduct_deposit').checked;
+
+            document.getElementById('pv_room').innerText = roomName;
+            document.getElementById('pv_tenant').innerText = tenantName;
+            document.getElementById('pv_dates').innerText = `Từ ${startDate} đến ${endDate} (${daysStayed} ngày ở thực tế)`;
+
+            document.getElementById('pv_rent').innerText = formatVND(rent);
+            document.getElementById('pv_elec').innerText = formatVND(elec) + " (" + document.getElementById('electricity_kwh_display').innerText + ")";
+            document.getElementById('pv_water').innerText = formatVND(water) + " (" + document.getElementById('water_m3_display').innerText + ")";
+            document.getElementById('pv_service').innerText = formatVND(service);
+            document.getElementById('pv_damage').innerText = formatVND(damage) + (damageReason ? ` (Lý do: ${damageReason})` : '');
+            document.getElementById('pv_penalty').innerText = formatVND(penalty) + (penaltyReason ? ` (Lý do: ${penaltyReason})` : '');
+
+            document.getElementById('pv_total_payable').innerText = formatVND(totalPayable);
+            document.getElementById('pv_deposit').innerText = formatVND(deposit);
+            document.getElementById('pv_payment_method').innerText = document.getElementById('payment_method').value;
+
+            // Đưa kết quả chốt số tiền vào Modal
+            const resultCard = document.getElementById('pv_result_card');
+            if (isDeduct) {
+                const diff = totalPayable - deposit;
+                if (diff > 0) {
+                    resultCard.innerHTML = `
+                        <div class="p-4 rounded-2xl border-2 border-rose-300 bg-rose-50 text-center space-y-1 shadow-sm">
+                            <span class="text-[10px] font-extrabold uppercase tracking-wider block text-rose-700">KẾT QUẢ CẤN TRỪ CỌC: KHÁCH CẦN NỘP THÊM</span>
+                            <div class="text-xl font-black text-rose-600">${formatVND(diff)}</div>
+                            <p class="text-xs font-bold text-rose-800">Tổng tiền cọc không đủ trả chi phí. Khách cần đóng bổ sung cho chủ nhà.</p>
+                        </div>
+                    `;
+                } else if (diff < 0) {
+                    resultCard.innerHTML = `
+                        <div class="p-4 rounded-2xl border-2 border-emerald-300 bg-emerald-50 text-center space-y-1 shadow-sm">
+                            <span class="text-[10px] font-extrabold uppercase tracking-wider block text-emerald-700">KẾT QUẢ CẤN TRỪ CỌC: CHỦ NHÀ HOÀN LẠI TIỀN CỌC</span>
+                            <div class="text-xl font-black text-emerald-600">${formatVND(Math.abs(diff))}</div>
+                            <p class="text-xs font-bold text-emerald-800">Sau khi trừ chi phí, chủ nhà sẽ hoàn lại số tiền thừa này cho khách thuê.</p>
+                        </div>
+                    `;
+                } else {
+                    resultCard.innerHTML = `
+                        <div class="p-4 rounded-2xl border-2 border-slate-300 bg-slate-100 text-center space-y-1 shadow-sm">
+                            <span class="text-[10px] font-extrabold uppercase tracking-wider block text-slate-600">KẾT QUẢ CẤN TRỪ CỌC: HÒA VỐN (0 VNĐ)</span>
+                            <div class="text-xl font-black text-slate-800">0 VNĐ</div>
+                            <p class="text-xs font-bold text-slate-600">Tiền cọc cấn trừ vừa đủ tất cả chi phí phát sinh tháng cuối.</p>
+                        </div>
+                    `;
+                }
+            } else {
+                resultCard.innerHTML = `
+                    <div class="space-y-2">
+                        <div class="p-3 rounded-xl bg-rose-50 border border-rose-200 flex justify-between items-center">
+                            <span class="font-bold text-rose-800">🔴 Khách thuê cần thanh toán (Mục A):</span>
+                            <strong class="font-black text-rose-600 text-sm">${formatVND(totalPayable)}</strong>
+                        </div>
+                        <div class="p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex justify-between items-center">
+                            <span class="font-bold text-emerald-800">🟢 Chủ nhà cần hoàn trả cọc (Mục B):</span>
+                            <strong class="font-black text-emerald-600 text-sm">${formatVND(deposit)}</strong>
+                        </div>
+                    </div>
+                `;
+            }
+
+            document.getElementById('previewLiquidationModal').classList.remove('hidden');
+        }
+
+        // Đóng Modal
+        function closePreviewModal() {
+            document.getElementById('previewLiquidationModal').classList.add('hidden');
+        }
+
+        // Lưu & Gửi Hóa Đơn (Hóa đơn lưu nháp, cho phép mở lại từ Danh sách phòng)
+        function saveAndSendInvoice() {
+            const formData = {
+                saved: true,
+                room_name: document.getElementById('room_name').value,
+                tenant_name: document.getElementById('tenant_name').value,
+                start_date: document.getElementById('start_date').value,
+                end_date: document.getElementById('end_date').value,
+                days_stayed: document.getElementById('days_stayed').value,
+                base_rent: document.getElementById('base_rent').value,
+                rent_amount: document.getElementById('rent_amount').value,
+                is_prorated: document.getElementById('is_prorated').checked,
+                elec_old: document.getElementById('elec_old').value,
+                elec_new: document.getElementById('elec_new').value,
+                elec_rate: document.getElementById('elec_rate').value,
+                elec_amount: document.getElementById('elec_amount').value,
+                water_old: document.getElementById('water_old').value,
+                water_new: document.getElementById('water_new').value,
+                water_rate: document.getElementById('water_rate').value,
+                water_amount: document.getElementById('water_amount').value,
+                service_amount: document.getElementById('service_amount').value,
+                damage_amount: document.getElementById('damage_amount').value,
+                damage_reason: document.getElementById('damage_reason').value,
+                penalty_amount: document.getElementById('penalty_amount').value,
+                penalty_reason: document.getElementById('penalty_reason').value,
+                deposit_amount: document.getElementById('deposit_amount').value,
+                toggle_deduct_deposit: document.getElementById('toggle_deduct_deposit').checked,
+                payment_method: document.getElementById('payment_method').value,
+                saved_at: new Date().toLocaleTimeString('vi-VN') + ' - ' + new Date().toLocaleDateString('vi-VN')
+            };
+            localStorage.setItem('liquidation_invoice_saved', JSON.stringify(formData));
+            
+            showSavedBanner(formData.saved_at);
+            openPreviewModal();
+
+            alert(`📩 ĐÃ LƯU & GỬI HÓA ĐƠN THÀNH CÔNG!\n\n• Phòng: ${formData.room_name}\n• Khách thuê: ${formData.tenant_name}\n\nHóa đơn đã được lưu hệ thống. Sau này khi bạn nhấn lại vào nút "Thanh Lý Hợp Đồng" ngoài trang danh sách phòng, hệ thống sẽ tự động mở ngay giao diện xem chi tiết hóa đơn này!`);
+        }
+
+        // Đủ Tiền Hoàn Tất Thanh Lý (Kết thúc hợp đồng & xóa bản nháp đã lưu)
+        function completeLiquidation() {
+            const roomName = document.getElementById('room_name').value || 'Phòng 302';
+            const tenantName = document.getElementById('tenant_name').value || 'Nguyễn Văn An';
+            
+            localStorage.removeItem('liquidation_invoice_saved');
+            closePreviewModal();
+            
+            alert(`🎉 ĐỦ TIỀN & HOÀN TẤT THANH LÝ HỢP ĐỒNG THÀNH CÔNG!\n\n• Phòng: ${roomName}\n• Khách thuê: ${tenantName}\n\nHợp đồng đã chính thức được thanh lý thành công. Trạng thái phòng chuyển sang "Trống / Đã thanh lý"!`);
+            
+            window.location.href = "{{ url('qlvan_hanh/Room_list') }}";
+        }
+
+        // Hiển thị banner thông báo hóa đơn đã được lưu & gửi
+        function showSavedBanner(savedAt) {
+            let bannerContainer = document.getElementById('savedBannerContainer');
+            if (bannerContainer) {
+                bannerContainer.innerHTML = `
+                    <div class="p-4 rounded-2xl bg-amber-50 border-2 border-amber-300 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shrink-0">
+                                <i class="fa-solid fa-paper-plane text-base"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-black text-amber-900 text-sm">Hóa Đơn Công Nợ Đã Lưu & Gửi Khách (Chưa Chốt Thu Tiền)</h4>
+                                <p class="text-amber-800 font-semibold">Đã lưu lúc: <span class="font-extrabold text-amber-950">${savedAt || 'Gần đây'}</span>. Khi nhận đủ tiền từ khách, vui lòng nhấn nút <strong class="text-emerald-700 font-extrabold">"Đủ Tiền Hoàn Tất Thanh Lý"</strong> trong bản xem trước.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button type="button" onclick="openPreviewModal()" class="py-2 px-3 rounded-xl bg-skybrand-600 hover:bg-skybrand-700 text-white font-extrabold flex items-center gap-1 transition-all">
+                                <i class="fa-solid fa-eye"></i> Xem Bảng Hóa Đơn
+                            </button>
+                            <button type="button" onclick="clearSavedInvoice()" class="py-2 px-3 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold flex items-center gap-1 transition-all border border-rose-200">
+                                <i class="fa-solid fa-trash"></i> Tạo Mới
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // Xóa hóa đơn lưu nháp
+        function clearSavedInvoice() {
+            if (confirm("Bạn có chắc chắn muốn xóa bản ghi hóa đơn đã lưu và nhập mới từ đầu?")) {
+                localStorage.removeItem('liquidation_invoice_saved');
+                window.location.reload();
+            }
+        }
+
+        // Tự động kiểm tra và khôi phục hóa đơn đã lưu khi bấm từ trang ngoài vào
+        function loadSavedInvoiceIfAny() {
+            const savedDataStr = localStorage.getItem('liquidation_invoice_saved');
+            if (savedDataStr) {
+                try {
+                    const data = JSON.parse(savedDataStr);
+                    if (data && data.saved) {
+                        if (document.getElementById('room_name') && data.room_name) document.getElementById('room_name').value = data.room_name;
+                        if (document.getElementById('tenant_name') && data.tenant_name) document.getElementById('tenant_name').value = data.tenant_name;
+                        if (document.getElementById('start_date') && data.start_date) document.getElementById('start_date').value = data.start_date;
+                        if (document.getElementById('end_date') && data.end_date) document.getElementById('end_date').value = data.end_date;
+                        if (document.getElementById('days_stayed') && data.days_stayed) document.getElementById('days_stayed').value = data.days_stayed;
+                        if (document.getElementById('base_rent') && data.base_rent) document.getElementById('base_rent').value = data.base_rent;
+                        if (document.getElementById('rent_amount') && data.rent_amount) document.getElementById('rent_amount').value = data.rent_amount;
+                        if (document.getElementById('is_prorated') && typeof data.is_prorated !== 'undefined') document.getElementById('is_prorated').checked = data.is_prorated;
+                        if (document.getElementById('elec_old') && data.elec_old) document.getElementById('elec_old').value = data.elec_old;
+                        if (document.getElementById('elec_new') && data.elec_new) document.getElementById('elec_new').value = data.elec_new;
+                        if (document.getElementById('elec_rate') && data.elec_rate) document.getElementById('elec_rate').value = data.elec_rate;
+                        if (document.getElementById('elec_amount') && data.elec_amount) document.getElementById('elec_amount').value = data.elec_amount;
+                        if (document.getElementById('water_old') && data.water_old) document.getElementById('water_old').value = data.water_old;
+                        if (document.getElementById('water_new') && data.water_new) document.getElementById('water_new').value = data.water_new;
+                        if (document.getElementById('water_rate') && data.water_rate) document.getElementById('water_rate').value = data.water_rate;
+                        if (document.getElementById('water_amount') && data.water_amount) document.getElementById('water_amount').value = data.water_amount;
+                        if (document.getElementById('service_amount') && typeof data.service_amount !== 'undefined') document.getElementById('service_amount').value = data.service_amount;
+                        if (document.getElementById('damage_amount') && typeof data.damage_amount !== 'undefined') document.getElementById('damage_amount').value = data.damage_amount;
+                        if (document.getElementById('damage_reason') && typeof data.damage_reason !== 'undefined') document.getElementById('damage_reason').value = data.damage_reason;
+                        if (document.getElementById('penalty_amount') && typeof data.penalty_amount !== 'undefined') document.getElementById('penalty_amount').value = data.penalty_amount;
+                        if (document.getElementById('penalty_reason') && typeof data.penalty_reason !== 'undefined') document.getElementById('penalty_reason').value = data.penalty_reason;
+                        if (document.getElementById('deposit_amount') && data.deposit_amount) document.getElementById('deposit_amount').value = data.deposit_amount;
+                        if (document.getElementById('toggle_deduct_deposit') && typeof data.toggle_deduct_deposit !== 'undefined') document.getElementById('toggle_deduct_deposit').checked = data.toggle_deduct_deposit;
+                        if (document.getElementById('payment_method') && data.payment_method) document.getElementById('payment_method').value = data.payment_method;
+
+                        calculateElectricity();
+                        calculateWater();
+                        calculateRent();
+                        calculateAll();
+                        toggleDeductDepositOption();
+
+                        showSavedBanner(data.saved_at);
+                        
+                        // Tự động mở Modal xem hóa đơn đã lưu ngay lập tức
+                        openPreviewModal();
+                    }
+                } catch (e) {
+                    console.error("Lỗi khi load hóa đơn đã lưu:", e);
+                }
+            }
+        }
+
+        // Tự động khởi chạy tính toán và khôi phục dữ liệu đã lưu khi tải trang
         document.addEventListener('DOMContentLoaded', function() {
             calculateElectricity();
             calculateWater();
             calculateRent();
             calculateAll();
             toggleDeductDepositOption();
+            loadSavedInvoiceIfAny();
         });
     </script>
 </body>
