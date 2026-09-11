@@ -100,12 +100,12 @@
 
                         <!-- Mode 1: Searchable Dropdown Box -->
                         <div id="province-select-wrapper" class="relative">
-                            <input type="hidden" id="select-province" name="province" value="TP. Hồ Chí Minh">
+                            <input type="hidden" id="select-province" name="province" value="">
                             
                             <!-- Dropdown Trigger Button -->
                             <button type="button" id="province-dropdown-btn" onclick="toggleFormProvinceDropdown(event)"
                                 class="w-full px-4 py-3 rounded-2xl bg-slate-50/70 border border-slate-200 text-xs font-semibold text-slate-800 text-left flex items-center justify-between focus:bg-white focus:ring-2 focus:ring-amber-400 focus:outline-none cursor-pointer">
-                                <span id="form-province-text" class="truncate font-bold text-slate-800">TP. Hồ Chí Minh</span>
+                                <span id="form-province-text" class="truncate font-bold text-slate-800">Đang tải danh sách...</span>
                                 <i class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform duration-200" id="form-province-arrow"></i>
                             </button>
 
@@ -123,9 +123,9 @@
                                     </div>
                                 </div>
 
-                                <!-- List of 63 Provinces & Cities -->
+                                <!-- List of Provinces -->
                                 <div class="max-h-56 overflow-y-auto custom-scrollbar" id="form-provinces-list">
-                                    <!-- Populated via JS -->
+                                    <!-- Populated via JS API -->
                                 </div>
                             </div>
                         </div>
@@ -148,12 +148,12 @@
 
                         <!-- Mode 1: Searchable Dropdown Box for District -->
                         <div id="district-select-wrapper" class="relative">
-                            <input type="hidden" id="select-district" name="district" value="Quận 1">
+                            <input type="hidden" id="select-district" name="district" value="">
                             
                             <!-- Dropdown Trigger Button -->
                             <button type="button" id="district-dropdown-btn" onclick="toggleFormDistrictDropdown(event)"
                                 class="w-full px-4 py-3 rounded-2xl bg-slate-50/70 border border-slate-200 text-xs font-semibold text-slate-800 text-left flex items-center justify-between focus:bg-white focus:ring-2 focus:ring-amber-400 focus:outline-none cursor-pointer">
-                                <span id="form-district-text" class="truncate font-bold text-slate-800">Quận 1</span>
+                                <span id="form-district-text" class="truncate font-bold text-slate-800">Chọn Quận / Huyện</span>
                                 <i class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform duration-200" id="form-district-arrow"></i>
                             </button>
 
@@ -173,7 +173,7 @@
 
                                 <!-- List of Districts -->
                                 <div class="max-h-56 overflow-y-auto custom-scrollbar" id="form-districts-list">
-                                    <!-- Populated via JS -->
+                                    <!-- Populated via JS API -->
                                 </div>
                             </div>
                         </div>
@@ -197,12 +197,12 @@
 
                     <!-- Mode 1: Searchable Dropdown Box for Ward -->
                     <div id="ward-select-wrapper" class="relative">
-                        <input type="hidden" id="select-ward" name="ward" value="Phường Bến Nghé">
+                        <input type="hidden" id="select-ward" name="ward" value="">
                         
                         <!-- Dropdown Trigger Button -->
                         <button type="button" id="ward-dropdown-btn" onclick="toggleFormWardDropdown(event)"
                             class="w-full px-4 py-3 rounded-2xl bg-slate-50/70 border border-slate-200 text-xs font-semibold text-slate-800 text-left flex items-center justify-between focus:bg-white focus:ring-2 focus:ring-amber-400 focus:outline-none cursor-pointer">
-                            <span id="form-ward-text" class="truncate font-bold text-slate-800">Phường Bến Nghé</span>
+                            <span id="form-ward-text" class="truncate font-bold text-slate-800">Chọn Phường / Xã</span>
                             <i class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform duration-200" id="form-ward-arrow"></i>
                         </button>
 
@@ -222,7 +222,7 @@
 
                             <!-- List of Wards -->
                             <div class="max-h-56 overflow-y-auto custom-scrollbar" id="form-wards-list">
-                                <!-- Populated via JS -->
+                                <!-- Populated via JS API -->
                             </div>
                         </div>
                     </div>
@@ -235,8 +235,7 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1.5">Địa chỉ chi tiết (Tên đường, số
-                        nhà)</label>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5">Địa chỉ chi tiết (Tên đường, số nhà)</label>
                     <input type="text" id="input-address" placeholder="Ví dụ: Số 12, Ngõ 45"
                         class="w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-amber-400 focus:outline-none transition-all">
                 </div>
@@ -260,8 +259,7 @@
             <!-- Modal Header -->
             <div class="px-6 py-4 sm:py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
                 <div class="flex items-center gap-2.5">
-                    <div
-                        class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg">
                         <i class="fa-solid fa-pen-to-square"></i>
                     </div>
                     <h3 class="font-extrabold text-slate-900 text-lg">Thông tin chi tiết bất động sản</h3>
@@ -276,13 +274,12 @@
             <div class="p-6 space-y-4 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
                 <!-- Tiêu đề bài đăng -->
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1.5">Tiêu đề bài đăng <span
-                            class="text-rose-500">*</span></label>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5">Tiêu đề bài đăng <span class="text-rose-500">*</span></label>
                     <input type="text" id="post-title" placeholder="VD: Bán căn hộ cao cấp 2 phòng ngủ Quận 1"
                         class="w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
                 </div>
 
-                <!-- Thông tin Loại tài khoản đăng tin (Cố định theo tài khoản đang đăng nhập) -->
+                <!-- Thông tin Loại tài khoản đăng tin -->
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1.5">Tài khoản đăng tin</label>
                     <div class="p-3.5 rounded-2xl border {{ $isEnterprise ? 'border-purple-200 bg-purple-50/40' : 'border-emerald-200 bg-emerald-50/40' }} flex items-center justify-between">
@@ -304,43 +301,31 @@
 
                 <!-- Loại hình BĐS -->
                 <div class="space-y-3">
-                    <!-- Mục dành cho Doanh nghiệp -->
                     <div id="building-select-box" class="{{ $isEnterprise ? '' : 'hidden' }}">
-                        <label class="block text-xs font-bold text-slate-700 mb-1.5">Chọn tòa nhà đã tạo <span
-                                class="text-purple-600">(Doanh nghiệp)</span></label>
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">Chọn tòa nhà đã tạo <span class="text-purple-600">(Doanh nghiệp)</span></label>
                         <div class="relative">
-                            <select
-                                class="w-full px-4 py-3 rounded-2xl bg-purple-50/40 border border-purple-200 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none appearance-none cursor-pointer">
+                            <select class="w-full px-4 py-3 rounded-2xl bg-purple-50/40 border border-purple-200 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none appearance-none cursor-pointer">
                                 <option>Tòa Landmark Plus (Bình Thạnh)</option>
                                 <option>Khu Căn Hộ S5 Vinhomes Grand Park (TP. Thủ Đức)</option>
                                 <option>Chung cư Masteri Thảo Điền (Quận 2)</option>
                             </select>
-                            <i
-                                class="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+                            <i class="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
                         </div>
                     </div>
 
-                    <!-- Loại hình BĐS chung -->
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1.5">Loại hình BĐS <span
-                                class="text-rose-500">*</span></label>
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">Loại hình BĐS <span class="text-rose-500">*</span></label>
                         <div class="grid grid-cols-3 gap-2">
-                            <label
-                                class="flex items-center justify-center p-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 cursor-pointer hover:bg-slate-50 has-[:checked]:border-emerald-600 has-[:checked]:bg-emerald-50 has-[:checked]:text-emerald-700">
-                                <input type="radio" name="property_type" value="nha_o" checked
-                                    onchange="togglePropertyType('nha_o')" class="hidden">
+                            <label class="flex items-center justify-center p-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 cursor-pointer hover:bg-slate-50 has-[:checked]:border-emerald-600 has-[:checked]:bg-emerald-50 has-[:checked]:text-emerald-700">
+                                <input type="radio" name="property_type" value="nha_o" checked onchange="togglePropertyType('nha_o')" class="hidden">
                                 Nhà ở
                             </label>
-                            <label
-                                class="flex items-center justify-center p-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 cursor-pointer hover:bg-slate-50 has-[:checked]:border-emerald-600 has-[:checked]:bg-emerald-50 has-[:checked]:text-emerald-700">
-                                <input type="radio" name="property_type" value="dat_nen"
-                                    onchange="togglePropertyType('dat_nen')" class="hidden">
+                            <label class="flex items-center justify-center p-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 cursor-pointer hover:bg-slate-50 has-[:checked]:border-emerald-600 has-[:checked]:bg-emerald-50 has-[:checked]:text-emerald-700">
+                                <input type="radio" name="property_type" value="dat_nen" onchange="togglePropertyType('dat_nen')" class="hidden">
                                 Đất nền
                             </label>
-                            <label
-                                class="flex items-center justify-center p-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 cursor-pointer hover:bg-slate-50 has-[:checked]:border-emerald-600 has-[:checked]:bg-emerald-50 has-[:checked]:text-emerald-700">
-                                <input type="radio" name="property_type" value="phong_tro"
-                                    onchange="togglePropertyType('phong_tro')" class="hidden">
+                            <label class="flex items-center justify-center p-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 cursor-pointer hover:bg-slate-50 has-[:checked]:border-emerald-600 has-[:checked]:bg-emerald-50 has-[:checked]:text-emerald-700">
+                                <input type="radio" name="property_type" value="phong_tro" onchange="togglePropertyType('phong_tro')" class="hidden">
                                 Phòng trọ
                             </label>
                         </div>
@@ -350,89 +335,71 @@
                 <!-- Giá & Diện tích -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1.5">Giá mong muốn (Triệu, Tỷ / tháng)
-                            <span class="text-rose-500">*</span></label>
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">Giá mong muốn (Triệu, Tỷ / tháng) <span class="text-rose-500">*</span></label>
                         <div class="relative">
                             <input type="text" id="post-price" placeholder="VD: 14.5 Triệu hoặc 3.5 Tỷ"
                                 class="w-full pl-4 pr-10 py-3 rounded-2xl bg-white border border-slate-200 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
-                            <span
-                                class="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-amber-600 text-xs">đ</span>
+                            <span class="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-amber-600 text-xs">đ</span>
                         </div>
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1.5">Diện tích (m²) <span
-                                class="text-rose-500">*</span></label>
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">Diện tích (m²) <span class="text-rose-500">*</span></label>
                         <div class="relative">
                             <input type="number" id="post-area" placeholder="VD: 85"
                                 class="w-full pl-4 pr-10 py-3 rounded-2xl bg-white border border-slate-200 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
-                            <span
-                                class="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-amber-600 text-xs">m²</span>
+                            <span class="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-amber-600 text-xs">m²</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Số phòng ngủ & Số phòng tắm (Counter Stepper - Ẩn khi chọn Đất nền) -->
+                <!-- Số phòng ngủ & Số phòng tắm -->
                 <div id="room-counter-box" class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1.5">Số phòng ngủ</label>
-                        <div
-                            class="flex items-center justify-between px-3 py-2 rounded-2xl border border-slate-200 bg-white">
-                            <button type="button" onclick="stepCount('bedroom', -1)"
-                                class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 font-bold text-slate-600 flex items-center justify-center">-</button>
+                        <div class="flex items-center justify-between px-3 py-2 rounded-2xl border border-slate-200 bg-white">
+                            <button type="button" onclick="stepCount('bedroom', -1)" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 font-bold text-slate-600 flex items-center justify-center">-</button>
                             <span id="bedroom-count" class="font-bold text-xs text-slate-800">1</span>
-                            <button type="button" onclick="stepCount('bedroom', 1)"
-                                class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 font-bold text-slate-600 flex items-center justify-center">+</button>
+                            <button type="button" onclick="stepCount('bedroom', 1)" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 font-bold text-slate-600 flex items-center justify-center">+</button>
                         </div>
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1.5">Số phòng tắm</label>
-                        <div
-                            class="flex items-center justify-between px-3 py-2 rounded-2xl border border-slate-200 bg-white">
-                            <button type="button" onclick="stepCount('bathroom', -1)"
-                                class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 font-bold text-slate-600 flex items-center justify-center">-</button>
+                        <div class="flex items-center justify-between px-3 py-2 rounded-2xl border border-slate-200 bg-white">
+                            <button type="button" onclick="stepCount('bathroom', -1)" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 font-bold text-slate-600 flex items-center justify-center">-</button>
                             <span id="bathroom-count" class="font-bold text-xs text-slate-800">1</span>
-                            <button type="button" onclick="stepCount('bathroom', 1)"
-                                class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 font-bold text-slate-600 flex items-center justify-center">+</button>
+                            <button type="button" onclick="stepCount('bathroom', 1)" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 font-bold text-slate-600 flex items-center justify-center">+</button>
                         </div>
                     </div>
                 </div>
 
-                <!-- Tiện ích & Đặc điểm nổi bật (Cho phép chọn hoặc ghi tiện ích) -->
+                <!-- Tiện ích & Đặc điểm nổi bật -->
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
                         <span>Tiện ích & Đặc điểm nổi bật</span>
                         <span class="text-[11px] text-slate-400 font-normal">Nhập tùy chỉnh hoặc chọn gợi ý</span>
                     </label>
 
-                    <!-- Gợi ý tiện ích chọn nhanh -->
                     <div class="flex flex-wrap gap-1.5 mb-2">
-                        <button type="button" onclick="addAmenityTag('Bãi đỗ xe')"
-                            class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-emerald-50 hover:border-emerald-500 hover:text-emerald-700 transition-all flex items-center gap-1">
+                        <button type="button" onclick="addAmenityTag('Bãi đỗ xe')" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-emerald-50 hover:border-emerald-500 hover:text-emerald-700 transition-all flex items-center gap-1">
                             <i class="fa-solid fa-plus text-[10px] text-emerald-600"></i> Bãi đỗ xe
                         </button>
-                        <button type="button" onclick="addAmenityTag('Mặt tiền đường')"
-                            class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-emerald-50 hover:border-emerald-500 hover:text-emerald-700 transition-all flex items-center gap-1">
+                        <button type="button" onclick="addAmenityTag('Mặt tiền đường')" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-emerald-50 hover:border-emerald-500 hover:text-emerald-700 transition-all flex items-center gap-1">
                             <i class="fa-solid fa-plus text-[10px] text-emerald-600"></i> Mặt tiền đường
                         </button>
-                        <button type="button" onclick="addAmenityTag('Điện âm nước máy')"
-                            class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-emerald-50 hover:border-emerald-500 hover:text-emerald-700 transition-all flex items-center gap-1">
+                        <button type="button" onclick="addAmenityTag('Điện âm nước máy')" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-emerald-50 hover:border-emerald-500 hover:text-emerald-700 transition-all flex items-center gap-1">
                             <i class="fa-solid fa-plus text-[10px] text-emerald-600"></i> Điện âm nước máy
                         </button>
-                        <button type="button" onclick="addAmenityTag('Sổ hồng riêng')"
-                            class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-emerald-50 hover:border-emerald-500 hover:text-emerald-700 transition-all flex items-center gap-1">
+                        <button type="button" onclick="addAmenityTag('Sổ hồng riêng')" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-emerald-50 hover:border-emerald-500 hover:text-emerald-700 transition-all flex items-center gap-1">
                             <i class="fa-solid fa-plus text-[10px] text-emerald-600"></i> Sổ hồng riêng
                         </button>
-                        <button type="button" onclick="addAmenityTag('Gần chợ / Siêu thị')"
-                            class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-emerald-50 hover:border-emerald-500 hover:text-emerald-700 transition-all flex items-center gap-1">
+                        <button type="button" onclick="addAmenityTag('Gần chợ / Siêu thị')" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-emerald-50 hover:border-emerald-500 hover:text-emerald-700 transition-all flex items-center gap-1">
                             <i class="fa-solid fa-plus text-[10px] text-emerald-600"></i> Gần chợ / Siêu thị
                         </button>
-                        <button type="button" onclick="addAmenityTag('Bảo vệ 24/7')"
-                            class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-emerald-50 hover:border-emerald-500 hover:text-emerald-700 transition-all flex items-center gap-1">
+                        <button type="button" onclick="addAmenityTag('Bảo vệ 24/7')" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-emerald-50 hover:border-emerald-500 hover:text-emerald-700 transition-all flex items-center gap-1">
                             <i class="fa-solid fa-plus text-[10px] text-emerald-600"></i> Bảo vệ 24/7
                         </button>
                     </div>
 
-                    <!-- Textarea cho phép tự nhập / ghi tiện ích ra -->
                     <textarea id="amenities-input" name="amenities" rows="2.5"
                         placeholder="Ghi các tiện ích của BĐS (VD: Đường rộng 12m, điện âm nước máy, gần chợ, khu dân cư đông đúc, sổ hồng chính chủ...)"
                         class="w-full px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all"></textarea>
@@ -449,32 +416,24 @@
                 <!-- Hình ảnh dự án / Bất động sản -->
                 <div>
                     <div class="flex items-center justify-between mb-1.5">
-                        <label class="block text-xs font-bold text-slate-700">Hình ảnh thực tế bất động sản <span
-                                class="text-rose-500">*</span></label>
-                        <span id="image-count-badge" class="text-[11px] font-bold text-emerald-600 hidden">Đã chọn:
-                            0/10 ảnh</span>
+                        <label class="block text-xs font-bold text-slate-700">Hình ảnh thực tế bất động sản <span class="text-rose-500">*</span></label>
+                        <span id="image-count-badge" class="text-[11px] font-bold text-emerald-600 hidden">Đã chọn: 0/10 ảnh</span>
                     </div>
 
-                    <!-- Dropzone / Local File Input Trigger -->
                     <label for="property-images-input"
                         class="border-2 border-dashed border-slate-200 hover:border-emerald-500 rounded-2xl p-5 text-center bg-slate-50/50 hover:bg-emerald-50/30 cursor-pointer block transition-all group">
                         <input type="file" id="property-images-input" name="images[]" multiple
                             accept="image/png, image/jpeg, image/jpg, image/webp" class="hidden"
                             onchange="handleImageUpload(event)">
-                        <div
-                            class="w-12 h-12 rounded-2xl bg-emerald-50 group-hover:bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl mx-auto transition-colors">
+                        <div class="w-12 h-12 rounded-2xl bg-emerald-50 group-hover:bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl mx-auto transition-colors">
                             <i class="fa-solid fa-cloud-arrow-up"></i>
                         </div>
-                        <p
-                            class="text-xs text-slate-700 mt-2 font-bold group-hover:text-emerald-700 transition-colors">
+                        <p class="text-xs text-slate-700 mt-2 font-bold group-hover:text-emerald-700 transition-colors">
                             Nhấp vào đây để chọn ảnh từ máy tính của bạn</p>
-                        <p class="text-[10px] text-slate-400 mt-0.5">Hỗ trợ JPG, PNG, WEBP (Tối đa 10 ảnh, mỗi ảnh ≤
-                            5MB)</p>
+                        <p class="text-[10px] text-slate-400 mt-0.5">Hỗ trợ JPG, PNG, WEBP (Tối đa 10 ảnh, mỗi ảnh ≤ 5MB)</p>
                     </label>
 
-                    <!-- Image Preview Grid Gallery -->
                     <div id="image-preview-container" class="grid grid-cols-3 sm:grid-cols-4 gap-3 mt-3 hidden">
-                        <!-- JS dynamically renders uploaded thumbnails here -->
                     </div>
                 </div>
             </div>
@@ -491,11 +450,476 @@
                 </button>
             </div>
         </div>
-
     </div>
 
     <!-- JavaScript Controller -->
     <script>
+        const API_BASE = 'https://provinces.open-api.vn/api';
+
+        // Bộ nhớ tạm lưu dữ liệu động từ API
+        let provincesList = [];
+        let currentDistrictsList = [];
+        let currentWardsList = [];
+
+        let selectedProvinceCode = null;
+        let selectedDistrictCode = null;
+
+        function removeVietnameseTones(str) {
+            if (!str) return '';
+            return str
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/đ/g, 'd').replace(/Đ/g, 'D')
+                .toLowerCase();
+        }
+
+        // ======================= API FETCHING =======================
+        async function fetchProvinces() {
+            try {
+                const res = await fetch(`${API_BASE}/p/`);
+                provincesList = await res.json();
+                
+                // Mặc định chọn TP. Hồ Chí Minh nếu có
+                const defaultProv = provincesList.find(p => p.name.includes('Hồ Chí Minh')) || provincesList[0];
+                if (defaultProv) {
+                    selectFormProvince(defaultProv.name, defaultProv.code);
+                }
+            } catch (err) {
+                console.error('Lỗi tải danh sách Tỉnh/Thành:', err);
+                document.getElementById('form-province-text').innerText = 'Không thể tải dữ liệu tỉnh';
+            }
+        }
+
+        async function fetchDistricts(provinceCode) {
+            if (!provinceCode) {
+                currentDistrictsList = [];
+                renderFormDistricts();
+                resetWard();
+                return;
+            }
+            try {
+                const res = await fetch(`${API_BASE}/p/${provinceCode}?depth=2`);
+                const data = await res.json();
+                currentDistrictsList = data.districts || [];
+                
+                if (currentDistrictsList.length > 0) {
+                    const firstDist = currentDistrictsList[0];
+                    selectFormDistrict(firstDist.name, firstDist.code);
+                } else {
+                    resetDistrict();
+                    resetWard();
+                }
+            } catch (err) {
+                console.error('Lỗi tải danh sách Quận/Huyện:', err);
+            }
+        }
+
+        async function fetchWards(districtCode) {
+            if (!districtCode) {
+                currentWardsList = [];
+                renderFormWards();
+                return;
+            }
+            try {
+                const res = await fetch(`${API_BASE}/d/${districtCode}?depth=2`);
+                const data = await res.json();
+                currentWardsList = data.wards || [];
+                
+                if (currentWardsList.length > 0) {
+                    const firstWard = currentWardsList[0];
+                    selectFormWard(firstWard.name);
+                } else {
+                    resetWard();
+                }
+            } catch (err) {
+                console.error('Lỗi tải danh sách Phường/Xã:', err);
+            }
+        }
+
+        function resetDistrict() {
+            selectedDistrictCode = null;
+            document.getElementById('select-district').value = '';
+            document.getElementById('form-district-text').innerText = 'Chọn Quận / Huyện';
+            currentDistrictsList = [];
+            renderFormDistricts();
+        }
+
+        function resetWard() {
+            document.getElementById('select-ward').value = '';
+            document.getElementById('form-ward-text').innerText = 'Chọn Phường / Xã';
+            currentWardsList = [];
+            renderFormWards();
+        }
+
+        // ======================= TỈNH / THÀNH PHỐ =======================
+        let isCustomProvinceMode = false;
+
+        function toggleCustomProvinceMode() {
+            isCustomProvinceMode = !isCustomProvinceMode;
+            const selectWrapper = document.getElementById('province-select-wrapper');
+            const customWrapper = document.getElementById('province-custom-wrapper');
+            const toggleText = document.getElementById('toggle-custom-text');
+            const customInput = document.getElementById('custom-province-input');
+            const hiddenInput = document.getElementById('select-province');
+
+            if (isCustomProvinceMode) {
+                if (selectWrapper) selectWrapper.classList.add('hidden');
+                if (customWrapper) customWrapper.classList.remove('hidden');
+                if (toggleText) toggleText.innerText = 'Chọn từ danh sách';
+                if (customInput) {
+                    customInput.focus();
+                    if (hiddenInput) hiddenInput.value = customInput.value.trim();
+                }
+            } else {
+                if (selectWrapper) selectWrapper.classList.remove('hidden');
+                if (customWrapper) customWrapper.classList.add('hidden');
+                if (toggleText) toggleText.innerText = 'Tự nhập khác';
+                const provinceText = document.getElementById('form-province-text')?.innerText || '';
+                if (hiddenInput) hiddenInput.value = provinceText;
+            }
+        }
+
+        function toggleFormProvinceDropdown(event) {
+            if (event) event.stopPropagation();
+            const panel = document.getElementById('form-province-panel');
+            const arrow = document.getElementById('form-province-arrow');
+            const searchInput = document.getElementById('form-province-search');
+
+            if (!panel) return;
+            const isHidden = panel.classList.contains('hidden');
+            if (isHidden) {
+                document.getElementById('form-district-panel')?.classList.add('hidden');
+                document.getElementById('form-ward-panel')?.classList.add('hidden');
+
+                panel.classList.remove('hidden');
+                if (arrow) arrow.style.transform = 'rotate(180deg)';
+                renderFormProvinces();
+                setTimeout(() => {
+                    if (searchInput) searchInput.focus();
+                }, 50);
+            } else {
+                panel.classList.add('hidden');
+                if (arrow) arrow.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        function renderFormProvinces(filterKeyword = '') {
+            const container = document.getElementById('form-provinces-list');
+            const currentVal = document.getElementById('select-province')?.value || '';
+            if (!container) return;
+
+            const cleanKeyword = removeVietnameseTones(filterKeyword.trim());
+            const filtered = provincesList.filter(p => removeVietnameseTones(p.name).includes(cleanKeyword));
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="px-4 py-6 text-center text-xs text-slate-400 font-medium">Không tìm thấy tỉnh / thành phố phù hợp</div>`;
+                return;
+            }
+
+            let html = '';
+            filtered.forEach(prov => {
+                const isSelected = currentVal === prov.name;
+                html += `
+                    <div onclick="selectFormProvince('${prov.name}', ${prov.code})" class="px-4 py-2 hover:bg-amber-50 cursor-pointer flex items-center justify-between text-xs font-semibold transition-colors ${isSelected ? 'bg-amber-50/80 text-amber-600 font-bold' : 'text-slate-800'}">
+                        <span>${prov.name}</span>
+                        ${isSelected ? '<i class="fa-solid fa-check text-amber-600 text-xs"></i>' : ''}
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function selectFormProvince(name, code) {
+            const hiddenInput = document.getElementById('select-province');
+            const textSpan = document.getElementById('form-province-text');
+            if (hiddenInput) hiddenInput.value = name;
+            if (textSpan) textSpan.innerText = name;
+
+            selectedProvinceCode = code;
+
+            const panel = document.getElementById('form-province-panel');
+            const arrow = document.getElementById('form-province-arrow');
+            if (panel) panel.classList.add('hidden');
+            if (arrow) arrow.style.transform = 'rotate(0deg)';
+
+            fetchDistricts(code);
+        }
+
+        function filterFormProvinces() {
+            const input = document.getElementById('form-province-search');
+            const clearBtn = document.getElementById('form-clear-search-btn');
+            const val = input ? input.value : '';
+
+            if (clearBtn) {
+                if (val.length > 0) clearBtn.classList.remove('hidden');
+                else clearBtn.classList.add('hidden');
+            }
+
+            renderFormProvinces(val);
+        }
+
+        function clearFormProvinceSearch() {
+            const input = document.getElementById('form-province-search');
+            const clearBtn = document.getElementById('form-clear-search-btn');
+            if (input) input.value = '';
+            if (clearBtn) clearBtn.classList.add('hidden');
+            renderFormProvinces('');
+            if (input) input.focus();
+        }
+
+        function onCustomProvinceInput() {
+            const customInput = document.getElementById('custom-province-input');
+            const hiddenInput = document.getElementById('select-province');
+            if (customInput && hiddenInput) {
+                hiddenInput.value = customInput.value.trim();
+            }
+        }
+
+        // ======================= QUẬN / HUYỆN =======================
+        let isCustomDistrictMode = false;
+
+        function toggleCustomDistrictMode() {
+            isCustomDistrictMode = !isCustomDistrictMode;
+            const selectWrapper = document.getElementById('district-select-wrapper');
+            const customWrapper = document.getElementById('district-custom-wrapper');
+            const toggleText = document.getElementById('toggle-custom-district-text');
+            const customInput = document.getElementById('custom-district-input');
+            const hiddenInput = document.getElementById('select-district');
+
+            if (isCustomDistrictMode) {
+                if (selectWrapper) selectWrapper.classList.add('hidden');
+                if (customWrapper) customWrapper.classList.remove('hidden');
+                if (toggleText) toggleText.innerText = 'Chọn từ danh sách';
+                if (customInput) {
+                    customInput.focus();
+                    if (hiddenInput) hiddenInput.value = customInput.value.trim();
+                }
+            } else {
+                if (selectWrapper) selectWrapper.classList.remove('hidden');
+                if (customWrapper) customWrapper.classList.add('hidden');
+                if (toggleText) toggleText.innerText = 'Tự nhập khác';
+                const districtText = document.getElementById('form-district-text')?.innerText || '';
+                if (hiddenInput) hiddenInput.value = districtText;
+            }
+        }
+
+        function toggleFormDistrictDropdown(event) {
+            if (event) event.stopPropagation();
+            const panel = document.getElementById('form-district-panel');
+            const arrow = document.getElementById('form-district-arrow');
+            const searchInput = document.getElementById('form-district-search');
+
+            if (!panel) return;
+            const isHidden = panel.classList.contains('hidden');
+            if (isHidden) {
+                document.getElementById('form-province-panel')?.classList.add('hidden');
+                document.getElementById('form-ward-panel')?.classList.add('hidden');
+
+                panel.classList.remove('hidden');
+                if (arrow) arrow.style.transform = 'rotate(180deg)';
+                renderFormDistricts();
+                setTimeout(() => {
+                    if (searchInput) searchInput.focus();
+                }, 50);
+            } else {
+                panel.classList.add('hidden');
+                if (arrow) arrow.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        function renderFormDistricts(filterKeyword = '') {
+            const container = document.getElementById('form-districts-list');
+            const currentVal = document.getElementById('select-district')?.value || '';
+            if (!container) return;
+
+            const cleanKeyword = removeVietnameseTones(filterKeyword.trim());
+            const filtered = currentDistrictsList.filter(d => removeVietnameseTones(d.name).includes(cleanKeyword));
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="px-4 py-6 text-center text-xs text-slate-400 font-medium">Không tìm thấy quận / huyện phù hợp</div>`;
+                return;
+            }
+
+            let html = '';
+            filtered.forEach(dist => {
+                const isSelected = currentVal === dist.name;
+                html += `
+                    <div onclick="selectFormDistrict('${dist.name}', ${dist.code})" class="px-4 py-2 hover:bg-amber-50 cursor-pointer flex items-center justify-between text-xs font-semibold transition-colors ${isSelected ? 'bg-amber-50/80 text-amber-600 font-bold' : 'text-slate-800'}">
+                        <span>${dist.name}</span>
+                        ${isSelected ? '<i class="fa-solid fa-check text-amber-600 text-xs"></i>' : ''}
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function selectFormDistrict(name, code) {
+            const hiddenInput = document.getElementById('select-district');
+            const textSpan = document.getElementById('form-district-text');
+            if (hiddenInput) hiddenInput.value = name;
+            if (textSpan) textSpan.innerText = name;
+
+            selectedDistrictCode = code;
+
+            const panel = document.getElementById('form-district-panel');
+            const arrow = document.getElementById('form-district-arrow');
+            if (panel) panel.classList.add('hidden');
+            if (arrow) arrow.style.transform = 'rotate(0deg)';
+
+            fetchWards(code);
+        }
+
+        function filterFormDistricts() {
+            const input = document.getElementById('form-district-search');
+            const clearBtn = document.getElementById('form-clear-district-search-btn');
+            const val = input ? input.value : '';
+
+            if (clearBtn) {
+                if (val.length > 0) clearBtn.classList.remove('hidden');
+                else clearBtn.classList.add('hidden');
+            }
+
+            renderFormDistricts(val);
+        }
+
+        function clearFormDistrictSearch() {
+            const input = document.getElementById('form-district-search');
+            const clearBtn = document.getElementById('form-clear-district-search-btn');
+            if (input) input.value = '';
+            if (clearBtn) clearBtn.classList.add('hidden');
+            renderFormDistricts('');
+            if (input) input.focus();
+        }
+
+        function onCustomDistrictInput() {
+            const customInput = document.getElementById('custom-district-input');
+            const hiddenInput = document.getElementById('select-district');
+            if (customInput && hiddenInput) {
+                hiddenInput.value = customInput.value.trim();
+            }
+        }
+
+        // ======================= PHƯỜNG / XÃ =======================
+        let isCustomWardMode = false;
+
+        function toggleCustomWardMode() {
+            isCustomWardMode = !isCustomWardMode;
+            const selectWrapper = document.getElementById('ward-select-wrapper');
+            const customWrapper = document.getElementById('ward-custom-wrapper');
+            const toggleText = document.getElementById('toggle-custom-ward-text');
+            const customInput = document.getElementById('custom-ward-input');
+            const hiddenInput = document.getElementById('select-ward');
+
+            if (isCustomWardMode) {
+                if (selectWrapper) selectWrapper.classList.add('hidden');
+                if (customWrapper) customWrapper.classList.remove('hidden');
+                if (toggleText) toggleText.innerText = 'Chọn từ danh sách';
+                if (customInput) {
+                    customInput.focus();
+                    if (hiddenInput) hiddenInput.value = customInput.value.trim();
+                }
+            } else {
+                if (selectWrapper) selectWrapper.classList.remove('hidden');
+                if (customWrapper) customWrapper.classList.add('hidden');
+                if (toggleText) toggleText.innerText = 'Tự nhập khác';
+                const wardText = document.getElementById('form-ward-text')?.innerText || '';
+                if (hiddenInput) hiddenInput.value = wardText;
+            }
+        }
+
+        function toggleFormWardDropdown(event) {
+            if (event) event.stopPropagation();
+            const panel = document.getElementById('form-ward-panel');
+            const arrow = document.getElementById('form-ward-arrow');
+            const searchInput = document.getElementById('form-ward-search');
+
+            if (!panel) return;
+            const isHidden = panel.classList.contains('hidden');
+            if (isHidden) {
+                document.getElementById('form-province-panel')?.classList.add('hidden');
+                document.getElementById('form-district-panel')?.classList.add('hidden');
+
+                panel.classList.remove('hidden');
+                if (arrow) arrow.style.transform = 'rotate(180deg)';
+                renderFormWards();
+                setTimeout(() => {
+                    if (searchInput) searchInput.focus();
+                }, 50);
+            } else {
+                panel.classList.add('hidden');
+                if (arrow) arrow.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        function renderFormWards(filterKeyword = '') {
+            const container = document.getElementById('form-wards-list');
+            const currentVal = document.getElementById('select-ward')?.value || '';
+            if (!container) return;
+
+            const cleanKeyword = removeVietnameseTones(filterKeyword.trim());
+            const filtered = currentWardsList.filter(w => removeVietnameseTones(w.name).includes(cleanKeyword));
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="px-4 py-6 text-center text-xs text-slate-400 font-medium">Không tìm thấy phường / xã phù hợp</div>`;
+                return;
+            }
+
+            let html = '';
+            filtered.forEach(ward => {
+                const isSelected = currentVal === ward.name;
+                html += `
+                    <div onclick="selectFormWard('${ward.name}')" class="px-4 py-2 hover:bg-amber-50 cursor-pointer flex items-center justify-between text-xs font-semibold transition-colors ${isSelected ? 'bg-amber-50/80 text-amber-600 font-bold' : 'text-slate-800'}">
+                        <span>${ward.name}</span>
+                        ${isSelected ? '<i class="fa-solid fa-check text-amber-600 text-xs"></i>' : ''}
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function selectFormWard(name) {
+            const hiddenInput = document.getElementById('select-ward');
+            const textSpan = document.getElementById('form-ward-text');
+            if (hiddenInput) hiddenInput.value = name;
+            if (textSpan) textSpan.innerText = name;
+
+            const panel = document.getElementById('form-ward-panel');
+            const arrow = document.getElementById('form-ward-arrow');
+            if (panel) panel.classList.add('hidden');
+            if (arrow) arrow.style.transform = 'rotate(0deg)';
+        }
+
+        function filterFormWards() {
+            const input = document.getElementById('form-ward-search');
+            const clearBtn = document.getElementById('form-clear-ward-search-btn');
+            const val = input ? input.value : '';
+
+            if (clearBtn) {
+                if (val.length > 0) clearBtn.classList.remove('hidden');
+                else clearBtn.classList.add('hidden');
+            }
+
+            renderFormWards(val);
+        }
+
+        function clearFormWardSearch() {
+            const input = document.getElementById('form-ward-search');
+            const clearBtn = document.getElementById('form-clear-ward-search-btn');
+            if (input) input.value = '';
+            if (clearBtn) clearBtn.classList.add('hidden');
+            renderFormWards('');
+            if (input) input.focus();
+        }
+
+        function onCustomWardInput() {
+            const customInput = document.getElementById('custom-ward-input');
+            const hiddenInput = document.getElementById('select-ward');
+            if (customInput && hiddenInput) {
+                hiddenInput.value = customInput.value.trim();
+            }
+        }
+
+        // ======================= CÁC HÀM TIỆN ÍCH FORM =======================
         function goToStepDetails() {
             document.getElementById('step-location').classList.add('hidden');
             document.getElementById('step-details').classList.remove('hidden');
@@ -506,7 +930,6 @@
             document.getElementById('step-location').classList.remove('hidden');
         }
 
-        // Tăng giảm phòng ngủ / phòng tắm
         function stepCount(type, delta) {
             const el = document.getElementById(type + '-count');
             let val = parseInt(el.innerText) + delta;
@@ -514,17 +937,6 @@
             el.innerText = val;
         }
 
-        // Ẩn hiện phần chọn tòa nhà dựa vào vai trò
-        function toggleRoleForm(role) {
-            const box = document.getElementById('building-select-box');
-            if (role === 'doanhnghiep') {
-                box.classList.remove('hidden');
-            } else {
-                box.classList.add('hidden');
-            }
-        }
-
-        // Ẩn hiện số phòng ngủ & phòng tắm khi chuyển loại BĐS (Đất nền vs Nhà ở / Phòng trọ)
         function togglePropertyType(type) {
             const roomBox = document.getElementById('room-counter-box');
             if (roomBox) {
@@ -536,7 +948,6 @@
             }
         }
 
-        // Thêm tiện ích vào ô nhập tiện ích
         function addAmenityTag(text) {
             const input = document.getElementById('amenities-input');
             if (!input) return;
@@ -549,7 +960,6 @@
             }
         }
 
-        // Quản lý và xem trước ảnh tải lên từ máy tính
         let uploadedFilesArray = [];
 
         function handleImageUpload(event) {
@@ -592,8 +1002,7 @@
             uploadedFilesArray.forEach((file, idx) => {
                 const fileUrl = URL.createObjectURL(file);
                 const card = document.createElement('div');
-                card.className =
-                    'relative group aspect-square rounded-2xl overflow-hidden border border-slate-200 shadow-xs bg-slate-100';
+                card.className = 'relative group aspect-square rounded-2xl overflow-hidden border border-slate-200 shadow-xs bg-slate-100';
 
                 card.innerHTML = `
                     <img src="${fileUrl}" class="w-full h-full object-cover">
@@ -610,7 +1019,6 @@
             });
         }
 
-        // Xử lý gửi bài viết lên hệ thống chờ duyệt
         function submitPost() {
             const titleInput = document.getElementById('post-title');
             const title = titleInput ? titleInput.value.trim() : '';
@@ -631,7 +1039,7 @@
             const desc = document.getElementById('post-description')?.value.trim() || '';
 
             let locationParts = [address, ward, district, province].filter(Boolean);
-            let locationStr = locationParts.length > 0 ? locationParts.join(', ') : 'TP. Hồ Chí Minh';
+            let locationStr = locationParts.length > 0 ? locationParts.join(', ') : 'Chưa cập nhật vị trí';
 
             const postObj = {
                 id: '#RH-' + Math.floor(1000 + Math.random() * 9000),
@@ -672,634 +1080,11 @@
                 saveAndRedirect(postObj);
             }
         }
-        // Dữ liệu Quận/Huyện/Thị xã & Phường/Xã/Thị trấn cho các Tỉnh Thành Việt Nam
-        const vnLocationData = {
-            "TP. Hồ Chí Minh": {
-                "Quận 1": ["Phường Bến Nghé", "Phường Bến Thành", "Phường Cầu Kho", "Phường Cầu Ông Lãnh", "Phường Đa Kao", "Phường Nguyễn Thái Bình", "Phường Tân Định"],
-                "Quận 3": ["Phường Võ Thị Sáu", "Phường 1", "Phường 2", "Phường 3", "Phường 4", "Phường 5"],
-                "Quận 5": ["Phường 1", "Phường 2", "Phường 3", "Phường 4", "Phường 5", "Phường 6"],
-                "Quận 7": ["Phường Tân Thuận Đông", "Phường Tân Thuận Tây", "Phường Tân Kiểng", "Phường Tân Phong", "Phường Phú Mỹ"],
-                "Quận 10": ["Phường 1", "Phường 2", "Phường 10", "Phường 12", "Phường 14", "Phường 15"],
-                "Quận Bình Thạnh": ["Phường 1", "Phường 2", "Phường 15", "Phường 22", "Phường 25", "Phường 26"],
-                "TP. Thủ Đức": ["Phường Thảo Điền", "Phường An Phú", "Phường Linh Trung", "Phường Hiệp Bình Chánh", "Phường Tân Phú"],
-                "Quận Gò Vấp": ["Phường 1", "Phường 3", "Phường 5", "Phường 7", "Phường 10", "Phường 11"],
-                "Quận Tân Bình": ["Phường 1", "Phường 2", "Phường 4", "Phường 12", "Phường 13", "Phường 15"],
-                "Quận Phú Nhuận": ["Phường 1", "Phường 2", "Phường 3", "Phường 5", "Phường 7", "Phường 9"],
-                "Huyện Bình Chánh": ["Thị trấn Tân Túc", "Xã Bình Hưng", "Xã Phong Phú", "Xã Vĩnh Lộc A", "Xã Vĩnh Lộc B", "Xã Tân Kiên"],
-                "Huyện Củ Chi": ["Thị trấn Củ Chi", "Xã Tân An Hội", "Xã Nhuận Đức", "Xã Phạm Văn Cội", "Xã Tân Thạnh Đông"],
-                "Huyện Hóc Môn": ["Thị trấn Hóc Môn", "Xã Bà Điểm", "Xã Đông Thạnh", "Xã Tân Xuân", "Xã Thới Tam Thôn"],
-                "Huyện Nhà Bè": ["Thị trấn Nhà Bè", "Xã Phước Kiển", "Xã Nhơn Đức", "Xã Phú Xuân", "Xã Hiệp Phước"],
-                "Huyện Cần Giờ": ["Thị trấn Cần Thạnh", "Xã Long Hòa", "Xã Bình Khánh", "Xã Lý Nhơn"]
-            },
-            "Hà Nội": {
-                "Quận Cầu Giấy": ["Phường Dịch Vọng", "Phường Dịch Vọng Hậu", "Phường Mai Dịch", "Phường Nghĩa Tân", "Phường Yên Hòa"],
-                "Quận Ba Đình": ["Phường Cống Vị", "Phường Điện Biên", "Phường Kim Mã", "Phường Ngọc Khánh", "Phường Đội Cấn"],
-                "Quận Hoàn Kiếm": ["Phường Hàng Bạc", "Phường Hàng Bồ", "Phường Hàng Gai", "Phường Tràng Tiền", "Phường Lý Thái Tổ"],
-                "Quận Đống Đa": ["Phường Cát Linh", "Phường Láng Hạ", "Phường Láng Thượng", "Phường Ô Chợ Dừa", "Phường Trung Liệt"],
-                "Quận Hai Bà Trưng": ["Phường Bách Khoa", "Phường Bạch Đằng", "Phường Minh Khai", "Phường Trương Định"],
-                "Quận Thanh Xuân": ["Phường Hạ Đình", "Phường Khương Trung", "Phường Nhân Chính", "Phường Thanh Xuân Bắc"],
-                "Quận Hà Đông": ["Phường Hà Cầu", "Phường Mộ Lao", "Phường Quang Trung", "Phường Văn Quán"],
-                "Quận Nam Từ Liêm": ["Phường Cầu Diễn", "Phường Mỹ Đình 1", "Phường Mỹ Đình 2", "Phường Trung Văn"],
-                "Quận Bắc Từ Liêm": ["Phường Cổ Nhuế 1", "Phường Cổ Nhuế 2", "Phường Xuân Đỉnh", "Phường Minh Khai"],
-                "Quận Tây Hồ": ["Phường Bưởi", "Phường Thụy Khuê", "Phường Quảng An", "Phường Nhật Tân"],
-                "Quận Long Biên": ["Phường Gia Thụy", "Phường Bồ Đề", "Phường Việt Hưng", "Phường Ngọc Lâm"],
-                "Quận Hoàng Mai": ["Phường Giáp Bát", "Phường Định Công", "Phường Tân Mai", "Phường Hoàng Văn Thụ"],
-                "Thị xã Sơn Tây": ["Phường Lê Lợi", "Phường Ngô Quyền", "Xã Sơn Đông", "Xã Đường Lâm"],
-                "Huyện Đông Anh": ["Thị trấn Đông Anh", "Xã Hải Bối", "Xã Vĩnh Ngọc", "Xã Kim Chung", "Xã Tiên Dương"],
-                "Huyện Gia Lâm": ["Thị trấn Trâu Quỳ", "Xã Đặng Xá", "Xã Ninh Hiệp", "Xã Cổ Bi"],
-                "Huyện Hoài Đức": ["Thị trấn Trạm Trôi", "Xã An Khánh", "Xã Vân Canh", "Xã Đức Giang"],
-                "Huyện Thanh Trì": ["Thị trấn Văn Điển", "Xã Tân Triều", "Xã Tả Thanh Oai", "Xã Tam Hiệp"],
-                "Huyện Thạch Thất": ["Thị trấn Liên Quan", "Xã Tân Xã", "Xã Thạch Hòa", "Xã Tiến Xuân"],
-                "Huyện Ba Vì": ["Thị trấn Tây Đằng", "Xã Tản Lĩnh", "Xã Chu Minh"]
-            },
-            "Đà Nẵng": {
-                "Quận Hải Châu": ["Phường Hải Châu I", "Phường Hải Châu II", "Phường Thạch Thang", "Phường Thuận Phước", "Phường Phước Ninh"],
-                "Quận Thanh Khê": ["Phường An Khê", "Phường Chính Gián", "Phường Hòa Khê", "Phường Tam Thuận"],
-                "Quận Sơn Trà": ["Phường An Hải Bắc", "Phường An Hải Tây", "Phường Phước Mỹ", "Phường Thọ Quang"],
-                "Quận Ngũ Hành Sơn": ["Phường Khuê Mỹ", "Phường Mỹ An", "Phường Hòa Hải", "Phường Hòa Quý"],
-                "Quận Liên Chiểu": ["Phường Hòa Hiệp Bắc", "Phường Hòa Hiệp Nam", "Phường Hòa Khánh Bắc", "Phường Hòa Khánh Nam"],
-                "Quận Cẩm Lệ": ["Phường Khuê Trung", "Phường Hòa Thọ Đông", "Phường Hòa Thọ Tây", "Phường Hòa Xuân"],
-                "Huyện Hòa Vang": ["Xã Hòa Châu", "Xã Hòa Phước", "Xã Hòa Phong", "Xã Hòa Nhơn", "Xã Hòa Tiến"]
-            },
-            "Hải Phòng": {
-                "Quận Hồng Bàng": ["Phường Hoàng Văn Thụ", "Phường Minh Khai", "Phường Phan Bội Châu"],
-                "Quận Ngô Quyền": ["Phường Cầu Đất", "Phường Lạch Tray", "Phường Máy Tơ"],
-                "Quận Lê Chân": ["Phường An Dương", "Phường Cát Dài", "Phường Hàng Kênh"],
-                "Quận Hải An": ["Phường Đằng Hải", "Phường Đằng Lâm", "Phường Đông Hải 1"],
-                "Quận Kiến An": ["Phường Bắc Sơn", "Phường Đồng Hòa", "Phường Trần Thành Ngọ"],
-                "Huyện Thủy Nguyên": ["Thị trấn Núi Đèo", "Xã An Lư", "Xã Lập Lễ", "Xã Thủy Đường"],
-                "Huyện An Dương": ["Thị trấn An Dương", "Xã An Đồng", "Xã Nam Sơn"],
-                "Huyện Cát Hải": ["Thị trấn Cát Bà", "Thị trấn Cát Hải", "Xã Trân Châu"]
-            },
-            "Cần Thơ": {
-                "Quận Ninh Kiều": ["Phường An Khánh", "Phường An Hòa", "Phường An Hội", "Phường Tân An", "Phường Xuân Khánh"],
-                "Quận Bình Thủy": ["Phường Bình Thủy", "Phường Bùi Hữu Nghĩa", "Phường Trà Nóc", "Phường Long Tuyền"],
-                "Quận Cái Răng": ["Phường Lê Bình", "Phường Hưng Phú", "Phường Hưng Thạnh"],
-                "Quận Ô Môn": ["Phường Châu Văn Liêm", "Phường Phước Thới", "Phường Thới Hòa"],
-                "Huyện Phong Điền": ["Thị trấn Phong Điền", "Xã Nhơn Ai", "Xã Giai Xuân"],
-                "Huyện Thới Lai": ["Thị trấn Thới Lai", "Xã Định Môn", "Xã Trường Thành"]
-            },
-            "Bình Dương": {
-                "TP. Thủ Dầu Một": ["Phường Phú Hòa", "Phường Phú Cường", "Phường Phú Lợi", "Phường Hiệp Thành", "Phường Chánh Nghĩa"],
-                "TP. Thuận An": ["Phường Lái Thiêu", "Phường An Phú", "Phường Bình Hòa", "Phường Vĩnh Phú"],
-                "TP. Dĩ An": ["Phường Dĩ An", "Phường Tân Bình", "Phường Đông Hòa", "Phường An Bình"],
-                "TP. Bến Cát": ["Phường Mỹ Phước", "Phường Thới Hòa", "Phường Tân Định"],
-                "TP. Tân Uyên": ["Phường Uyên Hưng", "Phường Tân Phước Khánh", "Phường Thái Hòa"],
-                "Huyện Bàu Bàng": ["Thị trấn Lai Uyên", "Xã Trừ Văn Thố", "Xã Lai Hưng"],
-                "Huyện Dầu Tiếng": ["Thị trấn Dầu Tiếng", "Xã Minh Thạnh", "Xã Định An"],
-                "Huyện Phú Giáo": ["Thị trấn Phước Vĩnh", "Xã An Bình", "Xã Phước Hòa"]
-            },
-            "Đồng Nai": {
-                "TP. Biên Hòa": ["Phường Tân Phong", "Phường Trảng Dài", "Phường Thống Nhất", "Phường Quyết Thắng", "Phường Trung Dũng"],
-                "TP. Long Khánh": ["Phường Xuân Trung", "Phường Xuân Thanh", "Phường Phú Bình"],
-                "Huyện Long Thành": ["Thị trấn Long Thành", "Xã An Phước", "Xã Bình Sơn", "Xã Lộc An"],
-                "Huyện Nhơn Trạch": ["Thị trấn Hiệp Phước", "Xã Đại Phước", "Xã Phú Hữu", "Xã Phước Thiền"],
-                "Huyện Trảng Bom": ["Thị trấn Trảng Bom", "Xã Hố Nai 3", "Xã Bắc Sơn", "Xã Sông Trầu"]
-            },
-            "Bà Rịa - Vũng Tàu": {
-                "TP. Vũng Tàu": ["Phường 1", "Phường 2", "Phường 7", "Phường 8", "Phường 9", "Phường Nguyễn An Ninh", "Phường Rạch Dừa"],
-                "TP. Bà Rịa": ["Phường Phước Trung", "Phường Phước Hưng", "Phường Phước Nguyên"],
-                "Thị xã Phú Mỹ": ["Phường Phú Mỹ", "Phường Mỹ Xuân", "Phường Tân Phước"],
-                "Huyện Long Điền": ["Thị trấn Long Điền", "Thị trấn Long Hải", "Xã Phước Hưng"],
-                "Huyện Châu Đức": ["Thị trấn Ngãi Giao", "Xã Kim Long", "Xã Suối Nghệ"],
-                "Huyện Xuyên Mộc": ["Thị trấn Phước Bửu", "Xã Bình Châu", "Xã Phước Thuận"]
-            },
-            "Khánh Hòa": {
-                "TP. Nha Trang": ["Phường Lộc Thọ", "Phường Phương Sài", "Phường Phước Hải", "Phường Phước Tiến", "Phường Vĩnh Hải", "Phường Vĩnh Phước"],
-                "TP. Cam Ranh": ["Phường Cam Lộc", "Phường Cam Phú", "Phường Cam Thuận"],
-                "Thị xã Ninh Hòa": ["Phường Ninh Hiệp", "Phường Ninh Diễm", "Xã Ninh Sim"],
-                "Huyện Diên Khánh": ["Thị trấn Diên Khánh", "Xã Diên An", "Xã Diên Toàn"],
-                "Huyện Cam Lâm": ["Thị trấn Cam Đức", "Xã Cam Thành Bắc", "Xã Cam Hải Đông"]
-            },
-            "Lâm Đồng": {
-                "TP. Đà Lạt": ["Phường 1", "Phường 2", "Phường 3", "Phường 4", "Phường 5", "Phường 6", "Phường 8", "Phường 9", "Phường 10"],
-                "TP. Bảo Lộc": ["Phường 1", "Phường 2", "Phường B'Lao", "Phường Lộc Sơn"],
-                "Huyện Đức Trọng": ["Thị trấn Liên Nghĩa", "Xã Hiệp Thạnh", "Xã Phú Hội"],
-                "Huyện Đơn Dương": ["Thị trấn Thạnh Mỹ", "Thị trấn D'Ran", "Xã Ka Đơn"]
-            }
-        };
 
-        function onProvinceChange() {
-            const provinceEl = document.getElementById('select-province');
-            const hiddenDist = document.getElementById('select-district');
-            const textDist = document.getElementById('form-district-text');
-
-            if (!provinceEl) return;
-            const provName = provinceEl.value;
-
-            let districtsMap = {};
-            if (vnLocationData[provName]) {
-                districtsMap = vnLocationData[provName];
-            } else {
-                districtsMap = {
-                    [`TP. ${provName}`]: ["Phường 1", "Phường 2", "Phường Tân Tiến", "Phường Trung Tâm", "Xã Ngoại Thành"],
-                    [`Thị xã ${provName}`]: ["Phường 1", "Phường 2", "Phường Hòa Bình", "Xã An Bình"],
-                    [`Huyện ${provName}`]: ["Thị trấn Trung Tâm", "Xã Tân Lập", "Xã Hòa Phú", "Xã Mỹ Thạnh"],
-                    [`Huyện Châu Thành`]: ["Thị trấn Châu Thành", "Xã Tân Bình", "Xã Phú Hữu", "Xã Đông Hòa"]
-                };
-            }
-
-            let distList = Object.keys(districtsMap);
-            let firstDist = distList.length > 0 ? distList[0] : '';
-            if (hiddenDist) hiddenDist.value = firstDist;
-            if (textDist) textDist.innerText = firstDist || 'Chọn Quận/Huyện';
-
-            renderFormDistricts();
-            onDistrictChange();
-        }
-
-        function onDistrictChange() {
-            const provinceEl = document.getElementById('select-province');
-            const districtEl = document.getElementById('select-district');
-            const hiddenWard = document.getElementById('select-ward');
-            const textWard = document.getElementById('form-ward-text');
-
-            if (!provinceEl || !districtEl) return;
-            const provName = provinceEl.value;
-            const distName = districtEl.value;
-
-            let wardsList = [];
-            if (vnLocationData[provName] && vnLocationData[provName][distName]) {
-                wardsList = vnLocationData[provName][distName];
-            } else if (distName.startsWith('Huyện')) {
-                wardsList = ["Thị trấn Trung Tâm", "Xã Tân Lập", "Xã Hòa Phú", "Xã Mỹ Thạnh", "Xã Đông Bình"];
-            } else if (distName.startsWith('Thị xã')) {
-                wardsList = ["Phường 1", "Phường 2", "Phường Hòa Bình", "Xã An Bình", "Xã Tân Hòa"];
-            } else {
-                wardsList = ["Phường 1", "Phường 2", "Phường 3", "Phường Tân Phú", "Phường Trung Tâm"];
-            }
-
-            let firstWard = wardsList.length > 0 ? wardsList[0] : '';
-            if (hiddenWard) hiddenWard.value = firstWard;
-            if (textWard) textWard.innerText = firstWard || 'Chọn Phường/Xã';
-
-            renderFormWards();
-        }
-
-        // Khởi tạo các tùy chọn ban đầu khi tải trang
+        // ======================= SỰ KIỆN KHỞI TẠO & ĐÓNG MENU =======================
         document.addEventListener('DOMContentLoaded', function () {
-            onProvinceChange();
-            renderFormProvinces();
-            renderFormDistricts();
-            renderFormWards();
+            fetchProvinces();
         });
-
-        // Dữ liệu 63 Tỉnh Thành
-        const vietnamLocations = {
-            centralCities: [
-                "TP. Hồ Chí Minh",
-                "Hà Nội",
-                "Đà Nẵng",
-                "Hải Phòng",
-                "Cần Thơ"
-            ],
-            provinces: [
-                "An Giang", "Bà Rịa - Vũng Tàu", "Bắc Giang", "Bắc Kạn", "Bạc Liêu", "Bắc Ninh",
-                "Bến Tre", "Bình Định", "Bình Dương", "Bình Phước", "Bình Thuận", "Cà Mau",
-                "Cao Bằng", "Đắk Lắk", "Đắk Nông", "Điện Biên", "Đồng Nai", "Đồng Tháp",
-                "Gia Lai", "Hà Giang", "Hà Nam", "Hà Tĩnh", "Hải Dương", "Hậu Giang",
-                "Hòa Bình", "Hưng Yên", "Khánh Hòa", "Kiên Giang", "Kon Tum", "Lai Châu",
-                "Lâm Đồng", "Lạng Sơn", "Lào Cai", "Long An", "Nam Định", "Nghệ An",
-                "Ninh Bình", "Ninh Thuận", "Phú Thọ", "Phú Yên", "Quảng Bình", "Quảng Nam",
-                "Quảng Ngãi", "Quảng Ninh", "Quảng Trị", "Sóc Trăng", "Sơn La", "Tây Ninh",
-                "Thái Bình", "Thái Nguyên", "Thanh Hóa", "Thừa Thiên Huế", "Tiền Giang", "Trà Vinh",
-                "Tuyên Quang", "Vĩnh Long", "Vĩnh Phúc", "Yên Bái"
-            ]
-        };
-
-        function removeVietnameseTones(str) {
-            if (!str) return '';
-            return str
-                .normalize('NFD')
-                .replace(/[\u0300-\u036f]/g, '')
-                .replace(/đ/g, 'd').replace(/Đ/g, 'D')
-                .toLowerCase();
-        }
-
-        // ------------------ TỈNH / THÀNH PHỐ ------------------
-        let isCustomProvinceMode = false;
-
-        function toggleCustomProvinceMode() {
-            isCustomProvinceMode = !isCustomProvinceMode;
-            const selectWrapper = document.getElementById('province-select-wrapper');
-            const customWrapper = document.getElementById('province-custom-wrapper');
-            const toggleText = document.getElementById('toggle-custom-text');
-            const customInput = document.getElementById('custom-province-input');
-            const hiddenInput = document.getElementById('select-province');
-
-            if (isCustomProvinceMode) {
-                if (selectWrapper) selectWrapper.classList.add('hidden');
-                if (customWrapper) customWrapper.classList.remove('hidden');
-                if (toggleText) toggleText.innerText = 'Chọn từ danh sách';
-                if (customInput) {
-                    customInput.focus();
-                    if (hiddenInput) hiddenInput.value = customInput.value.trim() || 'TP. Hồ Chí Minh';
-                }
-            } else {
-                if (selectWrapper) selectWrapper.classList.remove('hidden');
-                if (customWrapper) customWrapper.classList.add('hidden');
-                if (toggleText) toggleText.innerText = 'Tự nhập khác';
-                const provinceText = document.getElementById('form-province-text')?.innerText || 'TP. Hồ Chí Minh';
-                if (hiddenInput) hiddenInput.value = provinceText;
-            }
-            onProvinceChange();
-        }
-
-        function toggleFormProvinceDropdown(event) {
-            if (event) event.stopPropagation();
-            const panel = document.getElementById('form-province-panel');
-            const arrow = document.getElementById('form-province-arrow');
-            const searchInput = document.getElementById('form-province-search');
-
-            if (!panel) return;
-            const isHidden = panel.classList.contains('hidden');
-            if (isHidden) {
-                document.getElementById('form-district-panel')?.classList.add('hidden');
-                document.getElementById('form-ward-panel')?.classList.add('hidden');
-
-                panel.classList.remove('hidden');
-                if (arrow) arrow.style.transform = 'rotate(180deg)';
-                renderFormProvinces();
-                setTimeout(() => {
-                    if (searchInput) searchInput.focus();
-                }, 50);
-            } else {
-                panel.classList.add('hidden');
-                if (arrow) arrow.style.transform = 'rotate(0deg)';
-            }
-        }
-
-        function renderFormProvinces(filterKeyword = '') {
-            const container = document.getElementById('form-provinces-list');
-            const currentVal = document.getElementById('select-province')?.value || 'TP. Hồ Chí Minh';
-            if (!container) return;
-
-            const cleanKeyword = removeVietnameseTones(filterKeyword.trim());
-            let html = '';
-
-            const filteredCities = vietnamLocations.centralCities.filter(c =>
-                removeVietnameseTones(c).includes(cleanKeyword)
-            );
-
-            if (filteredCities.length > 0) {
-                html += `<div class="px-3.5 py-1.5 bg-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-600 border-y border-slate-200/70">🏙️ Thành phố trực thuộc TW</div>`;
-                filteredCities.forEach(city => {
-                    const isSelected = currentVal === city;
-                    html += `
-                        <div onclick="selectFormProvince('${city}')" class="px-4 py-2 hover:bg-amber-50 cursor-pointer flex items-center justify-between text-xs font-semibold transition-colors ${isSelected ? 'bg-amber-50/80 text-amber-600 font-bold' : 'text-slate-800'}">
-                            <span>${city}</span>
-                            ${isSelected ? '<i class="fa-solid fa-check text-amber-600 text-xs"></i>' : ''}
-                        </div>
-                    `;
-                });
-            }
-
-            const filteredProvinces = vietnamLocations.provinces.filter(p =>
-                removeVietnameseTones(p).includes(cleanKeyword)
-            );
-
-            if (filteredProvinces.length > 0) {
-                html += `<div class="px-3.5 py-1.5 bg-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-600 border-y border-slate-200/70">🏔️ Tỉnh thành</div>`;
-                filteredProvinces.forEach(prov => {
-                    const isSelected = currentVal === prov;
-                    html += `
-                        <div onclick="selectFormProvince('${prov}')" class="px-4 py-2 hover:bg-amber-50 cursor-pointer flex items-center justify-between text-xs font-medium transition-colors ${isSelected ? 'bg-amber-50/80 text-amber-600 font-bold' : 'text-slate-700'}">
-                            <span>${prov}</span>
-                            ${isSelected ? '<i class="fa-solid fa-check text-amber-600 text-xs"></i>' : ''}
-                        </div>
-                    `;
-                });
-            }
-
-            if (filteredCities.length === 0 && filteredProvinces.length === 0) {
-                html = `<div class="px-4 py-6 text-center text-xs text-slate-400 font-medium">Không tìm thấy tỉnh / thành phố phù hợp</div>`;
-            }
-
-            container.innerHTML = html;
-        }
-
-        function selectFormProvince(name) {
-            const hiddenInput = document.getElementById('select-province');
-            const textSpan = document.getElementById('form-province-text');
-            if (hiddenInput) hiddenInput.value = name;
-            if (textSpan) textSpan.innerText = name;
-
-            const panel = document.getElementById('form-province-panel');
-            const arrow = document.getElementById('form-province-arrow');
-            if (panel) panel.classList.add('hidden');
-            if (arrow) arrow.style.transform = 'rotate(0deg)';
-
-            onProvinceChange();
-        }
-
-        function filterFormProvinces() {
-            const input = document.getElementById('form-province-search');
-            const clearBtn = document.getElementById('form-clear-search-btn');
-            const val = input ? input.value : '';
-
-            if (clearBtn) {
-                if (val.length > 0) clearBtn.classList.remove('hidden');
-                else clearBtn.classList.add('hidden');
-            }
-
-            renderFormProvinces(val);
-        }
-
-        function clearFormProvinceSearch() {
-            const input = document.getElementById('form-province-search');
-            const clearBtn = document.getElementById('form-clear-search-btn');
-            if (input) input.value = '';
-            if (clearBtn) clearBtn.classList.add('hidden');
-            renderFormProvinces('');
-            if (input) input.focus();
-        }
-
-        function onCustomProvinceInput() {
-            const customInput = document.getElementById('custom-province-input');
-            const hiddenInput = document.getElementById('select-province');
-            if (customInput && hiddenInput) {
-                hiddenInput.value = customInput.value.trim();
-                onProvinceChange();
-            }
-        }
-
-        // ------------------ QUẬN / HUYỆN ------------------
-        let isCustomDistrictMode = false;
-
-        function toggleCustomDistrictMode() {
-            isCustomDistrictMode = !isCustomDistrictMode;
-            const selectWrapper = document.getElementById('district-select-wrapper');
-            const customWrapper = document.getElementById('district-custom-wrapper');
-            const toggleText = document.getElementById('toggle-custom-district-text');
-            const customInput = document.getElementById('custom-district-input');
-            const hiddenInput = document.getElementById('select-district');
-
-            if (isCustomDistrictMode) {
-                if (selectWrapper) selectWrapper.classList.add('hidden');
-                if (customWrapper) customWrapper.classList.remove('hidden');
-                if (toggleText) toggleText.innerText = 'Chọn từ danh sách';
-                if (customInput) {
-                    customInput.focus();
-                    if (hiddenInput) hiddenInput.value = customInput.value.trim() || 'Quận 1';
-                }
-            } else {
-                if (selectWrapper) selectWrapper.classList.remove('hidden');
-                if (customWrapper) customWrapper.classList.add('hidden');
-                if (toggleText) toggleText.innerText = 'Tự nhập khác';
-                const districtText = document.getElementById('form-district-text')?.innerText || 'Quận 1';
-                if (hiddenInput) hiddenInput.value = districtText;
-            }
-            onDistrictChange();
-        }
-
-        function toggleFormDistrictDropdown(event) {
-            if (event) event.stopPropagation();
-            const panel = document.getElementById('form-district-panel');
-            const arrow = document.getElementById('form-district-arrow');
-            const searchInput = document.getElementById('form-district-search');
-
-            if (!panel) return;
-            const isHidden = panel.classList.contains('hidden');
-            if (isHidden) {
-                document.getElementById('form-province-panel')?.classList.add('hidden');
-                document.getElementById('form-ward-panel')?.classList.add('hidden');
-
-                panel.classList.remove('hidden');
-                if (arrow) arrow.style.transform = 'rotate(180deg)';
-                renderFormDistricts();
-                setTimeout(() => {
-                    if (searchInput) searchInput.focus();
-                }, 50);
-            } else {
-                panel.classList.add('hidden');
-                if (arrow) arrow.style.transform = 'rotate(0deg)';
-            }
-        }
-
-        function renderFormDistricts(filterKeyword = '') {
-            const container = document.getElementById('form-districts-list');
-            const hiddenInput = document.getElementById('select-district');
-            const currentVal = hiddenInput ? hiddenInput.value : '';
-            const provName = document.getElementById('select-province')?.value || 'TP. Hồ Chí Minh';
-            if (!container) return;
-
-            let districtsMap = {};
-            if (vnLocationData[provName]) {
-                districtsMap = vnLocationData[provName];
-            } else {
-                districtsMap = {
-                    [`TP. ${provName}`]: [],
-                    [`Thị xã ${provName}`]: [],
-                    [`Huyện ${provName}`]: [],
-                    [`Huyện Châu Thành`]: []
-                };
-            }
-
-            const distList = Object.keys(districtsMap);
-            const cleanKeyword = removeVietnameseTones(filterKeyword.trim());
-            const filteredDistricts = distList.filter(d => removeVietnameseTones(d).includes(cleanKeyword));
-
-            let html = '';
-            if (filteredDistricts.length > 0) {
-                filteredDistricts.forEach(dist => {
-                    const isSelected = currentVal === dist;
-                    html += `
-                        <div onclick="selectFormDistrict('${dist}')" class="px-4 py-2 hover:bg-amber-50 cursor-pointer flex items-center justify-between text-xs font-semibold transition-colors ${isSelected ? 'bg-amber-50/80 text-amber-600 font-bold' : 'text-slate-800'}">
-                            <span>${dist}</span>
-                            ${isSelected ? '<i class="fa-solid fa-check text-amber-600 text-xs"></i>' : ''}
-                        </div>
-                    `;
-                });
-            } else {
-                html = `<div class="px-4 py-6 text-center text-xs text-slate-400 font-medium">Không tìm thấy quận / huyện phù hợp</div>`;
-            }
-
-            container.innerHTML = html;
-        }
-
-        function selectFormDistrict(name) {
-            const hiddenInput = document.getElementById('select-district');
-            const textSpan = document.getElementById('form-district-text');
-            if (hiddenInput) hiddenInput.value = name;
-            if (textSpan) textSpan.innerText = name;
-
-            const panel = document.getElementById('form-district-panel');
-            const arrow = document.getElementById('form-district-arrow');
-            if (panel) panel.classList.add('hidden');
-            if (arrow) arrow.style.transform = 'rotate(0deg)';
-
-            onDistrictChange();
-        }
-
-        function filterFormDistricts() {
-            const input = document.getElementById('form-district-search');
-            const clearBtn = document.getElementById('form-clear-district-search-btn');
-            const val = input ? input.value : '';
-
-            if (clearBtn) {
-                if (val.length > 0) clearBtn.classList.remove('hidden');
-                else clearBtn.classList.add('hidden');
-            }
-
-            renderFormDistricts(val);
-        }
-
-        function clearFormDistrictSearch() {
-            const input = document.getElementById('form-district-search');
-            const clearBtn = document.getElementById('form-clear-district-search-btn');
-            if (input) input.value = '';
-            if (clearBtn) clearBtn.classList.add('hidden');
-            renderFormDistricts('');
-            if (input) input.focus();
-        }
-
-        function onCustomDistrictInput() {
-            const customInput = document.getElementById('custom-district-input');
-            const hiddenInput = document.getElementById('select-district');
-            if (customInput && hiddenInput) {
-                hiddenInput.value = customInput.value.trim();
-                onDistrictChange();
-            }
-        }
-
-        // ------------------ PHƯỜNG / XÃ ------------------
-        let isCustomWardMode = false;
-
-        function toggleCustomWardMode() {
-            isCustomWardMode = !isCustomWardMode;
-            const selectWrapper = document.getElementById('ward-select-wrapper');
-            const customWrapper = document.getElementById('ward-custom-wrapper');
-            const toggleText = document.getElementById('toggle-custom-ward-text');
-            const customInput = document.getElementById('custom-ward-input');
-            const hiddenInput = document.getElementById('select-ward');
-
-            if (isCustomWardMode) {
-                if (selectWrapper) selectWrapper.classList.add('hidden');
-                if (customWrapper) customWrapper.classList.remove('hidden');
-                if (toggleText) toggleText.innerText = 'Chọn từ danh sách';
-                if (customInput) {
-                    customInput.focus();
-                    if (hiddenInput) hiddenInput.value = customInput.value.trim() || 'Phường Bến Nghé';
-                }
-            } else {
-                if (selectWrapper) selectWrapper.classList.remove('hidden');
-                if (customWrapper) customWrapper.classList.add('hidden');
-                if (toggleText) toggleText.innerText = 'Tự nhập khác';
-                const wardText = document.getElementById('form-ward-text')?.innerText || 'Phường Bến Nghé';
-                if (hiddenInput) hiddenInput.value = wardText;
-            }
-        }
-
-        function toggleFormWardDropdown(event) {
-            if (event) event.stopPropagation();
-            const panel = document.getElementById('form-ward-panel');
-            const arrow = document.getElementById('form-ward-arrow');
-            const searchInput = document.getElementById('form-ward-search');
-
-            if (!panel) return;
-            const isHidden = panel.classList.contains('hidden');
-            if (isHidden) {
-                document.getElementById('form-province-panel')?.classList.add('hidden');
-                document.getElementById('form-district-panel')?.classList.add('hidden');
-
-                panel.classList.remove('hidden');
-                if (arrow) arrow.style.transform = 'rotate(180deg)';
-                renderFormWards();
-                setTimeout(() => {
-                    if (searchInput) searchInput.focus();
-                }, 50);
-            } else {
-                panel.classList.add('hidden');
-                if (arrow) arrow.style.transform = 'rotate(0deg)';
-            }
-        }
-
-        function renderFormWards(filterKeyword = '') {
-            const container = document.getElementById('form-wards-list');
-            const hiddenInput = document.getElementById('select-ward');
-            const currentVal = hiddenInput ? hiddenInput.value : '';
-            const provName = document.getElementById('select-province')?.value || 'TP. Hồ Chí Minh';
-            const distName = document.getElementById('select-district')?.value || '';
-
-            if (!container) return;
-
-            let wardsList = [];
-            if (vnLocationData[provName] && vnLocationData[provName][distName]) {
-                wardsList = vnLocationData[provName][distName];
-            } else if (distName.startsWith('Huyện')) {
-                wardsList = ["Thị trấn Trung Tâm", "Xã Tân Lập", "Xã Hòa Phú", "Xã Mỹ Thạnh", "Xã Đông Bình"];
-            } else if (distName.startsWith('Thị xã')) {
-                wardsList = ["Phường 1", "Phường 2", "Phường Hòa Bình", "Xã An Bình", "Xã Tân Hòa"];
-            } else {
-                wardsList = ["Phường 1", "Phường 2", "Phường 3", "Phường Tân Phú", "Phường Trung Tâm"];
-            }
-
-            const cleanKeyword = removeVietnameseTones(filterKeyword.trim());
-            const filteredWards = wardsList.filter(w => removeVietnameseTones(w).includes(cleanKeyword));
-
-            let html = '';
-            if (filteredWards.length > 0) {
-                filteredWards.forEach(ward => {
-                    const isSelected = currentVal === ward;
-                    html += `
-                        <div onclick="selectFormWard('${ward}')" class="px-4 py-2 hover:bg-amber-50 cursor-pointer flex items-center justify-between text-xs font-semibold transition-colors ${isSelected ? 'bg-amber-50/80 text-amber-600 font-bold' : 'text-slate-800'}">
-                            <span>${ward}</span>
-                            ${isSelected ? '<i class="fa-solid fa-check text-amber-600 text-xs"></i>' : ''}
-                        </div>
-                    `;
-                });
-            } else {
-                html = `<div class="px-4 py-6 text-center text-xs text-slate-400 font-medium">Không tìm thấy phường / xã phù hợp</div>`;
-            }
-
-            container.innerHTML = html;
-        }
-
-        function selectFormWard(name) {
-            const hiddenInput = document.getElementById('select-ward');
-            const textSpan = document.getElementById('form-ward-text');
-            if (hiddenInput) hiddenInput.value = name;
-            if (textSpan) textSpan.innerText = name;
-
-            const panel = document.getElementById('form-ward-panel');
-            const arrow = document.getElementById('form-ward-arrow');
-            if (panel) panel.classList.add('hidden');
-            if (arrow) arrow.style.transform = 'rotate(0deg)';
-        }
-
-        function filterFormWardSearch() {
-            const input = document.getElementById('form-ward-search');
-            const clearBtn = document.getElementById('form-clear-ward-search-btn');
-            const val = input ? input.value : '';
-
-            if (clearBtn) {
-                if (val.length > 0) clearBtn.classList.remove('hidden');
-                else clearBtn.classList.add('hidden');
-            }
-
-            renderFormWards(val);
-        }
-
-        function filterFormWards() {
-            filterFormWardSearch();
-        }
-
-        function clearFormWardSearch() {
-            const input = document.getElementById('form-ward-search');
-            const clearBtn = document.getElementById('form-clear-ward-search-btn');
-            if (input) input.value = '';
-            if (clearBtn) clearBtn.classList.add('hidden');
-            renderFormWards('');
-            if (input) input.focus();
-        }
-
-        function onCustomWardInput() {
-            const customInput = document.getElementById('custom-ward-input');
-            const hiddenInput = document.getElementById('select-ward');
-            if (customInput && hiddenInput) {
-                hiddenInput.value = customInput.value.trim();
-            }
-        }
 
         document.addEventListener('click', function (event) {
             const provWrapper = document.getElementById('province-select-wrapper');
