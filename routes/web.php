@@ -226,9 +226,15 @@ Route::delete('/qlnguoi_dung/force-delete/{id}', function ($id) {
 });
 
 Route::get('/Overview', function(){
+    if (!Auth::check()) {
+        return redirect()->guest(route('login'));
+    }
     return view('qlbai_dang.Overview');
 });
 
 Route::get('/dangbai', function(){
+    if (!Auth::check()) {
+        return redirect()->guest(route('login'));
+    }
     return view('qlbai_dang.dangbai');
 })->name('dangbai');

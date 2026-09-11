@@ -134,7 +134,7 @@
         </div>
 
         <!-- CỐ ĐỊNH KHUNG TÌM KIẾM -->
-        <div class="w-full max-w-5xl mx-auto mt-10 relative z-10">
+        <div class="w-full max-w-5xl mx-auto mt-10 relative z-30">
             <div class="glass-panel p-4 sm:p-6 rounded-3xl shadow-2xl border border-white/40">
                 <!-- Search Tabs -->
                 <div class="flex items-center gap-3 mb-6 overflow-x-auto pb-2 border-b border-slate-200/60">
@@ -159,20 +159,36 @@
                 <!-- Search Inputs Grid -->
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <!-- Location Selector -->
-                    <div class="relative">
-                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Khu vực /
-                            Tỉnh thành</label>
-                        <div class="relative">
-                            <i
-                                class="fa-solid fa-location-dot absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                            <select
-                                class="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold text-slate-700 text-sm">
-                                <option value="">Tất cả địa điểm</option>
-                                <option value="hcm" selected>TP. Hồ Chí Minh</option>
-                                <option value="hn">Hà Nội</option>
-                                <option value="dn">Đà Nẵng</option>
-                                <option value="bd">Bình Dương</option>
-                            </select>
+                    <div class="relative z-40" id="location-select-container">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Khu vực / Tỉnh thành</label>
+                        <input type="hidden" id="selected-location-input" name="location" value="TP. Hồ Chí Minh">
+                        
+                        <!-- Toggle Button -->
+                        <button type="button" id="location-dropdown-btn" onclick="toggleLocationDropdown(event)"
+                            class="w-full pl-10 pr-9 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold text-slate-700 text-sm text-left flex items-center justify-between transition-all cursor-pointer hover:bg-slate-100/80">
+                            <i class="fa-solid fa-location-dot absolute left-3.5 top-1/2 -translate-y-1/2 text-brand-600"></i>
+                            <span id="selected-location-text" class="truncate font-bold text-slate-800">TP. Hồ Chí Minh</span>
+                            <i class="fa-solid fa-chevron-down absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 transition-transform duration-200" id="location-dropdown-arrow"></i>
+                        </button>
+
+                        <!-- Dropdown Panel -->
+                        <div id="location-dropdown-panel" class="hidden absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 overflow-hidden text-sm animate-fadeIn w-full sm:w-72">
+                            <!-- Search Bar inside dropdown -->
+                            <div class="p-2.5 border-b border-slate-200 bg-white sticky top-0 z-20 shadow-xs">
+                                <div class="relative">
+                                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                                    <input type="text" id="location-search-input" oninput="filterProvinces()" placeholder="Tìm tỉnh / thành phố..."
+                                        class="w-full pl-8 pr-7 py-2 text-xs rounded-lg bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium text-slate-800">
+                                    <button type="button" id="clear-search-btn" onclick="clearLocationSearch()" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- List of Provinces & Cities -->
+                            <div class="max-h-64 overflow-y-auto custom-scrollbar" id="provinces-list">
+                                <!-- Options populated by JavaScript -->
+                            </div>
                         </div>
                     </div>
 
@@ -470,7 +486,7 @@
         <div class="mt-12 text-center">
             <a href="#"
                 class="inline-flex items-center gap-2 px-8 py-3.5 rounded-2xl bg-white border border-slate-300 hover:border-brand-500 font-bold text-sm text-slate-800 hover:text-brand-600 shadow-sm hover:shadow-md transition-all">
-                Xem thêm 1,200+ căn nhà khác <i class="fa-solid fa-chevron-down"></i>
+                Xem thêm các căn nhà khác <i class="fa-solid fa-chevron-down"></i>
             </a>
         </div>
     </section>
@@ -727,14 +743,28 @@
                     phút.
                 </p>
                 <div class="mt-8 flex flex-wrap items-center gap-4">
-                    <a href="#"
-                        class="px-8 py-3.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-sm shadow-glow transition-all">
-                        <i class="fa-solid fa-paper-plane mr-2"></i> Đăng tin cho thuê miễn phí
-                    </a>
-                    <a href="#"
-                        class="px-6 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-sm transition-colors">
-                        Tìm hiểu thêm
-                    </a>
+                    @auth
+                        <a href="{{ route('dangbai') }}"
+                            class="px-8 py-3.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-sm shadow-glow transition-all inline-flex items-center">
+                            <i class="fa-solid fa-paper-plane mr-2"></i> Đăng tin cho thuê miễn phí
+                        </a>
+                    @else
+                        <a href="{{ route('login') }}"
+                            class="px-8 py-3.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-sm shadow-glow transition-all inline-flex items-center">
+                            <i class="fa-solid fa-paper-plane mr-2"></i> Đăng tin cho thuê miễn phí
+                        </a>
+                    @endauth
+                    @auth
+                        <a href="{{ url('Overview') }}"
+                            class="px-6 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-sm transition-colors inline-flex items-center">
+                            Tìm hiểu thêm
+                        </a>
+                    @else
+                        <a href="{{ route('login') }}"
+                            class="px-6 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-sm transition-colors inline-flex items-center">
+                            Tìm hiểu thêm
+                        </a>
+                    @endauth
                 </div>
             </div>
             <!-- Decorative Icon -->
@@ -765,10 +795,7 @@
                         }
                     @endphp
                     <div class="flex items-center gap-3">
-                        <div
-                            class="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold" style="background-color: {{ $fColor }}">
-                            <i class="fa-solid fa-house-chimney"></i>
-                        </div>
+                        <img src="{{ !empty($themeSettings['logo_url']) ? $themeSettings['logo_url'] : asset('img/logo.png') }}" alt="RentHome Logo" class="w-9 h-9 object-contain rounded-xl shadow-sm">
                         <span class="text-xl font-extrabold text-white">{{ $fp1 }}<span
                                 style="color: {{ $fColor }}">{{ $fp2 }}</span></span>
                     </div>
@@ -1100,6 +1127,168 @@
             const menu = document.getElementById('user-dropdown-menu');
             if (container && menu && !container.contains(event.target)) {
                 menu.classList.add('hidden');
+            }
+        });
+
+        // Dữ liệu 63 Tỉnh / Thành phố Việt Nam
+        const vietnamLocations = {
+            centralCities: [
+                "TP. Hồ Chí Minh",
+                "Hà Nội",
+                "Đà Nẵng",
+                "Hải Phòng",
+                "Cần Thơ"
+            ],
+            provinces: [
+                "An Giang", "Bà Rịa - Vũng Tàu", "Bắc Giang", "Bắc Kạn", "Bạc Liêu", "Bắc Ninh",
+                "Bến Tre", "Bình Định", "Bình Dương", "Bình Phước", "Bình Thuận", "Cà Mau",
+                "Cao Bằng", "Đắk Lắk", "Đắk Nông", "Điện Biên", "Đồng Nai", "Đồng Tháp",
+                "Gia Lai", "Hà Giang", "Hà Nam", "Hà Tĩnh", "Hải Dương", "Hậu Giang",
+                "Hòa Bình", "Hưng Yên", "Khánh Hòa", "Kiên Giang", "Kon Tum", "Lai Châu",
+                "Lâm Đồng", "Lạng Sơn", "Lào Cai", "Long An", "Nam Định", "Nghệ An",
+                "Ninh Bình", "Ninh Thuận", "Phú Thọ", "Phú Yên", "Quảng Bình", "Quảng Nam",
+                "Quảng Ngãi", "Quảng Ninh", "Quảng Trị", "Sóc Trăng", "Sơn La", "Tây Ninh",
+                "Thái Bình", "Thái Nguyên", "Thanh Hóa", "Thừa Thiên Huế", "Tiền Giang", "Trà Vinh",
+                "Tuyên Quang", "Vĩnh Long", "Vĩnh Phúc", "Yên Bái"
+            ]
+        };
+
+        let currentLocation = "TP. Hồ Chí Minh";
+
+        function removeVietnameseTones(str) {
+            return str
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/đ/g, 'd').replace(/Đ/g, 'D')
+                .toLowerCase();
+        }
+
+        function renderProvinces(filterKeyword = '') {
+            const container = document.getElementById('provinces-list');
+            if (!container) return;
+
+            const cleanKeyword = removeVietnameseTones(filterKeyword.trim());
+            let html = '';
+
+            // 1. Tất cả địa điểm Option
+            const isAllSelected = currentLocation === 'Tất cả địa điểm';
+            if (!cleanKeyword || removeVietnameseTones('tất cả địa điểm').includes(cleanKeyword)) {
+                html += `
+                    <div onclick="selectLocation('Tất cả địa điểm')" class="px-3.5 py-2.5 hover:bg-emerald-50 cursor-pointer flex items-center justify-between text-xs font-bold transition-colors ${isAllSelected ? 'bg-emerald-50/80 text-brand-600' : 'text-slate-700'}">
+                        <span class="flex items-center gap-2"><i class="fa-solid fa-map-location-dot text-slate-400 text-xs"></i> Tất cả địa điểm</span>
+                        ${isAllSelected ? '<i class="fa-solid fa-check text-brand-600"></i>' : ''}
+                    </div>
+                `;
+            }
+
+            // 2. Thành Phố Trực Thuộc Trung Ương
+            const filteredCities = vietnamLocations.centralCities.filter(c => 
+                removeVietnameseTones(c).includes(cleanKeyword)
+            );
+
+            if (filteredCities.length > 0) {
+                html += `<div class="px-3.5 py-1.5 bg-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-600 border-y border-slate-200/70">🏙️ Thành phố trực thuộc TW</div>`;
+                filteredCities.forEach(city => {
+                    const isSelected = currentLocation === city;
+                    html += `
+                        <div onclick="selectLocation('${city}')" class="px-4 py-2 hover:bg-emerald-50 cursor-pointer flex items-center justify-between text-xs font-semibold transition-colors ${isSelected ? 'bg-emerald-50/80 text-brand-600 font-bold' : 'text-slate-800'}">
+                            <span>${city}</span>
+                            ${isSelected ? '<i class="fa-solid fa-check text-brand-600 text-xs"></i>' : ''}
+                        </div>
+                    `;
+                });
+            }
+
+            // 3. Các Tỉnh Thành
+            const filteredProvinces = vietnamLocations.provinces.filter(p => 
+                removeVietnameseTones(p).includes(cleanKeyword)
+            );
+
+            if (filteredProvinces.length > 0) {
+                html += `<div class="px-3.5 py-1.5 bg-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-600 border-y border-slate-200/70">🏔️ Tỉnh thành</div>`;
+                filteredProvinces.forEach(prov => {
+                    const isSelected = currentLocation === prov;
+                    html += `
+                        <div onclick="selectLocation('${prov}')" class="px-4 py-2 hover:bg-emerald-50 cursor-pointer flex items-center justify-between text-xs font-medium transition-colors ${isSelected ? 'bg-emerald-50/80 text-brand-600 font-bold' : 'text-slate-700'}">
+                            <span>${prov}</span>
+                            ${isSelected ? '<i class="fa-solid fa-check text-brand-600 text-xs"></i>' : ''}
+                        </div>
+                    `;
+                });
+            }
+
+            if (filteredCities.length === 0 && filteredProvinces.length === 0 && (!cleanKeyword || !removeVietnameseTones('tất cả địa điểm').includes(cleanKeyword))) {
+                html = `<div class="px-4 py-6 text-center text-xs text-slate-400 font-medium">Không tìm thấy tỉnh / thành phố phù hợp</div>`;
+            }
+
+            container.innerHTML = html;
+        }
+
+        function toggleLocationDropdown(event) {
+            if (event) event.stopPropagation();
+            const panel = document.getElementById('location-dropdown-panel');
+            const arrow = document.getElementById('location-dropdown-arrow');
+            const searchInput = document.getElementById('location-search-input');
+
+            if (!panel) return;
+            const isHidden = panel.classList.contains('hidden');
+            if (isHidden) {
+                panel.classList.remove('hidden');
+                if (arrow) arrow.style.transform = 'rotate(180deg)';
+                renderProvinces();
+                setTimeout(() => {
+                    if (searchInput) searchInput.focus();
+                }, 50);
+            } else {
+                panel.classList.add('hidden');
+                if (arrow) arrow.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        function filterProvinces() {
+            const input = document.getElementById('location-search-input');
+            const clearBtn = document.getElementById('clear-search-btn');
+            const val = input ? input.value : '';
+            
+            if (clearBtn) {
+                if (val.length > 0) clearBtn.classList.remove('hidden');
+                else clearBtn.classList.add('hidden');
+            }
+
+            renderProvinces(val);
+        }
+
+        function clearLocationSearch() {
+            const input = document.getElementById('location-search-input');
+            const clearBtn = document.getElementById('clear-search-btn');
+            if (input) input.value = '';
+            if (clearBtn) clearBtn.classList.add('hidden');
+            renderProvinces('');
+            if (input) input.focus();
+        }
+
+        function selectLocation(name) {
+            currentLocation = name;
+            const textEl = document.getElementById('selected-location-text');
+            const inputEl = document.getElementById('selected-location-input');
+            if (textEl) textEl.innerText = name;
+            if (inputEl) inputEl.value = name;
+
+            const panel = document.getElementById('location-dropdown-panel');
+            const arrow = document.getElementById('location-dropdown-arrow');
+            if (panel) panel.classList.add('hidden');
+            if (arrow) arrow.style.transform = 'rotate(0deg)';
+        }
+
+        // Close location dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const locationContainer = document.getElementById('location-select-container');
+            const locationPanel = document.getElementById('location-dropdown-panel');
+            const locationArrow = document.getElementById('location-dropdown-arrow');
+
+            if (locationContainer && locationPanel && !locationContainer.contains(event.target)) {
+                locationPanel.classList.add('hidden');
+                if (locationArrow) locationArrow.style.transform = 'rotate(0deg)';
             }
         });
     </script>

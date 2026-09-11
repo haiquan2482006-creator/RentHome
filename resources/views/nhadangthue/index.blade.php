@@ -103,9 +103,7 @@
         <!-- Sidebar Header / Logo -->
         <div class="p-5 border-b border-slate-100 flex items-center justify-between">
             <a href="/" class="flex items-center gap-3 group">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center text-white shadow-glow group-hover:scale-105 transition-transform">
-                    <i class="fa-solid fa-house-chimney text-lg"></i>
-                </div>
+                <img src="{{ asset('img/logo.png') }}" alt="RentHome Logo" class="w-10 h-10 object-contain rounded-xl shadow-sm group-hover:scale-105 transition-transform">
                 <div class="flex flex-col">
                     <span class="text-xl font-extrabold tracking-tight text-slate-900 leading-none">Rent<span class="text-brand-600">Home</span></span>
                     <span class="text-[10px] font-medium text-slate-500 uppercase tracking-widest mt-0.5">Thuê nhà ước mơ</span>

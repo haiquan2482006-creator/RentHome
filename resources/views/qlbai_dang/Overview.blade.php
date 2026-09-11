@@ -102,10 +102,7 @@
     <header
         class="md:hidden bg-white border-b border-slate-200 sticky top-0 z-40 px-4 py-3 flex items-center justify-between shadow-sm">
         <a href="/" class="flex items-center gap-2.5">
-            <div
-                class="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center text-white shadow-glow">
-                <i class="fa-solid fa-house-chimney text-sm"></i>
-            </div>
+            <img src="{{ asset('img/logo.png') }}" alt="RentHome Logo" class="w-8 h-8 object-contain rounded-xl shadow-xs">
             <span class="text-base font-extrabold text-slate-900 tracking-tight">Rent<span
                     class="text-brand-600">Home</span></span>
         </a>
@@ -135,10 +132,7 @@
                 <!-- Sidebar Brand Header -->
                 <div class="flex items-center justify-between pb-2">
                     <a href="/" class="flex items-center gap-3 group">
-                        <div
-                            class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center text-white shadow-glow group-hover:scale-105 transition-transform">
-                            <i class="fa-solid fa-house-chimney text-lg"></i>
-                        </div>
+                        <img src="{{ asset('img/logo.png') }}" alt="RentHome Logo" class="w-10 h-10 object-contain rounded-xl shadow-sm group-hover:scale-105 transition-transform">
                         <div class="flex flex-col">
                             <span class="text-xl font-extrabold tracking-tight text-slate-900 leading-none">Rent<span
                                     class="text-brand-600">Home</span></span>
@@ -178,37 +172,37 @@
                     <button onclick="switchTab('overview')" id="tab-overview"
                         class="tab-btn active flex items-center gap-3 px-3.5 py-3 rounded-xl font-bold text-xs w-full text-left transition-all bg-brand-50 text-brand-600 border border-brand-200/60 shadow-xs">
                         <i class="fa-solid fa-chart-pie w-5 text-center text-sm"></i>
-                        <span>A) Tổng quan</span>
+                        <span> Tổng quan</span>
                     </button>
 
                     <button onclick="switchTab('active-posts')" id="tab-active-posts"
                         class="tab-btn flex items-center gap-3 px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
                         <i class="fa-solid fa-circle-check text-emerald-500 w-5 text-center text-sm"></i>
-                        <span>B) Tin đang hiển thị</span>
+                        <span> Tin đang hiển thị</span>
                     </button>
 
                     <button onclick="switchTab('pending-posts')" id="tab-pending-posts"
                         class="tab-btn flex items-center gap-3 px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
                         <i class="fa-solid fa-hourglass-half text-amber-500 w-5 text-center text-sm"></i>
-                        <span>C) Chờ phê duyệt</span>
+                        <span> Chờ phê duyệt</span>
                     </button>
 
                     <button onclick="switchTab('history-posts')" id="tab-history-posts"
                         class="tab-btn flex items-center gap-3 px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
                         <i class="fa-solid fa-clock-rotate-left text-sky-500 w-5 text-center text-sm"></i>
-                        <span>D) Lịch sử đăng tin</span>
+                        <span> Lịch sử đăng tin</span>
                     </button>
 
                     <button onclick="switchTab('notifications')" id="tab-notifications"
                         class="tab-btn flex items-center gap-3 px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
                         <i class="fa-solid fa-bell text-rose-500 w-5 text-center text-sm"></i>
-                        <span>F) Thông báo</span>
+                        <span> Thông báo</span>
                     </button>
 
                     <button onclick="switchTab('buildings')" id="tab-buildings"
                         class="tab-btn flex items-center gap-3 px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
                         <i class="fa-solid fa-city text-purple-500 w-5 text-center text-sm"></i>
-                        <span>G) Quản lý Tòa Nhà</span>
+                        <span> Quản lý Tòa Nhà</span>
                     </button>
                 </nav>
             </div>
@@ -481,7 +475,8 @@
 
             <!-- ==================== TAB C: CHỜ PHÊ DUYỆT ==================== -->
             <section id="content-pending-posts" class="tab-content hidden space-y-4">
-                <h3 class="font-bold text-base text-slate-900">Danh sách bài đăng đang chờ ban quản trị duyệt (3)</h3>
+                <h3 class="font-bold text-base text-slate-900" id="pending-count-heading">Danh sách bài đăng đang chờ
+                    ban quản trị duyệt (3)</h3>
 
                 <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
                     <div class="overflow-x-auto">
@@ -496,7 +491,8 @@
                                     <th class="p-4 text-right">Thao Tác</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-slate-100 text-slate-700 font-medium">
+                            <tbody id="pending-posts-tbody"
+                                class="divide-y divide-slate-100 text-slate-700 font-medium">
                                 <tr class="hover:bg-slate-50/80 transition-colors">
                                     <td class="p-4 font-bold text-slate-900">#RH-9988</td>
                                     <td class="p-4">
@@ -532,7 +528,26 @@
 
             <!-- ==================== TAB D: LỊCH SỬ ĐĂNG TIN ==================== -->
             <section id="content-history-posts" class="tab-content hidden space-y-4">
-                <h3 class="font-bold text-base text-slate-900">Lịch sử các phòng / nhà đã cho thuê thành công</h3>
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div>
+                        <h3 class="font-bold text-base text-slate-900">Lịch sử bài đăng tin</h3>
+                        <p class="text-xs text-slate-500 mt-0.5">Danh sách các tin đã đăng cùng trạng thái đã phê duyệt hoặc đang chờ phê duyệt</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="filterHistoryPosts('all')" id="hist-filter-all"
+                            class="hist-filter-btn px-3 py-1.5 rounded-xl bg-slate-900 text-white font-bold text-xs transition-colors">
+                            Tất cả
+                        </button>
+                        <button onclick="filterHistoryPosts('approved')" id="hist-filter-approved"
+                            class="hist-filter-btn px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold text-xs transition-colors">
+                            Đã được phê duyệt
+                        </button>
+                        <button onclick="filterHistoryPosts('pending')" id="hist-filter-pending"
+                            class="hist-filter-btn px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold text-xs transition-colors">
+                            Đang chờ phê duyệt
+                        </button>
+                    </div>
+                </div>
 
                 <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
                     <div class="overflow-x-auto">
@@ -544,29 +559,12 @@
                                     <th class="p-4">Tên Bài Đăng</th>
                                     <th class="p-4">Giá Thuê</th>
                                     <th class="p-4">Trạng Thái</th>
-                                    <th class="p-4">Ngày Ký Hợp Đồng</th>
+                                    <th class="p-4">Ngày Đăng</th>
                                     <th class="p-4 text-right">Thao Tác</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-slate-100 text-slate-700">
-                                <tr class="hover:bg-slate-50/80 transition-colors">
-                                    <td class="p-4 font-bold text-slate-900">#RH-8812</td>
-                                    <td class="p-4 font-semibold text-slate-900">Căn 1PN Masteri Thảo Điền Tháp T2</td>
-                                    <td class="p-4 font-bold text-slate-600">11.0 Tr/tháng</td>
-                                    <td class="p-4">
-                                        <span
-                                            class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-bold text-[10px]">
-                                            <i class="fa-solid fa-circle-check text-emerald-500 mr-1"></i> Đã cho thuê
-                                        </span>
-                                    </td>
-                                    <td class="p-4 text-slate-500 font-medium">15/08/2026</td>
-                                    <td class="p-4 text-right">
-                                        <button
-                                            class="px-3 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 font-bold text-xs transition-colors">
-                                            <i class="fa-solid fa-arrows-rotate mr-1"></i> Đăng lại phòng
-                                        </button>
-                                    </td>
-                                </tr>
+                            <tbody id="history-posts-tbody" class="divide-y divide-slate-100 text-slate-700">
+                                <!-- Dynamic rendering via JS renderHistoryPosts() -->
                             </tbody>
                         </table>
                     </div>
@@ -831,6 +829,271 @@
 
     <!-- JavaScript Controller -->
     <script>
+        // Các bài đăng chờ duyệt mẫu ban đầu
+        const defaultPendingPosts = [{
+                id: '#RH-9988',
+                title: 'Penthouse Duplex Saigon Pearl View Sông Sài Gòn',
+                time: 'Gửi lúc 10:15 - Hôm nay',
+                price: '38.0 Tr/tháng',
+                image: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=80&q=80',
+                status: 'Chờ phê duyệt'
+            },
+            {
+                id: '#RH-9972',
+                title: 'Căn Hộ Shophouse Masteri An Phú Mặt Tiền Hà Nội',
+                time: 'Gửi lúc 09:30 - Hôm nay',
+                price: '25.0 Tr/tháng',
+                image: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=80&q=80',
+                status: 'Chờ phê duyệt'
+            },
+            {
+                id: '#RH-9960',
+                title: 'Nhà Phố KDC Cityland Park Hills Gò Vấp',
+                time: 'Gửi lúc Hôm qua',
+                price: '45.0 Tr/tháng',
+                image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=80&q=80',
+                status: 'Chờ phê duyệt'
+            }
+        ];
+
+        // Hiển thị danh sách bài đăng chờ phê duyệt (mẫu + bài đăng mới từ localStorage)
+        function renderPendingPosts() {
+            const tbody = document.getElementById('pending-posts-tbody');
+            const heading = document.getElementById('pending-count-heading');
+            if (!tbody) return;
+
+            let storedPosts = [];
+            try {
+                storedPosts = JSON.parse(localStorage.getItem('pendingPosts') || '[]');
+            } catch (e) {
+                storedPosts = [];
+            }
+
+            let cancelledDefaultIds = [];
+            try {
+                cancelledDefaultIds = JSON.parse(localStorage.getItem('cancelledDefaultPendingPosts') || '[]');
+            } catch (e) {}
+
+            const activeDefaultPosts = defaultPendingPosts.filter(p => !cancelledDefaultIds.includes(p.id));
+            const allPending = [...storedPosts, ...activeDefaultPosts];
+
+            if (heading) {
+                heading.innerText = `Danh sách bài đăng đang chờ ban quản trị duyệt (${allPending.length})`;
+            }
+
+            if (allPending.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="p-8 text-center text-slate-400 font-medium">
+                            <i class="fa-solid fa-folder-open text-3xl mb-2 block"></i>
+                            Không có bài đăng nào đang chờ phê duyệt.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = allPending.map(post => `
+                <tr class="hover:bg-slate-50/80 transition-colors">
+                    <td class="p-4 font-bold text-slate-900">${post.id}</td>
+                    <td class="p-4">
+                        <div class="flex items-center gap-3">
+                            <img src="${post.image}" class="w-10 h-10 rounded-lg object-cover border border-slate-200 shadow-xs">
+                            <div>
+                                <p class="font-bold text-slate-900">${post.title}</p>
+                                <p class="text-[10px] text-slate-400">${post.location ? post.location + ' • ' : ''}${post.time}</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="p-4 font-bold text-brand-600">${post.price}</td>
+                    <td class="p-4">
+                        <span class="px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 font-bold text-[10px] inline-flex items-center gap-1.5">
+                            <i class="fa-solid fa-clock animate-spin"></i> Chờ phê duyệt
+                        </span>
+                    </td>
+                    <td class="p-4 text-right">
+                        <button onclick="cancelPendingPost('${post.id}')"
+                            class="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs transition-colors">
+                            <i class="fa-solid fa-ban mr-1"></i> Hủy đăng
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Các bài đăng đã duyệt mẫu ban đầu
+        const defaultApprovedPosts = [{
+                id: '#RH-9921',
+                title: 'Căn Hộ Landmark Plus 2PN Tầng Cao Full Nội Thất',
+                location: 'Tòa Landmark Plus • Bình Thạnh',
+                price: '14.5 Tr/tháng',
+                image: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=80&q=80',
+                status: 'approved',
+                date: '10/09/2026'
+            },
+            {
+                id: '#RH-9915',
+                title: 'Studio Vinhomes Grand Park S5.02 Ban Công Thoáng',
+                location: 'Tòa S5.02 • TP. Thủ Đức',
+                price: '6.0 Tr/tháng',
+                image: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=80&q=80',
+                status: 'approved',
+                date: '08/09/2026'
+            },
+            {
+                id: '#RH-8812',
+                title: 'Căn 1PN Masteri Thảo Điền Tháp T2',
+                location: 'Masteri Thảo Điền • Quận 2',
+                price: '11.0 Tr/tháng',
+                image: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=80&q=80',
+                status: 'approved',
+                date: '15/08/2026'
+            }
+        ];
+
+        let currentHistoryFilter = 'all';
+
+        // Hiển thị danh sách lịch sử bài đăng (Đã được phê duyệt + Đang chờ phê duyệt)
+        function renderHistoryPosts() {
+            const tbody = document.getElementById('history-posts-tbody');
+            if (!tbody) return;
+
+            let storedPosts = [];
+            try {
+                storedPosts = JSON.parse(localStorage.getItem('pendingPosts') || '[]');
+            } catch (e) {
+                storedPosts = [];
+            }
+
+            let cancelledDefaultIds = [];
+            try {
+                cancelledDefaultIds = JSON.parse(localStorage.getItem('cancelledDefaultPendingPosts') || '[]');
+            } catch (e) {}
+
+            const activeDefaultPending = defaultPendingPosts.filter(p => !cancelledDefaultIds.includes(p.id));
+
+            // Format pending items
+            const pendingFormatted = [...storedPosts, ...activeDefaultPending].map(p => ({
+                id: p.id,
+                title: p.title,
+                location: p.location || '',
+                price: p.price,
+                image: p.image || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=80&q=80',
+                status: 'pending',
+                statusLabel: 'Đang chờ phê duyệt',
+                date: p.time || 'Hôm nay'
+            }));
+
+            // Format approved items
+            const approvedFormatted = defaultApprovedPosts.map(a => ({
+                id: a.id,
+                title: a.title,
+                location: a.location || '',
+                price: a.price,
+                image: a.image,
+                status: 'approved',
+                statusLabel: 'Đã được phê duyệt',
+                date: a.date
+            }));
+
+            // Combine history: pending items first, then approved items
+            let allHistory = [...pendingFormatted, ...approvedFormatted];
+
+            if (currentHistoryFilter === 'approved') {
+                allHistory = allHistory.filter(item => item.status === 'approved');
+            } else if (currentHistoryFilter === 'pending') {
+                allHistory = allHistory.filter(item => item.status === 'pending');
+            }
+
+            if (allHistory.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="p-8 text-center text-slate-400 font-medium">
+                            <i class="fa-solid fa-folder-open text-3xl mb-2 block"></i>
+                            Không tìm thấy bài đăng nào trong lịch sử.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = allHistory.map(post => {
+                const isApproved = (post.status === 'approved');
+                const badge = isApproved
+                    ? `<span class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[10px] inline-flex items-center gap-1.5">
+                        <i class="fa-solid fa-circle-check text-emerald-500"></i> Đã được phê duyệt
+                       </span>`
+                    : `<span class="px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 font-bold text-[10px] inline-flex items-center gap-1.5">
+                        <i class="fa-solid fa-clock animate-spin"></i> Đang chờ phê duyệt
+                       </span>`;
+
+                const action = isApproved
+                    ? `<button class="px-3 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 font-bold text-xs transition-colors">
+                        <i class="fa-solid fa-arrows-rotate mr-1"></i> Đăng lại phòng
+                       </button>`
+                    : `<button onclick="cancelPendingPost('${post.id}')" class="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs transition-colors">
+                        <i class="fa-solid fa-ban mr-1"></i> Hủy đăng
+                       </button>`;
+
+                return `
+                    <tr class="hover:bg-slate-50/80 transition-colors">
+                        <td class="p-4 font-bold text-slate-900">${post.id}</td>
+                        <td class="p-4">
+                            <div class="flex items-center gap-3">
+                                <img src="${post.image}" class="w-10 h-10 rounded-lg object-cover border border-slate-200 shadow-xs">
+                                <div>
+                                    <p class="font-bold text-slate-900">${post.title}</p>
+                                    ${post.location ? `<p class="text-[10px] text-slate-400">${post.location}</p>` : ''}
+                                </div>
+                            </div>
+                        </td>
+                        <td class="p-4 font-bold text-brand-600">${post.price}</td>
+                        <td class="p-4">${badge}</td>
+                        <td class="p-4 text-slate-500 font-medium">${post.date}</td>
+                        <td class="p-4 text-right">${action}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function filterHistoryPosts(filterType) {
+            currentHistoryFilter = filterType;
+
+            document.querySelectorAll('.hist-filter-btn').forEach(btn => {
+                btn.classList.remove('bg-slate-900', 'text-white');
+                btn.classList.add('bg-white', 'border', 'border-slate-200', 'text-slate-600');
+            });
+
+            const activeBtn = document.getElementById('hist-filter-' + filterType);
+            if (activeBtn) {
+                activeBtn.classList.remove('bg-white', 'border', 'border-slate-200', 'text-slate-600');
+                activeBtn.classList.add('bg-slate-900', 'text-white');
+            }
+
+            renderHistoryPosts();
+        }
+
+        // Hủy bài đăng chờ duyệt
+        function cancelPendingPost(postId) {
+            if (!confirm(`Bạn có chắc chắn muốn hủy đăng bài ${postId} không?`)) return;
+
+            let storedPosts = JSON.parse(localStorage.getItem('pendingPosts') || '[]');
+            const storedIndex = storedPosts.findIndex(p => p.id === postId);
+
+            if (storedIndex !== -1) {
+                storedPosts.splice(storedIndex, 1);
+                localStorage.setItem('pendingPosts', JSON.stringify(storedPosts));
+            } else {
+                let cancelledDefaultIds = JSON.parse(localStorage.getItem('cancelledDefaultPendingPosts') || '[]');
+                if (!cancelledDefaultIds.includes(postId)) {
+                    cancelledDefaultIds.push(postId);
+                    localStorage.setItem('cancelledDefaultPendingPosts', JSON.stringify(cancelledDefaultIds));
+                }
+            }
+            renderPendingPosts();
+            renderHistoryPosts();
+        }
+
         // Chuyển đổi giữa các Tab Menu A, B, C, D, F, G
         function switchTab(tabId) {
             // Ẩn toàn bộ nội dung tab
@@ -868,6 +1131,13 @@
                 pageHeading.innerText = headingMap[tabId];
             }
 
+            if (tabId === 'pending-posts') {
+                renderPendingPosts();
+            }
+            if (tabId === 'history-posts') {
+                renderHistoryPosts();
+            }
+
             // Tu dong dong menu mobile khi click tab
             const sidebar = document.getElementById('sidebar-menu');
             const overlay = document.getElementById('sidebar-overlay');
@@ -876,6 +1146,17 @@
                 if (overlay) overlay.classList.add('hidden');
             }
         }
+
+        // Tự động chọn tab nếu có trong URL parameters hoặc hash khi trang load
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const tabParam = urlParams.get('tab');
+            if (tabParam) {
+                switchTab(tabParam);
+            }
+            renderPendingPosts();
+            renderHistoryPosts();
+        });
 
         // Toggle Sidebar Navigation on Mobile
         function toggleSidebar() {
