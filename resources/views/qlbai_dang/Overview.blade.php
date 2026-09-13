@@ -194,9 +194,12 @@
                     </button>
 
                     <button onclick="switchTab('notifications')" id="tab-notifications"
-                        class="tab-btn flex items-center gap-3 px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
-                        <i class="fa-solid fa-bell text-rose-500 w-5 text-center text-sm"></i>
-                        <span> Thông báo</span>
+                        class="tab-btn flex items-center justify-between px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
+                        <div class="flex items-center gap-3">
+                            <i class="fa-solid fa-bell text-rose-500 w-5 text-center text-sm"></i>
+                            <span> Thông báo</span>
+                        </div>
+                        <span id="sidebar-notif-badge" class="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-bold shadow-xs">4</span>
                     </button>
 
                     <button onclick="switchTab('buildings')" id="tab-buildings"
@@ -245,6 +248,32 @@
                     </p>
                 </div>
                 <div class="flex items-center gap-3">
+                    <!-- Notification Bell Quick Button & Dropdown -->
+                    <div class="relative">
+                        <button onclick="toggleNotificationDropdown(event)" class="relative p-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200/80 shadow-xs transition-colors focus:outline-none" title="Thông báo hệ thống">
+                            <i class="fa-solid fa-bell text-rose-500 text-sm"></i>
+                            <span id="topbar-notif-badge" class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center border-2 border-white shadow-xs">4</span>
+                        </button>
+
+                        <!-- Notification Dropdown Popover -->
+                        <div id="notif-dropdown" class="hidden absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden">
+                            <div class="p-3.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                                <h4 class="font-bold text-xs text-slate-900 flex items-center gap-2">
+                                    <i class="fa-solid fa-bell text-rose-500"></i> Thông báo mới nhất
+                                </h4>
+                                <span class="text-[10px] font-semibold text-slate-500">Doanh Nghiệp & Cá Nhân</span>
+                            </div>
+                            <div id="topbar-notif-list" class="max-h-72 overflow-y-auto divide-y divide-slate-100 text-xs">
+                                <!-- Populated dynamically by JS -->
+                            </div>
+                            <div class="p-2.5 text-center bg-slate-50 border-t border-slate-100">
+                                <button onclick="switchTab('notifications'); toggleNotificationDropdown();" class="text-xs font-bold text-brand-600 hover:text-brand-700">
+                                    Xem tất cả thông báo <i class="fa-solid fa-arrow-right text-[10px] ml-1"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
                     <a href="/"
                         class="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs border border-slate-200/80 shadow-xs transition-colors flex items-center gap-2">
                         <i class="fa-solid fa-arrow-left"></i> Trang chủ
@@ -360,6 +389,28 @@
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+
+                <!-- Recent Notifications Card Widget in Overview -->
+                <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm p-5 space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-sm">
+                                <i class="fa-solid fa-bell"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-extrabold text-sm text-slate-900">Thông báo mới nhất (Doanh Nghiệp & Cá Nhân)</h3>
+                                <p class="text-[11px] text-slate-500">Cập nhật tự động thông tin bài đăng, lịch hẹn và quản lý vận hành</p>
+                            </div>
+                        </div>
+                        <button onclick="switchTab('notifications')" class="text-xs font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1">
+                            Xem tất cả thông báo <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                        </button>
+                    </div>
+
+                    <!-- Dynamic Recent Notifications Grid/List -->
+                    <div id="overview-recent-notifs" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                        <!-- Rendered by JS -->
                     </div>
                 </div>
             </section>
@@ -573,40 +624,58 @@
 
             <!-- ==================== TAB F: THÔNG BÁO ==================== -->
             <section id="content-notifications" class="tab-content hidden space-y-4">
-                <h3 class="font-bold text-base text-slate-900">Hộp thư & Thông báo hệ thống</h3>
-
-                <div class="space-y-3">
-                    <div class="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-start gap-4">
-                        <div
-                            class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 text-lg">
-                            <i class="fa-solid fa-circle-check"></i>
-                        </div>
-                        <div class="flex-1">
-                            <div class="flex items-center justify-between">
-                                <h4 class="font-bold text-slate-900 text-sm">Bài đăng #RH-9921 đã được phê duyệt thành
-                                    công
-                                </h4>
-                                <span class="text-[11px] text-slate-400">10 phút trước</span>
-                            </div>
-                            <p class="text-xs text-slate-600 mt-1">Bài viết của bạn đã hiển thị công khai trên hệ thống
-                                RentHome toàn quốc.</p>
-                        </div>
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/60">
+                    <div>
+                        <h3 class="font-extrabold text-lg text-slate-900 flex items-center gap-2">
+                            <i class="fa-solid fa-bell text-rose-500"></i> Hộp Thư & Thông Báo Hệ Thống
+                        </h3>
+                        <p class="text-xs text-slate-500 mt-0.5">Xem tất cả thông báo dành cho đối tác Doanh nghiệp và tài khoản Cá nhân</p>
                     </div>
 
-                    <div class="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-start gap-4">
-                        <div
-                            class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 text-lg">
-                            <i class="fa-solid fa-envelope"></i>
-                        </div>
-                        <div class="flex-1">
-                            <div class="flex items-center justify-between">
-                                <h4 class="font-bold text-slate-900 text-sm">Có 1 khách hàng đăng ký hẹn xem phòng</h4>
-                                <span class="text-[11px] text-slate-400">1 giờ trước</span>
-                            </div>
-                            <p class="text-xs text-slate-600 mt-1">Khách hàng Nguyễn Văn Tuấn muốn xem căn hộ Studio
-                                Vinhomes Grand Park vào 9:00 sáng mai.</p>
-                        </div>
+                    <!-- Actions -->
+                    <div class="flex items-center gap-2">
+                        <button onclick="markAllNotifsAsRead()" class="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold text-xs shadow-xs transition-colors flex items-center gap-1.5">
+                            <i class="fa-solid fa-check-double text-emerald-600"></i> Đọc tất cả
+                        </button>
+                        <button onclick="clearReadNotifs()" class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs transition-colors flex items-center gap-1.5">
+                            <i class="fa-solid fa-trash-can text-slate-500"></i> Xóa đã đọc
+                        </button>
                     </div>
+                </div>
+
+                <!-- Filter Tabs for Notifications (All, Doanh Nghiệp, Cá Nhân, Chưa Đọc) -->
+                <div class="flex flex-wrap items-center gap-2 pt-1">
+                    <button onclick="filterNotifs('all')" id="notif-filter-all"
+                        class="notif-filter-btn px-3.5 py-1.5 rounded-xl bg-slate-900 text-white font-bold text-xs transition-colors flex items-center gap-1.5 shadow-xs">
+                        <span>Tất cả</span>
+                        <span id="badge-count-all" class="px-1.5 py-0.2 rounded-full bg-slate-700 text-white text-[10px]">6</span>
+                    </button>
+
+                    <button onclick="filterNotifs('doanhnghiep')" id="notif-filter-doanhnghiep"
+                        class="notif-filter-btn px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-purple-50 hover:text-purple-700 font-bold text-xs transition-colors flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                        <span>Mục Doanh nghiệp</span>
+                        <span id="badge-count-doanhnghiep" class="px-1.5 py-0.2 rounded-full bg-purple-100 text-purple-700 text-[10px]">3</span>
+                    </button>
+
+                    <button onclick="filterNotifs('canhan')" id="notif-filter-canhan"
+                        class="notif-filter-btn px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 font-bold text-xs transition-colors flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        <span>Mục Cá nhân</span>
+                        <span id="badge-count-canhan" class="px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-700 text-[10px]">3</span>
+                    </button>
+
+                    <button onclick="filterNotifs('unread')" id="notif-filter-unread"
+                        class="notif-filter-btn px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-rose-50 hover:text-rose-700 font-bold text-xs transition-colors flex items-center gap-1.5">
+                        <i class="fa-solid fa-envelope-open-text text-rose-500 text-xs"></i>
+                        <span>Chưa đọc</span>
+                        <span id="badge-count-unread" class="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[10px]">4</span>
+                    </button>
+                </div>
+
+                <!-- Notifications List Container -->
+                <div id="notifications-list-container" class="space-y-3 pt-2">
+                    <!-- Rendered dynamically by JS -->
                 </div>
             </section>
 
@@ -829,6 +898,294 @@
 
     <!-- JavaScript Controller -->
     <script>
+        // ==========================================
+        // QUẢN LÝ THÔNG BÁO (DOANH NGHIỆP & CÁ NHÂN)
+        // ==========================================
+        const defaultNotifications = [
+            {
+                id: 'notif-1',
+                category: 'doanhnghiep',
+                categoryName: 'Doanh nghiệp',
+                badgeBg: 'bg-purple-100 text-purple-700 border-purple-200',
+                icon: 'fa-city',
+                iconBg: 'bg-purple-50 text-purple-600',
+                title: 'Tòa Landmark Plus đã hoàn tất đồng bộ sơ đồ 45 phòng',
+                time: '15 phút trước',
+                content: 'Hệ thống vừa cập nhật danh sách căn hộ cho đối tác Doanh Nghiệp. Tất cả 45 phòng đã sẵn sàng quản lý vận hành.',
+                isRead: false
+            },
+            {
+                id: 'notif-2',
+                category: 'canhan',
+                categoryName: 'Cá nhân',
+                badgeBg: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+                icon: 'fa-circle-check',
+                iconBg: 'bg-emerald-50 text-emerald-600',
+                title: 'Bài đăng #RH-9921 đã được phê duyệt thành công',
+                time: '30 phút trước',
+                content: 'Bài viết "Căn Hộ Landmark Plus 2PN Tầng Cao" đã hiển thị công khai trên hệ thống RentHome toàn quốc.',
+                isRead: false
+            },
+            {
+                id: 'notif-3',
+                category: 'canhan',
+                categoryName: 'Cá nhân',
+                badgeBg: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+                icon: 'fa-envelope',
+                iconBg: 'bg-blue-50 text-blue-600',
+                title: 'Có 1 khách hàng đăng ký hẹn xem phòng mới',
+                time: '1 giờ trước',
+                content: 'Khách hàng Nguyễn Văn Tuấn muốn xem căn hộ Studio Vinhomes Grand Park vào 9:00 sáng mai (SĐT: 0987 654 321).',
+                isRead: false
+            },
+            {
+                id: 'notif-4',
+                category: 'doanhnghiep',
+                categoryName: 'Doanh nghiệp',
+                badgeBg: 'bg-purple-100 text-purple-700 border-purple-200',
+                icon: 'fa-file-invoice-dollar',
+                iconBg: 'bg-indigo-50 text-indigo-600',
+                title: 'Xác nhận thanh toán hợp đồng cho thuê P.1204',
+                time: '2 giờ trước',
+                content: 'Hệ thống đã nhận thanh toán 14.500.000đ cho kỳ cước tháng 09/2026 từ cư dân P.1204 - Landmark Plus.',
+                isRead: false
+            },
+            {
+                id: 'notif-5',
+                category: 'doanhnghiep',
+                categoryName: 'Doanh nghiệp',
+                badgeBg: 'bg-purple-100 text-purple-700 border-purple-200',
+                icon: 'fa-wrench',
+                iconBg: 'bg-amber-50 text-amber-600',
+                title: 'Yêu cầu hỗ trợ kỹ thuật từ phòng P.1802',
+                time: '5 giờ trước',
+                content: 'Cư dân gửi báo cáo cần bảo trì điều hòa phòng khách tại Khu Căn Hộ S5 Vinhomes Grand Park.',
+                isRead: true
+            },
+            {
+                id: 'notif-6',
+                category: 'canhan',
+                categoryName: 'Cá nhân',
+                badgeBg: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+                icon: 'fa-clock',
+                iconBg: 'bg-rose-50 text-rose-500',
+                title: 'Nhắc nhở: Tin đăng #RH-9915 sắp hết hạn 30 ngày',
+                time: '1 ngày trước',
+                content: 'Bài đăng "Studio Vinhomes Grand Park S5.02" sắp đến thời hạn gia hạn. Vui lòng kiểm tra để giữ tin online.',
+                isRead: true
+            }
+        ];
+
+        let currentNotifFilter = 'all';
+
+        function getNotificationsData() {
+            try {
+                const stored = localStorage.getItem('app_notifications');
+                if (stored) return JSON.parse(stored);
+            } catch (e) {}
+            return defaultNotifications;
+        }
+
+        function saveNotificationsData(data) {
+            localStorage.setItem('app_notifications', JSON.stringify(data));
+            renderNotifications();
+        }
+
+        function renderNotifications() {
+            const list = getNotificationsData();
+            const container = document.getElementById('notifications-list-container');
+            const overviewContainer = document.getElementById('overview-recent-notifs');
+            const topbarList = document.getElementById('topbar-notif-list');
+
+            // Count badges
+            const unreadCount = list.filter(n => !n.isRead).length;
+            const doanhNghiepCount = list.filter(n => n.category === 'doanhnghiep').length;
+            const caNhanCount = list.filter(n => n.category === 'canhan').length;
+
+            const sidebarBadge = document.getElementById('sidebar-notif-badge');
+            const topbarBadge = document.getElementById('topbar-notif-badge');
+
+            if (sidebarBadge) {
+                sidebarBadge.innerText = unreadCount;
+                sidebarBadge.style.display = unreadCount > 0 ? 'inline-block' : 'none';
+            }
+            if (topbarBadge) {
+                topbarBadge.innerText = unreadCount;
+                topbarBadge.style.display = unreadCount > 0 ? 'flex' : 'none';
+            }
+
+            const bAll = document.getElementById('badge-count-all');
+            const bDN = document.getElementById('badge-count-doanhnghiep');
+            const bCN = document.getElementById('badge-count-canhan');
+            const bUR = document.getElementById('badge-count-unread');
+
+            if (bAll) bAll.innerText = list.length;
+            if (bDN) bDN.innerText = doanhNghiepCount;
+            if (bCN) bCN.innerText = caNhanCount;
+            if (bUR) bUR.innerText = unreadCount;
+
+            // Render Overview Top 4 recent notifications
+            if (overviewContainer) {
+                const recent = list.slice(0, 4);
+                if (recent.length === 0) {
+                    overviewContainer.innerHTML = `<p class="col-span-2 text-slate-400 py-4 text-center">Không có thông báo mới.</p>`;
+                } else {
+                    overviewContainer.innerHTML = recent.map(n => `
+                        <div class="p-3 rounded-xl border ${n.isRead ? 'bg-slate-50/60 border-slate-200/80' : 'bg-white border-brand-200 shadow-xs'} flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-lg ${n.iconBg} flex items-center justify-center shrink-0 text-sm">
+                                <i class="fa-solid ${n.icon}"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between gap-1">
+                                    <span class="px-2 py-0.5 rounded-full ${n.badgeBg} font-bold text-[9px] border">${n.categoryName}</span>
+                                    <span class="text-[10px] text-slate-400">${n.time}</span>
+                                </div>
+                                <h4 class="font-bold text-slate-900 text-xs mt-1 truncate">${n.title}</h4>
+                                <p class="text-[11px] text-slate-500 line-clamp-1 mt-0.5">${n.content}</p>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            }
+
+            // Render Topbar Dropdown list
+            if (topbarList) {
+                if (list.length === 0) {
+                    topbarList.innerHTML = `<div class="p-4 text-center text-slate-400">Không có thông báo.</div>`;
+                } else {
+                    topbarList.innerHTML = list.slice(0, 5).map(n => `
+                        <div onclick="markNotifAsRead('${n.id}'); switchTab('notifications');" class="p-3 hover:bg-slate-50 transition-colors cursor-pointer flex items-start gap-3 ${!n.isRead ? 'bg-rose-50/30' : ''}">
+                            <div class="w-7 h-7 rounded-lg ${n.iconBg} flex items-center justify-center shrink-0 text-xs mt-0.5">
+                                <i class="fa-solid ${n.icon}"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between gap-1">
+                                    <span class="px-1.5 py-0.2 rounded-full ${n.badgeBg} font-bold text-[9px] border">${n.categoryName}</span>
+                                    <span class="text-[10px] text-slate-400">${n.time}</span>
+                                </div>
+                                <p class="font-bold text-slate-900 text-xs truncate mt-0.5 ${!n.isRead ? 'text-slate-900 font-extrabold' : 'text-slate-700'}">${n.title}</p>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            }
+
+            // Filter for Main Notifications Tab
+            if (container) {
+                let filtered = [...list];
+                if (currentNotifFilter === 'doanhnghiep') {
+                    filtered = filtered.filter(n => n.category === 'doanhnghiep');
+                } else if (currentNotifFilter === 'canhan') {
+                    filtered = filtered.filter(n => n.category === 'canhan');
+                } else if (currentNotifFilter === 'unread') {
+                    filtered = filtered.filter(n => !n.isRead);
+                }
+
+                if (filtered.length === 0) {
+                    container.innerHTML = `
+                        <div class="p-12 text-center text-slate-400 bg-white rounded-2xl border border-slate-200">
+                            <i class="fa-solid fa-bell-slash text-4xl mb-3 text-slate-300 block"></i>
+                            <p class="font-bold text-slate-700 text-sm">Không có thông báo nào trong mục này</p>
+                            <p class="text-xs text-slate-400 mt-1">Các thông báo mới từ hệ thống sẽ hiển thị tại đây.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = filtered.map(n => `
+                    <div class="p-4 rounded-2xl ${n.isRead ? 'bg-white border-slate-200' : 'bg-gradient-to-r from-slate-50 to-rose-50/30 border-rose-200 shadow-xs'} border shadow-sm flex items-start gap-4 hover:border-slate-300 transition-all">
+                        <div class="w-10 h-10 rounded-xl ${n.iconBg} flex items-center justify-center shrink-0 text-lg shadow-xs mt-0.5">
+                            <i class="fa-solid ${n.icon}"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2.5 py-0.5 rounded-full ${n.badgeBg} font-bold text-[10px] border shadow-2xs">${n.categoryName}</span>
+                                    <h4 class="font-extrabold text-slate-900 text-sm ${!n.isRead ? 'text-slate-900' : 'text-slate-800'}">${n.title}</h4>
+                                </div>
+                                <span class="text-[11px] font-medium text-slate-400 flex items-center gap-1">
+                                    <i class="fa-regular fa-clock"></i> ${n.time}
+                                </span>
+                            </div>
+                            <p class="text-xs text-slate-600 mt-1.5 leading-relaxed">${n.content}</p>
+                            <div class="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
+                                <div class="flex items-center gap-2">
+                                    ${!n.isRead ? `
+                                        <button onclick="markNotifAsRead('${n.id}')" class="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-[11px] transition-colors">
+                                            <i class="fa-solid fa-check mr-1"></i> Đánh dấu đã đọc
+                                        </button>
+                                    ` : `
+                                        <span class="text-[11px] text-slate-400 font-medium flex items-center gap-1"><i class="fa-solid fa-check-double text-emerald-500"></i> Đã đọc</span>
+                                    `}
+                                </div>
+                                <button onclick="deleteNotif('${n.id}')" class="text-slate-400 hover:text-rose-600 text-xs font-semibold transition-colors">
+                                    <i class="fa-solid fa-xmark"></i> Xóa
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function filterNotifs(type) {
+            currentNotifFilter = type;
+            document.querySelectorAll('.notif-filter-btn').forEach(btn => {
+                btn.classList.remove('bg-slate-900', 'text-white');
+                btn.classList.add('bg-white', 'border', 'border-slate-200', 'text-slate-700');
+            });
+            const activeBtn = document.getElementById('notif-filter-' + type);
+            if (activeBtn) {
+                activeBtn.classList.remove('bg-white', 'border', 'border-slate-200', 'text-slate-700');
+                activeBtn.classList.add('bg-slate-900', 'text-white');
+            }
+            renderNotifications();
+        }
+
+        function markNotifAsRead(id) {
+            const list = getNotificationsData();
+            const target = list.find(n => n.id === id);
+            if (target) {
+                target.isRead = true;
+                saveNotificationsData(list);
+            }
+        }
+
+        function markAllNotifsAsRead() {
+            const list = getNotificationsData();
+            list.forEach(n => n.isRead = true);
+            saveNotificationsData(list);
+        }
+
+        function deleteNotif(id) {
+            let list = getNotificationsData();
+            list = list.filter(n => n.id !== id);
+            saveNotificationsData(list);
+        }
+
+        function clearReadNotifs() {
+            let list = getNotificationsData();
+            list = list.filter(n => !n.isRead);
+            saveNotificationsData(list);
+        }
+
+        function toggleNotificationDropdown(e) {
+            if (e) e.stopPropagation();
+            const dd = document.getElementById('notif-dropdown');
+            if (dd) dd.classList.toggle('hidden');
+        }
+
+        document.addEventListener('click', (e) => {
+            const dd = document.getElementById('notif-dropdown');
+            if (dd && !dd.classList.contains('hidden')) {
+                const btn = e.target.closest('button[onclick*="toggleNotificationDropdown"]');
+                const menu = e.target.closest('#notif-dropdown');
+                if (!btn && !menu) {
+                    dd.classList.add('hidden');
+                }
+            }
+        });
+
         // Các bài đăng chờ duyệt mẫu ban đầu
         const defaultPendingPosts = [{
                 id: '#RH-9988',
@@ -1137,6 +1494,9 @@
             if (tabId === 'history-posts') {
                 renderHistoryPosts();
             }
+            if (tabId === 'notifications' || tabId === 'overview') {
+                renderNotifications();
+            }
 
             // Tu dong dong menu mobile khi click tab
             const sidebar = document.getElementById('sidebar-menu');
@@ -1156,6 +1516,7 @@
             }
             renderPendingPosts();
             renderHistoryPosts();
+            renderNotifications();
         });
 
         // Toggle Sidebar Navigation on Mobile
