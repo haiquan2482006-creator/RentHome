@@ -50,6 +50,15 @@
     </script>
 
     <style>
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
         .glass-panel {
             background: rgba(255, 255, 255, 0.9);
             backdrop-filter: blur(16px);
@@ -62,9 +71,12 @@
         }
 
         @keyframes pulse-ring {
-            0%, 100% {
+
+            0%,
+            100% {
                 opacity: 1;
             }
+
             50% {
                 opacity: 0.5;
             }
@@ -89,17 +101,17 @@
 
         <!-- Background Crossfade Images -->
         <div class="absolute inset-0 z-0 pointer-events-none">
-            @if(!empty($themeSettings['banner_url']))
-            <div class="hero-bg-slide absolute inset-0 bg-cover bg-center opacity-100"
-                style="background-image: url('{{ $themeSettings['banner_url'] }}');">
-            </div>
-            <div class="hero-bg-slide absolute inset-0 bg-cover bg-center opacity-0"
-                style="background-image: url('https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1920&q=80');">
-            </div>
+            @if (!empty($themeSettings['banner_url']))
+                <div class="hero-bg-slide absolute inset-0 bg-cover bg-center opacity-100"
+                    style="background-image: url('{{ $themeSettings['banner_url'] }}');">
+                </div>
+                <div class="hero-bg-slide absolute inset-0 bg-cover bg-center opacity-0"
+                    style="background-image: url('https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1920&q=80');">
+                </div>
             @else
-            <div class="hero-bg-slide absolute inset-0 bg-cover bg-center opacity-100"
-                style="background-image: url('https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1920&q=80');">
-            </div>
+                <div class="hero-bg-slide absolute inset-0 bg-cover bg-center opacity-100"
+                    style="background-image: url('https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1920&q=80');">
+                </div>
             @endif
             <div class="hero-bg-slide absolute inset-0 bg-cover bg-center opacity-0"
                 style="background-image: url('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1920&q=80');">
@@ -160,26 +172,34 @@
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <!-- Location Selector -->
                     <div class="relative z-40" id="location-select-container">
-                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Khu vực / Tỉnh thành</label>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Khu vực /
+                            Tỉnh thành</label>
                         <input type="hidden" id="selected-location-input" name="location" value="TP. Hồ Chí Minh">
-                        
+
                         <!-- Toggle Button -->
                         <button type="button" id="location-dropdown-btn" onclick="toggleLocationDropdown(event)"
                             class="w-full pl-10 pr-9 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold text-slate-700 text-sm text-left flex items-center justify-between transition-all cursor-pointer hover:bg-slate-100/80">
-                            <i class="fa-solid fa-location-dot absolute left-3.5 top-1/2 -translate-y-1/2 text-brand-600"></i>
-                            <span id="selected-location-text" class="truncate font-bold text-slate-800">TP. Hồ Chí Minh</span>
-                            <i class="fa-solid fa-chevron-down absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 transition-transform duration-200" id="location-dropdown-arrow"></i>
+                            <i
+                                class="fa-solid fa-location-dot absolute left-3.5 top-1/2 -translate-y-1/2 text-brand-600"></i>
+                            <span id="selected-location-text" class="truncate font-bold text-slate-800">TP. Hồ Chí
+                                Minh</span>
+                            <i class="fa-solid fa-chevron-down absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 transition-transform duration-200"
+                                id="location-dropdown-arrow"></i>
                         </button>
 
                         <!-- Dropdown Panel -->
-                        <div id="location-dropdown-panel" class="hidden absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 overflow-hidden text-sm animate-fadeIn w-full sm:w-72">
+                        <div id="location-dropdown-panel"
+                            class="hidden absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 overflow-hidden text-sm animate-fadeIn w-full sm:w-72">
                             <!-- Search Bar inside dropdown -->
                             <div class="p-2.5 border-b border-slate-200 bg-white sticky top-0 z-20 shadow-xs">
                                 <div class="relative">
-                                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-                                    <input type="text" id="location-search-input" oninput="filterProvinces()" placeholder="Tìm tỉnh / thành phố..."
+                                    <i
+                                        class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                                    <input type="text" id="location-search-input" oninput="filterProvinces()"
+                                        placeholder="Tìm tỉnh / thành phố..."
                                         class="w-full pl-8 pr-7 py-2 text-xs rounded-lg bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium text-slate-800">
-                                    <button type="button" id="clear-search-btn" onclick="clearLocationSearch()" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs">
+                                    <button type="button" id="clear-search-btn" onclick="clearLocationSearch()"
+                                        class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs">
                                         <i class="fa-solid fa-xmark"></i>
                                     </button>
                                 </div>
@@ -266,7 +286,7 @@
         <div class="flex flex-col md:flex-row md:items-end justify-between mb-10">
             <div>
                 <span class="text-xs font-extrabold uppercase tracking-widest text-brand-600">Lựa chọn hàng đầu</span>
-                <h2 class="text-3xl font-black text-slate-900 mt-1">Danh Sách Nhà Cho Thuê Nổi Bật</h2>
+                <h2 class="text-3xl font-black text-slate-900 mt-1">Danh Sách Nhà Cho Thuê </h2>
             </div>
 
             <!-- Quick Filter Tags -->
@@ -568,13 +588,60 @@
         </div>
     </section>
 
-    <!-- News & Market Updates Section -->
-    <section id="news" class="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div class="flex flex-col sm:flex-row sm:items-end justify-between mb-10">
+    <!-- Featured Posts Slider Section (Bài Đăng Nổi Bật Được Ban Quản Lý Chọn) -->
+    <section id="featured-posts-section"
+        class="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto my-12 bg-slate-100/60 rounded-3xl border border-slate-200/60 relative">
+        <div class="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+            <div>
+                <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 font-extrabold text-xs uppercase tracking-wider mb-2">
+                    <i class="fa-solid fa-star text-amber-500"></i> Bài đăng nổi bật
+                </div>
+                <h2 class="text-3xl font-black text-slate-900 mt-1">Bất Động Sản Nổi Bật </h2>
+                <p class="text-xs sm:text-sm text-slate-500 font-semibold mt-1">
+                    Danh sách các bài đăng uy tín, chất lượng cao do Ban Quản Lý lựa chọn & ưu tiên hiển thị
+                </p>
+            </div>
+
+            <!-- Action controls & Admin Add Button -->
+            <div class="flex flex-wrap items-center justify-between sm:justify-end gap-3">
+                @if(Auth::check() && ((Auth::user()->account_type ?? '') === 'admin' || (Auth::user()->role ?? '') === 'admin'))
+                <!-- Admin Add Featured Post Button -->
+                <button onclick="openAddFeaturedModal()"
+                    class="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs shadow-md hover:shadow-lg transition-all flex items-center gap-2 group cursor-pointer">
+                    <i class="fa-solid fa-plus-circle text-sm group-hover:rotate-90 transition-transform duration-300"></i>
+                    <span>Thêm bài đăng nổi bật</span>
+                </button>
+                @endif
+
+                <!-- Navigation Slider Arrows -->
+                <div class="flex items-center gap-2">
+                    <button onclick="scrollFeaturedPosts('left')" aria-label="Trượt sang trái"
+                        class="w-10 h-10 rounded-2xl bg-white border border-slate-200 shadow-sm hover:bg-slate-50 text-slate-700 flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer">
+                        <i class="fa-solid fa-chevron-left text-sm"></i>
+                    </button>
+                    <button onclick="scrollFeaturedPosts('right')" aria-label="Trượt sang phải"
+                        class="w-10 h-10 rounded-2xl bg-white border border-slate-200 shadow-sm hover:bg-slate-50 text-slate-700 flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer">
+                        <i class="fa-solid fa-chevron-right text-sm"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slider Container for Featured Posts -->
+        <div id="featured-posts-slider" class="overflow-hidden relative w-full py-2 min-h-[460px]">
+            <div id="featured-posts-track" class="flex gap-6 w-max">
+                <!-- Dynamic JavaScript content generated via renderFeaturedPostsSection() -->
+            </div>
+        </div>
+    </section>
+
+    <!-- News & Market Updates Section (Larger Frame Grid Layout) -->
+    <section id="news" class="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div class="flex flex-col sm:flex-row sm:items-end justify-between mb-12">
             <div>
                 <span class="text-xs font-extrabold uppercase tracking-widest text-brand-600">Thị trường & Xu
                     hướng</span>
-                <h2 class="text-3xl font-black text-slate-900 mt-1">Tin Tức Cho Thuê & Dự Án Nổi Bật</h2>
+                <h2 class="text-3xl sm:text-4xl font-black text-slate-900 mt-1">Tin Tức Cho Thuê & Dự Án Nổi Bật</h2>
             </div>
             <a href="https://batdongsan.com.vn/tin-thi-truong" target="_blank" rel="noopener noreferrer"
                 class="mt-4 sm:mt-0 inline-flex items-center gap-2 font-bold text-sm text-brand-600 hover:text-brand-700">
@@ -582,148 +649,185 @@
             </a>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <!-- News Item 1 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Left: Featured Main News Card (Extra Large Frame) -->
             <article
-                class="bg-white rounded-3xl overflow-hidden border border-slate-200/80 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group">
-                <a href="https://vnexpress.net/bat-dong-san" target="_blank" rel="noopener noreferrer"
-                    class="relative block aspect-[16/10] overflow-hidden">
-                    <img src="https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=600&q=80"
-                        alt="Xu hướng thuê căn hộ"
-                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                class="group relative rounded-3xl overflow-hidden min-h-[460px] lg:min-h-[540px] flex flex-col justify-between p-8 sm:p-10 shadow-card hover:shadow-2xl transition-all duration-500 border border-slate-200/80">
+                <img src="https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=1200&q=80"
+                    alt="Xu hướng thuê căn hộ"
+                    class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
+                <div
+                    class="absolute inset-0 bg-gradient-to-b from-slate-950/70 via-slate-950/30 to-slate-950/90 group-hover:from-slate-950/80 transition-all">
+                </div>
+
+                <!-- Top badges -->
+                <div class="relative z-10 flex items-center gap-3">
                     <span
-                        class="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur-sm text-[10px] font-bold text-white uppercase">VnExpress</span>
-                </a>
-                <div class="p-5 flex-1 flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center gap-2 text-[11px] text-slate-400 mb-2 font-medium">
-                            <i class="fa-regular fa-clock"></i> 2 giờ trước
-                        </div>
-                        <h3
-                            class="text-base font-bold text-slate-900 group-hover:text-brand-600 transition-colors line-clamp-2 leading-snug">
-                            <a href="https://vnexpress.net/bat-dong-san" target="_blank" rel="noopener noreferrer">
-                                Nhu cầu thuê chung cư và nhà trọ tại các đô thị lớn tiếp tục tăng mạnh
-                            </a>
-                        </h3>
-                        <p class="text-xs text-slate-500 mt-2 line-clamp-2 leading-relaxed">
-                            Thị trường bất động sản cho thuê ghi nhận lượng quan tâm tăng cao vào quý mới, đặc biệt ở
-                            phân khúc studio và căn hộ 2 phòng ngủ.
-                        </p>
+                        class="px-3.5 py-1.5 rounded-full bg-brand-600 text-white font-bold text-xs uppercase shadow-md">BÀI
+                        VIẾT NỔI BẬT</span>
+                    <span
+                        class="px-3.5 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md text-white font-semibold text-xs">VnExpress</span>
+                </div>
+
+                <!-- Bottom content -->
+                <div class="relative z-10">
+                    <div class="flex items-center gap-2 text-xs text-slate-300 mb-3 font-medium">
+                        <i class="fa-regular fa-clock"></i> 2 giờ trước
                     </div>
-                    <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                        <span class="text-[11px] font-semibold text-brand-600">Đọc trên VnExpress</span>
-                        <i
-                            class="fa-solid fa-arrow-right text-xs text-slate-400 group-hover:text-brand-600 group-hover:translate-x-1 transition-all"></i>
+                    <h3
+                        class="text-2xl sm:text-3xl font-black text-white group-hover:text-emerald-400 transition-colors leading-snug">
+                        <a href="https://vnexpress.net/bat-dong-san" target="_blank" rel="noopener noreferrer">
+                            Nhu cầu thuê chung cư và nhà trọ tại các đô thị lớn tiếp tục tăng mạnh
+                        </a>
+                    </h3>
+                    <p class="text-sm sm:text-base text-slate-200 mt-3 line-clamp-3 leading-relaxed">
+                        Thị trường bất động sản cho thuê ghi nhận lượng quan tâm tăng cao vào quý mới, đặc biệt ở phân
+                        khúc studio và căn hộ 2 phòng ngủ tại TP.HCM và Hà Nội.
+                    </p>
+                    <div class="mt-6">
+                        <a href="https://vnexpress.net/bat-dong-san" target="_blank" rel="noopener noreferrer"
+                            class="inline-flex items-center gap-2.5 px-6 py-3 rounded-full bg-white/20 backdrop-blur-md text-white text-xs sm:text-sm font-bold border border-white/30 group-hover:bg-brand-600 group-hover:border-brand-600 transition-all">
+                            Đọc bài viết đầy đủ <i
+                                class="fa-solid fa-arrow-right text-xs transition-transform group-hover:translate-x-1"></i>
+                        </a>
                     </div>
                 </div>
             </article>
 
-            <!-- News Item 2 -->
-            <article
-                class="bg-white rounded-3xl overflow-hidden border border-slate-200/80 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group">
-                <a href="https://batdongsan.com.vn/tin-thi-truong" target="_blank" rel="noopener noreferrer"
-                    class="relative block aspect-[16/10] overflow-hidden">
-                    <img src="https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80"
+            <!-- Right: 2x2 Grid of 4 Larger News Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-7">
+                <!-- Small News Card 1 -->
+                <article
+                    class="group relative rounded-3xl overflow-hidden min-h-[255px] flex flex-col justify-between p-7 shadow-card hover:shadow-2xl transition-all duration-500 border border-slate-200/80">
+                    <img src="https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80"
                         alt="Đại đô thị mới"
-                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-                    <span
-                        class="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-blue-600/90 backdrop-blur-sm text-[10px] font-bold text-white uppercase">Batdongsan</span>
-                </a>
-                <div class="p-5 flex-1 flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center gap-2 text-[11px] text-slate-400 mb-2 font-medium">
-                            <i class="fa-regular fa-clock"></i> 5 giờ trước
-                        </div>
+                        class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
+                    <div
+                        class="absolute inset-0 bg-gradient-to-b from-slate-950/75 via-slate-950/30 to-slate-950/85 group-hover:from-slate-950/85 transition-all">
+                    </div>
+
+                    <div class="relative z-10 flex items-center justify-between">
+                        <span
+                            class="px-3 py-1 rounded-full bg-blue-600/90 backdrop-blur-sm text-[11px] font-bold text-white uppercase">Batdongsan</span>
+                        <span class="text-xs font-medium text-slate-300"><i class="fa-regular fa-clock"></i> 5h
+                            trước</span>
+                    </div>
+
+                    <div class="relative z-10">
                         <h3
-                            class="text-base font-bold text-slate-900 group-hover:text-brand-600 transition-colors line-clamp-2 leading-snug">
+                            class="text-base font-bold text-white group-hover:text-emerald-400 transition-colors line-clamp-2 leading-snug">
                             <a href="https://batdongsan.com.vn/tin-thi-truong" target="_blank"
                                 rel="noopener noreferrer">
                                 Điểm mặt loạt dự án căn hộ sắp bàn giao mở ra nguồn cung nhà thuê mới
                             </a>
                         </h3>
-                        <p class="text-xs text-slate-500 mt-2 line-clamp-2 leading-relaxed">
-                            Hàng loạt đại đô thị vùng ven hoàn thiện hạ tầng, bổ sung nguồn cung chất lượng cao cho
-                            người đi làm và gia đình trẻ.
-                        </p>
-                    </div>
-                    <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                        <span class="text-[11px] font-semibold text-brand-600">Đọc trên Batdongsan.com.vn</span>
-                        <i
-                            class="fa-solid fa-arrow-right text-xs text-slate-400 group-hover:text-brand-600 group-hover:translate-x-1 transition-all"></i>
-                    </div>
-                </div>
-            </article>
-
-            <!-- News Item 3 -->
-            <article
-                class="bg-white rounded-3xl overflow-hidden border border-slate-200/80 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group">
-                <a href="https://cafef.vn/bat-dong-san.chn" target="_blank" rel="noopener noreferrer"
-                    class="relative block aspect-[16/10] overflow-hidden">
-                    <img src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=600&q=80"
-                        alt="Luật nhà ở"
-                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-                    <span
-                        class="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-amber-600/90 backdrop-blur-sm text-[10px] font-bold text-white uppercase">CafeF</span>
-                </a>
-                <div class="p-5 flex-1 flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center gap-2 text-[11px] text-slate-400 mb-2 font-medium">
-                            <i class="fa-regular fa-clock"></i> 1 ngày trước
+                        <div class="mt-4 flex items-center justify-between">
+                            <span class="text-xs font-medium text-slate-300">Tin thị trường</span>
+                            <i
+                                class="fa-solid fa-arrow-right text-xs text-white group-hover:text-emerald-400 group-hover:translate-x-1 transition-all"></i>
                         </div>
+                    </div>
+                </article>
+
+                <!-- Small News Card 2 -->
+                <article
+                    class="group relative rounded-3xl overflow-hidden min-h-[255px] flex flex-col justify-between p-7 shadow-card hover:shadow-2xl transition-all duration-500 border border-slate-200/80">
+                    <img src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80"
+                        alt="Luật nhà ở"
+                        class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
+                    <div
+                        class="absolute inset-0 bg-gradient-to-b from-slate-950/75 via-slate-950/30 to-slate-950/85 group-hover:from-slate-950/85 transition-all">
+                    </div>
+
+                    <div class="relative z-10 flex items-center justify-between">
+                        <span
+                            class="px-3 py-1 rounded-full bg-amber-600/90 backdrop-blur-sm text-[11px] font-bold text-white uppercase">CafeF</span>
+                        <span class="text-xs font-medium text-slate-300"><i class="fa-regular fa-clock"></i> 1 ngày
+                            trước</span>
+                    </div>
+
+                    <div class="relative z-10">
                         <h3
-                            class="text-base font-bold text-slate-900 group-hover:text-brand-600 transition-colors line-clamp-2 leading-snug">
+                            class="text-base font-bold text-white group-hover:text-emerald-400 transition-colors line-clamp-2 leading-snug">
                             <a href="https://cafef.vn/bat-dong-san.chn" target="_blank" rel="noopener noreferrer">
                                 Những lưu ý pháp lý quan trọng khi ký hợp đồng thuê nhà theo quy định mới
                             </a>
                         </h3>
-                        <p class="text-xs text-slate-500 mt-2 line-clamp-2 leading-relaxed">
-                            Cẩm nang hướng dẫn người thuê và chủ nhà bảo vệ quyền lợi hợp pháp, tránh các điều khoản
-                            tranh chấp phổ biến.
-                        </p>
-                    </div>
-                    <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                        <span class="text-[11px] font-semibold text-brand-600">Đọc trên CafeF</span>
-                        <i
-                            class="fa-solid fa-arrow-right text-xs text-slate-400 group-hover:text-brand-600 group-hover:translate-x-1 transition-all"></i>
-                    </div>
-                </div>
-            </article>
-
-            <!-- News Item 4 -->
-            <article
-                class="bg-white rounded-3xl overflow-hidden border border-slate-200/80 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group">
-                <a href="https://vnexpress.net/kinh-doanh/bat-dong-san" target="_blank" rel="noopener noreferrer"
-                    class="relative block aspect-[16/10] overflow-hidden">
-                    <img src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=600&q=80"
-                        alt="Nhà trọ sinh viên"
-                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-                    <span
-                        class="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur-sm text-[10px] font-bold text-white uppercase">VnExpress</span>
-                </a>
-                <div class="p-5 flex-1 flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center gap-2 text-[11px] text-slate-400 mb-2 font-medium">
-                            <i class="fa-regular fa-clock"></i> 2 ngày trước
+                        <div class="mt-4 flex items-center justify-between">
+                            <span class="text-xs font-medium text-slate-300">Cẩm nang pháp lý</span>
+                            <i
+                                class="fa-solid fa-arrow-right text-xs text-white group-hover:text-emerald-400 group-hover:translate-x-1 transition-all"></i>
                         </div>
+                    </div>
+                </article>
+
+                <!-- Small News Card 3 -->
+                <article
+                    class="group relative rounded-3xl overflow-hidden min-h-[255px] flex flex-col justify-between p-7 shadow-card hover:shadow-2xl transition-all duration-500 border border-slate-200/80">
+                    <img src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80"
+                        alt="Nhà trọ sinh viên"
+                        class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
+                    <div
+                        class="absolute inset-0 bg-gradient-to-b from-slate-950/75 via-slate-950/30 to-slate-950/85 group-hover:from-slate-950/85 transition-all">
+                    </div>
+
+                    <div class="relative z-10 flex items-center justify-between">
+                        <span
+                            class="px-3 py-1 rounded-full bg-slate-900/80 backdrop-blur-sm text-[11px] font-bold text-white uppercase">VnExpress</span>
+                        <span class="text-xs font-medium text-slate-300"><i class="fa-regular fa-clock"></i> 2 ngày
+                            trước</span>
+                    </div>
+
+                    <div class="relative z-10">
                         <h3
-                            class="text-base font-bold text-slate-900 group-hover:text-brand-600 transition-colors line-clamp-2 leading-snug">
+                            class="text-base font-bold text-white group-hover:text-emerald-400 transition-colors line-clamp-2 leading-snug">
                             <a href="https://vnexpress.net/kinh-doanh/bat-dong-san" target="_blank"
                                 rel="noopener noreferrer">
                                 Xu hướng thuê trọ 'All-in-one' tích hợp tiện ích thông minh hút giới trẻ
                             </a>
                         </h3>
-                        <p class="text-xs text-slate-500 mt-2 line-clamp-2 leading-relaxed">
-                            Mô hình phòng trọ kiểu mới có máy giặt chung, khóa cửa vân tay và bảo vệ 24/7 đang dần thay
-                            thế phòng trọ truyền thống.
-                        </p>
+                        <div class="mt-4 flex items-center justify-between">
+                            <span class="text-xs font-medium text-slate-300">Xu hướng sống</span>
+                            <i
+                                class="fa-solid fa-arrow-right text-xs text-white group-hover:text-emerald-400 group-hover:translate-x-1 transition-all"></i>
+                        </div>
                     </div>
-                    <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                        <span class="text-[11px] font-semibold text-brand-600">Đọc trên VnExpress</span>
-                        <i
-                            class="fa-solid fa-arrow-right text-xs text-slate-400 group-hover:text-brand-600 group-hover:translate-x-1 transition-all"></i>
+                </article>
+
+                <!-- Small News Card 4 -->
+                <article
+                    class="group relative rounded-3xl overflow-hidden min-h-[255px] flex flex-col justify-between p-7 shadow-card hover:shadow-2xl transition-all duration-500 border border-slate-200/80">
+                    <img src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80"
+                        alt="Mặt bằng giá thuê mới"
+                        class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
+                    <div
+                        class="absolute inset-0 bg-gradient-to-b from-slate-950/75 via-slate-950/30 to-slate-950/85 group-hover:from-slate-950/85 transition-all">
                     </div>
-                </div>
-            </article>
+
+                    <div class="relative z-10 flex items-center justify-between">
+                        <span
+                            class="px-3 py-1 rounded-full bg-emerald-600/90 backdrop-blur-sm text-[11px] font-bold text-white uppercase">Dân
+                            Trí</span>
+                        <span class="text-xs font-medium text-slate-300"><i class="fa-regular fa-clock"></i> 3 ngày
+                            trước</span>
+                    </div>
+
+                    <div class="relative z-10">
+                        <h3
+                            class="text-base font-bold text-white group-hover:text-emerald-400 transition-colors line-clamp-2 leading-snug">
+                            <a href="https://dantri.com.vn/bat-dong-san.htm" target="_blank"
+                                rel="noopener noreferrer">
+                                Giá thuê nhà mặt phố và căn hộ dịch vụ tại trung tâm thiết lập mặt bằng mới
+                            </a>
+                        </h3>
+                        <div class="mt-4 flex items-center justify-between">
+                            <span class="text-xs font-medium text-slate-300">Phân tích giá</span>
+                            <i
+                                class="fa-solid fa-arrow-right text-xs text-white group-hover:text-emerald-400 group-hover:translate-x-1 transition-all"></i>
+                        </div>
+                    </div>
+                </article>
+            </div>
         </div>
     </section>
 
@@ -795,7 +899,8 @@
                         }
                     @endphp
                     <div class="flex items-center gap-3">
-                        <img src="{{ !empty($themeSettings['logo_url']) ? $themeSettings['logo_url'] : asset('img/logo.png') }}" alt="RentHome Logo" class="w-9 h-9 object-contain rounded-xl shadow-sm">
+                        <img src="{{ !empty($themeSettings['logo_url']) ? $themeSettings['logo_url'] : asset('img/logo.png') }}"
+                            alt="RentHome Logo" class="w-9 h-9 object-contain rounded-xl shadow-sm">
                         <span class="text-xl font-extrabold text-white">{{ $fp1 }}<span
                                 style="color: {{ $fColor }}">{{ $fp2 }}</span></span>
                     </div>
@@ -804,14 +909,14 @@
                     </p>
                     <div class="flex gap-3 pt-2">
                         <a href="#"
-                            class="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center text-xs transition-colors hover:opacity-80" style="background-color: {{ $fColor }}"><i
-                                class="fa-brands fa-facebook-f"></i></a>
+                            class="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center text-xs transition-colors hover:opacity-80"
+                            style="background-color: {{ $fColor }}"><i class="fa-brands fa-facebook-f"></i></a>
                         <a href="#"
-                            class="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center text-xs transition-colors hover:opacity-80" style="background-color: {{ $fColor }}"><i
-                                class="fa-brands fa-youtube"></i></a>
+                            class="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center text-xs transition-colors hover:opacity-80"
+                            style="background-color: {{ $fColor }}"><i class="fa-brands fa-youtube"></i></a>
                         <a href="#"
-                            class="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center text-xs transition-colors hover:opacity-80" style="background-color: {{ $fColor }}"><i
-                                class="fa-brands fa-tiktok"></i></a>
+                            class="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center text-xs transition-colors hover:opacity-80"
+                            style="background-color: {{ $fColor }}"><i class="fa-brands fa-tiktok"></i></a>
                     </div>
                 </div>
 
@@ -819,10 +924,14 @@
                 <div>
                     <h4 class="text-sm font-bold text-white uppercase tracking-wider mb-4">Danh Mục Hot</h4>
                     <ul class="space-y-2.5 text-xs">
-                        <li><a href="#" class="hover:text-white transition-colors">Cho thuê căn hộ TP.HCM</a></li>
-                        <li><a href="#" class="hover:text-white transition-colors">Cho thuê nhà nguyên căn Hà Nội</a></li>
-                        <li><a href="#" class="hover:text-white transition-colors">Phòng trọ giá rẻ sinh viên</a></li>
-                        <li><a href="#" class="hover:text-white transition-colors">Biệt thự Villa nghỉ dưỡng</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Cho thuê căn hộ TP.HCM</a>
+                        </li>
+                        <li><a href="#" class="hover:text-white transition-colors">Cho thuê nhà nguyên căn Hà
+                                Nội</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Phòng trọ giá rẻ sinh
+                                viên</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Biệt thự Villa nghỉ dưỡng</a>
+                        </li>
                     </ul>
                 </div>
 
@@ -833,7 +942,8 @@
                         <li><a href="#" class="hover:text-white transition-colors">Trung tâm trợ giúp</a></li>
                         <li><a href="#" class="hover:text-white transition-colors">Quy định dịch vụ</a></li>
                         <li><a href="#" class="hover:text-white transition-colors">Chính sách bảo mật</a></li>
-                        <li><a href="#" class="hover:text-white transition-colors">Giải quyết tranh chấp</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Giải quyết tranh chấp</a>
+                        </li>
                     </ul>
                 </div>
 
@@ -842,13 +952,16 @@
                     <h4 class="text-sm font-bold text-white uppercase tracking-wider mb-4">Liên Hệ</h4>
                     <ul class="space-y-3 text-xs">
                         <li class="flex items-center gap-2.5">
-                            <i class="fa-solid fa-phone" style="color: {{ $fColor }}"></i> Hotline: {{ $themeSettings['footer_phone'] ?? '0903990706' }}
+                            <i class="fa-solid fa-phone" style="color: {{ $fColor }}"></i> Hotline:
+                            {{ $themeSettings['footer_phone'] ?? '0903990706' }}
                         </li>
                         <li class="flex items-center gap-2.5">
-                            <i class="fa-solid fa-envelope" style="color: {{ $fColor }}"></i> Email: {{ $themeSettings['footer_email'] ?? 'cskh@renthome.vn' }}
+                            <i class="fa-solid fa-envelope" style="color: {{ $fColor }}"></i> Email:
+                            {{ $themeSettings['footer_email'] ?? 'cskh@renthome.vn' }}
                         </li>
                         <li class="flex items-start gap-2.5">
-                            <i class="fa-solid fa-location-dot mt-0.5" style="color: {{ $fColor }}"></i> {{ $themeSettings['footer_address'] ?? 'Tòa nhà Landmark 81, Bình Thạnh, TP.HCM' }}
+                            <i class="fa-solid fa-location-dot mt-0.5" style="color: {{ $fColor }}"></i>
+                            {{ $themeSettings['footer_address'] ?? 'Tòa nhà Landmark 81, Bình Thạnh, TP.HCM' }}
                         </li>
                     </ul>
                 </div>
@@ -1019,13 +1132,435 @@
         </div>
     </div>
 
+    <!-- MODAL THÊM BÀI ĐĂNG NỔI BẬT (DÀNH CHO BAN QUẢN LÝ) -->
+    <div id="modal-add-featured-post"
+        class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-100 relative animate-in fade-in zoom-in-95 duration-200">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center font-black text-lg">
+                        <i class="fa-solid fa-star"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-extrabold text-slate-900">Thêm Bài Đăng Nổi Bật</h3>
+                        <p class="text-xs text-slate-500 font-medium">Cấu hình bài đăng hiển thị nổi bật trên trang chủ (Ban Quản Lý)</p>
+                    </div>
+                </div>
+                <button onclick="closeAddFeaturedModal()" class="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors cursor-pointer">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Modal Form -->
+            <form id="form-add-featured" onsubmit="handleSaveFeaturedPost(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Tiêu đề bài đăng <span class="text-rose-500">*</span></label>
+                    <input type="text" id="feat-title" required placeholder="Ví dụ: Villa Thảo Điền 4PN View Sông Đắc Địa"
+                        class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm font-semibold text-slate-800 outline-none">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Giá thuê <span class="text-rose-500">*</span></label>
+                        <input type="text" id="feat-price" required placeholder="Ví dụ: 25.0 triệu"
+                            class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm font-semibold text-slate-800 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Huy hiệu (Tag) <span class="text-rose-500">*</span></label>
+                        <select id="feat-tag"
+                            class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm font-semibold text-slate-800 outline-none bg-white">
+                            <option value="HOT NỔI BẬT">🔥 HOT NỔI BẬT</option>
+                            <option value="VIP CHÍNH CHỦ">⭐ VIP CHÍNH CHỦ</option>
+                            <option value="PENTHOUSE VIP">🏰 PENTHOUSE VIP</option>
+                            <option value="VILLA LUXURY">🏡 VILLA LUXURY</option>
+                            <option value="SHOPHOUSE HOT">🏬 SHOPHOUSE HOT</option>
+                            <option value="GIÁ TỐT NHẤT">💰 GIÁ TỐT NHẤT</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Địa chỉ / Khu vực <span class="text-rose-500">*</span></label>
+                    <input type="text" id="feat-location" required placeholder="Ví dụ: Thảo Điền, Quận 2, TP. Hồ Chí Minh"
+                        class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm font-semibold text-slate-800 outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Link Hình Ảnh (URL)</label>
+                    <input type="url" id="feat-image" placeholder="https://images.unsplash.com/..."
+                        class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm font-semibold text-slate-800 outline-none mb-2">
+                    <div class="flex flex-wrap gap-2 text-xs">
+                        <span class="text-slate-400 font-medium">Gợi ý mẫu ảnh:</span>
+                        <button type="button" onclick="setPresetImage('https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80')" class="text-brand-600 underline font-semibold hover:text-brand-700 cursor-pointer">Mẫu Villa</button>
+                        <button type="button" onclick="setPresetImage('https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80')" class="text-brand-600 underline font-semibold hover:text-brand-700 cursor-pointer">Mẫu Penthouse</button>
+                        <button type="button" onclick="setPresetImage('https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80')" class="text-brand-600 underline font-semibold hover:text-brand-700 cursor-pointer">Mẫu Căn Hộ</button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Số phòng ngủ</label>
+                        <input type="text" id="feat-beds" value="2 PN" placeholder="2 PN"
+                            class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold outline-none focus:ring-2 focus:ring-amber-500">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Số phòng tắm</label>
+                        <input type="text" id="feat-baths" value="2 WC" placeholder="2 WC"
+                            class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold outline-none focus:ring-2 focus:ring-amber-500">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Diện tích</label>
+                        <input type="text" id="feat-area" value="85 m²" placeholder="85 m²"
+                            class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold outline-none focus:ring-2 focus:ring-amber-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Ghi chú kiểm duyệt Ban Quản Lý</label>
+                    <input type="text" id="feat-note" placeholder="Ví dụ: Đã xác thực chính chủ • Giảm 5% hợp đồng dài hạn"
+                        class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm font-semibold text-slate-800 outline-none">
+                </div>
+
+                <div class="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
+                    <button type="button" onclick="resetFeaturedPostsToDefault()" class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition-colors mr-auto cursor-pointer">
+                        <i class="fa-solid fa-rotate-left mr-1"></i> Khôi phục mặc định
+                    </button>
+                    <button type="button" onclick="closeAddFeaturedModal()" class="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer">
+                        Hủy
+                    </button>
+                    <button type="submit" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-xs shadow-lg transition-all cursor-pointer">
+                        <i class="fa-solid fa-check mr-1.5"></i> Thêm Nổi Bật
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script>
+        // Dynamic Management for Featured Posts Section (Dành cho Ban Quản Lý)
+        const DEFAULT_FEATURED_POSTS = [
+            {
+                id: 'feat-1',
+                title: 'Villa Du Thuyền Riverside Thảo Điền 4PN',
+                price: '65.0 triệu',
+                period: '/ tháng',
+                location: 'Nguyễn Văn Hưởng, Thảo Điền, Quận 2, TP.HCM',
+                image: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80',
+                tag: 'VILLA LUXURY',
+                beds: '4 PN',
+                baths: '4 WC',
+                area: '320 m²',
+                note: 'Đặc quyền sinh thái • View Sông',
+                verified: true
+            },
+            {
+                id: 'feat-2',
+                title: 'Penthouse Horizon View Toàn Cảnh Pháo Hoa Q1',
+                price: '38.0 triệu',
+                period: '/ tháng',
+                location: 'Trần Hưng Đạo, Quận 1, TP. Hồ Chí Minh',
+                image: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80',
+                tag: 'PENTHOUSE VIP',
+                beds: '3 PN',
+                baths: '3 WC',
+                area: '180 m²',
+                note: 'View pháo hoa 360° • Nội thất Ý',
+                verified: true
+            },
+            {
+                id: 'feat-3',
+                title: 'Shophouse Mặt Tiền Kinh Doanh KĐT Sala Thủ Đức',
+                price: '50.0 triệu',
+                period: '/ tháng',
+                location: 'Đại lộ Mai Chí Thọ, TP. Thủ Đức, TP.HCM',
+                image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80',
+                tag: 'SHOPHOUSE HOT',
+                beds: '4 PN',
+                baths: '5 WC',
+                area: '250 m²',
+                note: 'Vị trí vàng kinh doanh sầm uất',
+                verified: true
+            },
+            {
+                id: 'feat-4',
+                title: 'Căn Hộ Duplex Sunshine Horizon Ban Công Rộng',
+                price: '22.0 triệu',
+                period: '/ tháng',
+                location: 'Tôn Thất Thuyết, Quận 4, TP. Hồ Chí Minh',
+                image: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80',
+                tag: 'DUPLEX CAO CẤP',
+                beds: '2 PN',
+                baths: '2 WC',
+                area: '95 m²',
+                note: 'Bàn giao full nội thất cao cấp',
+                verified: true
+            },
+            {
+                id: 'feat-5',
+                title: 'Nhà Phố Sân Vườn KDC Cityland Park Hills Gò Vấp',
+                price: '28.0 triệu',
+                period: '/ tháng',
+                location: 'Phan Văn Trị, Quận Gò Vấp, TP.HCM',
+                image: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80',
+                tag: 'NHÀ PHỐ SÂN VƯỜN',
+                beds: '4 PN',
+                baths: '4 WC',
+                area: '160 m²',
+                note: 'Khu dân trí cao • An ninh 24/7',
+                verified: true
+            }
+        ];
+
+        function getFeaturedPosts() {
+            try {
+                const stored = localStorage.getItem('rent_home_featured_posts');
+                if (stored) {
+                    const parsed = JSON.parse(stored);
+                    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+                }
+            } catch (e) {}
+            return DEFAULT_FEATURED_POSTS;
+        }
+
+        const IS_ADMIN_USER = @json(Auth::check() && ((Auth::user()->account_type ?? '') === 'admin' || (Auth::user()->role ?? '') === 'admin'));
+        let featuredAutoPlayTimer = null;
+        let isFeaturedScrolling = false;
+
+        function startFeaturedAutoPlay() {
+            stopFeaturedAutoPlay();
+            featuredAutoPlayTimer = setInterval(() => {
+                scrollFeaturedPosts('right');
+            }, 3500);
+        }
+
+        function stopFeaturedAutoPlay() {
+            if (featuredAutoPlayTimer) {
+                clearInterval(featuredAutoPlayTimer);
+                featuredAutoPlayTimer = null;
+            }
+        }
+
+        function saveFeaturedPosts(posts) {
+            localStorage.setItem('rent_home_featured_posts', JSON.stringify(posts));
+            renderFeaturedPostsSection();
+        }
+
+        function renderFeaturedPostsSection() {
+            const track = document.getElementById('featured-posts-track');
+            const slider = document.getElementById('featured-posts-slider');
+            if (!track) return;
+
+            stopFeaturedAutoPlay();
+            const posts = getFeaturedPosts();
+
+            track.style.transition = 'none';
+            track.style.transform = 'translate3d(0, 0, 0)';
+
+            track.innerHTML = posts.map(post => `
+                <div class="w-[310px] sm:w-[350px] md:w-[370px] shrink-0 bg-white rounded-3xl overflow-hidden border border-slate-200/80 shadow-card hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col group relative">
+                    ${IS_ADMIN_USER ? `
+                    <!-- Delete/Unfeature button for Admin only -->
+                    <button onclick="removeFeaturedPost('${post.id}')" title="Gỡ khỏi danh sách nổi bật (Admin)"
+                        class="absolute top-3 right-3 z-20 w-8 h-8 rounded-full bg-slate-900/70 hover:bg-rose-600 text-white backdrop-blur-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-md cursor-pointer">
+                        <i class="fa-solid fa-trash-can text-xs"></i>
+                    </button>
+                    ` : ''}
+
+                    <!-- Image Frame -->
+                    <div class="relative aspect-[4/3] overflow-hidden">
+                        <img src="${post.image}" alt="${post.title}"
+                            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                        <div class="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent"></div>
+                        <span class="absolute top-4 left-4 px-3 py-1 rounded-full bg-amber-500 text-white font-extrabold text-[11px] uppercase tracking-wider shadow-md flex items-center gap-1">
+                            <i class="fa-solid fa-star text-amber-200 text-[10px]"></i> ${post.tag || 'NỔI BẬT'}
+                        </span>
+                        <div class="absolute bottom-4 left-4 bg-slate-900/85 backdrop-blur-md text-white px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1 shadow-md">
+                            <span class="text-amber-400 text-sm font-black">${post.price}</span> ${post.period || '/ tháng'}
+                        </div>
+                    </div>
+
+                    <!-- Content -->
+                    <div class="p-6 flex-1 flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center gap-2 text-xs font-semibold text-amber-600 mb-2">
+                                <i class="fa-solid fa-shield-check text-emerald-500"></i> ${post.note || 'Đã kiểm duyệt bởi Ban Quản Lý'}
+                            </div>
+                            <h3 class="text-lg font-bold text-slate-900 group-hover:text-amber-600 transition-colors line-clamp-2 leading-snug">
+                                ${post.title}
+                            </h3>
+                            <p class="mt-2 text-xs text-slate-500 flex items-center gap-1.5 line-clamp-1">
+                                <i class="fa-solid fa-location-dot text-rose-500"></i> ${post.location}
+                            </p>
+                        </div>
+
+                        <!-- Specs Row -->
+                        <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-slate-600 text-xs font-semibold">
+                            <span class="flex items-center gap-1"><i class="fa-solid fa-bed text-amber-500"></i> ${post.beds}</span>
+                            <span class="flex items-center gap-1"><i class="fa-solid fa-bath text-amber-500"></i> ${post.baths}</span>
+                            <span class="flex items-center gap-1"><i class="fa-solid fa-vector-square text-amber-500"></i> ${post.area}</span>
+                        </div>
+
+                        <!-- Card Action -->
+                        <div class="mt-5 flex items-center justify-between">
+                            <span class="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
+                                <i class="fa-solid fa-circle-check text-[10px]"></i> Ưu tiên hiển thị
+                            </span>
+                            <button onclick="openModal('${post.title.replace(/'/g, "\\'")}', '${post.price}', '${post.location.replace(/'/g, "\\'")}')"
+                                class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-amber-500 text-white text-xs font-bold transition-colors shadow-sm cursor-pointer">
+                                Xem chi tiết
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            if (slider) {
+                slider.onmouseenter = stopFeaturedAutoPlay;
+                slider.onmouseleave = startFeaturedAutoPlay;
+            }
+
+            startFeaturedAutoPlay();
+        }
+
+        function scrollFeaturedPosts(direction) {
+            const track = document.getElementById('featured-posts-track');
+            if (!track || isFeaturedScrolling) return;
+
+            const cards = track.children;
+            if (cards.length <= 1) return;
+
+            isFeaturedScrolling = true;
+
+            const firstCard = cards[0];
+            const trackGap = parseFloat(window.getComputedStyle(track).gap) || 24;
+            const step = firstCard.offsetWidth + trackGap;
+
+            if (direction === 'right') {
+                track.style.transition = 'transform 0.7s cubic-bezier(0.25, 1, 0.5, 1)';
+                track.style.transform = `translate3d(-${step}px, 0, 0)`;
+
+                const handleTransitionEnd = (e) => {
+                    if (e.target !== track) return;
+                    track.removeEventListener('transitionend', handleTransitionEnd);
+
+                    track.style.transition = 'none';
+                    if (track.firstElementChild) {
+                        track.appendChild(track.firstElementChild);
+                    }
+                    track.style.transform = 'translate3d(0, 0, 0)';
+
+                    // Force browser reflow to flush transform
+                    void track.offsetHeight;
+                    isFeaturedScrolling = false;
+                };
+
+                track.addEventListener('transitionend', handleTransitionEnd);
+            } else {
+                track.style.transition = 'none';
+                const lastCard = track.lastElementChild;
+                if (lastCard) {
+                    track.insertBefore(lastCard, track.firstElementChild);
+                }
+                track.style.transform = `translate3d(-${step}px, 0, 0)`;
+
+                // Force browser reflow
+                void track.offsetHeight;
+
+                track.style.transition = 'transform 0.7s cubic-bezier(0.25, 1, 0.5, 1)';
+                track.style.transform = 'translate3d(0, 0, 0)';
+
+                const handleTransitionEnd = (e) => {
+                    if (e.target !== track) return;
+                    track.removeEventListener('transitionend', handleTransitionEnd);
+                    isFeaturedScrolling = false;
+                };
+
+                track.addEventListener('transitionend', handleTransitionEnd);
+            }
+        }
+
+        function openAddFeaturedModal() {
+            const modal = document.getElementById('modal-add-featured-post');
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function closeAddFeaturedModal() {
+            const modal = document.getElementById('modal-add-featured-post');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function setPresetImage(url) {
+            const imgInput = document.getElementById('feat-image');
+            if (imgInput) imgInput.value = url;
+        }
+
+        function handleSaveFeaturedPost(e) {
+            e.preventDefault();
+            const title = document.getElementById('feat-title').value.trim();
+            const price = document.getElementById('feat-price').value.trim();
+            const tag = document.getElementById('feat-tag').value;
+            const location = document.getElementById('feat-location').value.trim();
+            let image = document.getElementById('feat-image').value.trim();
+            const beds = document.getElementById('feat-beds').value.trim() || '2 PN';
+            const baths = document.getElementById('feat-baths').value.trim() || '2 WC';
+            const area = document.getElementById('feat-area').value.trim() || '80 m²';
+            const note = document.getElementById('feat-note').value.trim() || 'Ưu tiên hiển thị bởi Quản Lý';
+
+            if (!image) {
+                image = 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80';
+            }
+
+            const newPost = {
+                id: 'feat-' + Date.now(),
+                title,
+                price,
+                period: '/ tháng',
+                location,
+                image,
+                tag,
+                beds,
+                baths,
+                area,
+                note,
+                verified: true
+            };
+
+            const current = getFeaturedPosts();
+            current.unshift(newPost);
+            saveFeaturedPosts(current);
+
+            closeAddFeaturedModal();
+            document.getElementById('form-add-featured').reset();
+
+            // Scroll slider back to start
+            const container = document.getElementById('featured-posts-slider');
+            if (container) container.scrollTo({ left: 0, behavior: 'smooth' });
+
+            alert('Đã thêm bài đăng nổi bật mới thành công! Bài đăng đã được hiển thị trên trang chủ.');
+        }
+
+        function removeFeaturedPost(id) {
+            if (!confirm('Bạn có chắc chắn muốn gỡ bài đăng này khỏi danh sách bài đăng nổi bật?')) return;
+            let current = getFeaturedPosts();
+            current = current.filter(p => p.id !== id);
+            saveFeaturedPosts(current);
+        }
+
+        function resetFeaturedPostsToDefault() {
+            if (!confirm('Bạn có muốn khôi phục danh sách bài đăng nổi bật về mặc định ban đầu không?')) return;
+            localStorage.removeItem('rent_home_featured_posts');
+            renderFeaturedPostsSection();
+            closeAddFeaturedModal();
+        }
+
         // Crossfade background transition mỗi 3.5 giây
         let currentSlide = 0;
         const slides = document.querySelectorAll('.hero-bg-slide');
 
         function nextSlide() {
+            if (!slides || slides.length === 0) return;
             slides[currentSlide].classList.remove('opacity-100');
             slides[currentSlide].classList.add('opacity-0');
 
@@ -1035,7 +1570,9 @@
             slides[currentSlide].classList.add('opacity-100');
         }
 
-        setInterval(nextSlide, 3500);
+        if (slides.length > 0) {
+            setInterval(nextSlide, 3500);
+        }
 
         function toggleWishlist(btn) {
             const icon = btn.querySelector('i');
@@ -1142,7 +1679,7 @@
             provinces: [
                 "An Giang", "Bà Rịa - Vũng Tàu", "Bắc Giang", "Bắc Kạn", "Bạc Liêu", "Bắc Ninh",
                 "Bến Tre", "Bình Định", "Bình Dương", "Bình Phước", "Bình Thuận", "Cà Mau",
-                "Cao Bằng", "Đắk Lắk", "Đắk Nông", "Điện Biên", "Đồng Nai", "Đồng Tháp",
+                "Cao Bằng", "Đắc Lắk", "Đắc Nông", "Điện Biên", "Đồng Nai", "Đồng Tháp",
                 "Gia Lai", "Hà Giang", "Hà Nam", "Hà Tĩnh", "Hải Dương", "Hậu Giang",
                 "Hòa Bình", "Hưng Yên", "Khánh Hòa", "Kiên Giang", "Kon Tum", "Lai Châu",
                 "Lâm Đồng", "Lạng Sơn", "Lào Cai", "Long An", "Nam Định", "Nghệ An",
@@ -1182,12 +1719,13 @@
             }
 
             // 2. Thành Phố Trực Thuộc Trung Ương
-            const filteredCities = vietnamLocations.centralCities.filter(c => 
+            const filteredCities = vietnamLocations.centralCities.filter(c =>
                 removeVietnameseTones(c).includes(cleanKeyword)
             );
 
             if (filteredCities.length > 0) {
-                html += `<div class="px-3.5 py-1.5 bg-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-600 border-y border-slate-200/70">🏙️ Thành phố trực thuộc TW</div>`;
+                html +=
+                    `<div class="px-3.5 py-1.5 bg-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-600 border-y border-slate-200/70">🏙️ Thành phố trực thuộc TW</div>`;
                 filteredCities.forEach(city => {
                     const isSelected = currentLocation === city;
                     html += `
@@ -1200,12 +1738,13 @@
             }
 
             // 3. Các Tỉnh Thành
-            const filteredProvinces = vietnamLocations.provinces.filter(p => 
+            const filteredProvinces = vietnamLocations.provinces.filter(p =>
                 removeVietnameseTones(p).includes(cleanKeyword)
             );
 
             if (filteredProvinces.length > 0) {
-                html += `<div class="px-3.5 py-1.5 bg-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-600 border-y border-slate-200/70">🏔️ Tỉnh thành</div>`;
+                html +=
+                    `<div class="px-3.5 py-1.5 bg-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-600 border-y border-slate-200/70">🏔️ Tỉnh thành</div>`;
                 filteredProvinces.forEach(prov => {
                     const isSelected = currentLocation === prov;
                     html += `
@@ -1217,8 +1756,10 @@
                 });
             }
 
-            if (filteredCities.length === 0 && filteredProvinces.length === 0 && (!cleanKeyword || !removeVietnameseTones('tất cả địa điểm').includes(cleanKeyword))) {
-                html = `<div class="px-4 py-6 text-center text-xs text-slate-400 font-medium">Không tìm thấy tỉnh / thành phố phù hợp</div>`;
+            if (filteredCities.length === 0 && filteredProvinces.length === 0 && (!cleanKeyword || !removeVietnameseTones(
+                    'tất cả địa điểm').includes(cleanKeyword))) {
+                html =
+                    `<div class="px-4 py-6 text-center text-xs text-slate-400 font-medium">Không tìm thấy tỉnh / thành phố phù hợp</div>`;
             }
 
             container.innerHTML = html;
@@ -1249,7 +1790,7 @@
             const input = document.getElementById('location-search-input');
             const clearBtn = document.getElementById('clear-search-btn');
             const val = input ? input.value : '';
-            
+
             if (clearBtn) {
                 if (val.length > 0) clearBtn.classList.remove('hidden');
                 else clearBtn.classList.add('hidden');
@@ -1291,7 +1832,13 @@
                 if (locationArrow) locationArrow.style.transform = 'rotate(0deg)';
             }
         });
+
+        // Initialize Featured Posts on load
+        document.addEventListener('DOMContentLoaded', function() {
+            renderFeaturedPostsSection();
+        });
     </script>
 </body>
 
 </html>
+

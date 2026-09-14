@@ -8,12 +8,36 @@ Route::get('/', function () {
 });
 
 Route::get('/Admin', function (){
-    $recentUsers = \App\Models\User::where('role', '!=', 'admin')
-        ->where('account_type', '!=', 'admin')
+    $recentUsers = \App\Models\User::where(function ($q) {
+            $q->whereNull('role')->orWhere('role', '!=', 'admin');
+        })
+        ->where(function ($q) {
+            $q->whereNull('account_type')->orWhere('account_type', '!=', 'admin');
+        })
+        ->where(function ($q) {
+            $q->whereNull('role')->orWhere('role', '!=', 'moderator');
+        })
+        ->where(function ($q) {
+            $q->whereNull('account_type')->orWhere('account_type', '!=', 'moderator');
+        })
         ->orderBy('created_at', 'desc')
         ->take(10)
         ->get();
-    $totalUsers = \App\Models\User::count();
+
+    $totalUsers = \App\Models\User::where(function ($q) {
+            $q->whereNull('role')->orWhere('role', '!=', 'admin');
+        })
+        ->where(function ($q) {
+            $q->whereNull('account_type')->orWhere('account_type', '!=', 'admin');
+        })
+        ->where(function ($q) {
+            $q->whereNull('role')->orWhere('role', '!=', 'moderator');
+        })
+        ->where(function ($q) {
+            $q->whereNull('account_type')->orWhere('account_type', '!=', 'moderator');
+        })
+        ->count();
+
     return view('Admin.Overview', compact('recentUsers', 'totalUsers'));
 });
 
@@ -79,8 +103,18 @@ Route::get('/qlnguoi_dung', function (\Illuminate\Http\Request $request) {
     $search = trim($request->query('search', ''));
     $accountType = $request->query('account_type', '');
 
-    $query = \App\Models\User::where('role', '!=', 'admin')
-        ->where('account_type', '!=', 'admin')
+    $query = \App\Models\User::where(function ($q) {
+            $q->whereNull('role')->orWhere('role', '!=', 'admin');
+        })
+        ->where(function ($q) {
+            $q->whereNull('account_type')->orWhere('account_type', '!=', 'admin');
+        })
+        ->where(function ($q) {
+            $q->whereNull('role')->orWhere('role', '!=', 'moderator');
+        })
+        ->where(function ($q) {
+            $q->whereNull('account_type')->orWhere('account_type', '!=', 'moderator');
+        })
         ->where(function ($q) {
             $q->whereNull('is_deleted')->orWhere('is_deleted', '!=', true);
         })
@@ -104,8 +138,18 @@ Route::get('/qlnguoi_dung', function (\Illuminate\Http\Request $request) {
     }
 
     $users = $query->orderBy('created_at', 'desc')->paginate(15);
-    $totalUsers = \App\Models\User::where('role', '!=', 'admin')
-        ->where('account_type', '!=', 'admin')
+    $totalUsers = \App\Models\User::where(function ($q) {
+            $q->whereNull('role')->orWhere('role', '!=', 'admin');
+        })
+        ->where(function ($q) {
+            $q->whereNull('account_type')->orWhere('account_type', '!=', 'admin');
+        })
+        ->where(function ($q) {
+            $q->whereNull('role')->orWhere('role', '!=', 'moderator');
+        })
+        ->where(function ($q) {
+            $q->whereNull('account_type')->orWhere('account_type', '!=', 'moderator');
+        })
         ->where(function ($q) {
             $q->whereNull('is_deleted')->orWhere('is_deleted', '!=', true);
         })
@@ -255,3 +299,150 @@ Route::get('/dangbai', function(){
     }
     return view('qlbai_dang.dangbai');
 })->name('dangbai');
+
+// Routes dành cho Kiểm duyệt viên (Moderator)
+Route::get('/Moderator', function () {
+    return view('Moderator.Overview');
+})->name('moderator.overview');
+
+Route::get('/moderator', function () {
+    return redirect('/Moderator');
+});
+
+Route::get('/moderator/qlpheduyet', function () {
+    return view('Moderator.qlpheduyet');
+});
+
+Route::get('/moderator/qlnguoidung', function () {
+    $search = trim(request('search', ''));
+    $query = \App\Models\User::where(function($q) {
+        $q->whereNull('role')->orWhere('role', '!=', 'admin');
+    })->where(function($q) {
+        $q->whereNull('role')->orWhere('role', '!=', 'moderator');
+    });
+
+    if (!empty($search)) {
+        $query->where(function($q) use ($search) {
+            $q->where('username', 'like', "%{$search}%")
+              ->orWhere('email', 'like', "%{$search}%")
+              ->orWhere('account_name', 'like', "%{$search}%");
+        });
+    }
+
+    $users = $query->orderBy('created_at', 'desc')->paginate(15);
+    return view('Moderator.qlnguoidung', compact('users', 'search'));
+});
+
+Route::get('/moderator/qlkhieunai', function () {
+    return view('Moderator.qlkhieunai');
+});
+
+Route::get('/moderator/lichsu', function () {
+    return view('Moderator.lichsu');
+});
+
+Route::get('/moderator/chitiet-nguoidung/{id}', function ($id) {
+    $targetUser = \App\Models\User::find($id);
+    if (!$targetUser) {
+        $targetUser = (object)[
+            'id' => $id,
+            'username' => 'takimanh531',
+            'account_name' => 'Công Ty TNHH BĐS TakiManh',
+            'email' => "takimanh531@gmail.com",
+            'phone' => '06524543456',
+            'account_type' => 'Doanhnghiep',
+            'created_at' => '10/09/2026',
+        ];
+    }
+
+    // Gắn thông tin mở rộng cho tài khoản (xác thực, giấy tờ doanh nghiệp, ngân hàng)
+    $targetUser->phone_verified = true;
+    $targetUser->cccd_verified = true;
+    $targetUser->cccd_number = '079201089921';
+    $targetUser->cccd_front = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80';
+    $targetUser->cccd_back = 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=600&q=80';
+
+    // Thông tin Doanh nghiệp & Tài khoản Ngân hàng
+    $isBusiness = strtolower($targetUser->account_type ?? '') === 'doanhnghiep' || strtolower($targetUser->account_type ?? '') === 'doanh nghiệp';
+    $targetUser->is_business = true; // Luôn hiển thị dữ liệu demo kinh doanh cho môi trường kiểm thử
+    $targetUser->company_name = 'Công ty TNHH Bất Động Sản TakiManh Việt Nam';
+    $targetUser->tax_code = '0316988231';
+    $targetUser->license_image = 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80';
+    $targetUser->bank_name = 'Ngân hàng TMCP Quân Đội (MB Bank)';
+    $targetUser->bank_account_no = '999988886666';
+    $targetUser->bank_account_holder = 'CONG TY TNHH BDS TAKIMANH VIET NAM';
+
+    // Thống kê lịch sử & độ uy tín
+    $targetUser->complaints_count = 0;
+    $targetUser->warnings_count = 0;
+    $targetUser->reputation_score = 98; // 98/100 uy tín
+    
+    $posts = [
+        (object)[
+            'id' => 201,
+            'title' => 'Cho thuê căn hộ studio đầy đủ nội thất cao cấp trung tâm Quận 1',
+            'address' => 'Đường Nguyễn Trãi, Quận 1, TP.HCM',
+            'price' => '8,500,000 VNĐ / tháng',
+            'thumb' => 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=400&q=80',
+            'created_at' => '10:30 - 12/09/2026',
+            'status' => 'active',
+            'status_label' => 'Đang hiển thị'
+        ],
+        (object)[
+            'id' => 202,
+            'title' => 'Phòng trọ rộng 25m2 có ban công thoáng mát gần đại học Y Dược',
+            'address' => 'Đường An Dương Vương, Quận 5, TP.HCM',
+            'price' => '4,200,000 VNĐ / tháng',
+            'thumb' => 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=400&q=80',
+            'created_at' => '15:45 - 08/09/2026',
+            'status' => 'active',
+            'status_label' => 'Đang hiển thị'
+        ],
+        (object)[
+            'id' => 203,
+            'title' => 'Nhà nguyên căn 2 tầng thích hợp ở gia đình hoặc làm văn phòng nhỏ',
+            'address' => 'Đường Cách Mạng Tháng 8, Quận 3, TP.HCM',
+            'price' => '16,000,000 VNĐ / tháng',
+            'thumb' => 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=400&q=80',
+            'created_at' => '09:15 - 01/09/2026',
+            'status' => 'pending',
+            'status_label' => 'Chờ duyệt'
+        ]
+    ];
+
+    return view('Moderator.chitiet_nguoidung', compact('targetUser', 'posts'));
+})->name('moderator.user_detail');
+
+Route::post('/moderator/approve-post/{id}', function ($id) {
+    return redirect()->back()->with('success', "Đã phê duyệt thành công bài đăng ID: #{$id}!");
+});
+
+Route::post('/moderator/reject-post/{id}', function (\Illuminate\Http\Request $request, $id) {
+    $reason = $request->input('reason', 'Bài đăng không đạt yêu cầu tiêu chuẩn.');
+    return redirect()->back()->with('success', "Đã từ chối bài đăng ID: #{$id}. Lý do: {$reason}");
+});
+
+Route::post('/moderator/remove-post/{id}', function (\Illuminate\Http\Request $request, $id) {
+    $reason = $request->input('reason', 'Vi phạm quy định tin đăng.');
+    return redirect()->back()->with('success', "Đã gỡ bài đăng ID: #{$id} thành công! (Lý do: {$reason})");
+});
+
+Route::post('/moderator/respond-complaint/{id}', function (\Illuminate\Http\Request $request, $id) {
+    $response = $request->input('response_content', 'Đã ghi nhận và xử lý khiếu nại.');
+    return redirect()->back()->with('success', "Đã gửi phản hồi cho khiếu nại ID: #{$id} thành công!");
+});
+
+Route::post('/moderator/user-warn/{id}', function (\Illuminate\Http\Request $request, $id) {
+    $warningMsg = $request->input('warning_message', 'Nhắc nhở tuân thủ quy định đăng tin trên RentHome.');
+    return redirect()->back()->with('success', "Đã gửi thông báo cảnh báo vi phạm tới tài khoản ID: #{$id}! (Nội dung: {$warningMsg})");
+});
+
+Route::post('/moderator/user-request-verify/{id}', function (\Illuminate\Http\Request $request, $id) {
+    $note = $request->input('verify_note', 'Yêu cầu cập nhật hình ảnh CCCD/Giấy phép kinh doanh chính chủ.');
+    return redirect()->back()->with('success', "Đã gửi yêu cầu bắt buộc cập nhật thông tin xác thực tới tài khoản ID: #{$id}!");
+});
+
+Route::post('/moderator/user-ban/{id}', function (\Illuminate\Http\Request $request, $id) {
+    $banReason = $request->input('ban_reason', 'Khóa tài khoản do vi phạm tiêu chuẩn cộng đồng.');
+    return redirect()->back()->with('success', "ĐÃ KHÓA TÀI KHOẢN ID: #{$id} THÀNH CÔNG! Lý do lưu hệ thống: {$banReason}");
+});
