@@ -33,6 +33,10 @@ class AuthController extends Controller
                 return redirect()->intended('/Admin')->with('success', 'Xin chào Admin! Đăng nhập thành công.');
             }
 
+            if ($user->account_type === 'moderator' || $user->role === 'moderator') {
+                return redirect()->intended('/Moderator')->with('success', 'Xin chào Kiểm Duyệt Viên! Đăng nhập thành công.');
+            }
+
             return redirect()->intended('/')->with('success', 'Đăng nhập thành công!');
         }
 
