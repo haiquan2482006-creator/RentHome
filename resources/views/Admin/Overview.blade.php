@@ -653,7 +653,7 @@
                     </thead>
                     <tbody>
                         @forelse($recentUsers ?? [] as $user)
-                            @if(($user->role ?? '') !== 'admin' && ($user->account_type ?? '') !== 'admin')
+                            @if(($user->role ?? '') !== 'admin' && ($user->account_type ?? '') !== 'admin' && ($user->role ?? '') !== 'moderator' && ($user->account_type ?? '') !== 'moderator')
                                 @php
                                     $displayName = $user->account_type === 'doanhnghiep' 
                                         ? ($user->company_name ?? $user->username) 
