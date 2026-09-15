@@ -133,7 +133,7 @@
                             <i class="fa-solid fa-file-invoice-dollar text-sm"></i>
                         </div>
                         <span class="text-sm font-semibold">Thanh toán hóa đơn</span>
-                        <span class="ml-auto px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-extrabold text-[10px]">1</span>
+                        <span class="ml-auto px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-extrabold text-[10px]">2</span>
                     </button>
                 </nav>
             </div>
@@ -188,20 +188,50 @@
                     </div>
                 </button>
 
-                <div id="user-dropdown-menu" class="hidden absolute right-0 mt-2 w-60 rounded-2xl bg-white shadow-2xl border border-slate-100 py-2 z-50">
-                    <div class="px-4 py-2.5 border-b border-slate-100">
-                        <p class="text-[11px] font-medium text-slate-400">Tài khoản cá nhân</p>
-                        <p class="text-sm font-bold text-slate-900 truncate">{{ Auth::user()->email ?? 'admin@renthome.vn' }}</p>
+                <div id="user-dropdown-menu" class="hidden absolute right-0 mt-2 w-64 rounded-2xl bg-white shadow-2xl border border-slate-100 py-2 z-50">
+                    <div class="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between gap-2">
+                        <div class="truncate">
+                            <p class="text-[11px] font-medium text-slate-400">Tài khoản đang đăng nhập</p>
+                            <p class="text-xs font-bold text-slate-900 truncate">
+                                {{ Auth::user()->email ?? Auth::user()->username ?? 'admin@renthome.vn' }}
+                            </p>
+                        </div>
+                        <div class="shrink-0">
+                            @if ((Auth::user()->account_type ?? '') === 'doanhnghiep')
+                                <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-bold text-[10px]">Doanh nghiệp</span>
+                            @else
+                                <span class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 font-bold text-[10px]">Cá nhân</span>
+                            @endif
+                        </div>
                     </div>
-                    <a href="/" class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
-                        <i class="fa-solid fa-house text-slate-400 w-4 text-center"></i>
-                        <span>Về Trang chủ</span>
+
+                    <a href="#" class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-emerald-600 transition-colors">
+                        <i class="fa-solid fa-circle-user text-emerald-600 w-4 text-center"></i>
+                        <span>Tài khoản</span>
                     </a>
-                    <a href="/dat-lai-mat-khau" class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
-                        <i class="fa-solid fa-key text-slate-400 w-4 text-center"></i>
+
+                    <a href="{{ url('Overview') }}" class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-emerald-600 transition-colors">
+                        <i class="fa-solid fa-newspaper text-emerald-600 w-4 text-center"></i>
+                        <span>Quản lý bài đăng</span>
+                    </a>
+
+                    <a href="{{ url('quan-ly-van-hanh') }}" class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-emerald-600 transition-colors">
+                        <i class="fa-solid fa-gears text-emerald-600 w-4 text-center"></i>
+                        <span>Quản lý vận hành</span>
+                    </a>
+
+                    <a href="#" class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-emerald-600 transition-colors">
+                        <i class="fa-solid fa-envelope-open-text text-emerald-600 w-4 text-center"></i>
+                        <span>Thông báo liên hệ</span>
+                    </a>
+
+                    <a href="/dat-lai-mat-khau" class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-emerald-600 transition-colors">
+                        <i class="fa-solid fa-key text-emerald-600 w-4 text-center"></i>
                         <span>Đổi mật khẩu</span>
                     </a>
+
                     <div class="my-1 border-t border-slate-100"></div>
+
                     <form action="{{ route('logout') }}" method="POST" class="m-0 p-0">
                         @csrf
                         <button type="submit" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-rose-600 hover:bg-rose-50 transition-colors text-left">
@@ -251,8 +281,8 @@
                 </div>
 
                 <!-- Stat Summary Card Form 1 -->
-                <div class="grid grid-cols-1 md:grid-cols-12 gap-5">
-                    <div class="md:col-span-8 bg-gradient-to-br from-white via-skybrand-50/40 to-emerald-50/30 p-6 rounded-3xl border-2 border-skybrand-200 shadow-card flex flex-col justify-between relative overflow-hidden">
+                <div class="w-full">
+                    <div class="w-full bg-gradient-to-br from-white via-skybrand-50/40 to-emerald-50/30 p-6 rounded-3xl border-2 border-skybrand-200 shadow-card flex flex-col justify-between relative overflow-hidden">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center gap-3">
                                 <div class="w-12 h-12 rounded-2xl bg-skybrand-600 text-white flex items-center justify-center text-xl shadow-sky-glow">
@@ -279,18 +309,6 @@
                             </span>
                             <span class="text-skybrand-700 font-bold">Tổng tiền thuê: 38.700.000đ/tháng</span>
                         </div>
-                    </div>
-
-                    <div class="md:col-span-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-card flex flex-col justify-between">
-                        <div>
-                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">HẠN ĐÓNG TIỀN PHÒNG</span>
-                            <div class="mt-4">
-                                <span class="text-3xl font-black text-amber-600">05/10/2026</span>
-                            </div>
-                        </div>
-                        <p class="mt-4 text-xs text-amber-700 font-bold flex items-center gap-1.5 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
-                            <i class="fa-solid fa-triangle-exclamation"></i> Sắp đến hạn thanh toán tiền nhà
-                        </p>
                     </div>
                 </div>
 
@@ -709,112 +727,10 @@
                                 <i class="fa-solid fa-qrcode"></i>
                             </div>
                             <div>
-                                <p class="text-xs text-emerald-200 font-medium">Cần thanh toán</p>
+                                <p class="text-xs text-emerald-200 font-medium">Cần thanh toán (2 nhà)</p>
                                 <p class="text-sm font-extrabold text-rose-400">
-                                    3,850,000 VNĐ
+                                    11,455,000 VNĐ
                                 </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Summary Stats Form 2 -->
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                    <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-card">
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Hóa đơn chờ đóng</span>
-                            <div class="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-base">
-                                <i class="fa-solid fa-file-circle-exclamation"></i>
-                            </div>
-                        </div>
-                        <div class="mt-3">
-                            <span class="text-2xl font-black text-rose-600">3,850,000đ</span>
-                        </div>
-                        <p class="mt-1 text-[11px] text-rose-600 font-semibold">1 hóa đơn kỳ Tháng 10/2026</p>
-                    </div>
-
-                    <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-card">
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Hạn đóng tiền tiếp</span>
-                            <div class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-base">
-                                <i class="fa-solid fa-clock"></i>
-                            </div>
-                        </div>
-                        <div class="mt-3">
-                            <span class="text-2xl font-black text-amber-600">05/10/2026</span>
-                        </div>
-                        <p class="mt-1 text-[11px] text-amber-600 font-semibold">Còn 3 ngày nữa đến hạn</p>
-                    </div>
-
-                    <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-card">
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Tiền cọc bảo toàn</span>
-                            <div class="w-9 h-9 rounded-xl bg-skybrand-50 text-skybrand-600 flex items-center justify-center text-base">
-                                <i class="fa-solid fa-vault"></i>
-                            </div>
-                        </div>
-                        <div class="mt-3">
-                            <span class="text-2xl font-black text-slate-900">36,700,000đ</span>
-                        </div>
-                        <p class="mt-1 text-[11px] text-skybrand-600 font-semibold">Cọc 5 nhà được giữ an toàn</p>
-                    </div>
-                </div>
-
-                <!-- LỊCH ĐÓNG TIỀN PHÒNG -->
-                <div class="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-card space-y-4">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-                        <div>
-                            <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
-                                <i class="fa-solid fa-calendar-check text-amber-500"></i>
-                                Thời Gian Đóng Tiền & Chu Kỳ Thanh Toán
-                            </h2>
-                            <p class="text-xs text-slate-500 mt-0.5">Theo dõi mốc thời gian hạn chót đóng tiền phòng để tránh phát sinh phí trễ hạn.</p>
-                        </div>
-                        <span class="px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold self-start sm:self-auto">
-                            <i class="fa-solid fa-bell"></i> Chu kỳ: Ngày 01 - 15 hàng tháng
-                        </span>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div class="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 flex items-start gap-3">
-                            <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-extrabold shrink-0 shadow-md">
-                                05
-                            </div>
-                            <div>
-                                <span class="text-[11px] font-extrabold uppercase text-amber-700 tracking-wider">Hạn chót tháng 10/2026</span>
-                                <h4 class="text-sm font-bold text-slate-900">Phòng 302 - Nguyên Hồng</h4>
-                                <p class="text-xs text-slate-600 mt-0.5">Số tiền: <strong class="text-rose-600">3,850,000đ</strong> (Bao gồm điện, nước)</p>
-                                <span class="inline-block mt-2 px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-bold">
-                                    Chưa thanh toán
-                                </span>
-                            </div>
-                        </div>
-
-                        <div class="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 flex items-start gap-3">
-                            <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-extrabold shrink-0 shadow-md">
-                                05
-                            </div>
-                            <div>
-                                <span class="text-[11px] font-extrabold uppercase text-emerald-700 tracking-wider">Đã hoàn thành Tháng 09</span>
-                                <h4 class="text-sm font-bold text-slate-900">Căn 12.08 - Vinhomes</h4>
-                                <p class="text-xs text-slate-600 mt-0.5">Đã thanh toán ngày: 03/09/2026</p>
-                                <span class="inline-block mt-2 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                                    <i class="fa-solid fa-check"></i> Đã đóng xong
-                                </span>
-                            </div>
-                        </div>
-
-                        <div class="p-4 rounded-2xl bg-sky-50/70 border border-sky-200/80 flex items-start gap-3">
-                            <div class="w-10 h-10 rounded-xl bg-skybrand-600 text-white flex items-center justify-center font-extrabold shrink-0 shadow-md">
-                                15
-                            </div>
-                            <div>
-                                <span class="text-[11px] font-extrabold uppercase text-sky-700 tracking-wider">Kỳ tiếp theo Tháng 11</span>
-                                <h4 class="text-sm font-bold text-slate-900">Tất cả 5 hợp đồng</h4>
-                                <p class="text-xs text-slate-600 mt-0.5">Hệ thống gửi thông báo trước 3 ngày</p>
-                                <span class="inline-block mt-2 px-2.5 py-0.5 rounded-full bg-sky-100 text-sky-800 text-[10px] font-bold">
-                                    Đang theo dõi
-                                </span>
                             </div>
                         </div>
                     </div>
@@ -835,7 +751,7 @@
                             <!-- Filter Tabs -->
                             <div class="flex items-center gap-1 bg-slate-200/70 p-1 rounded-2xl text-xs font-semibold self-start sm:self-auto">
                                 <button onclick="switchTab('pending')" id="tab-pending" class="tab-btn active px-3.5 py-2 rounded-xl transition-all">
-                                    <i class="fa-solid fa-clock text-amber-500"></i> Hóa đơn cần thanh toán (1)
+                                    <i class="fa-solid fa-clock text-amber-500"></i> Hóa đơn cần thanh toán (2)
                                 </button>
                                 <button onclick="switchTab('history')" id="tab-history" class="tab-btn px-3.5 py-2 rounded-xl transition-all text-slate-600">
                                     <i class="fa-solid fa-history text-skybrand-600"></i> Hóa đơn cũ
@@ -849,81 +765,159 @@
 
                     <!-- TAB 1: HÓA ĐƠN CẦN THANH TOÁN -->
                     <div id="content-pending" class="p-6 space-y-6">
-                        <div class="bg-rose-50/60 border border-rose-200 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-full bg-rose-500 text-white flex items-center justify-center font-bold text-lg shrink-0">
-                                    <i class="fa-solid fa-triangle-exclamation"></i>
-                                </div>
-                                <div>
-                                    <h4 class="text-sm font-bold text-slate-900">Bạn có 1 hóa đơn tháng 10/2026 chờ thanh toán</h4>
-                                    <p class="text-xs text-slate-600">Vui lòng thanh toán trước ngày <strong>05/10/2026</strong> để giữ đúng tiến độ hợp đồng.</p>
-                                </div>
-                            </div>
-                            <button onclick="openPayQRModal('HD-202610-302', '3,850,000')" 
-                                    class="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all shrink-0">
-                                <i class="fa-solid fa-qrcode"></i> Thanh toán bằng QR Code
-                            </button>
-                        </div>
 
-                        <div class="border border-slate-200 rounded-2xl overflow-hidden">
-                            <div class="bg-slate-100/70 p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
-                                <div>
-                                    <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Mã hóa đơn: HD-202610-302</span>
-                                    <h4 class="text-base font-bold text-slate-900">Hóa đơn tiền nhà & dịch vụ – Tháng 10/2026</h4>
-                                    <p class="text-xs text-slate-500">Áp dụng cho: Phòng Trọ Cao Cấp Nguyên Hồng (NH-302)</p>
+                        <!-- NHÀ 1: VINHOMES CENTRAL PARK -->
+                        <div class="bg-white rounded-3xl border border-slate-200/90 overflow-hidden shadow-card hover:shadow-lg transition-all flex flex-col md:flex-row">
+                            <div class="relative w-full md:w-80 lg:w-96 shrink-0 min-h-[220px] md:min-h-full bg-slate-100 overflow-hidden">
+                                <img src="https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80" 
+                                     alt="Căn hộ Vinhomes" class="w-full h-full object-cover">
+                                <div class="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:to-slate-950/20"></div>
+                                
+                                <div class="absolute top-3 left-3 flex flex-wrap gap-2 z-10">
+                                    <span class="px-3 py-1 rounded-full bg-rose-600 text-white text-xs font-bold backdrop-blur-md shadow-sm">
+                                        <i class="fa-solid fa-circle-exclamation text-[10px]"></i> Chưa thanh toán
+                                    </span>
+                                    <span class="px-3 py-1 rounded-full bg-black/60 text-white text-xs font-semibold backdrop-blur-md">
+                                        Mã phòng: VH-1208
+                                    </span>
                                 </div>
-                                <span class="px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold">
-                                    Chờ thanh toán
-                                </span>
                             </div>
 
-                            <div class="p-5 space-y-4">
-                                <div class="overflow-x-auto">
-                                    <table class="w-full text-left text-xs text-slate-700">
-                                        <thead>
-                                            <tr class="border-b border-slate-200 text-slate-500 font-bold bg-slate-50">
-                                                <th class="py-2.5 px-3">Hạng mục thanh toán</th>
-                                                <th class="py-2.5 px-3">Chỉ số cũ - mới</th>
-                                                <th class="py-2.5 px-3">Đơn giá</th>
-                                                <th class="py-2.5 px-3 text-right">Thành tiền</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="divide-y divide-slate-100 font-medium">
-                                            <tr>
-                                                <td class="py-3 px-3">Tiền thuê phòng tháng 10</td>
-                                                <td class="py-3 px-3 text-slate-400">1 Tháng</td>
-                                                <td class="py-3 px-3">3,500,000đ</td>
-                                                <td class="py-3 px-3 text-right font-bold text-slate-900">3,500,000đ</td>
-                                            </tr>
-                                            <tr>
-                                                <td class="py-3 px-3">Tiền điện sinh hoạt</td>
-                                                <td class="py-3 px-3 text-slate-600">1420 kW - 1500 kW (80 kWh)</td>
-                                                <td class="py-3 px-3">3,500đ / kWh</td>
-                                                <td class="py-3 px-3 text-right font-bold text-slate-900">280,000đ</td>
-                                            </tr>
-                                            <tr>
-                                                <td class="py-3 px-3">Tiền nước máy</td>
-                                                <td class="py-3 px-3 text-slate-600">Phát sinh 5 m3</td>
-                                                <td class="py-3 px-3">14,000đ / m3</td>
-                                                <td class="py-3 px-3 text-right font-bold text-slate-900">70,000đ</td>
-                                            </tr>
-                                            <tr>
-                                                <td class="py-3 px-3">Phí dịch vụ & Internet</td>
-                                                <td class="py-3 px-3 text-slate-400">Cố định tháng</td>
-                                                <td class="py-3 px-3">100,000đ</td>
-                                                <td class="py-3 px-3 text-right font-bold text-slate-900">100,000đ</td>
-                                            </tr>
-                                        </tbody>
-                                        <tfoot>
-                                            <tr class="bg-skybrand-50/50 font-bold border-t-2 border-slate-200">
-                                                <td colspan="3" class="py-3 px-3 text-sm text-slate-900">Tổng cộng cần thanh toán:</td>
-                                                <td class="py-3 px-3 text-right text-base font-extrabold text-rose-600">3,850,000 VNĐ</td>
-                                            </tr>
-                                        </tfoot>
-                                    </table>
+                            <div class="flex-1 p-5 md:p-6 flex flex-col justify-between space-y-4">
+                                <div>
+                                    <div class="border-b border-slate-100 pb-3 flex flex-wrap items-center justify-between gap-2">
+                                        <div>
+                                            <h3 class="text-lg md:text-xl font-extrabold text-slate-900 leading-snug">Căn Hộ Vinhomes Central Park – Landmark 2</h3>
+                                            <p class="text-xs text-slate-500 font-medium flex items-center gap-1.5 mt-1">
+                                                <i class="fa-solid fa-location-dot text-rose-500"></i> 208 Nguyễn Hữu Cảnh, Phường 22, Q. Bình Thạnh, TP.HCM
+                                            </p>
+                                        </div>
+                                        <span class="px-3 py-1 rounded-full bg-skybrand-50 text-skybrand-700 text-xs font-extrabold border border-skybrand-200">
+                                            Mã HD: #HD-092026-VH
+                                        </span>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs bg-slate-50 p-3.5 rounded-2xl border border-slate-100 mt-3">
+                                        <div>
+                                            <span class="text-slate-500 block text-[11px]">Giá thuê tháng:</span>
+                                            <span class="text-sm font-extrabold text-brand-600">7,500,000đ <span class="text-[10px] font-normal text-slate-500">/tháng</span></span>
+                                        </div>
+                                        <div>
+                                            <span class="text-slate-500 block text-[11px]">Kỳ thanh toán:</span>
+                                            <span class="font-bold text-slate-800">Tháng 09/2026</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-slate-500 block text-[11px]">Hạn thanh toán:</span>
+                                            <span class="font-bold text-rose-600">10/10/2026</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-slate-500 block text-[11px]">Ngày đóng tiền:</span>
+                                            <span class="font-bold text-amber-600">Ngày 05 hàng tháng</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-center justify-between p-3 rounded-2xl bg-skybrand-50/60 border border-skybrand-100 mt-3">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-9 h-9 rounded-full bg-skybrand-600 text-white flex items-center justify-center font-bold text-sm">
+                                                <i class="fa-solid fa-user-tie"></i>
+                                            </div>
+                                            <div>
+                                                <span class="text-[10px] font-bold text-skybrand-600 uppercase">Chủ nhà / Quản lý</span>
+                                                <h4 class="text-xs font-bold text-slate-900">Nguyễn Văn Hùng</h4>
+                                                <p class="text-[11px] text-slate-500">SĐT: 0908 123 456</p>
+                                            </div>
+                                        </div>
+                                        <span class="px-2.5 py-1 rounded-lg bg-white border border-skybrand-200 text-skybrand-700 text-xs font-bold">
+                                            <i class="fa-solid fa-shield-check text-emerald-500"></i> Chính chủ
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div class="pt-2 border-t border-slate-100">
+                                    <button onclick="openInvoiceDetailModal('VH-1208')"
+                                        class="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm flex items-center justify-center gap-2 transition-all shadow-md">
+                                        <i class="fa-solid fa-file-invoice-dollar text-base"></i> Thanh toán (7.882.000đ)
+                                    </button>
                                 </div>
                             </div>
                         </div>
+
+                        <!-- NHÀ 2: PHÒNG TRỌ NGUYÊN HỒNG -->
+                        <div class="bg-white rounded-3xl border border-slate-200/90 overflow-hidden shadow-card hover:shadow-lg transition-all flex flex-col md:flex-row">
+                            <div class="relative w-full md:w-80 lg:w-96 shrink-0 min-h-[220px] md:min-h-full bg-slate-100 overflow-hidden">
+                                <img src="https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80" 
+                                     alt="Phòng Trọ Nguyên Hồng" class="w-full h-full object-cover">
+                                <div class="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:to-slate-950/20"></div>
+                                
+                                <div class="absolute top-3 left-3 flex flex-wrap gap-2 z-10">
+                                    <span class="px-3 py-1 rounded-full bg-rose-600 text-white text-xs font-bold backdrop-blur-md shadow-sm">
+                                        <i class="fa-solid fa-circle-exclamation text-[10px]"></i> Chưa thanh toán
+                                    </span>
+                                    <span class="px-3 py-1 rounded-full bg-black/60 text-white text-xs font-semibold backdrop-blur-md">
+                                        Mã phòng: NH-302
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="flex-1 p-5 md:p-6 flex flex-col justify-between space-y-4">
+                                <div>
+                                    <div class="border-b border-slate-100 pb-3 flex flex-wrap items-center justify-between gap-2">
+                                        <div>
+                                            <h3 class="text-lg md:text-xl font-extrabold text-slate-900 leading-snug">Phòng Trọ Cao Cấp Nguyên Hồng – Phòng 302</h3>
+                                            <p class="text-xs text-slate-500 font-medium flex items-center gap-1.5 mt-1">
+                                                <i class="fa-solid fa-location-dot text-rose-500"></i> 45/12 Nguyên Hồng, Phường 11, Q. Bình Thạnh, TP.HCM
+                                            </p>
+                                        </div>
+                                        <span class="px-3 py-1 rounded-full bg-skybrand-50 text-skybrand-700 text-xs font-extrabold border border-skybrand-200">
+                                            Mã HD: #HD-092026
+                                        </span>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs bg-slate-50 p-3.5 rounded-2xl border border-slate-100 mt-3">
+                                        <div>
+                                            <span class="text-slate-500 block text-[11px]">Giá thuê tháng:</span>
+                                            <span class="text-sm font-extrabold text-brand-600">3,500,000đ <span class="text-[10px] font-normal text-slate-500">/tháng</span></span>
+                                        </div>
+                                        <div>
+                                            <span class="text-slate-500 block text-[11px]">Kỳ thanh toán:</span>
+                                            <span class="font-bold text-slate-800">Tháng 09/2026</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-slate-500 block text-[11px]">Hạn thanh toán:</span>
+                                            <span class="font-bold text-rose-600">10/10/2026</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-slate-500 block text-[11px]">Ngày đóng tiền:</span>
+                                            <span class="font-bold text-rose-600">Ngày 05 hàng tháng</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-center justify-between p-3 rounded-2xl bg-skybrand-50/60 border border-skybrand-100 mt-3">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-sm">
+                                                <i class="fa-solid fa-user-gear"></i>
+                                            </div>
+                                            <div>
+                                                <span class="text-[10px] font-bold text-skybrand-600 uppercase">Chủ nhà / Quản lý</span>
+                                                <h4 class="text-xs font-bold text-slate-900">Lê Thị Mai</h4>
+                                                <p class="text-[11px] text-slate-500">SĐT: 0912 987 654</p>
+                                            </div>
+                                        </div>
+                                        <span class="px-2.5 py-1 rounded-lg bg-white border border-skybrand-200 text-skybrand-700 text-xs font-bold">
+                                            <i class="fa-solid fa-phone-volume text-skybrand-600"></i> Liên hệ nhanh
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div class="pt-2 border-t border-slate-100">
+                                    <button onclick="openInvoiceDetailModal('NH-302')"
+                                        class="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm flex items-center justify-center gap-2 transition-all shadow-md">
+                                        <i class="fa-solid fa-file-invoice-dollar text-base"></i> Thanh toán (3.605.000đ)
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
 
                     <!-- TAB 2: HÓA ĐƠN CỦ (LỊCH SỬ) -->
@@ -1157,6 +1151,124 @@
     </div>
 
 
+    <!-- MODAL CHI TIẾT HÓA ĐƠN & THANH TOÁN (ẢNH 3) -->
+    <div id="invoiceDetailModal" onclick="if(event.target === this) closeInvoiceDetailModal()" class="fixed inset-0 z-50 hidden bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 cursor-pointer">
+        <div class="bg-white rounded-3xl max-w-4xl w-full p-4 sm:p-5 shadow-2xl space-y-4 transform transition-all border border-slate-100 max-h-[96vh] overflow-y-auto cursor-default" style="scrollbar-width: none; -ms-overflow-style: none;">
+            <!-- Header Banner Phiếu tính tiền chi tiết -->
+            <div class="relative bg-gradient-to-r from-rose-500 via-rose-600 to-amber-600 p-4 sm:p-5 rounded-2xl text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="space-y-1">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span id="detailInvoiceCode" class="px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[11px] font-extrabold backdrop-blur-md">
+                            Mã hóa đơn: #HD-092026
+                        </span>
+                        <span id="detailHouseName" class="px-2.5 py-0.5 rounded-full bg-black/30 text-white text-[11px] font-bold backdrop-blur-md">
+                            Phòng Trọ Cao Cấp Nguyên Hồng (NH-302)
+                        </span>
+                    </div>
+                    <h3 class="text-lg sm:text-xl font-black text-white tracking-tight">PHIẾU TÍNH TIỀN CHI TIẾT – THÁNG 09/2026</h3>
+                    <p class="text-xs text-rose-100 flex flex-wrap items-center gap-2">
+                        <span>Chủ nhà: <strong id="detailLandlordInfo">Lê Thị Mai (SĐT: 0912 987 654)</strong></span>
+                        <span class="hidden sm:inline">•</span>
+                        <span class="font-bold bg-white/20 px-2 py-0.5 rounded text-white"><i class="fa-solid fa-calendar-day"></i> Hạn thanh toán: <span id="detailDueDate">10/10/2026</span> (Do chủ nhà cài đặt)</span>
+                    </p>
+                </div>
+
+                <div class="flex items-center gap-3 shrink-0">
+                    <div class="bg-white text-rose-600 px-4 py-2 rounded-xl shadow-lg border-2 border-rose-200 text-center font-black tracking-wider uppercase text-sm animate-pulse">
+                        <i class="fa-solid fa-circle-exclamation text-rose-600"></i> CHƯA THANH TOÁN
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bảng tính tiền chi tiết minh bạch -->
+            <div class="border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
+                <table class="w-full text-left text-xs text-slate-700">
+                    <thead>
+                        <tr class="border-b border-slate-200 text-slate-600 font-extrabold uppercase bg-slate-100/80">
+                            <th class="py-2.5 px-3.5">Hạng mục thanh toán</th>
+                            <th class="py-2.5 px-3.5 text-center">Số mới</th>
+                            <th class="py-2.5 px-3.5 text-center">Số cũ</th>
+                            <th class="py-2.5 px-3.5 text-center">Sử dụng</th>
+                            <th class="py-2.5 px-3.5 text-right">Đơn giá</th>
+                            <th class="py-2.5 px-3.5 text-right">Thành tiền</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detailInvoiceTableBody" class="divide-y divide-slate-100 font-medium">
+                        <!-- Loaded dynamically -->
+                    </tbody>
+                    <tfoot>
+                        <tr class="bg-rose-50/90 border-t-2 border-rose-300 font-extrabold">
+                            <td colspan="5" class="py-3 px-3.5 text-xs sm:text-sm text-slate-900 uppercase tracking-wide">
+                                <i class="fa-solid fa-calculator text-rose-600"></i> TỔNG CỘNG CẦN THANH TOÁN:
+                            </td>
+                            <td class="py-3 px-3.5 text-right text-lg sm:text-xl font-black text-rose-600" id="detailTotalAmount">3.605.000 VNĐ</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <!-- Hướng dẫn & Thông tin thanh toán (2 Hình thức) -->
+            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                <h4 class="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-200 pb-2">
+                    <i class="fa-solid fa-credit-card text-emerald-600"></i> Hướng Dẫn & Thông Tin Thanh Toán
+                </h4>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                    <!-- HÌNH THỨC 1: CHUYỂN KHOẢN -->
+                    <div class="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-2.5 flex flex-col justify-between">
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between">
+                                <span class="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-[11px] font-extrabold border border-emerald-200">
+                                    <i class="fa-solid fa-qrcode"></i> Hình thức 1: Chuyển khoản (Recommended)
+                                </span>
+                                <span id="detailBankShortName" class="text-[10px] text-slate-400 font-bold">MB Bank</span>
+                            </div>
+                            <div class="bg-slate-50 p-2.5 rounded-xl space-y-1 text-xs border border-slate-100">
+                                <p class="flex justify-between"><span class="text-slate-500">Tên ngân hàng:</span> <strong id="detailBankFullName" class="text-slate-900 font-bold">MB Bank (Ngân hàng Quân Đội)</strong></p>
+                                <p class="flex justify-between"><span class="text-slate-500">Số tài khoản:</span> <strong id="detailBankAccount" class="text-emerald-700 font-mono font-black text-sm">0912 987 654 888</strong></p>
+                                <p class="flex justify-between"><span class="text-slate-500">Chủ tài khoản:</span> <strong id="detailBankOwner" class="text-slate-900 font-bold uppercase">LÊ THỊ MAI</strong></p>
+                                <p class="flex justify-between"><span class="text-slate-500">Cú pháp CK:</span> <strong id="detailTransferSyntax" class="text-skybrand-600 font-mono font-bold">HD-092026</strong></p>
+                            </div>
+                        </div>
+
+                        <button id="btnTriggerVietQR" 
+                                class="w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-sm transition-all">
+                            <i class="fa-solid fa-qrcode text-sm"></i> Quét mã VietQR chuyển khoản ngay
+                        </button>
+                    </div>
+
+                    <!-- HÌNH THỨC 2: TIỀN MẶT -->
+                    <div class="p-3.5 bg-amber-50/60 rounded-2xl border border-amber-200 shadow-xs space-y-2.5 flex flex-col justify-between">
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between">
+                                <span class="px-2.5 py-1 rounded-lg bg-amber-100 text-amber-800 text-[11px] font-extrabold border border-amber-300">
+                                    <i class="fa-solid fa-hand-holding-dollar"></i> Hình thức 2: Tiền mặt
+                                </span>
+                                <span class="text-[10px] text-amber-700 font-bold">Đóng trực tiếp</span>
+                            </div>
+                            
+                            <div class="p-2.5 bg-white/90 rounded-xl border border-amber-200 space-y-1.5 text-xs">
+                                <p class="text-amber-900 font-bold flex items-center gap-2 text-xs">
+                                    <i class="fa-solid fa-comments-dollar text-amber-600"></i>
+                                    "Vui lòng gặp chủ nhà để đóng tiền mặt"
+                                </p>
+                                <p id="detailCashNote" class="text-slate-600 leading-relaxed text-[11px]">
+                                    Chủ nhà: <strong>Lê Thị Mai</strong> (SĐT: 0912 987 654). Sau khi đóng tiền mặt, chủ nhà sẽ xác nhận hóa đơn hoàn tất trên hệ thống.
+                                </p>
+                            </div>
+                        </div>
+
+                        <button id="btnTriggerContactLandlord" 
+                                class="w-full py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-all">
+                            <i class="fa-solid fa-phone"></i> Liên hệ chủ nhà đóng tiền mặt
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
     <!-- MODAL 3: THANH TOÁN QR VIETQR -->
     <div id="payQRModal" class="fixed inset-0 z-50 hidden bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 transform transition-all border border-slate-100 text-center">
@@ -1171,19 +1283,19 @@
 
             <div class="space-y-3">
                 <div class="inline-block p-3 rounded-2xl bg-slate-50 border border-slate-200 shadow-sm">
-                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=RentHome_Payment_HD202610302" 
+                    <img id="qrImage" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=RentHome_Payment_HD202610302" 
                          alt="Mã QR Thanh toán" class="w-44 h-44 mx-auto rounded-lg">
                 </div>
 
                 <div>
-                    <span class="text-xs text-slate-500 block">Số tiền cần chuyển:</span>
+                    <span id="qrHouseNameText" class="text-xs text-slate-500 font-bold block">Phòng Trọ Cao Cấp Nguyên Hồng (NH-302)</span>
                     <span id="qrAmountText" class="text-2xl font-black text-rose-600">3,850,000 VNĐ</span>
                 </div>
 
                 <div class="bg-slate-50 p-3 rounded-xl text-xs text-left space-y-1.5 border border-slate-100 font-medium">
-                    <p class="flex justify-between"><span class="text-slate-500">Ngân hàng:</span> <strong class="text-slate-800">MB Bank (Nội địa)</strong></p>
-                    <p class="flex justify-between"><span class="text-slate-500">Số tài khoản:</span> <strong class="text-slate-800 font-mono">0912 987 654 888</strong></p>
-                    <p class="flex justify-between"><span class="text-slate-500">Chủ tài khoản:</span> <strong class="text-slate-800">LE THI MAI</strong></p>
+                    <p class="flex justify-between"><span class="text-slate-500">Ngân hàng:</span> <strong id="qrBankNameText" class="text-slate-800">MB Bank (Nội địa)</strong></p>
+                    <p class="flex justify-between"><span class="text-slate-500">Số tài khoản:</span> <strong id="qrBankAccountText" class="text-slate-800 font-mono">0912 987 654 888</strong></p>
+                    <p class="flex justify-between"><span class="text-slate-500">Chủ tài khoản:</span> <strong id="qrLandlordNameText" class="text-slate-800">LE THI MAI</strong></p>
                     <p class="flex justify-between"><span class="text-slate-500">Cú pháp CK:</span> <strong id="qrContentText" class="text-skybrand-600 font-mono">HD-202610-302</strong></p>
                 </div>
             </div>
@@ -1204,6 +1316,157 @@
 
     <!-- JavaScript Functions -->
     <script>
+        // Data Store for Detailed Invoices (Image 3)
+        const invoiceDataMap = {
+            'NH-302': {
+                code: 'HD-092026',
+                houseName: 'Phòng Trọ Cao Cấp Nguyên Hồng (NH-302)',
+                landlordInfo: 'Lê Thị Mai (SĐT: 0912 987 654)',
+                landlordName: 'Lê Thị Mai',
+                landlordPhone: '0912987654',
+                dueDate: '10/10/2026',
+                total: '3.605.000 VNĐ',
+                totalRaw: '3,605,000',
+                bankShort: 'MB Bank',
+                bankFull: 'MB Bank (Ngân hàng Quân Đội)',
+                bankAccount: '0912 987 654 888',
+                bankOwner: 'LÊ THỊ MAI',
+                rowsHtml: `
+                    <tr class="hover:bg-slate-50/80 transition-colors">
+                        <td class="py-3.5 px-4 font-bold text-slate-900 flex items-center gap-2">
+                            <i class="fa-solid fa-bed text-brand-600"></i> 1. Tiền phòng
+                        </td>
+                        <td class="py-3.5 px-4 text-center text-slate-400">-</td>
+                        <td class="py-3.5 px-4 text-center text-slate-400">-</td>
+                        <td class="py-3.5 px-4 text-center text-slate-700 font-semibold">1 tháng</td>
+                        <td class="py-3.5 px-4 text-right font-semibold text-slate-800">3.000.000đ</td>
+                        <td class="py-3.5 px-4 text-right font-extrabold text-slate-900 text-sm">3.000.000đ</td>
+                    </tr>
+                    <tr class="hover:bg-slate-50/80 transition-colors">
+                        <td class="py-3.5 px-4 font-bold text-slate-900 flex items-center gap-2">
+                            <i class="fa-solid fa-bolt text-amber-500"></i> 2. Tiền điện
+                        </td>
+                        <td class="py-3.5 px-4 text-center font-bold text-slate-900">250</td>
+                        <td class="py-3.5 px-4 text-center font-bold text-slate-900">150</td>
+                        <td class="py-3.5 px-4 text-center font-extrabold text-amber-800 bg-amber-50 rounded">100 số</td>
+                        <td class="py-3.5 px-4 text-right font-semibold text-slate-800">3.500đ</td>
+                        <td class="py-3.5 px-4 text-right font-extrabold text-slate-900 text-sm">350.000đ</td>
+                    </tr>
+                    <tr class="hover:bg-slate-50/80 transition-colors">
+                        <td class="py-3.5 px-4 font-bold text-slate-900 flex items-center gap-2">
+                            <i class="fa-solid fa-droplet text-skybrand-600"></i> 3. Tiền nước
+                        </td>
+                        <td class="py-3.5 px-4 text-center font-bold text-slate-900">25</td>
+                        <td class="py-3.5 px-4 text-center font-bold text-slate-900">20</td>
+                        <td class="py-3.5 px-4 text-center font-extrabold text-skybrand-800 bg-skybrand-50 rounded">5 khối</td>
+                        <td class="py-3.5 px-4 text-right font-semibold text-slate-800">25.000đ</td>
+                        <td class="py-3.5 px-4 text-right font-extrabold text-slate-900 text-sm">125.000đ</td>
+                    </tr>
+                    <tr class="hover:bg-slate-50/80 transition-colors">
+                        <td class="py-3.5 px-4 font-bold text-slate-900 flex items-center gap-2">
+                            <i class="fa-solid fa-concierge-bell text-purple-600"></i> 4. Phí dịch vụ (Rác + Internet)
+                        </td>
+                        <td class="py-3.5 px-4 text-center text-slate-400">-</td>
+                        <td class="py-3.5 px-4 text-center text-slate-400">-</td>
+                        <td class="py-3.5 px-4 text-center text-slate-700 font-semibold">Cố định</td>
+                        <td class="py-3.5 px-4 text-right font-semibold text-slate-800">130.000đ</td>
+                        <td class="py-3.5 px-4 text-right font-extrabold text-slate-900 text-sm">130.000đ</td>
+                    </tr>
+                `
+            },
+            'VH-1208': {
+                code: 'HD-092026-VH',
+                houseName: 'Căn Hộ Vinhomes Central Park (VH-1208)',
+                landlordInfo: 'Nguyễn Văn Hùng (SĐT: 0908 123 456)',
+                landlordName: 'Nguyễn Văn Hùng',
+                landlordPhone: '0908123456',
+                dueDate: '10/10/2026',
+                total: '7.882.000 VNĐ',
+                totalRaw: '7,882,000',
+                bankShort: 'Vietcombank',
+                bankFull: 'Vietcombank (VCB)',
+                bankAccount: '0908 123 456 999',
+                bankOwner: 'NGUYỄN VĂN HÙNG',
+                rowsHtml: `
+                    <tr class="hover:bg-slate-50/80 transition-colors">
+                        <td class="py-3.5 px-4 font-bold text-slate-900 flex items-center gap-2">
+                            <i class="fa-solid fa-city text-skybrand-600"></i> 1. Tiền thuê căn hộ
+                        </td>
+                        <td class="py-3.5 px-4 text-center text-slate-400">-</td>
+                        <td class="py-3.5 px-4 text-center text-slate-400">-</td>
+                        <td class="py-3.5 px-4 text-center text-slate-700 font-semibold">1 tháng</td>
+                        <td class="py-3.5 px-4 text-right font-semibold text-slate-800">7.500.000đ</td>
+                        <td class="py-3.5 px-4 text-right font-extrabold text-slate-900 text-sm">7.500.000đ</td>
+                    </tr>
+                    <tr class="hover:bg-slate-50/80 transition-colors">
+                        <td class="py-3.5 px-4 font-bold text-slate-900 flex items-center gap-2">
+                            <i class="fa-solid fa-bolt text-amber-500"></i> 2. Tiền điện
+                        </td>
+                        <td class="py-3.5 px-4 text-center font-bold text-slate-900">2160</td>
+                        <td class="py-3.5 px-4 text-center font-bold text-slate-900">2100</td>
+                        <td class="py-3.5 px-4 text-center font-extrabold text-amber-800 bg-amber-50 rounded">60 số</td>
+                        <td class="py-3.5 px-4 text-right font-semibold text-slate-800">3.500đ</td>
+                        <td class="py-3.5 px-4 text-right font-extrabold text-slate-900 text-sm">210.000đ</td>
+                    </tr>
+                    <tr class="hover:bg-slate-50/80 transition-colors">
+                        <td class="py-3.5 px-4 font-bold text-slate-900 flex items-center gap-2">
+                            <i class="fa-solid fa-droplet text-skybrand-600"></i> 3. Tiền nước
+                        </td>
+                        <td class="py-3.5 px-4 text-center font-bold text-slate-900">13</td>
+                        <td class="py-3.5 px-4 text-center font-bold text-slate-900">10</td>
+                        <td class="py-3.5 px-4 text-center font-extrabold text-skybrand-800 bg-skybrand-50 rounded">3 khối</td>
+                        <td class="py-3.5 px-4 text-right font-semibold text-slate-800">14.000đ</td>
+                        <td class="py-3.5 px-4 text-right font-extrabold text-slate-900 text-sm">42.000đ</td>
+                    </tr>
+                    <tr class="hover:bg-slate-50/80 transition-colors">
+                        <td class="py-3.5 px-4 font-bold text-slate-900 flex items-center gap-2">
+                            <i class="fa-solid fa-building-shield text-purple-600"></i> 4. Phí dịch vụ (Rác + Internet)
+                        </td>
+                        <td class="py-3.5 px-4 text-center text-slate-400">-</td>
+                        <td class="py-3.5 px-4 text-center text-slate-400">-</td>
+                        <td class="py-3.5 px-4 text-center text-slate-700 font-semibold">Cố định</td>
+                        <td class="py-3.5 px-4 text-right font-semibold text-slate-800">130.000đ</td>
+                        <td class="py-3.5 px-4 text-right font-extrabold text-slate-900 text-sm">130.000đ</td>
+                    </tr>
+                `
+            }
+        };
+
+        function openInvoiceDetailModal(houseKey) {
+            const data = invoiceDataMap[houseKey];
+            if (!data) return;
+
+            document.getElementById('detailInvoiceCode').innerText = 'Mã hóa đơn: ' + data.code;
+            document.getElementById('detailHouseName').innerText = data.houseName;
+            document.getElementById('detailLandlordInfo').innerText = data.landlordInfo;
+            document.getElementById('detailDueDate').innerText = data.dueDate;
+            document.getElementById('detailTotalAmount').innerText = data.total;
+            document.getElementById('detailInvoiceTableBody').innerHTML = data.rowsHtml;
+
+            document.getElementById('detailBankShortName').innerText = data.bankShort;
+            document.getElementById('detailBankFullName').innerText = data.bankFull;
+            document.getElementById('detailBankAccount').innerText = data.bankAccount;
+            document.getElementById('detailBankOwner').innerText = data.bankOwner;
+            document.getElementById('detailTransferSyntax').innerText = data.code;
+
+            document.getElementById('detailCashNote').innerHTML = `Chủ nhà: <strong>${data.landlordName}</strong> (SĐT: <a href="tel:${data.landlordPhone}" class="text-skybrand-600 font-bold hover:underline">${data.landlordPhone}</a>). Sau khi đóng tiền mặt, chủ nhà sẽ xác nhận hóa đơn hoàn tất trên hệ thống.`;
+
+            document.getElementById('btnTriggerVietQR').onclick = function() {
+                closeInvoiceDetailModal();
+                openPayQRModal(data.code, data.totalRaw, data.landlordName, data.bankAccount, data.bankShort, data.houseName);
+            };
+
+            document.getElementById('btnTriggerContactLandlord').onclick = function() {
+                closeInvoiceDetailModal();
+                openContactModal(data.landlordName, data.landlordPhone, data.houseName);
+            };
+
+            document.getElementById('invoiceDetailModal').classList.remove('hidden');
+        }
+
+        function closeInvoiceDetailModal() {
+            document.getElementById('invoiceDetailModal').classList.add('hidden');
+        }
         // Switch Between Form 1 (Nhà đang thuê) and Form 2 (Thanh toán hóa đơn)
         function switchMainForm(formName) {
             const formNha = document.getElementById('form-nha-dang-thue');
@@ -1258,6 +1521,30 @@
             });
         }
 
+        // Filter Invoices by House
+        function filterHouseInvoice(houseId) {
+            const cards = document.querySelectorAll('.invoice-house-card');
+            const btns = document.querySelectorAll('.house-filter-btn');
+
+            btns.forEach(btn => {
+                if (btn.id === 'btn-filter-house-' + houseId) {
+                    btn.classList.add('bg-skybrand-600', 'text-white', 'font-bold');
+                    btn.classList.remove('bg-white', 'text-slate-700');
+                } else {
+                    btn.classList.remove('bg-skybrand-600', 'text-white', 'font-bold');
+                    btn.classList.add('bg-white', 'text-slate-700');
+                }
+            });
+
+            cards.forEach(card => {
+                if (houseId === 'all' || card.id === 'invoice-card-' + houseId) {
+                    card.classList.remove('hidden');
+                } else {
+                    card.classList.add('hidden');
+                }
+            });
+        }
+
         // Contact Modal Logic
         function openContactModal(name, phone, house) {
             document.getElementById('contactLandlordName').innerText = name;
@@ -1307,9 +1594,17 @@
         }
 
         // Pay QR Modal Logic
-        function openPayQRModal(code, amount) {
+        function openPayQRModal(code, amount, landlordName, bankAccount, bankName, houseName) {
             document.getElementById('qrContentText').innerText = code;
             document.getElementById('qrAmountText').innerText = amount + ' VNĐ';
+            if (landlordName) document.getElementById('qrLandlordNameText').innerText = landlordName;
+            if (bankAccount) document.getElementById('qrBankAccountText').innerText = bankAccount;
+            if (bankName) document.getElementById('qrBankNameText').innerText = bankName;
+            if (houseName) document.getElementById('qrHouseNameText').innerText = houseName;
+
+            const qrData = encodeURIComponent('RentHome_' + code + '_' + amount.replace(/,/g, ''));
+            document.getElementById('qrImage').src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + qrData;
+
             document.getElementById('payQRModal').classList.remove('hidden');
         }
 

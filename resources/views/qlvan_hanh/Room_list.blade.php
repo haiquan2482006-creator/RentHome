@@ -105,12 +105,12 @@
 
             <!-- Right Actions: NÚT TẠO HỢP ĐỒNG (GÓC TRÊN BÊN PHẢI TRANG) + Đổi Mật Khẩu + Đăng Xuất -->
             <div class="flex items-center gap-3">
-                <!-- NÚT TẠO HỢP ĐỒNG (TRÊN BÊN PHẢI TRANG) -->
-                <button onclick="openCreateContractModal()" 
-                        class="py-2.5 px-4 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5">
+                <!-- NÚT TẠO HỢP ĐỒNG (TRUY CẬP TRANG TẠO HỢP ĐỒNG CHUYÊN BIỆT) -->
+                <a href="{{ url('qlvan_hanh/tao_hop_dong') }}" 
+                   class="py-2.5 px-4 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5">
                     <i class="fa-solid fa-file-circle-plus text-base"></i>
                     <span>+ Tạo Hợp Đồng</span>
-                </button>
+                </a>
 
                 <!-- Nút Trở Về Trang Chủ -->
                 <a href="{{ url('/') }}" 
@@ -934,6 +934,9 @@
     </div>
 
 
+
+
+
     <!-- Toast Notification Container -->
     <div id="toast" class="fixed bottom-5 right-5 z-50 hidden bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border border-slate-700 text-xs font-semibold">
         <i class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
@@ -1215,6 +1218,65 @@
 
         function closeViewContractModal() {
             document.getElementById('viewContractModal').classList.add('hidden');
+        }
+
+        // 7. FORM TẠO HỢP ĐỒNG MỚI & CẤU HÌNH PHÒNG
+        function openCreateContractModal() {
+            calculateContractEndDate();
+            document.getElementById('createContractModal').classList.remove('hidden');
+        }
+
+        function closeCreateContractModal() {
+            document.getElementById('createContractModal').classList.add('hidden');
+        }
+
+        function switchWaterMode(mode) {
+            const btnKhoi = document.getElementById('btnWaterModeKhoi');
+            const btnNguoi = document.getElementById('btnWaterModeNguoi');
+            const boxKhoi = document.getElementById('boxWaterKhoi');
+            const boxNguoi = document.getElementById('boxWaterNguoi');
+
+            if (mode === 'khoi') {
+                btnKhoi.className = "px-3 py-1 rounded-lg bg-emerald-600 text-white shadow-xs transition-all";
+                btnNguoi.className = "px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900 transition-all";
+                boxKhoi.classList.remove('hidden');
+                boxNguoi.classList.add('hidden');
+            } else {
+                btnNguoi.className = "px-3 py-1 rounded-lg bg-emerald-600 text-white shadow-xs transition-all";
+                btnKhoi.className = "px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900 transition-all";
+                boxNguoi.classList.remove('hidden');
+                boxKhoi.classList.add('hidden');
+            }
+        }
+
+        function calculateContractEndDate() {
+            const startDateVal = document.getElementById('ccStartDate').value;
+            const monthsVal = parseInt(document.getElementById('ccDurationMonths').value) || 0;
+            const endDateDisplay = document.getElementById('ccEndDateDisplay');
+
+            if (!startDateVal || monthsVal <= 0) {
+                endDateDisplay.value = "--/--/----";
+                return;
+            }
+
+            const startDate = new Date(startDateVal);
+            if (isNaN(startDate.getTime())) return;
+
+            startDate.setMonth(startDate.getMonth() + monthsVal);
+
+            const day = String(startDate.getDate()).padStart(2, '0');
+            const month = String(startDate.getMonth() + 1).padStart(2, '0');
+            const year = startDate.getFullYear();
+
+            endDateDisplay.value = `${day}/${month}/${year}`;
+        }
+
+        function handleSaveCreateContract(e) {
+            e.preventDefault();
+            closeCreateContractModal();
+
+            const selectedRoom = document.getElementById('ccRoom').value;
+            showToast("Đã lưu dữ liệu hợp đồng mới vào CSDL (tbl_hop_dong) & tự động chuyển phòng " + selectedRoom + " sang 'Đã cho thuê' thành công!");
         }
     </script>
 </body>
