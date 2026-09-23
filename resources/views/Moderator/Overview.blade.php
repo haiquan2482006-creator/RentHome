@@ -722,6 +722,47 @@
     </style>
 </head>
 <body>
+@php
+    $startOfDay = \Carbon\Carbon::today();
+    $approvedToday = \App\Models\Post::where('status', 'approved')
+                        ->where('updated_at', '>=', $startOfDay)
+                        ->count();
+    $rejectedToday = \App\Models\Post::where('status', 'rejected')
+                        ->where('updated_at', '>=', $startOfDay)
+                        ->count();
+    $totalProcessedToday = $approvedToday + $rejectedToday;
+    $pendingCount = \App\Models\Post::where('status', 'pending')->count();
+    $pendingComplaintsCount = \App\Models\Complaint::where('status', 'pending')->count();
+    
+    $approvedPercent = $totalProcessedToday > 0 ? round(($approvedToday / $totalProcessedToday) * 100) : 0;
+    $rejectedPercent = $totalProcessedToday > 0 ? round(($rejectedToday / $totalProcessedToday) * 100) : 0;
+
+    $hourlyLabels = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00'];
+    $hourlyApproved = [];
+    $hourlyRejected = [];
+    
+    // Đặt timezone chuẩn xác của VN
+    $tz = 'Asia/Ho_Chi_Minh';
+    
+    foreach ($hourlyLabels as $label) {
+        $hour = (int)substr($label, 0, 2);
+        
+        // Cần dùng parse để tránh bị dính tham chiếu và thiết lập timezone đúng
+        $startHour = \Carbon\Carbon::today($tz)->setHour($hour - 1)->setTimezone('UTC');
+        $endHour = \Carbon\Carbon::today($tz)->setHour($hour + 1)->setTimezone('UTC');
+        
+        $hourlyApproved[] = \App\Models\Post::where('status', 'approved')
+            ->where('updated_at', '>=', $startHour)
+            ->where('updated_at', '<', $endHour)
+            ->count();
+            
+        $hourlyRejected[] = \App\Models\Post::where('status', 'rejected')
+            ->where('updated_at', '>=', $startHour)
+            ->where('updated_at', '<', $endHour)
+            ->count();
+    }
+@endphp
+
 
     <!-- Header Sidebar Component Dành Riêng Cho Moderator -->
     @include('partials.header-moderator')
@@ -767,7 +808,7 @@
                     <span class="stat-label">Bài Đăng Chờ Duyệt</span>
                     <div class="stat-icon pending"><i class="fa-solid fa-hourglass-half"></i></div>
                 </div>
-                <div class="stat-value">12</div>
+                <div class="stat-value" id="stat-pending">{{ $pendingCount }}</div>
                 <div style="font-size: 0.8rem; color: var(--accent-amber); font-weight: 600;"><i class="fa-solid fa-clock"></i> Cần xử lý ngay trong ngày</div>
             </div>
 
@@ -776,8 +817,8 @@
                     <span class="stat-label">Bài Đăng Đã Phê Duyệt</span>
                     <div class="stat-icon approved"><i class="fa-solid fa-circle-check"></i></div>
                 </div>
-                <div class="stat-value">148</div>
-                <div style="font-size: 0.8rem; color: var(--accent-emerald); font-weight: 600;"><i class="fa-solid fa-chart-line"></i> +18 bài đăng hôm nay</div>
+                <div class="stat-value" id="stat-approved">{{ $approvedToday }}</div>
+                <div style="font-size: 0.8rem; color: var(--accent-emerald); font-weight: 600;"><i class="fa-solid fa-chart-line"></i> +{{ $approvedToday }} bài đăng hôm nay</div>
             </div>
 
             <div class="stat-card">
@@ -785,8 +826,12 @@
                     <span class="stat-label">Khiếu Nại Chờ Phản Hồi</span>
                     <div class="stat-icon complaints"><i class="fa-solid fa-triangle-exclamation"></i></div>
                 </div>
-                <div class="stat-value">5</div>
-                <div style="font-size: 0.8rem; color: var(--accent-red); font-weight: 600;"><i class="fa-solid fa-bell"></i> 2 yêu cầu ưu tiên cao</div>
+                <div class="stat-value" id="stat-complaints">{{ $pendingComplaintsCount }}</div>
+                @if($pendingComplaintsCount > 0)
+                    <div style="font-size: 0.8rem; color: var(--accent-red); font-weight: 600;"><i class="fa-solid fa-bell"></i> {{ $pendingComplaintsCount }} yêu cầu ưu tiên cao</div>
+                @else
+                    <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;"><i class="fa-solid fa-check"></i> Đã xử lý tất cả</div>
+                @endif
             </div>
         </div>
 
@@ -809,7 +854,7 @@
                         <div class="chart-box-header">
                             <div>
                                 <h3 class="chart-box-title">Tỷ Lệ Duyệt & Từ Chối</h3>
-                                <p class="chart-box-subtitle">Tổng số 23 bài đã xử lý trong ngày</p>
+                                <p class="chart-box-subtitle">Tổng số {{ $totalProcessedToday }} bài đã xử lý trong ngày</p>
                             </div>
                             <span class="badge-live"><i class="fa-solid fa-circle" style="font-size: 0.5rem;"></i> Trực tuyến</span>
                         </div>
@@ -823,14 +868,14 @@
                             <span class="legend-indicator approved"></span>
                             <div>
                                 <span class="legend-text-label">Đã Phê Duyệt</span>
-                                <span class="legend-text-val" style="color: var(--accent-emerald);">18 bài (78.3%)</span>
+                                <span class="legend-text-val" style="color: var(--accent-emerald);"><span id=\"legend-approved\">{{ $approvedToday }} bài ({{ $approvedPercent }}%)</span></span>
                             </div>
                         </div>
                         <div class="legend-card-item">
                             <span class="legend-indicator rejected"></span>
                             <div>
                                 <span class="legend-text-label">Đã Từ Chối</span>
-                                <span class="legend-text-val" style="color: var(--accent-red);">5 bài (21.7%)</span>
+                                <span class="legend-text-val" style="color: var(--accent-red);"><span id=\"legend-rejected\">{{ $rejectedToday }} bài ({{ $rejectedPercent }}%)</span></span>
                             </div>
                         </div>
                     </div>
@@ -859,12 +904,12 @@
             <button class="tab-btn active" onclick="switchTab('posts-tab', this)">
                 <i class="fa-solid fa-file-signature"></i>
                 Duyệt Bài Đăng
-                <span class="counter-badge">12</span>
+                <span class="counter-badge" id="tab-badge-pending">0</span>
             </button>
             <button class="tab-btn" onclick="switchTab('complaints-tab', this)">
                 <i class="fa-solid fa-comments-question-check"></i>
                 Phản Hồi Khiếu Nại
-                <span class="counter-badge">5</span>
+                <span class="counter-badge">0</span>
             </button>
         </div>
 
@@ -876,95 +921,16 @@
                     <input type="text" placeholder="Tìm theo tiêu đề, địa chỉ, người đăng...">
                 </div>
                 <div class="filter-group">
-                    <button class="filter-btn active">Tất cả bài chờ duyệt (12)</button>
+                    <button class="filter-btn active">Tất cả bài chờ duyệt (<span id="filter-badge-pending">0</span>)</button>
                     <button class="filter-btn">Căn hộ cho thuê</button>
                     <button class="filter-btn">Phòng trọ sinh viên</button>
                 </div>
             </div>
 
-            <div class="items-grid">
-                <!-- Post Item 1 -->
-                <div class="item-card">
-                    <img src="https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=400&q=80" alt="Chung cư" class="item-thumb">
-                    <div class="item-details">
-                        <h3>
-                            Cho thuê căn hộ cao cấp 2PN VinHomes Central Park đầy đủ nội thất
-                            <span class="badge-status badge-pending"><i class="fa-solid fa-clock"></i> Chờ duyệt</span>
-                        </h3>
-                        <div class="item-meta">
-                            <span><i class="fa-solid fa-user"></i> Chủ nhà: Nguyễn Văn Hùng</span>
-                            <span><i class="fa-solid fa-location-dot"></i> Bình Thạnh, TP.HCM</span>
-                            <span><i class="fa-solid fa-calendar"></i> Gửi lúc: 10:15 - 13/09/2026</span>
-                        </div>
-                        <div class="item-price">15,000,000 VNĐ / tháng</div>
-                    </div>
-                    <div class="action-group">
-                        <form action="{{ url('/moderator/approve-post/101') }}" method="POST" style="display:inline;">
-                            @csrf
-                            <button type="submit" class="btn-action btn-approve" onclick="return confirm('Bạn có chắc chắn muốn PHÊ DUYỆT bài đăng này?')">
-                                <i class="fa-solid fa-check"></i> Duyệt Bài
-                            </button>
-                        </form>
-                        <button class="btn-action btn-reject" onclick="openRejectModal('101', 'Cho thuê căn hộ cao cấp 2PN VinHomes Central Park')">
-                            <i class="fa-solid fa-xmark"></i> Từ Chối
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Post Item 2 -->
-                <div class="item-card">
-                    <img src="https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=400&q=80" alt="Phòng trọ" class="item-thumb">
-                    <div class="item-details">
-                        <h3>
-                            Phòng trọ sinh viên khép kín gần ĐH Bách Khoa, có gác xép & máy lạnh
-                            <span class="badge-status badge-pending"><i class="fa-solid fa-clock"></i> Chờ duyệt</span>
-                        </h3>
-                        <div class="item-meta">
-                            <span><i class="fa-solid fa-user"></i> Chủ trọ: Trần Thị Mai</span>
-                            <span><i class="fa-solid fa-location-dot"></i> Hai Bà Trưng, Hà Nội</span>
-                            <span><i class="fa-solid fa-calendar"></i> Gửi lúc: 09:30 - 13/09/2026</span>
-                        </div>
-                        <div class="item-price">3,800,000 VNĐ / tháng</div>
-                    </div>
-                    <div class="action-group">
-                        <form action="{{ url('/moderator/approve-post/102') }}" method="POST" style="display:inline;">
-                            @csrf
-                            <button type="submit" class="btn-action btn-approve" onclick="return confirm('Bạn có chắc chắn muốn PHÊ DUYỆT bài đăng này?')">
-                                <i class="fa-solid fa-check"></i> Duyệt Bài
-                            </button>
-                        </form>
-                        <button class="btn-action btn-reject" onclick="openRejectModal('102', 'Phòng trọ sinh viên khép kín gần ĐH Bách Khoa')">
-                            <i class="fa-solid fa-xmark"></i> Từ Chối
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Post Item 3 -->
-                <div class="item-card">
-                    <img src="https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=400&q=80" alt="Nhà nguyên căn" class="item-thumb">
-                    <div class="item-details">
-                        <h3>
-                            Cho thuê nhà nguyên căn 3 tầng kinh doanh hoặc ở gia đình hẻm xe hơi
-                            <span class="badge-status badge-pending"><i class="fa-solid fa-clock"></i> Chờ duyệt</span>
-                        </h3>
-                        <div class="item-meta">
-                            <span><i class="fa-solid fa-building-user"></i> Công ty BĐS Hoàng Gia</span>
-                            <span><i class="fa-solid fa-location-dot"></i> Quận 10, TP.HCM</span>
-                            <span><i class="fa-solid fa-calendar"></i> Gửi lúc: 08:45 - 13/09/2026</span>
-                        </div>
-                        <div class="item-price">22,000,000 VNĐ / tháng</div>
-                    </div>
-                    <div class="action-group">
-                        <form action="{{ url('/moderator/approve-post/103') }}" method="POST" style="display:inline;">
-                            @csrf
-                            <button type="submit" class="btn-action btn-approve" onclick="return confirm('Bạn có chắc chắn muốn PHÊ DUYỆT bài đăng này?')">
-                                <i class="fa-solid fa-check"></i> Duyệt Bài
-                            </button>
-                        </form>
-                        <button class="btn-action btn-reject" onclick="openRejectModal('103', 'Cho thuê nhà nguyên căn 3 tầng')">
-                            <i class="fa-solid fa-xmark"></i> Từ Chối
-                        </button>
-                    </div>
+            <div class="items-grid" id="pending-posts-container">
+                <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px;">
+                    <i class="fa-solid fa-box-open" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 16px;"></i>
+                    <p style="font-size: 1.1rem; font-weight: 600; color: #475569;">Không có bài đăng nào chờ duyệt</p>
                 </div>
             </div>
         </div>
@@ -983,59 +949,10 @@
                 </div>
             </div>
 
-            <div class="items-grid">
-                <!-- Complaint 1 -->
-                <div class="complaint-card">
-                    <div class="complaint-header">
-                        <div class="complaint-user">
-                            <div class="user-avatar-sm">LH</div>
-                            <div>
-                                <div style="font-weight: 700; font-size: 1rem;">Lê Hoài Nam <span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal;">(Người thuê)</span></div>
-                                <div style="font-size: 0.8rem; color: var(--text-secondary);">Mã khiếu nại: #KN-2026-8801 • 13/09/2026</div>
-                            </div>
-                        </div>
-                        <span class="badge-status badge-pending"><i class="fa-solid fa-triangle-exclamation"></i> Báo cáo tin đăng sai sự thật</span>
-                    </div>
-
-                    <div class="complaint-content">
-                        <strong>Nội dung khiếu nại:</strong> "Bài đăng #108 ghi phòng có ban công và máy giặt riêng nhưng khi tôi đến xem thực tế thì phòng không có ban công và phải dùng máy giặt chung. Đề nghị kiểm duyệt viên xử lý bài đăng ảo này."
-                    </div>
-
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div style="font-size: 0.85rem; color: var(--brand-primary); font-weight: 600;">
-                            <i class="fa-solid fa-link"></i> Bài đăng bị khiếu nại: ID #108 - Phòng trọ Quận 3
-                        </div>
-                        <button class="btn-action btn-respond" onclick="openRespondModal('KN-2026-8801', 'Lê Hoài Nam')">
-                            <i class="fa-solid fa-reply"></i> Gửi Phản Hồi Khiếu Nại
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Complaint 2 -->
-                <div class="complaint-card">
-                    <div class="complaint-header">
-                        <div class="complaint-user">
-                            <div class="user-avatar-sm" style="background:#fef3c7; color:#b45309;">PT</div>
-                            <div>
-                                <div style="font-weight: 700; font-size: 1rem;">Phạm Thanh Thảo <span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal;">(Khách xem phòng)</span></div>
-                                <div style="font-size: 0.8rem; color: var(--text-secondary);">Mã khiếu nại: #KN-2026-8802 • 12/09/2026</div>
-                            </div>
-                        </div>
-                        <span class="badge-status badge-pending"><i class="fa-solid fa-triangle-exclamation"></i> Tố cáo chủ trọ thái độ thiếu tôn trọng</span>
-                    </div>
-
-                    <div class="complaint-content">
-                        <strong>Nội dung khiếu nại:</strong> "Tôi đã hẹn lịch xem phòng qua hệ thống lúc 15h, nhưng đến nơi chủ nhà không nghe máy và khi gọi lại thì có thái độ gắt gỏng, thu thêm phí xem phòng không có trong quy định."
-                    </div>
-
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div style="font-size: 0.85rem; color: var(--brand-primary); font-weight: 600;">
-                            <i class="fa-solid fa-user-ninja"></i> Bị tố cáo: Chủ trọ Nguyễn Văn B (SĐT: 0912***789)
-                        </div>
-                        <button class="btn-action btn-respond" onclick="openRespondModal('KN-2026-8802', 'Phạm Thanh Thảo')">
-                            <i class="fa-solid fa-reply"></i> Gửi Phản Hồi Khiếu Nại
-                        </button>
-                    </div>
+            <div class="items-grid" id="complaints-container">
+                <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px;">
+                    <i class="fa-solid fa-inbox" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 16px;"></i>
+                    <p style="font-size: 1.1rem; font-weight: 600; color: #475569;">Không có khiếu nại nào</p>
                 </div>
             </div>
         </div>
@@ -1048,10 +965,11 @@
             <h2 class="modal-title"><i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-red); margin-right: 8px;"></i> Từ Chối Bài Đăng</h2>
             <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 14px;" id="rejectItemTitle"></p>
 
-            <form id="rejectForm" method="POST">
+            <form id="rejectForm" onsubmit="submitReject(event)">
                 @csrf
+                <input type="hidden" id="rejectPostId" value="">
                 <label style="font-weight: 700; font-size: 0.875rem; display: block; margin-bottom: 6px;">Lý do từ chối (sẽ gửi thông báo tới người đăng):</label>
-                <textarea name="reason" class="form-textarea" placeholder="Nhập lý do chi tiết (ví dụ: Ảnh bị mờ, địa chỉ sai thực tế, thông tin giá chưa rõ ràng...)" required></textarea>
+                <textarea id="rejectReason" name="reason" class="form-textarea" placeholder="Nhập lý do chi tiết (ví dụ: Ảnh bị mờ, địa chỉ sai thực tế, thông tin giá chưa rõ ràng...)" required></textarea>
 
                 <div class="modal-actions">
                     <button type="button" class="btn-cancel" onclick="closeModal('rejectModal')">Hủy bỏ</button>
@@ -1091,8 +1009,39 @@
 
         function openRejectModal(id, title) {
             document.getElementById('rejectItemTitle').innerText = 'Bài đăng: "' + title + '" (ID: #' + id + ')';
-            document.getElementById('rejectForm').action = '{{ url("/moderator/reject-post") }}/' + id;
+            document.getElementById('rejectPostId').value = id;
+            document.getElementById('rejectReason').value = '';
             document.getElementById('rejectModal').style.display = 'flex';
+        }
+
+        function submitReject(e) {
+            e.preventDefault();
+            const id = document.getElementById('rejectPostId').value;
+            const reason = document.getElementById('rejectReason').value;
+
+            if(!reason.trim()) {
+                alert('Vui lòng nhập lý do từ chối!');
+                return;
+            }
+
+            fetch('/api/moderator/posts/' + id + '/reject', {
+                method: 'POST',
+                headers: { 
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ reason: reason })
+            })
+            .then(res => res.json())
+            .then(data => {
+                alert(data.message || 'Đã từ chối bài đăng!');
+                closeModal('rejectModal');
+                fetchPendingPosts();
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Lỗi kết nối!');
+            });
         }
 
         function openRespondModal(id, userName) {
@@ -1113,10 +1062,87 @@
         };
 
         // Khởi tạo biểu đồ kiểm duyệt bài đăng khi trang load xong
+        function fetchPendingPosts() {
+            fetch('/api/moderator/posts/pending')
+                .then(res => res.json())
+                .then(data => {
+                    const container = document.getElementById('pending-posts-container');
+                    const tabBadge = document.getElementById('tab-badge-pending');
+                    const filterBadge = document.getElementById('filter-badge-pending');
+                    
+                    const pendingCount = data.posts ? data.posts.length : 0;
+                    if (tabBadge) tabBadge.innerText = pendingCount;
+                    if (filterBadge) filterBadge.innerText = pendingCount;
+
+                    if (data.posts && data.posts.length > 0) {
+                        let html = '';
+                        data.posts.forEach(post => {
+                            let imgUrl = 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=400&q=80';
+                            if (post.images && post.images.length > 0) {
+                                let rawImg = post.images[0];
+                                if (rawImg.startsWith('http') || rawImg.startsWith('data:image')) {
+                                    imgUrl = rawImg;
+                                } else {
+                                    imgUrl = rawImg.startsWith('/') ? rawImg : '/storage/' + rawImg; 
+                                }
+                            }
+
+                            const postId = post.id || post._id || 'N/A';
+                            const userName = post.user ? (post.user.account_name || post.user.username) : 'Người dùng';
+                            const price = new Intl.NumberFormat('vi-VN').format(post.price || 0);
+                            
+                            html += `
+                                <div class="item-card cursor-pointer hover:shadow-md transition-shadow" id="post-${postId}" onclick="window.location.href='{{ url('moderator/qlpheduyet') }}?preview_id=${postId}'">
+                                    <img src="${imgUrl}" onerror="this.src='https://placehold.co/100x80?text=No+Image'" alt="Thumbnail" class="item-thumb">
+                                    <div class="item-details">
+                                        <h3>${post.title || 'Chưa có tiêu đề'}</h3>
+                                        <div class="item-meta">
+                                            <span><i class="fa-solid fa-clock"></i> ${new Date(post.created_at).toLocaleString('vi-VN')}</span>
+                                            <span><i class="fa-solid fa-user"></i> ${userName}</span>
+                                        </div>
+                                        <div class="item-price">${price} đ</div>
+                                    </div>
+                                    <div class="action-group">
+                                        <button onclick="event.stopPropagation(); approvePost('${postId}')" class="btn-action btn-approve"><i class="fa-solid fa-check"></i> Phê duyệt</button>
+                                        <button onclick="event.stopPropagation(); openRejectModal('${postId}', '${(post.title || '').replace(/'/g, "\\'")}')" class="btn-action btn-reject"><i class="fa-solid fa-xmark"></i> Từ chối</button>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        container.innerHTML = html;
+                    } else {
+                        container.innerHTML = `
+                            <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px;">
+                                <i class="fa-solid fa-box-open" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 16px;"></i>
+                                <p style="font-size: 1.1rem; font-weight: 600; color: #475569;">Không có bài đăng nào chờ duyệt</p>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(err => {
+                    console.error("Lỗi khi lấy danh sách chờ duyệt:", err);
+                });
+        }
+
+        function approvePost(id) {
+            if(!confirm('Xác nhận duyệt bài này?')) return;
+            fetch('/api/moderator/posts/' + id + '/approve', {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                alert(data.message || 'Đã duyệt!');
+                fetchPendingPosts();
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
+            fetchPendingPosts();
+
             // Chart 1: Donut Chart - Tỷ lệ Phê duyệt vs Từ chối hôm nay
-            const approvedCount = 18;
-            const rejectedCount = 5;
+            let approvedCount = {{ $approvedToday }};
+            let rejectedCount = {{ $rejectedToday }};
             const totalCount = approvedCount + rejectedCount;
 
             const ctxDonut = document.getElementById('todayStatusChart');
@@ -1187,7 +1213,7 @@
                         datasets: [
                             {
                                 label: 'Đã phê duyệt',
-                                data: [3, 5, 2, 4, 3, 1],
+                                data: {!! json_encode($hourlyApproved) !!},
                                 backgroundColor: '#059669',
                                 borderRadius: 6,
                                 barPercentage: 0.55,
@@ -1195,7 +1221,7 @@
                             },
                             {
                                 label: 'Đã từ chối',
-                                data: [1, 1, 0, 2, 1, 0],
+                                data: {!! json_encode($hourlyRejected) !!},
                                 backgroundColor: '#dc2626',
                                 borderRadius: 6,
                                 barPercentage: 0.55,

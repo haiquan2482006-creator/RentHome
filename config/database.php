@@ -117,10 +117,9 @@ return [
 
         'mongodb' => [
             'driver'   => 'mongodb',
-            'dsn'      => env('DB_URI'),
+            'dsn'      => env('DB_DSN', 'mongodb://127.0.0.1:27017'),
             'database' => env('DB_DATABASE', 'renthome'),
         ],
-
     ],
 
     /*

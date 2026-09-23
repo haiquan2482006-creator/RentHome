@@ -306,201 +306,8 @@
         </div>
 
         <!-- Property Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-
-            <!-- House Card 1 -->
-            <div
-                class="bg-white rounded-3xl overflow-hidden border border-slate-200/80 shadow-card hover:shadow-2xl transition-all duration-300 group flex flex-col">
-                <div class="relative overflow-hidden aspect-[4/3]">
-                    <img src="https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80"
-                        alt="Căn hộ Vinhomes Central Park"
-                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-                    <div class="absolute top-4 left-4 flex gap-2">
-                        <span
-                            class="px-3 py-1 rounded-full bg-brand-600 text-white font-bold text-xs uppercase tracking-wider shadow-md">HOT</span>
-                        <span
-                            class="px-3 py-1 rounded-full bg-slate-900/80 backdrop-blur-md text-white font-semibold text-xs">Chính
-                            chủ</span>
-                    </div>
-                    <button onclick="toggleWishlist(this)"
-                        class="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/80 backdrop-blur-md hover:bg-white text-slate-600 hover:text-rose-500 flex items-center justify-center transition-colors shadow-md">
-                        <i class="fa-regular fa-heart"></i>
-                    </button>
-                    <div
-                        class="absolute bottom-4 left-4 bg-slate-900/80 backdrop-blur-md text-white px-3 py-1.5 rounded-xl font-bold text-sm">
-                        <span class="text-emerald-400 text-lg">12.5 triệu</span> / tháng
-                    </div>
-                </div>
-
-                <div class="p-6 flex-1 flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center gap-2 text-xs font-semibold text-brand-600 mb-2">
-                            <i class="fa-solid fa-circle-check"></i> Đã xác thực giấy tờ
-                        </div>
-                        <h3
-                            class="text-xl font-bold text-slate-900 line-clamp-1 group-hover:text-brand-600 transition-colors">
-                            Căn Hộ Vinhomes Central Park 2PN Full Nội Thất
-                        </h3>
-                        <p class="mt-2 text-xs text-slate-500 flex items-center gap-1.5 line-clamp-1">
-                            <i class="fa-solid fa-location-dot text-rose-500"></i> Nguyễn Hữu Cảnh, Quận Bình Thạnh,
-                            TP. Hồ Chí Minh
-                        </p>
-                    </div>
-
-                    <div
-                        class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-slate-600 text-xs font-semibold">
-                        <div class="flex items-center gap-1.5">
-                            <i class="fa-solid fa-bed text-brand-600"></i> 2 PN
-                        </div>
-                        <div class="flex items-center gap-1.5">
-                            <i class="fa-solid fa-bath text-brand-600"></i> 2 WC
-                        </div>
-                        <div class="flex items-center gap-1.5">
-                            <i class="fa-solid fa-vector-square text-brand-600"></i> 75 m²
-                        </div>
-                    </div>
-
-                    <div class="mt-6 flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80"
-                                alt="Chủ nhà" class="w-8 h-8 rounded-full object-cover">
-                            <span class="text-xs font-bold text-slate-700">Chị Thu Thảo</span>
-                        </div>
-                        <button
-                            onclick="openModal('Căn Hộ Vinhomes Central Park 2PN', '12.5 triệu', 'Quận Bình Thạnh, TP.HCM')"
-                            class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-brand-600 text-white text-xs font-bold transition-colors">
-                            Xem chi tiết
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- House Card 2 -->
-            <div
-                class="bg-white rounded-3xl overflow-hidden border border-slate-200/80 shadow-card hover:shadow-2xl transition-all duration-300 group flex flex-col">
-                <div class="relative overflow-hidden aspect-[4/3]">
-                    <img src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80"
-                        alt="Nhà nguyên căn Hẻm Xe Hơi"
-                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-                    <div class="absolute top-4 left-4 flex gap-2">
-                        <span
-                            class="px-3 py-1 rounded-full bg-emerald-600 text-white font-bold text-xs uppercase tracking-wider shadow-md">MỚI
-                            NĂM 2026</span>
-                    </div>
-                    <button onclick="toggleWishlist(this)"
-                        class="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/80 backdrop-blur-md hover:bg-white text-slate-600 hover:text-rose-500 flex items-center justify-center transition-colors shadow-md">
-                        <i class="fa-regular fa-heart"></i>
-                    </button>
-                    <div
-                        class="absolute bottom-4 left-4 bg-slate-900/80 backdrop-blur-md text-white px-3 py-1.5 rounded-xl font-bold text-sm">
-                        <span class="text-emerald-400 text-lg">18 triệu</span> / tháng
-                    </div>
-                </div>
-
-                <div class="p-6 flex-1 flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center gap-2 text-xs font-semibold text-brand-600 mb-2">
-                            <i class="fa-solid fa-shield-halved"></i> Giảm 5% cho HĐ 1 năm
-                        </div>
-                        <h3
-                            class="text-xl font-bold text-slate-900 line-clamp-1 group-hover:text-brand-600 transition-colors">
-                            Nhà Phố 1 Trệt 2 Lầu Hẻm Xe Hơi Quận 7
-                        </h3>
-                        <p class="mt-2 text-xs text-slate-500 flex items-center gap-1.5 line-clamp-1">
-                            <i class="fa-solid fa-location-dot text-rose-500"></i> Đường Lâm Văn Bền, Quận 7, TP. Hồ
-                            Chí Minh
-                        </p>
-                    </div>
-
-                    <div
-                        class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-slate-600 text-xs font-semibold">
-                        <div class="flex items-center gap-1.5">
-                            <i class="fa-solid fa-bed text-brand-600"></i> 3 PN
-                        </div>
-                        <div class="flex items-center gap-1.5">
-                            <i class="fa-solid fa-bath text-brand-600"></i> 3 WC
-                        </div>
-                        <div class="flex items-center gap-1.5">
-                            <i class="fa-solid fa-vector-square text-brand-600"></i> 120 m²
-                        </div>
-                    </div>
-
-                    <div class="mt-6 flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80"
-                                alt="Chủ nhà" class="w-8 h-8 rounded-full object-cover">
-                            <span class="text-xs font-bold text-slate-700">Anh Hoàng Nam</span>
-                        </div>
-                        <button onclick="openModal('Nhà Phố 1 Trệt 2 Lầu Hẻm Xe Hơi', '18 triệu', 'Quận 7, TP.HCM')"
-                            class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-brand-600 text-white text-xs font-bold transition-colors">
-                            Xem chi tiết
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- House Card 3 -->
-            <div
-                class="bg-white rounded-3xl overflow-hidden border border-slate-200/80 shadow-card hover:shadow-2xl transition-all duration-300 group flex flex-col">
-                <div class="relative overflow-hidden aspect-[4/3]">
-                    <img src="https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80"
-                        alt="Phòng Studio Cao Cấp"
-                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-                    <div class="absolute top-4 left-4 flex gap-2">
-                        <span
-                            class="px-3 py-1 rounded-full bg-purple-600 text-white font-bold text-xs uppercase tracking-wider shadow-md">STUDIO</span>
-                    </div>
-                    <button onclick="toggleWishlist(this)"
-                        class="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/80 backdrop-blur-md hover:bg-white text-slate-600 hover:text-rose-500 flex items-center justify-center transition-colors shadow-md">
-                        <i class="fa-regular fa-heart"></i>
-                    </button>
-                    <div
-                        class="absolute bottom-4 left-4 bg-slate-900/80 backdrop-blur-md text-white px-3 py-1.5 rounded-xl font-bold text-sm">
-                        <span class="text-emerald-400 text-lg">5.8 triệu</span> / tháng
-                    </div>
-                </div>
-
-                <div class="p-6 flex-1 flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center gap-2 text-xs font-semibold text-brand-600 mb-2">
-                            <i class="fa-solid fa-wifi"></i> Miễn phí Wifi & Giặt sấy
-                        </div>
-                        <h3
-                            class="text-xl font-bold text-slate-900 line-clamp-1 group-hover:text-brand-600 transition-colors">
-                            Phòng Studio Ban Công Thoáng Mát Cầu Giấy
-                        </h3>
-                        <p class="mt-2 text-xs text-slate-500 flex items-center gap-1.5 line-clamp-1">
-                            <i class="fa-solid fa-location-dot text-rose-500"></i> Đường Xuân Thủy, Q. Cầu Giấy, Hà Nội
-                        </p>
-                    </div>
-
-                    <div
-                        class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-slate-600 text-xs font-semibold">
-                        <div class="flex items-center gap-1.5">
-                            <i class="fa-solid fa-bed text-brand-600"></i> 1 PN
-                        </div>
-                        <div class="flex items-center gap-1.5">
-                            <i class="fa-solid fa-bath text-brand-600"></i> 1 WC
-                        </div>
-                        <div class="flex items-center gap-1.5">
-                            <i class="fa-solid fa-vector-square text-brand-600"></i> 35 m²
-                        </div>
-                    </div>
-
-                    <div class="mt-6 flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=100&q=80"
-                                alt="Chủ nhà" class="w-8 h-8 rounded-full object-cover">
-                            <span class="text-xs font-bold text-slate-700">Cô Minh Hải</span>
-                        </div>
-                        <button onclick="openModal('Phòng Studio Ban Công Cầu Giấy', '5.8 triệu', 'Cầu Giấy, Hà Nội')"
-                            class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-brand-600 text-white text-xs font-bold transition-colors">
-                            Xem chi tiết
-                        </button>
-                    </div>
-                </div>
-            </div>
-
+        <div id="real-posts-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <!-- Dữ liệu nhà cho thuê sẽ được load bằng Javascript (fetchRealPosts) -->
         </div>
 
         <div class="mt-12 text-center">
@@ -1240,88 +1047,96 @@
     <!-- Scripts -->
     <script>
         // Dynamic Management for Featured Posts Section (Dành cho Ban Quản Lý)
-        const DEFAULT_FEATURED_POSTS = [
-            {
-                id: 'feat-1',
-                title: 'Villa Du Thuyền Riverside Thảo Điền 4PN',
-                price: '65.0 triệu',
-                period: '/ tháng',
-                location: 'Nguyễn Văn Hưởng, Thảo Điền, Quận 2, TP.HCM',
-                image: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80',
-                tag: 'VILLA LUXURY',
-                beds: '4 PN',
-                baths: '4 WC',
-                area: '320 m²',
-                note: 'Đặc quyền sinh thái • View Sông',
-                verified: true
-            },
-            {
-                id: 'feat-2',
-                title: 'Penthouse Horizon View Toàn Cảnh Pháo Hoa Q1',
-                price: '38.0 triệu',
-                period: '/ tháng',
-                location: 'Trần Hưng Đạo, Quận 1, TP. Hồ Chí Minh',
-                image: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80',
-                tag: 'PENTHOUSE VIP',
-                beds: '3 PN',
-                baths: '3 WC',
-                area: '180 m²',
-                note: 'View pháo hoa 360° • Nội thất Ý',
-                verified: true
-            },
-            {
-                id: 'feat-3',
-                title: 'Shophouse Mặt Tiền Kinh Doanh KĐT Sala Thủ Đức',
-                price: '50.0 triệu',
-                period: '/ tháng',
-                location: 'Đại lộ Mai Chí Thọ, TP. Thủ Đức, TP.HCM',
-                image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80',
-                tag: 'SHOPHOUSE HOT',
-                beds: '4 PN',
-                baths: '5 WC',
-                area: '250 m²',
-                note: 'Vị trí vàng kinh doanh sầm uất',
-                verified: true
-            },
-            {
-                id: 'feat-4',
-                title: 'Căn Hộ Duplex Sunshine Horizon Ban Công Rộng',
-                price: '22.0 triệu',
-                period: '/ tháng',
-                location: 'Tôn Thất Thuyết, Quận 4, TP. Hồ Chí Minh',
-                image: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80',
-                tag: 'DUPLEX CAO CẤP',
-                beds: '2 PN',
-                baths: '2 WC',
-                area: '95 m²',
-                note: 'Bàn giao full nội thất cao cấp',
-                verified: true
-            },
-            {
-                id: 'feat-5',
-                title: 'Nhà Phố Sân Vườn KDC Cityland Park Hills Gò Vấp',
-                price: '28.0 triệu',
-                period: '/ tháng',
-                location: 'Phan Văn Trị, Quận Gò Vấp, TP.HCM',
-                image: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80',
-                tag: 'NHÀ PHỐ SÂN VƯỜN',
-                beds: '4 PN',
-                baths: '4 WC',
-                area: '160 m²',
-                note: 'Khu dân trí cao • An ninh 24/7',
-                verified: true
-            }
-        ];
+        // Đã xóa bỏ mảng tĩnh DEFAULT_FEATURED_POSTS
 
-        function getFeaturedPosts() {
+        async function fetchFeaturedPosts() {
             try {
-                const stored = localStorage.getItem('rent_home_featured_posts');
-                if (stored) {
-                    const parsed = JSON.parse(stored);
-                    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+                const response = await fetch('/api/posts/featured');
+                if (response.ok) {
+                    const data = await response.json();
+                    return Array.isArray(data) ? data : [];
                 }
-            } catch (e) {}
-            return DEFAULT_FEATURED_POSTS;
+            } catch (error) {
+                console.error("Lỗi khi fetch bài đăng nổi bật:", error);
+            }
+            return [];
+        }
+
+                async function fetchRealPosts() {
+            const container = document.getElementById('real-posts-container');
+            if (!container) return;
+            try {
+                const response = await fetch('/api/posts/approved');
+                if (response.ok) {
+                    const data = await response.json();
+                    const posts = data.posts || [];
+                    if (!Array.isArray(posts) || posts.length === 0) {
+                        container.innerHTML = '<p class="col-span-full text-center text-slate-500 py-10">Hiện chưa có bài đăng nào.</p>';
+                        return;
+                    }
+                    
+                    let html = '';
+                    posts.forEach(post => {
+                                                const userName = post.user ? (post.user.account_name || post.user.username) : 'Người dùng';
+                        const userType = post.user ? (post.user.account_type === 'enterprise' ? 'Doanh nghiệp' : 'Cá nhân') : 'Cá nhân';
+                        const userBadgeClass = (post.user && post.user.account_type === 'enterprise') ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-slate-50 text-slate-500 border border-slate-200';
+                        const userIconColor = (post.user && post.user.account_type === 'enterprise') ? 'text-blue-500 bg-blue-50' : 'text-slate-500 bg-slate-100';
+                        const userIcon = (post.user && post.user.account_type === 'enterprise') ? 'fa-building' : 'fa-user';
+                        const imgUrl = (post.images && post.images.length > 0) ? post.images[0] : 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80';
+                        let unitText = 'đ/tháng';
+                        if (post.price_unit === 'nam') unitText = 'đ/năm';
+                        else if (post.price_unit === 'm2') unitText = 'đ/m²';
+                        else if (post.price_unit === 'tong') unitText = 'VNĐ';
+                        const price = new Intl.NumberFormat('vi-VN').format(post.price) + ' ' + unitText;
+                        const address = [post.address, post.ward, post.district, post.province].filter(Boolean).join(', ');
+                        
+                        html += `
+                            <div class="bg-white rounded-3xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-xl transition-all duration-300 group relative">
+                                <div class="relative aspect-[4/3] overflow-hidden">
+                                    <img src="${imgUrl}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                                    <div class="absolute bottom-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl font-bold text-xs shadow-sm">
+                                        <span class="text-brand-600">${price}</span>
+                                    </div>
+                                </div>
+                                <div class="p-6">
+                                    <h3 class="text-lg font-bold text-slate-900 mb-2 leading-tight truncate">
+                                        ${post.title}
+                                    </h3>
+                                    <div class="flex flex-col gap-1.5 mb-4 text-xs font-semibold text-slate-500">
+                                        <div class="flex items-center gap-2 truncate">
+                                            <i class="fa-solid fa-location-dot w-4 text-center"></i>
+                                            <span>${address}</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <i class="fa-solid fa-ruler-combined w-4 text-center"></i>
+                                            <span>${post.area} m²</span>
+                                                                                </div>
+                                    </div>
+                                    <div class="flex items-center justify-between pt-4 mt-4 border-t border-slate-100 mb-4">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm shrink-0 shadow-sm border border-slate-100 ${userIconColor}">
+                                                <i class="fa-solid ${userIcon}"></i>
+                                            </div>
+                                            <div class="flex flex-col justify-center">
+                                                <span class="text-sm font-bold text-slate-800 truncate max-w-[120px] sm:max-w-[160px]">${userName}</span>
+                                                <span class="text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider mt-0.5 w-max ${userBadgeClass}">${userType}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <a href="#" class="block w-full text-center py-2.5 rounded-xl bg-brand-50 hover:bg-brand-600 text-brand-600 hover:text-white font-bold text-sm transition-all duration-300 border border-brand-100 hover:border-brand-600">
+                                        Xem chi tiết
+                                    </a>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = '<p class="col-span-full text-center text-rose-500 py-10">Lỗi khi tải dữ liệu bài đăng!</p>';
+                }
+            } catch (error) {
+                console.error('Error fetching real posts:', error);
+            }
         }
 
         const IS_ADMIN_USER = @json(Auth::check() && ((Auth::user()->account_type ?? '') === 'admin' || (Auth::user()->role ?? '') === 'admin'));
@@ -1342,18 +1157,19 @@
             }
         }
 
-        function saveFeaturedPosts(posts) {
-            localStorage.setItem('rent_home_featured_posts', JSON.stringify(posts));
-            renderFeaturedPostsSection();
-        }
 
-        function renderFeaturedPostsSection() {
+
+        async function renderFeaturedPostsSection() {
             const track = document.getElementById('featured-posts-track');
             const slider = document.getElementById('featured-posts-slider');
             if (!track) return;
 
             stopFeaturedAutoPlay();
-            const posts = getFeaturedPosts();
+            const posts = await fetchFeaturedPosts();
+            if (!posts || posts.length === 0) {
+                track.innerHTML = '<p class="w-full text-center text-slate-500 py-10">Hiện chưa có bài đăng nào.</p>';
+                return;
+            }
 
             track.style.transition = 'none';
             track.style.transform = 'translate3d(0, 0, 0)';
@@ -1527,34 +1343,20 @@
                 verified: true
             };
 
-            const current = getFeaturedPosts();
-            current.unshift(newPost);
-            saveFeaturedPosts(current);
-
-            closeAddFeaturedModal();
-            document.getElementById('form-add-featured').reset();
-
             // Scroll slider back to start
             const container = document.getElementById('featured-posts-slider');
             if (container) container.scrollTo({ left: 0, behavior: 'smooth' });
 
-            alert('Đã thêm bài đăng nổi bật mới thành công! Bài đăng đã được hiển thị trên trang chủ.');
+            alert('Tính năng lưu cần được kết nối với API thực tế.');
         }
 
         function removeFeaturedPost(id) {
             if (!confirm('Bạn có chắc chắn muốn gỡ bài đăng này khỏi danh sách bài đăng nổi bật?')) return;
-            let current = getFeaturedPosts();
-            current = current.filter(p => p.id !== id);
-            saveFeaturedPosts(current);
+            // API thật sẽ được gọi ở đây, ví dụ: fetch(`/api/posts/featured/${id}`, { method: 'DELETE' })
+            alert('Cần API để xóa bài đăng nổi bật thật.');
         }
 
-        function resetFeaturedPostsToDefault() {
-            if (!confirm('Bạn có muốn khôi phục danh sách bài đăng nổi bật về mặc định ban đầu không?')) return;
-            localStorage.removeItem('rent_home_featured_posts');
-            renderFeaturedPostsSection();
-            closeAddFeaturedModal();
-        }
-
+        
         // Crossfade background transition mỗi 3.5 giây
         let currentSlide = 0;
         const slides = document.querySelectorAll('.hero-bg-slide');
@@ -1836,6 +1638,7 @@
         // Initialize Featured Posts on load
         document.addEventListener('DOMContentLoaded', function() {
             renderFeaturedPostsSection();
+            fetchRealPosts();
         });
     </script>
 </body>

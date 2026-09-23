@@ -612,53 +612,107 @@
             </div>
         </div>
 
-        <!-- Section: User Posts List -->
-        <div class="section-header">
-            <h2 class="section-title">
-                <i class="fa-solid fa-layer-group" style="color: var(--brand-primary);"></i>
-                Lịch Sử Bài Đăng Của {{ $name }}
-            </h2>
-            <span style="font-size: 0.875rem; color: var(--text-muted); font-weight: 600;">Tổng cộng {{ count($posts) }} tin đã đăng</span>
+        <!-- Section: Tabs cho Tòa Nhà & Bài Đăng -->
+        <div class="user-tabs" style="display: flex; gap: 16px; margin-top: 40px; margin-bottom: 24px; border-bottom: 2px solid #e2e8f0;">
+            <button class="tab-btn" id="tab-btn-buildings" onclick="switchTab('buildings')" style="background: none; border: none; font-size: 1rem; font-weight: 700; color: var(--brand-primary); padding: 12px 20px; border-bottom: 3px solid var(--brand-primary); cursor: pointer; transition: all 0.2s;">
+                <i class="fa-solid fa-building" style="margin-right: 6px;"></i> Tòa Nhà & Khu Đô Thị
+            </button>
+            <button class="tab-btn" id="tab-btn-posts" onclick="switchTab('posts')" style="background: none; border: none; font-size: 1rem; font-weight: 700; color: var(--text-muted); padding: 12px 20px; border-bottom: 3px solid transparent; cursor: pointer; transition: all 0.2s;">
+                <i class="fa-solid fa-layer-group" style="margin-right: 6px;"></i> Bài Đăng Lẻ
+            </button>
         </div>
 
-        <div class="posts-grid">
-            @forelse($posts as $post)
-                <div class="post-card" id="post-card-{{ $post->id }}">
-                    <img src="{{ $post->thumb }}" alt="{{ $post->title }}" class="post-thumb">
-                    
-                    <div>
-                        <div class="post-title">
-                            {{ $post->title }}
-                            @if($post->status === 'active')
-                                <span class="badge-status-pill badge-active"><i class="fa-solid fa-circle-check"></i> Đang hiển thị</span>
-                            @else
-                                <span class="badge-status-pill badge-pending"><i class="fa-solid fa-clock"></i> Chờ duyệt</span>
-                            @endif
+        <!-- Tab 1: Tòa Nhà -->
+        <div id="tab-content-buildings" class="tab-content" style="display: block;">
+            <div class="buildings-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px;">
+                @forelse($buildings as $building)
+                    <div class="building-card" style="background: #fff; border: 1px solid var(--border-color); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+                        <img src="{{ !empty($building->image) ? (Str::startsWith($building->image, 'http') ? $building->image : asset('storage/' . $building->image)) : 'https://placehold.co/600x400?text=Building' }}" alt="{{ $building->name }}" style="width: 100%; height: 200px; object-fit: cover;">
+                        <div style="padding: 16px; display: flex; flex-direction: column; flex: 1;">
+                            <h3 style="font-size: 1.1rem; font-weight: 800; color: var(--text-primary); margin: 0 0 8px 0; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;">{{ $building->name }}</h3>
+                            
+                            <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 0 0 12px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                                <i class="fa-solid fa-location-dot" style="color: var(--brand-primary); margin-right: 4px;"></i> 
+                                {{ implode(', ', array_filter([$building->address_detail ?? '', $building->ward ?? '', $building->district ?? '', $building->province ?? ''])) ?: 'Đang cập nhật địa chỉ' }}
+                            </p>
+                            
+                            <div style="margin-top: auto; margin-bottom: 16px;">
+                                <span style="display: inline-flex; align-items: center; padding: 6px 12px; background: #f3e8ff; color: #7e22ce; font-size: 0.75rem; font-weight: 700; border-radius: 8px;">
+                                    <i class="fa-solid fa-door-open" style="margin-right: 4px;"></i> {{ $building->total_rooms ?? 0 }} phòng
+                                </span>
+                                <span style="display: inline-flex; align-items: center; padding: 6px 12px; background: #e0f2fe; color: #0369a1; font-size: 0.75rem; font-weight: 700; border-radius: 8px; margin-left: 6px;">
+                                    {{ $building->type ?? 'Tòa nhà' }}
+                                </span>
+                            </div>
+                            
+                            <div style="display: flex; gap: 8px; margin-top: auto;">
+                                <a href="{{ url('/moderator/toa-nha/' . ($building->id ?? $building->_id)) }}" target="_blank" style="flex: 1; padding: 12px; border-radius: 10px; font-weight: 700; font-size: 0.85rem; display: flex; justify-content: center; align-items: center; border: none; cursor: pointer; transition: background 0.2s; background: #e0f2fe; color: #0284c7; text-decoration: none;">
+                                    <i class="fa-solid fa-eye" style="margin-right: 6px;"></i> Xem các phòng
+                                </a>
+                                <button type="button" class="btn-act-warn" style="flex: 1; padding: 12px; border-radius: 10px; font-weight: 700; font-size: 0.85rem; display: flex; justify-content: center; align-items: center; border: none; cursor: pointer; transition: background 0.2s; background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa;" onclick="openWarnBuildingModal('{{ $building->id ?? $building->_id }}', '{{ addslashes($building->name) }}')">
+                                    <i class="fa-solid fa-lock" style="margin-right: 6px;"></i> Khóa tòa nhà
+                                </button>
+                            </div>
                         </div>
-                        <div class="post-meta">
-                            <span><i class="fa-solid fa-location-dot"></i> {{ $post->address }}</span>
-                            <span><i class="fa-solid fa-clock"></i> {{ $post->created_at }}</span>
-                            <span><i class="fa-solid fa-hashtag"></i> ID: #{{ $post->id }}</span>
+                    </div>
+                @empty
+                    <div style="grid-column: 1 / -1; background: #fff; padding: 40px; border-radius: 16px; text-align: center; color: var(--text-muted); border: 1px solid var(--border-color);">
+                        <i class="fa-solid fa-building-circle-xmark" style="font-size: 2.5rem; margin-bottom: 12px; color: #cbd5e1; display: block;"></i>
+                        Tài khoản này chưa tạo tòa nhà nào trên hệ thống.
+                    </div>
+                @endforelse
+            </div>
+        </div>
+
+        <!-- Tab 2: Bài Đăng Lẻ -->
+        <div id="tab-content-posts" class="tab-content" style="display: none;">
+            <div class="section-header" style="margin-top: 0;">
+                <h2 class="section-title">
+                    <i class="fa-solid fa-layer-group" style="color: var(--brand-primary);"></i>
+                    Lịch Sử Bài Đăng Của {{ $name }}
+                </h2>
+                <span style="font-size: 0.875rem; color: var(--text-muted); font-weight: 600;">Tổng cộng {{ count($posts) }} tin đã đăng</span>
+            </div>
+
+            <div class="posts-grid">
+                @forelse($posts as $post)
+                    <div class="post-card" id="post-card-{{ $post->id }}">
+                        <img src="{{ $post->thumb }}" alt="{{ $post->title }}" class="post-thumb">
+                        
+                        <div>
+                            <div class="post-title">
+                                {{ $post->title }}
+                                @if($post->status === 'active')
+                                    <span class="badge-status-pill badge-active"><i class="fa-solid fa-circle-check"></i> Đang hiển thị</span>
+                                @else
+                                    <span class="badge-status-pill badge-pending"><i class="fa-solid fa-clock"></i> Chờ duyệt</span>
+                                @endif
+                            </div>
+                            <div class="post-meta">
+                                <span><i class="fa-solid fa-location-dot"></i> {{ $post->address }}</span>
+                                <span><i class="fa-solid fa-clock"></i> {{ $post->created_at }}</span>
+                                <span><i class="fa-solid fa-hashtag"></i> ID: #{{ $post->id }}</span>
+                            </div>
+                            <div class="post-price">{{ $post->price }}</div>
                         </div>
-                        <div class="post-price">{{ $post->price }}</div>
-                    </div>
 
-                    <div class="post-actions">
-                        <button type="button" class="btn-post-action btn-post-view" onclick="openPreviewModal('{{ $post->id }}', '{{ addslashes($post->title) }}', '{{ addslashes($post->address) }}', '{{ addslashes($post->price) }}', '{{ $post->thumb }}')">
-                            <i class="fa-solid fa-eye"></i> Xem
-                        </button>
+                        <div class="post-actions">
+                            <button type="button" class="btn-post-action btn-post-view" onclick="openPreviewModal('{{ $post->id }}', '{{ addslashes($post->title) }}', '{{ addslashes($post->address) }}', '{{ addslashes($post->price) }}', '{{ $post->thumb }}')">
+                                <i class="fa-solid fa-eye"></i> Xem
+                            </button>
 
-                        <button type="button" class="btn-post-action btn-post-remove" onclick="openRemoveModal('{{ $post->id }}', '{{ addslashes($post->title) }}')">
-                            <i class="fa-solid fa-trash-can"></i> Gỡ bài
-                        </button>
+                            <button type="button" class="btn-post-action btn-post-remove" onclick="openRemoveModal('{{ $post->id }}', '{{ addslashes($post->title) }}')">
+                                <i class="fa-solid fa-trash-can"></i> Gỡ bài
+                            </button>
+                        </div>
                     </div>
-                </div>
-            @empty
-                <div style="background: #fff; padding: 40px; border-radius: 16px; text-align: center; color: var(--text-muted); border: 1px solid var(--border-color);">
-                    <i class="fa-solid fa-folder-open" style="font-size: 2.5rem; margin-bottom: 12px; color: #cbd5e1; display: block;"></i>
-                    Tài khoản này chưa đăng bài viết nào trên hệ thống.
-                </div>
-            @endforelse
+                @empty
+                    <div style="background: #fff; padding: 40px; border-radius: 16px; text-align: center; color: var(--text-muted); border: 1px solid var(--border-color);">
+                        <i class="fa-solid fa-folder-open" style="font-size: 2.5rem; margin-bottom: 12px; color: #cbd5e1; display: block;"></i>
+                        Tài khoản này chưa đăng bài viết nào trên hệ thống.
+                    </div>
+                @endforelse
+            </div>
         </div>
     </main>
 
@@ -816,6 +870,32 @@
 
         function closeModal(modalId) {
             document.getElementById(modalId).style.display = 'none';
+        }
+
+        function switchTab(tabId) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.style.display = 'none';
+            });
+            
+            // Reset tab buttons style
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.style.color = 'var(--text-muted)';
+                btn.style.borderBottomColor = 'transparent';
+            });
+            
+            // Show selected tab
+            document.getElementById('tab-content-' + tabId).style.display = 'block';
+            const activeBtn = document.getElementById('tab-btn-' + tabId);
+            if (activeBtn) {
+                activeBtn.style.color = 'var(--brand-primary)';
+                activeBtn.style.borderBottomColor = 'var(--brand-primary)';
+            }
+        }
+
+        function openWarnBuildingModal(id, name) {
+            // Placeholder for opening building warning modal
+            alert('Chức năng khóa tòa nhà "' + name + '" (ID: ' + id + ') đang được cập nhật!');
         }
 
         window.onclick = function(event) {

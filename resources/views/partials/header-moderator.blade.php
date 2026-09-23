@@ -205,6 +205,8 @@
             <a href="{{ url('moderator/qlpheduyet') }}" class="mod-nav-link {{ request()->is('moderator/qlpheduyet') ? 'active' : '' }}" title="Bài đăng phê duyệt">
                 <i class="fa-solid fa-file-signature"></i>
                 <span>Bài đăng phê duyệt</span>
+            
+                <span id="mod-sidebar-pending-count" style="display:none; background-color: #f59e0b; color: white; padding: 2px 6px; border-radius: 99px; font-size: 10px; font-weight: bold; margin-left: auto;">0</span>
             </a>
 
             <!-- 3. Quản lý tài khoản -->
@@ -214,9 +216,15 @@
             </a>
 
             <!-- 4. Xử lý khiếu nại -->
+            @php
+                $pendingComplaintCount = \App\Models\Complaint::where('status', 'pending')->count();
+            @endphp
             <a href="{{ url('moderator/qlkhieunai') }}" class="mod-nav-link {{ request()->is('moderator/qlkhieunai') ? 'active' : '' }}" title="Xử lý khiếu nại">
                 <i class="fa-solid fa-triangle-exclamation"></i>
                 <span>Xử lý khiếu nại</span>
+                @if($pendingComplaintCount > 0)
+                    <span style="background-color: #ef4444; color: white; padding: 2px 6px; border-radius: 99px; font-size: 10px; font-weight: bold; margin-left: auto;">{{ $pendingComplaintCount }}</span>
+                @endif
             </a>
 
             <!-- 5. Lịch sử -->
@@ -249,3 +257,24 @@
         </form>
     </div>
 </aside>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        fetch('/api/moderator/posts/pending')
+            .then(res => res.json())
+            .then(data => {
+                const sidebarBadge = document.getElementById('mod-sidebar-pending-count');
+                if (sidebarBadge) {
+                    const pendingCount = data.posts ? data.posts.length : 0;
+                    if (pendingCount > 0) {
+                        sidebarBadge.innerText = pendingCount;
+                        sidebarBadge.style.display = 'inline-block';
+                    } else {
+                        sidebarBadge.style.display = 'none';
+                    }
+                }
+            })
+            .catch(err => console.error("Error fetching pending count:", err));
+    });
+</script>
+

@@ -38,7 +38,11 @@ Route::get('/Admin', function (){
         })
         ->count();
 
-    return view('Admin.Overview', compact('recentUsers', 'totalUsers'));
+    $totalPosts = \App\Models\Post::count();
+    $totalViolations = \App\Models\User::where('is_locked', true)->orWhere('status', 'locked')->count();
+    $totalViews = \App\Models\Post::sum('views') ?? 0;
+
+    return view('Admin.Overview', compact('recentUsers', 'totalUsers', 'totalPosts', 'totalViolations', 'totalViews'));
 });
 
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
@@ -297,7 +301,8 @@ Route::get('/dangbai', function(){
     if (!Auth::check()) {
         return redirect()->guest(route('login'));
     }
-    return view('qlbai_dang.dangbai');
+    $buildings = \App\Models\Building::where('user_id', Auth::id())->orderBy('created_at', 'desc')->get();
+    return view('qlbai_dang.dangbai', compact('buildings'));
 })->name('dangbai');
 
 // Routes dành cho Kiểm duyệt viên (Moderator)
@@ -334,7 +339,8 @@ Route::get('/moderator/qlnguoidung', function () {
 });
 
 Route::get('/moderator/qlkhieunai', function () {
-    return view('Moderator.qlkhieunai');
+    $complaints = \App\Models\Complaint::with(['user', 'post'])->orderBy('created_at', 'desc')->get();
+    return view('Moderator.qlkhieunai', compact('complaints'));
 });
 
 Route::get('/moderator/lichsu', function () {
@@ -342,75 +348,46 @@ Route::get('/moderator/lichsu', function () {
 });
 
 Route::get('/moderator/chitiet-nguoidung/{id}', function ($id) {
+    // 1. Tìm thông tin User THỰC TẾ trong Database
     $targetUser = \App\Models\User::find($id);
+    
     if (!$targetUser) {
-        $targetUser = (object)[
-            'id' => $id,
-            'username' => 'takimanh531',
-            'account_name' => 'Công Ty TNHH BĐS TakiManh',
-            'email' => "takimanh531@gmail.com",
-            'phone' => '06524543456',
-            'account_type' => 'Doanhnghiep',
-            'created_at' => '10/09/2026',
-        ];
+        return redirect()->back()->with('error', 'Không tìm thấy tài khoản người dùng!');
     }
 
-    // Gắn thông tin mở rộng cho tài khoản (xác thực, giấy tờ doanh nghiệp, ngân hàng)
-    $targetUser->phone_verified = true;
-    $targetUser->cccd_verified = true;
-    $targetUser->cccd_number = '079201089921';
-    $targetUser->cccd_front = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80';
-    $targetUser->cccd_back = 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=600&q=80';
+    // 2. GIỮ LẠI THÔNG TIN ẢO CHỜ PHÁT TRIỂN (Dùng toán tử ?? để nếu DB chưa có thì lấy dữ liệu ảo)
+    $targetUser->phone_verified = $targetUser->phone_verified ?? true;
+    $targetUser->cccd_verified = $targetUser->cccd_verified ?? true;
+    $targetUser->cccd_number = $targetUser->cccd_number ?? '079201089921';
+    $targetUser->cccd_front = $targetUser->cccd_front ?? 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80';
+    $targetUser->cccd_back = $targetUser->cccd_back ?? 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=600&q=80';
 
-    // Thông tin Doanh nghiệp & Tài khoản Ngân hàng
-    $isBusiness = strtolower($targetUser->account_type ?? '') === 'doanhnghiep' || strtolower($targetUser->account_type ?? '') === 'doanh nghiệp';
-    $targetUser->is_business = true; // Luôn hiển thị dữ liệu demo kinh doanh cho môi trường kiểm thử
-    $targetUser->company_name = 'Công ty TNHH Bất Động Sản TakiManh Việt Nam';
-    $targetUser->tax_code = '0316988231';
-    $targetUser->license_image = 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80';
-    $targetUser->bank_name = 'Ngân hàng TMCP Quân Đội (MB Bank)';
-    $targetUser->bank_account_no = '999988886666';
-    $targetUser->bank_account_holder = 'CONG TY TNHH BDS TAKIMANH VIET NAM';
+    $targetUser->is_business = true; 
+    $targetUser->company_name = $targetUser->company_name ?? 'Công ty TNHH Bất Động Sản TakiManh Việt Nam';
+    $targetUser->tax_code = $targetUser->tax_code ?? '0316988231';
+    $targetUser->license_image = $targetUser->license_image ?? 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80';
+    $targetUser->bank_name = $targetUser->bank_name ?? 'Ngân hàng TMCP Quân Đội (MB Bank)';
+    $targetUser->bank_account_no = $targetUser->bank_account_no ?? '999988886666';
+    $targetUser->bank_account_holder = $targetUser->bank_account_holder ?? 'CONG TY TNHH BDS TAKIMANH VIET NAM';
 
-    // Thống kê lịch sử & độ uy tín
-    $targetUser->complaints_count = 0;
-    $targetUser->warnings_count = 0;
-    $targetUser->reputation_score = 98; // 98/100 uy tín
+    $targetUser->complaints_count = $targetUser->complaints_count ?? 0;
+    $targetUser->warnings_count = $targetUser->warnings_count ?? 0;
+    $targetUser->reputation_score = $targetUser->reputation_score ?? 98;
     
-    $posts = [
-        (object)[
-            'id' => 201,
-            'title' => 'Cho thuê căn hộ studio đầy đủ nội thất cao cấp trung tâm Quận 1',
-            'address' => 'Đường Nguyễn Trãi, Quận 1, TP.HCM',
-            'price' => '8,500,000 VNĐ / tháng',
-            'thumb' => 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=400&q=80',
-            'created_at' => '10:30 - 12/09/2026',
-            'status' => 'active',
-            'status_label' => 'Đang hiển thị'
-        ],
-        (object)[
-            'id' => 202,
-            'title' => 'Phòng trọ rộng 25m2 có ban công thoáng mát gần đại học Y Dược',
-            'address' => 'Đường An Dương Vương, Quận 5, TP.HCM',
-            'price' => '4,200,000 VNĐ / tháng',
-            'thumb' => 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=400&q=80',
-            'created_at' => '15:45 - 08/09/2026',
-            'status' => 'active',
-            'status_label' => 'Đang hiển thị'
-        ],
-        (object)[
-            'id' => 203,
-            'title' => 'Nhà nguyên căn 2 tầng thích hợp ở gia đình hoặc làm văn phòng nhỏ',
-            'address' => 'Đường Cách Mạng Tháng 8, Quận 3, TP.HCM',
-            'price' => '16,000,000 VNĐ / tháng',
-            'thumb' => 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=400&q=80',
-            'created_at' => '09:15 - 01/09/2026',
-            'status' => 'pending',
-            'status_label' => 'Chờ duyệt'
-        ]
-    ];
+    // 3. LẤY DỮ LIỆU TÒA NHÀ THẬT TỪ DATABASE
+    // Móc những tòa nhà do chính user ($id) này tạo ra
+    $buildings = \App\Models\Building::where('user_id', $id)
+                                    ->orderBy('created_at', 'desc')
+                                    ->get();
 
-    return view('Moderator.chitiet_nguoidung', compact('targetUser', 'posts'));
+    // 4. LẤY DỮ LIỆU BÀI ĐĂNG THẬT TỪ DATABASE
+    // Móc những bài đăng do chính user ($id) này tạo ra
+    $posts = \App\Models\Post::where('user_id', $id)
+                             ->orderBy('created_at', 'desc')
+                             ->get();
+
+    // Truyền tất cả ra giao diện
+    return view('Moderator.chitiet_nguoidung', compact('targetUser', 'posts', 'buildings'));
 })->name('moderator.user_detail');
 
 Route::post('/moderator/approve-post/{id}', function ($id) {
@@ -429,6 +406,38 @@ Route::post('/moderator/remove-post/{id}', function (\Illuminate\Http\Request $r
 
 Route::post('/moderator/respond-complaint/{id}', function (\Illuminate\Http\Request $request, $id) {
     $response = $request->input('response_content', 'Đã ghi nhận và xử lý khiếu nại.');
+    $action = $request->input('action', 'reply');
+    
+    $complaint = \App\Models\Complaint::find($id);
+    if ($complaint) {
+        $complaint->status = 'resolved';
+        $complaint->admin_response = $response;
+        $complaint->save();
+
+        if ($action === 'accept' && $complaint->post_id) {
+            $post = \App\Models\Post::find($complaint->post_id);
+            if ($post) {
+                $post->status = 'approved';
+                $post->save();
+            }
+        }
+
+        if ($complaint->user_id) {
+            \App\Models\Notification::create([
+                'user_id' => $complaint->user_id,
+                'post_id' => $complaint->post_id,
+                'title' => 'Phản hồi khiếu nại',
+                'message' => 'Quản trị viên đã phản hồi khiếu nại của bạn về bài đăng #' . substr($complaint->post_id, -4) . '. Nội dung: ' . $response,
+                'type' => 'info',
+                'category' => 'system',
+                'is_read' => false
+            ]);
+        }
+    }
+    
+    if ($request->wantsJson() || $request->ajax()) {
+        return response()->json(['success' => true, 'message' => "Đã xử lý khiếu nại thành công!"]);
+    }
     return redirect()->back()->with('success', "Đã gửi phản hồi cho khiếu nại ID: #{$id} thành công!");
 });
 
@@ -446,3 +455,43 @@ Route::post('/moderator/user-ban/{id}', function (\Illuminate\Http\Request $requ
     $banReason = $request->input('ban_reason', 'Khóa tài khoản do vi phạm tiêu chuẩn cộng đồng.');
     return redirect()->back()->with('success', "ĐÃ KHÓA TÀI KHOẢN ID: #{$id} THÀNH CÔNG! Lý do lưu hệ thống: {$banReason}");
 });
+
+Route::get('/moderator/toa-nha/{id}', function ($id) {
+    $building = \App\Models\Building::find($id);
+    
+    if (!$building) {
+        abort(404, 'Không tìm thấy tòa nhà.');
+    }
+
+    // Truy vấn danh sách các bài đăng (phòng) thuộc Tòa nhà đó
+    $posts = \App\Models\Post::where('building_id', $id)->paginate(10);
+
+    return view('qlbai_dang.BuildingDetail', compact('building', 'posts'));
+})->name('moderator.building_detail');
+
+// APIs for Posts
+Route::post('/api/posts', [\App\Http\Controllers\PostController::class, 'store'])->name('posts.store');
+Route::get('/api/posts/approved', [\App\Http\Controllers\PostController::class, 'getApproved'])->name('posts.approved');
+
+// APIs for Complaints
+Route::post('/api/complaints', [\App\Http\Controllers\ComplaintController::class, 'store'])->name('complaints.store');
+
+// APIs for Moderator
+Route::get('/api/moderator/posts/pending', [\App\Http\Controllers\ModeratorController::class, 'getPending'])->name('moderator.posts.pending');
+Route::post('/api/moderator/posts/{id}/approve', [\App\Http\Controllers\ModeratorController::class, 'approve'])->name('moderator.posts.approve');
+Route::post('/api/moderator/posts/{id}/reject', [\App\Http\Controllers\ModeratorController::class, 'reject'])->name('moderator.posts.reject');
+Route::get('/api/moderator/posts/history', [\App\Http\Controllers\ModeratorController::class, 'getHistory'])->name('moderator.posts.history');
+Route::post('/api/moderator/posts/{id}/restore', [\App\Http\Controllers\ModeratorController::class, 'restore'])->name('moderator.posts.restore');
+
+// User Dashboard APIs
+Route::get('/api/user/posts/stats', [\App\Http\Controllers\UserDashboardController::class, 'getStats']);
+Route::get('/api/notifications', [\App\Http\Controllers\UserDashboardController::class, 'getNotifications']);
+Route::post('/api/notifications/read', [\App\Http\Controllers\UserDashboardController::class, 'markNotificationsRead']);
+Route::get('/api/user/posts', [\App\Http\Controllers\UserDashboardController::class, 'getPosts']);
+Route::get('/api/user/posts/history', [\App\Http\Controllers\UserDashboardController::class, 'getHistory']);
+// ========================================================
+// APIs for Buildings (Quản lý Tòa nhà - Dành cho Doanh Nghiệp)
+// ========================================================
+Route::get('/api/buildings', [\App\Http\Controllers\BuildingController::class, 'index']);
+Route::post('/api/buildings', [\App\Http\Controllers\BuildingController::class, 'store']);
+Route::get('/quan-ly-toa-nha/{id}', [\App\Http\Controllers\BuildingController::class, 'show']);

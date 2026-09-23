@@ -606,19 +606,19 @@
         <div class="dashboard-grid">
             <div class="stat-card">
                 <div class="card-label">Tổng người dùng</div>
-                <div class="card-value">{{ isset($totalUsers) ? number_format($totalUsers) : '1,248' }}</div>
+                <div class="card-value">{{ isset($totalUsers) ? number_format($totalUsers) : '0' }}</div>
             </div>
             <div class="stat-card">
                 <div class="card-label">Tổng số bài đăng</div>
-                <div class="card-value text-emerald">542</div>
+                <div class="card-value text-emerald">{{ isset($totalPosts) ? number_format($totalPosts) : '0' }}</div>
             </div>
             <div class="stat-card">
                 <div class="card-label">Số tài khoản vi phạm</div>
-                <div class="card-value text-amber">12</div>
+                <div class="card-value text-amber">{{ isset($totalViolations) ? number_format($totalViolations) : '0' }}</div>
             </div>
             <div class="stat-card">
                 <div class="card-label">Lượt truy cập</div>
-                <div class="card-value text-blue">8,920</div>
+                <div class="card-value text-blue">{{ isset($totalViews) ? number_format($totalViews) : '0' }}</div>
             </div>
         </div>
 

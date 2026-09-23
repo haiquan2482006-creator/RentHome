@@ -68,7 +68,7 @@
 
     <!-- Modal Container -->
     <div
-        class="bg-white rounded-3xl max-w-2xl w-full my-auto shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[88vh]">
+        class="bg-white rounded-3xl max-w-2xl w-full my-auto shadow-2xl border border-slate-100 overflow-visible flex flex-col">
 
         <!-- ==================== BƯỚC 1: XÁC NHẬN VỊ TRÍ CHI TIẾT ==================== -->
         <div id="step-location" class="flex flex-col h-full min-h-0">
@@ -87,7 +87,7 @@
             </div>
 
             <!-- Modal Body -->
-            <div class="p-6 space-y-4 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+            <div class="p-6 space-y-4 flex-1 min-h-0 overflow-visible">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <div class="flex items-center justify-between mb-1.5">
@@ -242,7 +242,7 @@
             </div>
 
             <!-- Modal Footer -->
-            <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3 bg-white shrink-0">
+            <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3 bg-white rounded-b-3xl shrink-0">
                 <a href="{{ url('Overview') }}"
                     class="px-6 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-colors inline-block">
                     Quay lại
@@ -271,7 +271,7 @@
             </div>
 
             <!-- Modal Body -->
-            <div class="p-6 space-y-4 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+            <div class="p-6 space-y-4 flex-1 min-h-0 overflow-visible">
                 <!-- Tiêu đề bài đăng -->
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1.5">Tiêu đề bài đăng <span class="text-rose-500">*</span></label>
@@ -304,10 +304,13 @@
                     <div id="building-select-box" class="{{ $isEnterprise ? '' : 'hidden' }}">
                         <label class="block text-xs font-bold text-slate-700 mb-1.5">Chọn tòa nhà đã tạo <span class="text-purple-600">(Doanh nghiệp)</span></label>
                         <div class="relative">
-                            <select class="w-full px-4 py-3 rounded-2xl bg-purple-50/40 border border-purple-200 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none appearance-none cursor-pointer">
-                                <option>Tòa Landmark Plus (Bình Thạnh)</option>
-                                <option>Khu Căn Hộ S5 Vinhomes Grand Park (TP. Thủ Đức)</option>
-                                <option>Chung cư Masteri Thảo Điền (Quận 2)</option>
+                            <select id="select-building-id" name="building_id" class="w-full px-4 py-3 rounded-2xl bg-purple-50/40 border border-purple-200 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none appearance-none cursor-pointer">
+                                <option value="">-- Không thuộc tòa nhà nào (Đăng lẻ) --</option>
+                                @forelse($buildings as $building)
+                                    <option value="{{ $building->id ?? $building->_id }}">{{ $building->name }}</option>
+                                @empty
+                                    <option value="">Bạn chưa tạo tòa nhà nào</option>
+                                @endforelse
                             </select>
                             <i class="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
                         </div>
@@ -335,12 +338,28 @@
                 <!-- Giá & Diện tích -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1.5">Giá mong muốn (Triệu, Tỷ / tháng) <span class="text-rose-500">*</span></label>
-                        <div class="relative">
-                            <input type="text" id="post-price" placeholder="VD: 14.5 Triệu hoặc 3.5 Tỷ"
-                                class="w-full pl-4 pr-10 py-3 rounded-2xl bg-white border border-slate-200 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
-                            <span class="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-amber-600 text-xs">đ</span>
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5" id="price-label-text">Giá thuê mong muốn <span class="text-rose-500">*</span></label>
+                        <div class="flex items-center shadow-sm rounded-2xl bg-white border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-emerald-500 transition-all relative">
+                            
+                            <!-- Ô nhập giá -->
+                            <input type="text" id="post-price" placeholder="VD: 15.000.000"
+                                oninput="formatPriceInput(this)" onblur="validatePriceInput(this)"
+                                class="w-full pl-4 pr-2 py-3 text-xs font-medium text-slate-800 focus:outline-none bg-transparent">
+                            
+                            <!-- Đường kẻ dọc -->
+                            <div class="w-px h-6 bg-slate-200 shrink-0"></div>
+                            
+                            <!-- Dropdown chọn chu kỳ -->
+                            <select id="post-price-unit" class="bg-slate-50 hover:bg-slate-100 text-amber-700 font-bold text-[11px] py-3 pl-3 pr-7 focus:outline-none cursor-pointer border-none outline-none appearance-none relative shrink-0">
+                                <option value="thang">/ tháng</option>
+                                <option value="nam">/ năm</option>
+                                <option value="tong">Tổng tiền</option>
+                                <option value="m2">/ m²</option>
+                            </select>
+                            <!-- Icon mũi tên cho dropdown -->
+                            <i class="fa-solid fa-chevron-down absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[9px] pointer-events-none"></i>
                         </div>
+                        <p id="price-helper-text" class="text-[11px] mt-1.5 text-slate-500 font-semibold h-4"></p>
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1.5">Diện tích (m²) <span class="text-rose-500">*</span></label>
@@ -439,7 +458,7 @@
             </div>
 
             <!-- Modal Footer -->
-            <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3 bg-white shrink-0">
+            <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3 bg-white rounded-b-3xl shrink-0">
                 <button type="button" onclick="goToStepLocation()"
                     class="px-6 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-colors">
                     Quay lại
@@ -454,20 +473,93 @@
 
     <!-- JavaScript Controller -->
     <script>
-        const API_BASE = 'https://provinces.open-api.vn/api';
+ const API_BASE = 'https://esgoo.net/api-tinhthanh';
 
-        // Bộ nhớ tạm lưu dữ liệu động từ API
+        // Khai báo các biến dùng chung cho API (Chống lỗi undefined)
         let provincesList = [];
         let currentDistrictsList = [];
         let currentWardsList = [];
-
         let selectedProvinceCode = null;
         let selectedDistrictCode = null;
+        let editPostId = null;
 
+        document.addEventListener('DOMContentLoaded', () => {
+            const editDataRaw = sessionStorage.getItem('edit_post_data');
+            if (editDataRaw) {
+                try {
+                    const post = JSON.parse(editDataRaw);
+                    editPostId = post.id;
+                    
+                    if(post.price) {
+                        const priceInput = document.getElementById('post-price');
+                        if(priceInput) {
+                            priceInput.value = post.price;
+                            formatPriceInput(priceInput);
+                        }
+                    }
+                    if(post.price_unit) {
+                        const unitSelect = document.getElementById('post-price-unit');
+                        if(unitSelect) unitSelect.value = post.price_unit;
+                    }
+                    if(post.area) {
+                        const areaInput = document.getElementById('post-area');
+                        if(areaInput) areaInput.value = post.area;
+                    }
+                    if(post.bedroom) {
+                        const bedSpan = document.getElementById('bedroom-count');
+                        if(bedSpan) bedSpan.innerText = post.bedroom;
+                    }
+                    if(post.bathroom) {
+                        const bathSpan = document.getElementById('bathroom-count');
+                        if(bathSpan) bathSpan.innerText = post.bathroom;
+                    }
+                    if(post.amenities) {
+                        const amenitiesInput = document.getElementById('amenities-input');
+                        if(amenitiesInput) amenitiesInput.value = post.amenities;
+                    }
+                    if(post.description) {
+                        const descInput = document.getElementById('post-description');
+                        if(descInput) descInput.value = post.description;
+                    }
+
+                    if(post.property_type) {
+                        const radio = document.querySelector(`input[name="property_type"][value="${post.property_type}"]`);
+                        if(radio) {
+                            radio.checked = true;
+                            if(typeof togglePropertyType === 'function') {
+                                togglePropertyType(post.property_type);
+                            }
+                        }
+                    }
+
+                    if (post.province || post.district || post.ward) {
+                        window.autoSelectLocation = {
+                            province: post.province,
+                            district: post.district,
+                            ward: post.ward
+                        };
+                    }
+
+                    if (post.address_detail) {
+                        const detailInput = document.getElementById('address-detail-input');
+                        if (detailInput) detailInput.value = post.address_detail;
+                    }
+
+                    if (typeof goToStepDetails === 'function') {
+                        goToStepDetails();
+                    }
+
+                } catch (e) {
+                    console.error('Lỗi parse edit_post_data:', e);
+                }
+            }
+            fetchProvinces();
+        });
+
+        // Hàm khử dấu tiếng Việt (Sửa lỗi crash khi tìm kiếm)
         function removeVietnameseTones(str) {
             if (!str) return '';
-            return str
-                .normalize('NFD')
+            return str.normalize('NFD')
                 .replace(/[\u0300-\u036f]/g, '')
                 .replace(/đ/g, 'd').replace(/Đ/g, 'D')
                 .toLowerCase();
@@ -476,13 +568,18 @@
         // ======================= API FETCHING =======================
         async function fetchProvinces() {
             try {
-                const res = await fetch(`${API_BASE}/p/`);
-                provincesList = await res.json();
-                
-                // Mặc định chọn TP. Hồ Chí Minh nếu có
-                const defaultProv = provincesList.find(p => p.name.includes('Hồ Chí Minh')) || provincesList[0];
-                if (defaultProv) {
-                    selectFormProvince(defaultProv.name, defaultProv.code);
+                const res = await fetch(`${API_BASE}/1/0.htm`);
+                const json = await res.json();
+                if(json.error === 0) {
+                    provincesList = json.data.map(p => ({ code: p.id, name: p.full_name || p.name }));
+                    
+                    // Mặc định chọn TP. Hồ Chí Minh nếu có
+                    const defaultProv = provincesList.find(p => p.name.includes('Hồ Chí Minh')) || provincesList[0];
+                    if (defaultProv) {
+                        selectFormProvince(defaultProv.name, defaultProv.code);
+                    }
+                } else {
+                    throw new Error('API returned error');
                 }
             } catch (err) {
                 console.error('Lỗi tải danh sách Tỉnh/Thành:', err);
@@ -492,22 +589,35 @@
 
         async function fetchDistricts(provinceCode) {
             if (!provinceCode) {
-                currentDistrictsList = [];
-                renderFormDistricts();
+                resetDistrict();
                 resetWard();
                 return;
             }
             try {
-                const res = await fetch(`${API_BASE}/p/${provinceCode}?depth=2`);
-                const data = await res.json();
-                currentDistrictsList = data.districts || [];
-                
-                if (currentDistrictsList.length > 0) {
-                    const firstDist = currentDistrictsList[0];
-                    selectFormDistrict(firstDist.name, firstDist.code);
+                const res = await fetch(`${API_BASE}/2/${provinceCode}.htm`);
+                const json = await res.json();
+                if(json.error === 0) {
+                    // 1. Cập nhật mảng dữ liệu Quận/Huyện mới
+                    currentDistrictsList = json.data.map(d => ({ code: d.id, name: d.full_name || d.name }));
+                    
+                    // 2. Reset lại hiển thị của ô chọn Quận/Huyện
+                    document.getElementById('form-district-text').innerText = 'Chọn Quận / Huyện';
+                    document.getElementById('select-district').value = '';
+                    
+                    // 3. QUAN TRỌNG: Vẽ lại danh sách HTML mới
+                    renderFormDistricts(); 
+                    
+                    if (window.autoSelectLocation && window.autoSelectLocation.district) {
+                        const dist = currentDistrictsList.find(d => d.name === window.autoSelectLocation.district);
+                        if (dist) {
+                            selectFormDistrict(dist.name, dist.code);
+                        }
+                    }
+                    
+                    // 4. Xóa trắng danh sách Phường/Xã cũ
+                    resetWard(); 
                 } else {
-                    resetDistrict();
-                    resetWard();
+                    throw new Error('API returned error');
                 }
             } catch (err) {
                 console.error('Lỗi tải danh sách Quận/Huyện:', err);
@@ -516,20 +626,32 @@
 
         async function fetchWards(districtCode) {
             if (!districtCode) {
-                currentWardsList = [];
-                renderFormWards();
+                resetWard();
                 return;
             }
             try {
-                const res = await fetch(`${API_BASE}/d/${districtCode}?depth=2`);
-                const data = await res.json();
-                currentWardsList = data.wards || [];
-                
-                if (currentWardsList.length > 0) {
-                    const firstWard = currentWardsList[0];
-                    selectFormWard(firstWard.name);
+                const res = await fetch(`${API_BASE}/3/${districtCode}.htm`);
+                const json = await res.json();
+                if(json.error === 0) {
+                    // 1. Cập nhật mảng dữ liệu Phường/Xã mới
+                    currentWardsList = json.data.map(w => ({ code: w.id, name: w.full_name || w.name }));
+                    
+                    // 2. Reset lại hiển thị của ô chọn Phường/Xã
+                    document.getElementById('form-ward-text').innerText = 'Chọn Phường / Xã';
+                    document.getElementById('select-ward').value = '';
+                    
+                    // 3. QUAN TRỌNG: Vẽ lại danh sách HTML mới
+                    renderFormWards(); 
+                    
+                    if (window.autoSelectLocation && window.autoSelectLocation.ward) {
+                        const ward = currentWardsList.find(w => w.name === window.autoSelectLocation.ward);
+                        if (ward) {
+                            selectFormWard(ward.name, ward.code);
+                        }
+                        window.autoSelectLocation = null;
+                    }
                 } else {
-                    resetWard();
+                    throw new Error('API returned error');
                 }
             } catch (err) {
                 console.error('Lỗi tải danh sách Phường/Xã:', err);
@@ -608,7 +730,7 @@
             const currentVal = document.getElementById('select-province')?.value || '';
             if (!container) return;
 
-            const cleanKeyword = removeVietnameseTones(filterKeyword.trim());
+            const cleanKeyword = removeVietnameseTones(filterKeyword);
             const filtered = provincesList.filter(p => removeVietnameseTones(p.name).includes(cleanKeyword));
 
             if (filtered.length === 0) {
@@ -620,7 +742,7 @@
             filtered.forEach(prov => {
                 const isSelected = currentVal === prov.name;
                 html += `
-                    <div onclick="selectFormProvince('${prov.name}', ${prov.code})" class="px-4 py-2 hover:bg-amber-50 cursor-pointer flex items-center justify-between text-xs font-semibold transition-colors ${isSelected ? 'bg-amber-50/80 text-amber-600 font-bold' : 'text-slate-800'}">
+                    <div onclick="selectFormProvince('${prov.name}', '${prov.code}')" class="px-4 py-2 hover:bg-amber-50 cursor-pointer flex items-center justify-between text-xs font-semibold transition-colors ${isSelected ? 'bg-amber-50/80 text-amber-600 font-bold' : 'text-slate-800'}">
                         <span>${prov.name}</span>
                         ${isSelected ? '<i class="fa-solid fa-check text-amber-600 text-xs"></i>' : ''}
                     </div>
@@ -732,7 +854,7 @@
             const currentVal = document.getElementById('select-district')?.value || '';
             if (!container) return;
 
-            const cleanKeyword = removeVietnameseTones(filterKeyword.trim());
+            const cleanKeyword = removeVietnameseTones(filterKeyword);
             const filtered = currentDistrictsList.filter(d => removeVietnameseTones(d.name).includes(cleanKeyword));
 
             if (filtered.length === 0) {
@@ -744,7 +866,7 @@
             filtered.forEach(dist => {
                 const isSelected = currentVal === dist.name;
                 html += `
-                    <div onclick="selectFormDistrict('${dist.name}', ${dist.code})" class="px-4 py-2 hover:bg-amber-50 cursor-pointer flex items-center justify-between text-xs font-semibold transition-colors ${isSelected ? 'bg-amber-50/80 text-amber-600 font-bold' : 'text-slate-800'}">
+                    <div onclick="selectFormDistrict('${dist.name}', '${dist.code}')" class="px-4 py-2 hover:bg-amber-50 cursor-pointer flex items-center justify-between text-xs font-semibold transition-colors ${isSelected ? 'bg-amber-50/80 text-amber-600 font-bold' : 'text-slate-800'}">
                         <span>${dist.name}</span>
                         ${isSelected ? '<i class="fa-solid fa-check text-amber-600 text-xs"></i>' : ''}
                     </div>
@@ -856,7 +978,7 @@
             const currentVal = document.getElementById('select-ward')?.value || '';
             if (!container) return;
 
-            const cleanKeyword = removeVietnameseTones(filterKeyword.trim());
+            const cleanKeyword = removeVietnameseTones(filterKeyword);
             const filtered = currentWardsList.filter(w => removeVietnameseTones(w.name).includes(cleanKeyword));
 
             if (filtered.length === 0) {
@@ -946,6 +1068,19 @@
                     roomBox.classList.remove('hidden');
                 }
             }
+            
+            // Logic tự động đổi chu kỳ giá và Label
+            const unitSelect = document.getElementById('post-price-unit');
+            const priceLabel = document.getElementById('price-label-text');
+            if (unitSelect && priceLabel) {
+                if (type === 'dat_nen') {
+                    unitSelect.value = 'tong';
+                    priceLabel.innerHTML = 'Giá bán mong muốn <span class="text-rose-500">*</span>';
+                } else {
+                    unitSelect.value = 'thang';
+                    priceLabel.innerHTML = 'Giá thuê mong muốn <span class="text-rose-500">*</span>';
+                }
+            }
         }
 
         function addAmenityTag(text) {
@@ -961,13 +1096,14 @@
         }
 
         let uploadedFilesArray = [];
+        let existingImagesArray = [];
 
         function handleImageUpload(event) {
             const files = Array.from(event.target.files);
             if (!files.length) return;
 
             files.forEach(file => {
-                if (uploadedFilesArray.length < 10 && file.type.startsWith('image/')) {
+                if ((uploadedFilesArray.length + existingImagesArray.length) < 10 && file.type.startsWith('image/')) {
                     uploadedFilesArray.push(file);
                 }
             });
@@ -980,18 +1116,30 @@
             renderImagePreviews();
         }
 
+        function removeExistingImage(index) {
+            existingImagesArray.splice(index, 1);
+            renderImagePreviews();
+        }
+
+        function getFullImageUrl(rawImg) {
+            if (!rawImg) return '';
+            if (rawImg.startsWith('http') || rawImg.startsWith('data:image')) return rawImg;
+            return rawImg.startsWith('/') ? rawImg : '/storage/' + rawImg;
+        }
+
         function renderImagePreviews() {
             const container = document.getElementById('image-preview-container');
             const badge = document.getElementById('image-count-badge');
             if (!container) return;
 
             container.innerHTML = '';
+            const totalImages = uploadedFilesArray.length + existingImagesArray.length;
 
-            if (uploadedFilesArray.length > 0) {
+            if (totalImages > 0) {
                 container.classList.remove('hidden');
                 if (badge) {
                     badge.classList.remove('hidden');
-                    badge.innerText = `Đã chọn: ${uploadedFilesArray.length}/10 ảnh`;
+                    badge.innerText = `Đã chọn: ${totalImages}/10 ảnh`;
                 }
             } else {
                 container.classList.add('hidden');
@@ -999,6 +1147,27 @@
                 return;
             }
 
+            // 1. Render ảnh cũ
+            existingImagesArray.forEach((imgUrl, idx) => {
+                const fullUrl = getFullImageUrl(imgUrl);
+                const card = document.createElement('div');
+                card.className = 'relative group aspect-square rounded-2xl overflow-hidden border border-slate-200 shadow-xs bg-slate-100';
+
+                card.innerHTML = `
+                    <img src="${fullUrl}" class="w-full h-full object-cover">
+                    <button type="button" onclick="removeExistingImage(${idx})"
+                        class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-slate-900/70 hover:bg-rose-600 text-white flex items-center justify-center text-xs transition-colors shadow-sm"
+                        title="Xóa ảnh này">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                    <div class="absolute bottom-0 inset-x-0 bg-slate-900/60 backdrop-blur-xs p-1 text-[9px] text-white font-medium truncate text-center">
+                        Ảnh đã lưu
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            // 2. Render ảnh mới
             uploadedFilesArray.forEach((file, idx) => {
                 const fileUrl = URL.createObjectURL(file);
                 const card = document.createElement('div');
@@ -1008,10 +1177,10 @@
                     <img src="${fileUrl}" class="w-full h-full object-cover">
                     <button type="button" onclick="removeUploadedImage(${idx})"
                         class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-slate-900/70 hover:bg-rose-600 text-white flex items-center justify-center text-xs transition-colors shadow-sm"
-                        title="Xóa ảnh này">
+                        title="Xóa ảnh mới này">
                         <i class="fa-solid fa-xmark"></i>
                     </button>
-                    <div class="absolute bottom-0 inset-x-0 bg-slate-900/60 backdrop-blur-xs p-1 text-[9px] text-white font-medium truncate text-center">
+                    <div class="absolute bottom-0 inset-x-0 bg-slate-900/60 backdrop-blur-xs p-1 text-[9px] text-white font-medium truncate text-center text-emerald-400">
                         ${file.name}
                     </div>
                 `;
@@ -1029,60 +1198,218 @@
                 return;
             }
 
-            const province = document.getElementById('select-province')?.value || '';
-            const district = document.getElementById('select-district')?.value || '';
-            const ward = document.getElementById('select-ward')?.value || '';
-            const address = document.getElementById('input-address')?.value || '';
-
-            const price = document.getElementById('post-price')?.value.trim() || 'Thỏa thuận';
-            const area = document.getElementById('post-area')?.value ? document.getElementById('post-area').value + ' m²' : '';
-            const desc = document.getElementById('post-description')?.value.trim() || '';
-
-            let locationParts = [address, ward, district, province].filter(Boolean);
-            let locationStr = locationParts.length > 0 ? locationParts.join(', ') : 'Chưa cập nhật vị trí';
-
-            const postObj = {
-                id: '#RH-' + Math.floor(1000 + Math.random() * 9000),
-                title: title,
-                price: price.includes('Tr') || price.includes('Tỷ') || price.includes('đ') ? price : (price + ' Tr/tháng'),
-                location: locationStr,
-                time: 'Gửi lúc ' + new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' - Hôm nay',
-                image: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=120&q=80',
-                status: 'Chờ phê duyệt',
-                createdAt: Date.now()
-            };
-
-            const saveAndRedirect = (finalPost) => {
-                let existing = [];
-                try {
-                    existing = JSON.parse(localStorage.getItem('pendingPosts') || '[]');
-                } catch (e) {
-                    existing = [];
-                }
-                existing.unshift(finalPost);
-                localStorage.setItem('pendingPosts', JSON.stringify(existing));
-
-                alert('Đã gửi bài viết lên hệ thống chờ duyệt!');
-                window.location.href = "{{ url('Overview') }}?tab=pending-posts";
-            };
-
-            if (uploadedFilesArray && uploadedFilesArray.length > 0) {
-                const reader = new FileReader();
-                reader.onload = function (e) {
-                    postObj.image = e.target.result;
-                    saveAndRedirect(postObj);
-                };
-                reader.onerror = function () {
-                    saveAndRedirect(postObj);
-                };
-                reader.readAsDataURL(uploadedFilesArray[0]);
-            } else {
-                saveAndRedirect(postObj);
+            const priceInput = document.getElementById('post-price');
+            const areaInput = document.getElementById('post-area');
+            
+            if (!priceInput || !priceInput.value.trim()) {
+                alert('Vui lòng nhập giá cho thuê!');
+                return;
             }
+            if (!areaInput || !areaInput.value.trim()) {
+                alert('Vui lòng nhập diện tích!');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('title', title);
+
+            const buildingId = document.getElementById('select-building-id')?.value || '';
+            if (buildingId) {
+                formData.append('building_id', buildingId);
+            }
+            
+            // Lấy giá thực (không có dấu chấm)
+            let price = priceInput.value.replace(/\./g, '').trim();
+            formData.append('price', price);
+            
+            const priceUnit = document.getElementById('post-price-unit')?.value || 'thang';
+            formData.append('price_unit', priceUnit);
+            
+            formData.append('area', areaInput.value.trim());
+
+            formData.append('province', document.getElementById('select-province')?.value || '');
+            formData.append('district', document.getElementById('select-district')?.value || '');
+            formData.append('ward', document.getElementById('select-ward')?.value || '');
+            formData.append('address', document.getElementById('input-address')?.value || '');
+            
+            // Get property type
+            const propertyType = document.querySelector('input[name="property_type"]:checked')?.value || 'nha_o';
+            formData.append('property_type', propertyType);
+
+            formData.append('description', document.getElementById('post-description')?.value.trim() || '');
+            
+            // account_role
+            const accountRole = document.querySelector('input[name="account_role"]')?.value || 'canhan';
+            formData.append('account_role', accountRole);
+
+            // Edit logic: send post_id
+            const editIdInput = document.getElementById('edit-post-id');
+            if (editIdInput && editIdInput.value) {
+                formData.append('post_id', editIdInput.value);
+            }
+
+            // Amenities
+            const amenitiesStr = document.getElementById('amenities-input')?.value.trim() || '';
+            const amenitiesArr = amenitiesStr.split(',').map(s => s.trim()).filter(Boolean);
+            amenitiesArr.forEach((am, idx) => {
+                formData.append(`amenities[${idx}]`, am);
+            });
+
+            // Images
+            if (typeof uploadedFilesArray !== 'undefined' && uploadedFilesArray.length > 0) {
+                uploadedFilesArray.forEach((file) => {
+                    formData.append('images[]', file);
+                });
+            }
+
+            if (typeof existingImagesArray !== 'undefined' && existingImagesArray.length > 0) {
+                existingImagesArray.forEach((url) => {
+                    formData.append('existing_images[]', url);
+                });
+            }
+
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+            // Hiệu ứng Loading nút bấm
+            const btn = document.querySelector('button[onclick="submitPost()"]');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang xử lý...';
+            btn.disabled = true;
+
+            // Đẩy API
+            fetch('/api/posts', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken || '{{ csrf_token() }}',
+                    'Accept': 'application/json'
+                },
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                if (data.success) {
+                    alert(data.message || 'Đã gửi bài viết lên hệ thống chờ duyệt!');
+                    window.location.href = "{{ url('Overview') }}";
+                } else {
+                    alert(data.error || data.message || 'Có lỗi xảy ra khi đăng bài!');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                alert('Không thể kết nối đến server. Vui lòng thử lại sau.');
+            });
+        }
+
+        function formatPriceInput(input) {
+            let val = input.value.replace(/\D/g, '');
+            input.value = val;
+            
+            const helper = document.getElementById('price-helper-text');
+            if (!helper) return;
+
+            if (val === '') {
+                helper.innerText = '';
+                return;
+            }
+            
+            let num = parseInt(val, 10);
+            if (num > 999000000000) {
+                helper.innerText = `Lưu ý: Số tiền tối đa là 999.000.000.000 VNĐ.`;
+                helper.className = 'text-[11px] mt-1.5 text-rose-500 font-bold h-4';
+            } else if (num < 100000) {
+                helper.innerText = `Lưu ý: Số tiền tối thiểu là 100.000 VNĐ. (Đang nhập: ${new Intl.NumberFormat('vi-VN').format(num)} VNĐ)`;
+                helper.className = 'text-[11px] mt-1.5 text-rose-500 font-bold h-4';
+            } else {
+                helper.innerText = `Số tiền hợp lệ: ${new Intl.NumberFormat('vi-VN').format(num)} VNĐ`;
+                helper.className = 'text-[11px] mt-1.5 text-emerald-600 font-bold h-4';
+            }
+        }
+
+        function validatePriceInput(input) {
+            let val = input.value.replace(/\D/g, '');
+            if (val === '') {
+                const helper = document.getElementById('price-helper-text');
+                if (helper) helper.innerText = '';
+                return;
+            }
+            
+            let num = parseInt(val, 10);
+            if (num > 999000000000) num = 999000000000;
+            if (num < 100000) num = 100000;
+            
+            input.value = num;
+            formatPriceInput(input);
         }
 
         // ======================= SỰ KIỆN KHỞI TẠO & ĐÓNG MENU =======================
         document.addEventListener('DOMContentLoaded', function () {
+            
+            const editDataStr = sessionStorage.getItem('edit_post_data');
+            if (editDataStr) {
+                try {
+                    const postData = JSON.parse(editDataStr);
+                    document.getElementById('post-title').value = postData.title || '';
+                    if (postData.price) {
+                        const priceInput = document.getElementById('post-price');
+                        priceInput.value = postData.price;
+                        formatPriceInput(priceInput);
+                    }
+                    
+                    const unitSelect = document.getElementById('post-price-unit');
+                    if (unitSelect && postData.price_unit) unitSelect.value = postData.price_unit;
+                    
+                    if(postData.area) document.getElementById('post-area').value = postData.area;
+                    
+                    window.autoSelectLocation = {
+                        province: postData.province,
+                        district: postData.district,
+                        ward: postData.ward
+                    };
+                    
+                    document.getElementById('input-address').value = postData.address || '';
+                    document.getElementById('post-description').value = postData.description || '';
+                    
+                    if (postData.property_type) {
+                        const pRadio = document.querySelector(`input[name="property_type"][value="${postData.property_type}"]`);
+                        if (pRadio) pRadio.checked = true;
+                    }
+
+                    if (postData.amenities && Array.isArray(postData.amenities)) {
+                        const input = document.getElementById('amenities-input');
+                        if (input) input.value = postData.amenities.join(', ');
+                    }
+                    
+                    if (postData.images && Array.isArray(postData.images)) {
+                        existingImagesArray = postData.images;
+                        renderImagePreviews();
+                    }
+                    
+                    let hiddenInput = document.createElement('input');
+                    hiddenInput.type = 'hidden';
+                    hiddenInput.id = 'edit-post-id';
+                    hiddenInput.value = postData.id || postData._id;
+                    document.body.appendChild(hiddenInput);
+
+                    const btn = document.querySelector('button[onclick="submitPost()"]');
+                    if (btn) btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up mr-2"></i>Cập nhật thông tin';
+                    
+                    const titleH1 = document.querySelector('h1');
+                    if (titleH1) titleH1.innerHTML = 'Cập nhật bài đăng';
+
+                    sessionStorage.removeItem('edit_post_data');
+
+                    if (typeof goToStepDetails === 'function') {
+                        goToStepDetails();
+                    }
+                } catch(e) {
+                    console.error('Error parsing edit_post_data', e);
+                }
+            }
+            
             fetchProvinces();
         });
 
@@ -1114,7 +1441,7 @@
                 if (wardArrow) wardArrow.style.transform = 'rotate(0deg)';
             }
         });
-    </script>
+</script>
 </body>
 
 </html>
