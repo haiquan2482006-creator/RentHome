@@ -42,7 +42,7 @@ class UserDashboardController extends Controller
         $userId = Auth::id();
         $status = $request->query('status', 'active');
         
-        $query = Post::where('user_id', $userId);
+        $query = Post::where('user_id', $userId)->with('imageModels');
         
         if ($status === 'active') {
             $posts = $query->whereIn('status', ['active', 'approved'])->orderBy('created_at', 'desc')->get();

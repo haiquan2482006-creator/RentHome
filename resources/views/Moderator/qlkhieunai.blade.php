@@ -102,16 +102,9 @@
                             <h4 class="text-xs font-bold text-slate-400 mb-3 uppercase tracking-wide">Thông tin bài đăng bị Report</h4>
                             @if($complaint->post)
                                 @php
-                                    $post = $complaint->post;
-                                    $postImage = 'https://placehold.co/150?text=No+Image';
-                                    if ($post->images && count($post->images) > 0) {
-                                        $rawImg = $post->images[0];
-                                        if (str_starts_with($rawImg, 'http') || str_starts_with($rawImg, 'data:image')) {
-                                            $postImage = $rawImg;
-                                        } else {
-                                            $postImage = str_starts_with($rawImg, '/') ? $rawImg : '/storage/' . $rawImg;
-                                        }
-                                    }
+                                $post = $complaint->post;
+                                    // Tự động gọi Accessor thông minh từ Model Post
+                                    $postImage = $post->display_image ?: 'https://placehold.co/150?text=No+Image';
                                     $postPrice = number_format($post->price ?? 0, 0, ',', '.') . ' đ';
                                 @endphp
                                 <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-3 flex-1">
@@ -299,16 +292,9 @@
             const coverImg = document.getElementById('inv-cover');
             const thumbsContainer = document.getElementById('inv-thumbnails');
             
-            if (post.images && post.images.length > 0) {
-                const getFullUrl = (url) => (url.startsWith('http') || url.startsWith('data:image')) ? url : (url.startsWith('/') ? url : '/storage/' + url);
-                coverImg.src = getFullUrl(post.images[0]);
-                
-                let thumbsHtml = '';
-                post.images.forEach((img) => {
-                    const imgUrl = getFullUrl(img);
-                    thumbsHtml += `<div class="aspect-video bg-slate-100 rounded-lg overflow-hidden cursor-pointer border-2 border-transparent hover:border-indigo-500 transition-colors" onclick="document.getElementById('inv-cover').src='${imgUrl}'"><img src="${imgUrl}" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/800x400?text=Lỗi+Hiển+Thị'"></div>`;
-                });
-                thumbsContainer.innerHTML = thumbsHtml;
+            if (post.display_image) {
+                coverImg.src = post.display_image;
+                thumbsContainer.innerHTML = ''; // Tạm ẩn thumbnail con để tránh MongoDB văng lỗi ID
             } else {
                 coverImg.src = 'https://placehold.co/800x400?text=No+Image';
                 thumbsContainer.innerHTML = '';
@@ -331,8 +317,9 @@
             
             const imgContainer = document.getElementById('inv-complaint-image-container');
             const imgElem = document.getElementById('inv-complaint-image');
-            if (complaint.image) {
-                imgElem.src = complaint.image;
+            if (complaint.display_image) {
+                // Đã tích hợp sẵn Base64 hoặc link cũ thông qua Accessor display_image
+                imgElem.src = complaint.display_image;
                 imgContainer.classList.remove('hidden');
             } else {
                 imgContainer.classList.add('hidden');

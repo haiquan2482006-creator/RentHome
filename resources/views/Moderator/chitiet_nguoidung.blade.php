@@ -627,7 +627,14 @@
             <div class="buildings-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px;">
                 @forelse($buildings as $building)
                     <div class="building-card" style="background: #fff; border: 1px solid var(--border-color); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
-                        <img src="{{ !empty($building->image) ? (Str::startsWith($building->image, 'http') ? $building->image : asset('storage/' . $building->image)) : 'https://placehold.co/600x400?text=Building' }}" alt="{{ $building->name }}" style="width: 100%; height: 200px; object-fit: cover;">
+                        @php
+                            if ($building->imageModel) {
+                                $bImgUrl = "data:{$building->imageModel->mime_type};base64,{$building->imageModel->base64_data}";
+                            } else {
+                                $bImgUrl = !empty($building->image) ? (Str::startsWith($building->image, 'http') ? $building->image : asset('storage/' . $building->image)) : 'https://placehold.co/600x400?text=Building';
+                            }
+                        @endphp
+                        <img src="{{ $bImgUrl }}" alt="{{ $building->name }}" style="width: 100%; height: 200px; object-fit: cover;">
                         <div style="padding: 16px; display: flex; flex-direction: column; flex: 1;">
                             <h3 style="font-size: 1.1rem; font-weight: 800; color: var(--text-primary); margin: 0 0 8px 0; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;">{{ $building->name }}</h3>
                             
@@ -677,7 +684,7 @@
             <div class="posts-grid">
                 @forelse($posts as $post)
                     <div class="post-card" id="post-card-{{ $post->id }}">
-                        <img src="{{ $post->thumb }}" alt="{{ $post->title }}" class="post-thumb">
+                       <img src="{{ $post->display_image }}" alt="{{ $post->title }}" class="post-thumb">
                         
                         <div>
                             <div class="post-title">

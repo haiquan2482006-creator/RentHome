@@ -1082,7 +1082,8 @@
                         const userBadgeClass = (post.user && post.user.account_type === 'enterprise') ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-slate-50 text-slate-500 border border-slate-200';
                         const userIconColor = (post.user && post.user.account_type === 'enterprise') ? 'text-blue-500 bg-blue-50' : 'text-slate-500 bg-slate-100';
                         const userIcon = (post.user && post.user.account_type === 'enterprise') ? 'fa-building' : 'fa-user';
-                        const imgUrl = (post.images && post.images.length > 0) ? post.images[0] : 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80';
+                        // ĐOẠN CODE MỚI
+                        let imgUrl = post.display_image || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80';
                         let unitText = 'đ/tháng';
                         if (post.price_unit === 'nam') unitText = 'đ/năm';
                         else if (post.price_unit === 'm2') unitText = 'đ/m²';

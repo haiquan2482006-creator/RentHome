@@ -1734,7 +1734,7 @@
                 if (data && data.buildings && data.buildings.length > 0) {
                     container.innerHTML = '';
                     data.buildings.forEach(building => {
-                        const imgUrl = building.image ? (building.image.startsWith('http') || building.image.startsWith('/') ? building.image : '/storage/' + building.image) : 'https://placehold.co/600x400?text=Building';
+                        const imgUrl = building.display_image || 'https://placehold.co/600x400?text=Building';
                         const addrParts = [];
                         if (building.address_detail) addrParts.push(building.address_detail);
                         if (building.ward) addrParts.push(building.ward);
@@ -1819,7 +1819,7 @@ function fetchActivePosts() {
                 window.allPosts = window.allPosts || {};
                 html = data.posts.map(post => {
                 window.allPosts[post.id || post._id] = post;
-                const imgUrl = (post.images && post.images.length > 0) ? (post.images[0].startsWith('http') || post.images[0].startsWith('/') ? post.images[0] : '/storage/' + post.images[0]) : 'https://via.placeholder.com/150';
+                const imgUrl = post.display_image || 'https://via.placeholder.com/150';
                 const price = new Intl.NumberFormat('vi-VN').format(post.price) + ' đ';
                 return `
                     <tr class="hover:bg-slate-50 transition-colors">
@@ -1888,7 +1888,7 @@ function fetchPendingPosts() {
 
             tbody.innerHTML = data.posts.map(post => {
                 window.allPosts[post.id || post._id] = post;
-                const imgUrl = (post.images && post.images.length > 0) ? (post.images[0].startsWith('http') || post.images[0].startsWith('/') ? post.images[0] : '/storage/' + post.images[0]) : 'https://via.placeholder.com/150';
+                const imgUrl = post.display_image || 'https://via.placeholder.com/150';
                 const price = new Intl.NumberFormat('vi-VN').format(post.price) + ' đ';
                 return `
                     <tr class="hover:bg-slate-50 transition-colors">
@@ -1941,7 +1941,7 @@ function fetchHistoryPosts() {
             }
 
             tbody.innerHTML = allHistory.map(post => {
-                const imgUrl = (post.images && post.images.length > 0) ? (post.images[0].startsWith('http') || post.images[0].startsWith('/') ? post.images[0] : '/storage/' + post.images[0]) : 'https://via.placeholder.com/150';
+                const imgUrl = post.display_image || 'https://via.placeholder.com/150';
                 const price = new Intl.NumberFormat('vi-VN').format(post.price) + ' đ';
                 const isApproved = (post.status === 'active' || post.status === 'approved');
                 

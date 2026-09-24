@@ -46,10 +46,15 @@ class BuildingController extends Controller
             // Xử lý lưu File Ảnh đại diện (Nếu có chọn ảnh)
             if ($request->hasFile('image')) {
                 $file = $request->file('image');
-                $path = $file->store('buildings', 'public');
-                $data['image'] = $path; // Lưu đường dẫn ảnh vào DB
+                $base64Data = base64_encode(file_get_contents($file->getRealPath()));
+                $mimeType = $file->getMimeType();
+                
+                $newImage = \App\Models\Image::create([
+                    'base64_data' => $base64Data,
+                    'mime_type' => $mimeType
+                ]);
+                $data['image'] = $newImage->_id; // Lưu ID ảnh vào DB
             }
-
             // LƯU VÀO DATABASE
             $building = Building::create($data);
 

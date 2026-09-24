@@ -15,7 +15,11 @@
 <body class="antialiased text-slate-800 pb-20">
 
     @php
-        $imgUrl = $building->image ? (Str::startsWith($building->image, 'http') ? $building->image : asset('storage/' . $building->image)) : 'https://placehold.co/1200x400?text=Building';
+        if ($building->imageModel) {
+            $imgUrl = "data:{$building->imageModel->mime_type};base64,{$building->imageModel->base64_data}";
+        } else {
+            $imgUrl = $building->image ? (Str::startsWith($building->image, 'http') ? $building->image : asset('storage/' . $building->image)) : 'https://placehold.co/1200x400?text=Building';
+        }
         
         $addrParts = array_filter([$building->address_detail, $building->ward, $building->district, $building->province]);
         $fullAddress = implode(', ', $addrParts);
@@ -110,16 +114,8 @@
                         <tbody class="divide-y divide-slate-100">
                             @forelse($rooms as $room)
                                 <tr class="hover:bg-slate-50/80 transition-colors group">
-                                    @php
-                                        $imgUrl = 'https://placehold.co/150?text=No+Image';
-                                        if (!empty($room->images) && is_array($room->images) && count($room->images) > 0) {
-                                            $rawImg = $room->images[0];
-                                            if (str_starts_with($rawImg, 'http') || str_starts_with($rawImg, 'data:image')) {
-                                                $imgUrl = $rawImg;
-                                            } else {
-                                                $imgUrl = str_starts_with($rawImg, '/') ? $rawImg : '/storage/' . $rawImg;
-                                            }
-                                        }
+                                   @php
+                                        $imgUrl = $room->display_image ?: 'https://placehold.co/150?text=No+Image';
                                     @endphp
                                     <!-- Mã phòng hoặc ID bài đăng -->
                                     <td class="p-4 font-bold text-slate-800">#{{ substr($room->id ?? $room->_id, -5) }}</td>

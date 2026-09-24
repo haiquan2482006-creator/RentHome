@@ -383,6 +383,7 @@ Route::get('/moderator/chitiet-nguoidung/{id}', function ($id) {
     // 4. LẤY DỮ LIỆU BÀI ĐĂNG THẬT TỪ DATABASE
     // Móc những bài đăng do chính user ($id) này tạo ra
     $posts = \App\Models\Post::where('user_id', $id)
+                             ->with('imageModels')
                              ->orderBy('created_at', 'desc')
                              ->get();
 

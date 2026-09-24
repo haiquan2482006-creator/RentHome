@@ -326,18 +326,7 @@
                 window.pendingPostsData = data.posts;
                 let html = '';
                 data.posts.forEach(post => {
-                    // 1. FIX LỖI ẢNH: Phân loại đường dẫn ảnh
-                    let imgUrl = 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=400&q=80'; // Ảnh mặc định
-                    if (post.images && post.images.length > 0) {
-                        let rawImg = post.images[0];
-                        // Nếu ảnh là link web (http) hoặc mã Base64 thì giữ nguyên
-                        if (rawImg.startsWith('http') || rawImg.startsWith('data:image')) {
-                            imgUrl = rawImg;
-                        } else {
-                            // Nếu lưu ở server nội bộ, tự động nối thêm /storage/
-                            imgUrl = rawImg.startsWith('/') ? rawImg : '/storage/' + rawImg; 
-                        }
-                    }
+                    let imgUrl = post.display_image || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=400&q=80'
 
                     // 2. FIX LỖI UNDEFINED ID: Bắt cả 'id' (Laravel) và '_id' (MongoDB)
                     const postId = post.id || post._id || 'N/A';
@@ -454,16 +443,9 @@
             const coverImg = document.getElementById('preview-cover-img');
             const thumbnailsContainer = document.getElementById('preview-thumbnails');
             
-            if (post.images && post.images.length > 0) {
-                coverImg.src = getFullImageUrl(post.images[0]);
-                
-                let thumbsHtml = '';
-                post.images.forEach((img, idx) => {
-                    const imgUrl = getFullImageUrl(img);
-                    // Dùng style inline đơn giản cho border-color vì hover group khó quản lý
-                    thumbsHtml += `<div class="w-full h-16 bg-slate-100 rounded-lg overflow-hidden cursor-pointer border-2 border-transparent hover:border-sky-500 transition-colors" onclick="document.getElementById('preview-cover-img').src='${imgUrl}'"><img src="${imgUrl}" class="w-full h-full object-cover"></div>`;
-                });
-                thumbnailsContainer.innerHTML = thumbsHtml;
+            if (post.display_image) {
+                coverImg.src = post.display_image;
+                thumbnailsContainer.innerHTML = ''; // Tạm ẩn thumbnail để tránh lỗi load MongoDB ID
             } else {
                 coverImg.src = 'https://placehold.co/800x400?text=No+Image';
                 thumbnailsContainer.innerHTML = '';

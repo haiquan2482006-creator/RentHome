@@ -20,17 +20,29 @@ class ComplaintController extends Controller
             'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120'
         ]);
 
-        $imagePath = null;
+        $imageId = null;
+
+        // ĐOẠN NÀY ĐÃ ĐƯỢC SỬA ĐỂ LƯU VÀO DATABASE
         if ($request->hasFile('image')) {
-            $path = $request->file('image')->store('complaints', 'public');
-            $imagePath = '/storage/' . $path;
+            $file = $request->file('image');
+            $base64Data = base64_encode(file_get_contents($file->getRealPath()));
+            $mimeType = $file->getMimeType();
+
+            // Lưu trực tiếp ảnh thành chuỗi Base64 vào Collection Images trong MongoDB
+            $newImage = \App\Models\Image::create([
+                'base64_data' => $base64Data,
+                'mime_type' => $mimeType
+            ]);
+
+            // Lấy ID của ảnh vừa tạo
+            $imageId = $newImage->_id;
         }
 
         $complaint = Complaint::create([
             'user_id' => Auth::id(),
             'post_id' => $request->input('post_id'),
             'content' => $request->input('content'),
-            'image' => $imagePath,
+            'image' => $imageId, // LƯU ID CỦA MONGODB
             'status' => 'pending',
             'type' => 'appeal'
         ]);

@@ -46,8 +46,15 @@ class PostController extends Controller
         if ($request->hasFile('images')) {
             $newPaths = [];
             foreach ($request->file('images') as $image) {
-                $path = $image->store('posts', 'public');
-                $newPaths[] = '/storage/' . $path;
+                $base64Data = base64_encode(file_get_contents($image->getRealPath()));
+                $mimeType = $image->getMimeType();
+                
+                $newImage = \App\Models\Image::create([
+                    'base64_data' => $base64Data,
+                    'mime_type' => $mimeType
+                ]);
+                
+                $newPaths[] = $newImage->_id;
             }
             // Replace images completely if new ones are uploaded for simplicity
             $imagePaths = $newPaths; 
@@ -89,7 +96,7 @@ class PostController extends Controller
 
     public function getApproved()
     {
-        $posts = Post::with('user')->where('status', 'approved')->orderBy('created_at', 'desc')->get();
+        $posts = Post::with(['user', 'imageModels'])->where('status', 'approved')->orderBy('created_at', 'desc')->get();
         return response()->json(['posts' => $posts]);
     }
 }

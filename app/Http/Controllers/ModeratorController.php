@@ -10,7 +10,12 @@ class ModeratorController extends Controller
 {
     public function getPending()
     {
-        $posts = Post::with(['user', 'building'])->where('status', 'pending')->orderBy('created_at', 'desc')->get();
+        // THÊM 'imageModels' VÀO TRONG MẢNG WITH
+        $posts = Post::with(['user', 'building', 'imageModels'])
+            ->where('status', 'pending')
+            ->orderBy('created_at', 'desc')
+            ->get();
+            
         return response()->json(['posts' => $posts]);
     }
 
@@ -73,7 +78,12 @@ class ModeratorController extends Controller
 
     public function getHistory()
     {
-        $posts = Post::with('user')->whereIn('status', ['approved', 'rejected'])->orderBy('updated_at', 'desc')->get();
+        // THÊM 'imageModels' VÀO TRONG MẢNG WITH
+        $posts = Post::with(['user', 'imageModels'])
+            ->whereIn('status', ['approved', 'rejected'])
+            ->orderBy('updated_at', 'desc')
+            ->get();
+            
         return response()->json(['posts' => $posts]);
     }
 
