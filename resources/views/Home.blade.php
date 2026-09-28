@@ -310,10 +310,14 @@
             <!-- Dữ liệu nhà cho thuê sẽ được load bằng Javascript (fetchRealPosts) -->
         </div>
 
-        <div class="mt-12 text-center">
-            <a href="#"
+        <div class="mt-12 text-center" id="load-more-container">
+            <button id="load-more-btn" onclick="loadMorePosts()"
                 class="inline-flex items-center gap-2 px-8 py-3.5 rounded-2xl bg-white border border-slate-300 hover:border-brand-500 font-bold text-sm text-slate-800 hover:text-brand-600 shadow-sm hover:shadow-md transition-all">
                 Xem thêm các căn nhà khác <i class="fa-solid fa-chevron-down"></i>
+            </button>
+            <a href="/baidang" id="go-to-baidang-btn"
+                class="hidden inline-flex items-center gap-2 px-8 py-3.5 rounded-2xl bg-brand-600 border border-brand-600 hover:bg-brand-700 font-bold text-sm text-white shadow-sm hover:shadow-md transition-all">
+                Xem thêm <i class="fa-solid fa-arrow-right"></i>
             </a>
         </div>
     </section>
@@ -1061,8 +1065,11 @@
             }
             return [];
         }
+        let allRealPosts = [];
+        let currentDisplayCount = 6;
+        let hasLoadedMore = false;
 
-                async function fetchRealPosts() {
+        async function fetchRealPosts() {
             const container = document.getElementById('real-posts-container');
             if (!container) return;
             try {
@@ -1072,11 +1079,30 @@
                     const posts = data.posts || [];
                     if (!Array.isArray(posts) || posts.length === 0) {
                         container.innerHTML = '<p class="col-span-full text-center text-slate-500 py-10">Hiện chưa có bài đăng nào.</p>';
+                        const loadMoreContainer = document.getElementById('load-more-container');
+                        if (loadMoreContainer) loadMoreContainer.style.display = 'none';
                         return;
                     }
                     
-                    let html = '';
-                    posts.forEach(post => {
+                    allRealPosts = posts;
+                    renderPosts();
+                } else {
+                    container.innerHTML = '<p class="col-span-full text-center text-rose-500 py-10">Lỗi khi tải dữ liệu bài đăng!</p>';
+                }
+            } catch (error) {
+                console.error('Error fetching real posts:', error);
+            }
+        }
+
+        function renderPosts() {
+            const container = document.getElementById('real-posts-container');
+            const loadMoreBtn = document.getElementById('load-more-btn');
+            const goToBaidangBtn = document.getElementById('go-to-baidang-btn');
+            
+            let html = '';
+            const postsToShow = allRealPosts.slice(0, currentDisplayCount);
+            
+            postsToShow.forEach(post => {
                                                 const userName = post.user ? (post.user.account_name || post.user.username) : 'Người dùng';
                         const userType = post.user ? (post.user.account_type === 'enterprise' ? 'Doanh nghiệp' : 'Cá nhân') : 'Cá nhân';
                         const userBadgeClass = (post.user && post.user.account_type === 'enterprise') ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-slate-50 text-slate-500 border border-slate-200';
@@ -1088,7 +1114,7 @@
                         if (post.price_unit === 'nam') unitText = 'đ/năm';
                         else if (post.price_unit === 'm2') unitText = 'đ/m²';
                         else if (post.price_unit === 'tong') unitText = 'VNĐ';
-                        const price = new Intl.NumberFormat('vi-VN').format(post.price) + ' ' + unitText;
+                        const price = new Intl.NumberFormat('vi-VN').format(Number(post.price) || 0) + ' ' + unitText;
                         const address = [post.address, post.ward, post.district, post.province].filter(Boolean).join(', ');
                         
                         html += `
@@ -1132,11 +1158,24 @@
                         `;
                     });
                     container.innerHTML = html;
-                } else {
-                    container.innerHTML = '<p class="col-span-full text-center text-rose-500 py-10">Lỗi khi tải dữ liệu bài đăng!</p>';
-                }
-            } catch (error) {
-                console.error('Error fetching real posts:', error);
+
+            if (!loadMoreBtn || !goToBaidangBtn) return;
+
+            if (hasLoadedMore) {
+                loadMoreBtn.style.display = 'none';
+                goToBaidangBtn.style.display = 'inline-flex';
+                goToBaidangBtn.classList.remove('hidden');
+            } else {
+                loadMoreBtn.style.display = 'inline-flex';
+                goToBaidangBtn.style.display = 'none';
+            }
+        }
+
+        function loadMorePosts() {
+            if (!hasLoadedMore) {
+                currentDisplayCount = 12;
+                hasLoadedMore = true;
+                renderPosts();
             }
         }
 
@@ -1453,22 +1492,6 @@
             closeAuthModal();
         }
 
-        // Xử lý đóng/mở Dropdown Menu tài khoản người dùng
-        function toggleUserDropdown(event) {
-            event.stopPropagation();
-            const menu = document.getElementById('user-dropdown-menu');
-            if (menu) {
-                menu.classList.toggle('hidden');
-            }
-        }
-
-        document.addEventListener('click', function(event) {
-            const container = document.getElementById('user-dropdown-container');
-            const menu = document.getElementById('user-dropdown-menu');
-            if (container && menu && !container.contains(event.target)) {
-                menu.classList.add('hidden');
-            }
-        });
 
         // Dữ liệu 63 Tỉnh / Thành phố Việt Nam
         const vietnamLocations = {

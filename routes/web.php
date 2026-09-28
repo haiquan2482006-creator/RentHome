@@ -7,6 +7,10 @@ Route::get('/', function () {
     return view('Home');
 });
 
+Route::get('/baidang', function () {
+    return view('baidang');
+});
+
 Route::get('/Admin', function (){
     $recentUsers = \App\Models\User::where(function ($q) {
             $q->whereNull('role')->orWhere('role', '!=', 'admin');
@@ -473,6 +477,7 @@ Route::get('/moderator/toa-nha/{id}', function ($id) {
 // APIs for Posts
 Route::post('/api/posts', [\App\Http\Controllers\PostController::class, 'store'])->name('posts.store');
 Route::get('/api/posts/approved', [\App\Http\Controllers\PostController::class, 'getApproved'])->name('posts.approved');
+Route::get('/api/posts/featured', [\App\Http\Controllers\PostController::class, 'getFeatured'])->name('posts.featured');
 
 // APIs for Complaints
 Route::post('/api/complaints', [\App\Http\Controllers\ComplaintController::class, 'store'])->name('complaints.store');

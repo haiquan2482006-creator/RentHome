@@ -42,24 +42,24 @@
 
         <!-- Navigation Links (Đã thêm hiệu ứng gạch ngang khi hover) -->
         <nav class="hidden md:flex items-center gap-8">
-            <a href="#hero"
+            <a href="/#hero"
                 class="relative py-1 text-sm font-semibold transition-colors after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5"
                 style="color: {{ $tColor }}; --tw-after-bg: {{ $tColor }}">
                 Trang chủ
             </a>
-            <a href="#featured"
+            <a href="/#featured"
                 class="relative py-1 text-sm font-medium text-slate-600 hover:text-brand-600 transition-colors after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-brand-600 hover:after:w-full after:transition-all after:duration-300">
                 Nhà nổi bật
             </a>
-            <a href="#features"
+            <a href="/#features"
                 class="relative py-1 text-sm font-medium text-slate-600 hover:text-brand-600 transition-colors after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-brand-600 hover:after:w-full after:transition-all after:duration-300">
                 Ưu điểm
             </a>
-            <a href="#news"
+            <a href="/#news"
                 class="relative py-1 text-sm font-medium text-slate-600 hover:text-brand-600 transition-colors after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-brand-600 hover:after:w-full after:transition-all after:duration-300">
                 Tin tức
             </a>
-            <a href="#contact"
+            <a href="/#contact"
                 class="relative py-1 text-sm font-medium text-slate-600 hover:text-brand-600 transition-colors after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-brand-600 hover:after:w-full after:transition-all after:duration-300">
                 Liên hệ
             </a>
@@ -185,3 +185,21 @@
 
     </div>
 </header>
+
+<script>
+    function toggleUserDropdown(event) {
+        if (event) event.stopPropagation();
+        const menu = document.getElementById('user-dropdown-menu');
+        if (menu) {
+            menu.classList.toggle('hidden');
+        }
+    }
+
+    document.addEventListener('click', function(event) {
+        const container = document.getElementById('user-dropdown-container');
+        const menu = document.getElementById('user-dropdown-menu');
+        if (container && menu && !container.contains(event.target)) {
+            menu.classList.add('hidden');
+        }
+    });
+</script>

@@ -99,4 +99,25 @@ class PostController extends Controller
         $posts = Post::with(['user', 'imageModels'])->where('status', 'approved')->orderBy('created_at', 'desc')->get();
         return response()->json(['posts' => $posts]);
     }
+
+    public function getFeatured()
+    {
+        $posts = Post::with(['user', 'imageModels'])->where('status', 'approved')->orderBy('created_at', 'desc')->take(5)->get();
+        // The frontend expects the array of featured posts directly, or we can map it to match the expected format
+        $mapped = $posts->map(function($post) {
+            return [
+                'id' => $post->id,
+                'title' => $post->title,
+                'price' => number_format($post->price, 0, ',', '.') . ' VNĐ',
+                'location' => implode(', ', array_filter([$post->address, $post->ward, $post->district, $post->province])),
+                'image' => $post->display_image ?? 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80',
+                'tag' => 'NỔI BẬT',
+                'beds' => '2 PN',
+                'baths' => '2 WC',
+                'area' => $post->area . ' m²',
+                'note' => 'Đã kiểm duyệt bởi Ban Quản Lý',
+            ];
+        });
+        return response()->json($mapped);
+    }
 }
