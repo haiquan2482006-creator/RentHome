@@ -280,6 +280,53 @@
         </div>
     </section>
 
+    <!-- Featured Posts Slider Section (Bài Đăng Nổi Bật Được Ban Quản Lý Chọn) -->
+    <section id="featured-posts-section"
+        class="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto my-12 bg-slate-100/60 rounded-3xl border border-slate-200/60 relative">
+        <div class="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+            <div>
+                <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 font-extrabold text-xs uppercase tracking-wider mb-2">
+                    <i class="fa-solid fa-star text-amber-500"></i> Bài đăng nổi bật
+                </div>
+                <h2 class="text-3xl font-black text-slate-900 mt-1">Bất Động Sản Nổi Bật </h2>
+                <p class="text-xs sm:text-sm text-slate-500 font-semibold mt-1">
+                    Danh sách các bài đăng uy tín, chất lượng cao do Ban Quản Lý lựa chọn & ưu tiên hiển thị
+                </p>
+            </div>
+
+            <!-- Action controls & Admin Add Button -->
+            <div class="flex flex-wrap items-center justify-between sm:justify-end gap-3">
+                @if(Auth::check() && ((Auth::user()->account_type ?? '') === 'admin' || (Auth::user()->role ?? '') === 'admin'))
+                <!-- Admin Add Featured Post Button -->
+                <button onclick="openAddFeaturedModal()"
+                    class="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs shadow-md hover:shadow-lg transition-all flex items-center gap-2 group cursor-pointer">
+                    <i class="fa-solid fa-plus-circle text-sm group-hover:rotate-90 transition-transform duration-300"></i>
+                    <span>Thêm bài đăng nổi bật</span>
+                </button>
+                @endif
+
+                <!-- Navigation Slider Arrows -->
+                <div class="flex items-center gap-2">
+                    <button onclick="scrollFeaturedPosts('left')" aria-label="Trượt sang trái"
+                        class="w-10 h-10 rounded-2xl bg-white border border-slate-200 shadow-sm hover:bg-slate-50 text-slate-700 flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer">
+                        <i class="fa-solid fa-chevron-left text-sm"></i>
+                    </button>
+                    <button onclick="scrollFeaturedPosts('right')" aria-label="Trượt sang phải"
+                        class="w-10 h-10 rounded-2xl bg-white border border-slate-200 shadow-sm hover:bg-slate-50 text-slate-700 flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer">
+                        <i class="fa-solid fa-chevron-right text-sm"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slider Container for Featured Posts -->
+        <div id="featured-posts-slider" class="overflow-hidden relative w-full py-2 min-h-[460px]">
+            <div id="featured-posts-track" class="flex gap-6 w-max">
+                <!-- Dynamic JavaScript content generated via renderFeaturedPostsSection() -->
+            </div>
+        </div>
+    </section>
+
     <!-- Featured Properties Grid Section -->
     <section id="featured"
         class="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto bg-slate-100/60 rounded-3xl border border-slate-200/60">
@@ -289,20 +336,7 @@
                 <h2 class="text-3xl font-black text-slate-900 mt-1">Danh Sách Nhà Cho Thuê </h2>
             </div>
 
-            <!-- Quick Filter Tags -->
-            <div class="mt-4 md:mt-0 flex items-center gap-2 overflow-x-auto pb-2">
-                <button class="px-4 py-2 rounded-xl bg-brand-600 text-white font-bold text-xs shadow-sm">Tất
-                    cả</button>
-                <button
-                    class="px-4 py-2 rounded-xl bg-white text-slate-600 hover:bg-slate-200 font-semibold text-xs transition-colors">TP.
-                    Hồ Chí Minh</button>
-                <button
-                    class="px-4 py-2 rounded-xl bg-white text-slate-600 hover:bg-slate-200 font-semibold text-xs transition-colors">Hà
-                    Nội</button>
-                <button
-                    class="px-4 py-2 rounded-xl bg-white text-slate-600 hover:bg-slate-200 font-semibold text-xs transition-colors">Đà
-                    Nẵng</button>
-            </div>
+
         </div>
 
         <!-- Property Grid -->
@@ -399,52 +433,7 @@
         </div>
     </section>
 
-    <!-- Featured Posts Slider Section (Bài Đăng Nổi Bật Được Ban Quản Lý Chọn) -->
-    <section id="featured-posts-section"
-        class="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto my-12 bg-slate-100/60 rounded-3xl border border-slate-200/60 relative">
-        <div class="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
-            <div>
-                <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 font-extrabold text-xs uppercase tracking-wider mb-2">
-                    <i class="fa-solid fa-star text-amber-500"></i> Bài đăng nổi bật
-                </div>
-                <h2 class="text-3xl font-black text-slate-900 mt-1">Bất Động Sản Nổi Bật </h2>
-                <p class="text-xs sm:text-sm text-slate-500 font-semibold mt-1">
-                    Danh sách các bài đăng uy tín, chất lượng cao do Ban Quản Lý lựa chọn & ưu tiên hiển thị
-                </p>
-            </div>
 
-            <!-- Action controls & Admin Add Button -->
-            <div class="flex flex-wrap items-center justify-between sm:justify-end gap-3">
-                @if(Auth::check() && ((Auth::user()->account_type ?? '') === 'admin' || (Auth::user()->role ?? '') === 'admin'))
-                <!-- Admin Add Featured Post Button -->
-                <button onclick="openAddFeaturedModal()"
-                    class="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs shadow-md hover:shadow-lg transition-all flex items-center gap-2 group cursor-pointer">
-                    <i class="fa-solid fa-plus-circle text-sm group-hover:rotate-90 transition-transform duration-300"></i>
-                    <span>Thêm bài đăng nổi bật</span>
-                </button>
-                @endif
-
-                <!-- Navigation Slider Arrows -->
-                <div class="flex items-center gap-2">
-                    <button onclick="scrollFeaturedPosts('left')" aria-label="Trượt sang trái"
-                        class="w-10 h-10 rounded-2xl bg-white border border-slate-200 shadow-sm hover:bg-slate-50 text-slate-700 flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer">
-                        <i class="fa-solid fa-chevron-left text-sm"></i>
-                    </button>
-                    <button onclick="scrollFeaturedPosts('right')" aria-label="Trượt sang phải"
-                        class="w-10 h-10 rounded-2xl bg-white border border-slate-200 shadow-sm hover:bg-slate-50 text-slate-700 flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer">
-                        <i class="fa-solid fa-chevron-right text-sm"></i>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Slider Container for Featured Posts -->
-        <div id="featured-posts-slider" class="overflow-hidden relative w-full py-2 min-h-[460px]">
-            <div id="featured-posts-track" class="flex gap-6 w-max">
-                <!-- Dynamic JavaScript content generated via renderFeaturedPostsSection() -->
-            </div>
-        </div>
-    </section>
 
     <!-- News & Market Updates Section (Larger Frame Grid Layout) -->
     <section id="news" class="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -1104,10 +1093,10 @@
             
             postsToShow.forEach(post => {
                                                 const userName = post.user ? (post.user.account_name || post.user.username) : 'Người dùng';
-                        const userType = post.user ? (post.user.account_type === 'enterprise' ? 'Doanh nghiệp' : 'Cá nhân') : 'Cá nhân';
-                        const userBadgeClass = (post.user && post.user.account_type === 'enterprise') ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-slate-50 text-slate-500 border border-slate-200';
-                        const userIconColor = (post.user && post.user.account_type === 'enterprise') ? 'text-blue-500 bg-blue-50' : 'text-slate-500 bg-slate-100';
-                        const userIcon = (post.user && post.user.account_type === 'enterprise') ? 'fa-building' : 'fa-user';
+                        const userType = post.user ? (post.user.account_type === 'doanhnghiep' ? 'Doanh nghiệp' : 'Cá nhân') : 'Cá nhân';
+                        const userBadgeClass = (post.user && post.user.account_type === 'doanhnghiep') ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-slate-50 text-slate-500 border border-slate-200';
+                        const userIconColor = (post.user && post.user.account_type === 'doanhnghiep') ? 'text-blue-500 bg-blue-50' : 'text-slate-500 bg-slate-100';
+                        const userIcon = (post.user && post.user.account_type === 'doanhnghiep') ? 'fa-building' : 'fa-user';
                         // ĐOẠN CODE MỚI
                         let imgUrl = post.display_image || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80';
                         let unitText = 'đ/tháng';
@@ -1150,7 +1139,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <a href="#" class="block w-full text-center py-2.5 rounded-xl bg-brand-50 hover:bg-brand-600 text-brand-600 hover:text-white font-bold text-sm transition-all duration-300 border border-brand-100 hover:border-brand-600">
+                                    <a href="/chitietbaidang/${post.id}" class="block w-full text-center py-2.5 rounded-xl bg-brand-50 hover:bg-brand-600 text-brand-600 hover:text-white font-bold text-sm transition-all duration-300 border border-brand-100 hover:border-brand-600">
                                         Xem chi tiết
                                     </a>
                                 </div>
@@ -1263,7 +1252,7 @@
                             <span class="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
                                 <i class="fa-solid fa-circle-check text-[10px]"></i> Ưu tiên hiển thị
                             </span>
-                            <button onclick="openModal('${post.title.replace(/'/g, "\\'")}', '${post.price}', '${post.location.replace(/'/g, "\\'")}')"
+                            <button onclick="window.location.href='/chitietbaidang/${post.id}'"
                                 class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-amber-500 text-white text-xs font-bold transition-colors shadow-sm cursor-pointer">
                                 Xem chi tiết
                             </button>
