@@ -27,8 +27,7 @@ class AiChatController extends Controller
         $userMessage = trim($request->input('message'));
         $history = session()->get('ai_chat_history', []);
 
-        $currentUser = \Illuminate\Support\Facades\Auth::user();
-        $result = $this->aiService->ask($userMessage, $history, $currentUser);
+        $result = $this->aiService->ask($userMessage, $history);
 
         // Lưu lịch sử hội thoại vào session
         $history[] = ['role' => 'user', 'text' => $userMessage];
