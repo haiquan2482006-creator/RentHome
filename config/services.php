@@ -35,9 +35,11 @@ return [
         ],
     ],
 
-    'gemini' => [
-        'api_key' => env('GEMINI_API_KEY'),
-        'model' => env('GEMINI_MODEL', 'gemini-2.5-flash'),
+    'kiraai' => [
+        'api_key' => env('KIRAAI_API_KEY'),
+        'base_url' => env('KIRAAI_BASE_URL', 'https://kiraai.vn/api/v1'),
+        'model' => env('KIRAAI_MODEL', 'gemini-3.8-flash'),
     ],
 
 ];
+
