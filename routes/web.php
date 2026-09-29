@@ -19,6 +19,13 @@ Route::get('/chitietbaidang/{id}', function ($id) {
     return view('chitietbaidang', compact('post'));
 })->name('post.detail');
 
+Route::get('/trangcanhanuser', function () {
+    if (!\Illuminate\Support\Facades\Auth::check()) {
+        return redirect()->route('login')->with('error', 'Vui lòng đăng nhập để truy cập trang cá nhân.');
+    }
+    return view('trangcanhanuser');
+})->name('user.dashboard');
+
 Route::get('/Admin', function (){
     $recentUsers = \App\Models\User::where(function ($q) {
             $q->whereNull('role')->orWhere('role', '!=', 'admin');

@@ -131,7 +131,7 @@
                             </div>
                         </div>
 
-                        <a href="#"
+                        <a href="{{ route('user.dashboard') }}"
                             class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
                             <i class="fa-solid fa-circle-user text-brand-600 w-4 text-center"></i>
                             <span>Tài khoản</span>

@@ -137,6 +137,8 @@
         </div>
     </header>
 
+    @include('partials.sidebar-user', ['isDrawer' => true])
+
     <!-- Overlay for Mobile Sidebar -->
     <div id="sidebar-overlay" onclick="toggleSidebar()"
         class="fixed inset-0 bg-slate-950/50 backdrop-blur-sm z-40 hidden md:hidden"></div>
@@ -165,8 +167,9 @@
                 </div>
 
                 <!-- User Account Information Card -->
-                <div
-                    class="p-3.5 rounded-2xl {{ $isEnterprise ? 'bg-gradient-to-br from-purple-50 to-indigo-50/50 border border-purple-100' : 'bg-gradient-to-br from-emerald-50 to-teal-50/50 border border-emerald-100' }} flex items-center gap-3 shadow-xs">
+                <!-- User Account Information Card -->
+                <button onclick="toggleGlobalSidebar()"
+                    class="w-full text-left p-3.5 rounded-2xl {{ $isEnterprise ? 'bg-gradient-to-br from-purple-50 to-indigo-50/50 border border-purple-100 hover:border-purple-300' : 'bg-gradient-to-br from-emerald-50 to-teal-50/50 border border-emerald-100 hover:border-emerald-300' }} flex items-center gap-3 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer">
                     <div
                         class="w-10 h-10 rounded-xl {{ $isEnterprise ? 'bg-purple-600 text-white' : 'bg-brand-600 text-white' }} flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
                         <i class="fa-solid {{ $isEnterprise ? 'fa-briefcase' : 'fa-user' }}"></i>
@@ -181,7 +184,7 @@
                                 class="text-[11px] font-semibold {{ $isEnterprise ? 'text-purple-700' : 'text-emerald-700' }}">{{ $subTitle }}</span>
                         </div>
                     </div>
-                </div>
+                </button>
 
                 <!-- Vertical Navigation Menu -->
                 <nav class="space-y-1.5">
