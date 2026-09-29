@@ -203,3 +203,6 @@
         }
     });
 </script>
+
+<!-- RentHome AI Assistant Chat Widget -->
+@include('partials.ai-chat-widget')
