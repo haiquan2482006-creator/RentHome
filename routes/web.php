@@ -501,9 +501,3 @@ Route::get('/api/user/posts/history', [\App\Http\Controllers\UserDashboardContro
 Route::get('/api/buildings', [\App\Http\Controllers\BuildingController::class, 'index']);
 Route::post('/api/buildings', [\App\Http\Controllers\BuildingController::class, 'store']);
 Route::get('/quan-ly-toa-nha/{id}', [\App\Http\Controllers\BuildingController::class, 'show']);
-
-// ========================================================
-// RentHome AI Assistant Routes
-// ========================================================
-Route::post('/ai/chat', [\App\Http\Controllers\AiChatController::class, 'sendMessage'])->name('ai.chat');
-Route::post('/ai/reset', [\App\Http\Controllers\AiChatController::class, 'resetChat'])->name('ai.reset');

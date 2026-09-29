@@ -8,40 +8,38 @@ use Illuminate\Support\Facades\Log;
 
 class RentHomeAiService
 {
-    protected ?string $kiraApiKey;
-    protected string $kiraBaseUrl;
-    protected string $kiraModel;
+    protected ?string $geminiApiKey;
+    protected string $geminiModel;
 
     public function __construct()
     {
-        $this->kiraApiKey = config('services.kiraai.api_key') ?: env('KIRAAI_API_KEY');
-        $this->kiraBaseUrl = config('services.kiraai.base_url', 'https://kiraai.vn/api/v1') ?: env('KIRAAI_BASE_URL', 'https://kiraai.vn/api/v1');
-        $this->kiraModel = config('services.kiraai.model', 'gemini-3.8-flash') ?: env('KIRAAI_MODEL', 'gemini-3.8-flash');
+        $this->geminiApiKey = config('services.gemini.api_key') ?: env('GEMINI_API_KEY');
+        $this->geminiModel = config('services.gemini.model', 'gemini-3.8-flash') ?: env('GEMINI_MODEL', 'gemini-3.8-flash');
     }
 
     /**
-     * Xử lý tin nhắn người dùng và trả về câu trả lời + danh sách phòng gợi ý
+     * Xử lý tin nhắn và trả về câu trả lời + danh sách thẻ phòng gợi ý
      */
     public function ask(string $message, array $history = []): array
     {
         $cards = $this->searchRelevantPosts($message);
-        
-        // 1. Thử gọi API Kira AI nếu đã cấu hình Key
-        if (!empty($this->kiraApiKey)) {
+
+        // 1. Thử gọi Google Gemini API
+        if (!empty($this->geminiApiKey)) {
             try {
-                $kiraReply = $this->callKiraAi($message, $history, $cards);
-                if (!empty($kiraReply)) {
+                $geminiReply = $this->callGemini($message, $history, $cards);
+                if (!empty($geminiReply)) {
                     return [
-                        'reply' => $kiraReply,
+                        'reply' => $geminiReply,
                         'cards' => $cards,
                     ];
                 }
             } catch (\Exception $e) {
-                Log::error('KiraAI API Request Exception: ' . $e->getMessage());
+                Log::error('Google Gemini API Error: ' . $e->getMessage());
             }
         }
 
-        // 2. Tự động phản hồi thông minh dự phòng nếu Kira AI hết quota hoặc lỗi kết nối
+        // 2. Tự động phản hồi thông minh dự phòng nếu có sự cố
         $fallbackReply = $this->generateSmartFallbackReply($message, $cards);
 
         return [
@@ -51,7 +49,7 @@ class RentHomeAiService
     }
 
     /**
-     * Tra cứu phòng trọ thực tế từ MongoDB phù hợp với nhu cầu
+     * Tra cứu bài đăng phòng trọ thực tế từ MongoDB
      */
     protected function searchRelevantPosts(string $query): array
     {
@@ -74,7 +72,7 @@ class RentHomeAiService
         try {
             $postsQuery = Post::query();
 
-            // Nhận diện quận/huyện trong câu hỏi
+            // Nhận diện quận huyện phổ biến
             $districts = [
                 'cầu giấy', 'đống đa', 'ba đình', 'hai bà trưng', 'thanh xuân', 'hoàng mai', 'hà đông', 'nam từ liêm', 'bắc từ liêm', 'tây hồ', 'long biên',
                 'quận 1', 'quận 3', 'quận 5', 'quận 7', 'quận 10', 'bình thạnh', 'phú nhuận', 'gò vấp', 'tân bình', 'thủ đức'
@@ -123,50 +121,56 @@ class RentHomeAiService
     }
 
     /**
-     * Gọi API Kira AI theo chuẩn OpenAI Chat Completions
+     * Gọi Google Gemini API chính thức
      */
-    protected function callKiraAi(string $message, array $history, array $cards): ?string
+    protected function callGemini(string $message, array $history, array $cards): ?string
     {
-        $endpoint = rtrim($this->kiraBaseUrl, '/') . '/chat/completions';
-
-        $systemPrompt = "Bạn là Trợ lý AI Chuyên viên Tư vấn của nền tảng thuê nhà RentHome tại Việt Nam. "
-            . "Phong cách trả lời: Nhã nhặn, ân cần, tự xưng là 'Em', gọi khách là 'Anh/Chị'. "
-            . "RentHome hỗ trợ tìm phòng trọ, căn hộ, chung cư, nhà nguyên căn, đăng tin miễn phí, và quản lý tòa nhà cho chủ trọ. ";
+        $systemInstruction = "Bạn là Trợ lý AI Chuyên viên Tư vấn tận tâm của nền tảng bất động sản cho thuê RentHome tại Việt Nam. "
+            . "Phong cách trả lời: Nhã nhặn, ân cần, tự xưng là 'Em', gọi khách là 'Anh/Chị'. Trả lời ngắn gọn, súc tích, định dạng gạch đầu dòng rõ ràng. "
+            . "RentHome hỗ trợ: Tìm phòng trọ, căn hộ, chung cư, nhà nguyên căn; Đăng tin cho thuê miễn phí; Quản lý tòa nhà phòng trọ cho chủ nhà và doanh nghiệp; Tiếp nhận khiếu nại tin đăng sai sự thật. ";
 
         if (!empty($cards)) {
-            $systemPrompt .= " Dưới đây là các căn phòng trong hệ thống RentHome phù hợp với yêu cầu của khách: " . json_encode($cards, JSON_UNESCAPED_UNICODE) . ". Hãy giới thiệu tóm tắt ngắn gọn và mời Anh/Chị xem thẻ chi tiết bên dưới.";
+            $systemInstruction .= " Dưới đây là dữ liệu phòng trọ thực tế từ hệ thống RentHome phù hợp với yêu cầu: " . json_encode($cards, JSON_UNESCAPED_UNICODE) . ". Hãy giới thiệu khéo léo để Anh/Chị xem thẻ chi tiết bên dưới.";
         }
 
-        $messages = [
-            ['role' => 'system', 'content' => $systemPrompt]
+        $contents = [];
+        foreach ($history as $h) {
+            $contents[] = [
+                'role' => ($h['role'] === 'user') ? 'user' : 'model',
+                'parts' => [['text' => $h['text'] ?? '']]
+            ];
+        }
+
+        $contents[] = [
+            'role' => 'user',
+            'parts' => [['text' => $message]]
         ];
 
-        foreach ($history as $h) {
-            $role = ($h['role'] === 'user') ? 'user' : 'assistant';
-            $messages[] = ['role' => $role, 'content' => $h['text'] ?? ''];
-        }
-
-        $messages[] = ['role' => 'user', 'content' => $message];
-
-        $response = Http::withToken($this->kiraApiKey)
-            ->timeout(15)
-            ->post($endpoint, [
-                'model' => $this->kiraModel,
-                'messages' => $messages,
-                'temperature' => 0.7,
+        $modelsToTry = array_unique([$this->geminiModel, 'gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest']);
+        foreach ($modelsToTry as $model) {
+            $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$this->geminiApiKey}";
+            $response = Http::timeout(15)->post($url, [
+                'system_instruction' => [
+                    'parts' => [['text' => $systemInstruction]]
+                ],
+                'contents' => $contents,
             ]);
 
-        if ($response->successful()) {
-            $data = $response->json();
-            return $data['choices'][0]['message']['content'] ?? null;
+            if ($response->successful()) {
+                $data = $response->json();
+                return $data['candidates'][0]['content']['parts'][0]['text'] ?? null;
+            }
+
+            Log::warning("Google Gemini model {$model} returned status {$response->status()}: " . substr($response->body(), 0, 150));
         }
 
-        Log::warning('KiraAI API response error: ' . $response->status() . ' - ' . $response->body());
         return null;
     }
 
+
+
     /**
-     * Phản hồi dự phòng tự động khi chưa nạp tiền hoặc API gián đoạn
+     * Phản hồi dự phòng thông minh
      */
     protected function generateSmartFallbackReply(string $query, array $cards): string
     {
