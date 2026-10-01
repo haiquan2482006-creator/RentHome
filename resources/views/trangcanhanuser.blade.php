@@ -189,7 +189,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 {{ $isEnterprise ? 'lg:grid-cols-3' : '' }} gap-5">
                         <!-- Mặt trước -->
                         <label class="doc-label relative flex flex-col items-center justify-center p-6 sm:p-8 h-64 rounded-3xl bg-slate-50 transition-all cursor-not-allowed group overflow-hidden hover:bg-slate-100 {{ $user->id_front ? 'opacity-100' : 'opacity-70' }}">
-                            <img id="preview-id-front" src="{{ $user->id_front ? asset('storage/' . $user->id_front) : '' }}" class="absolute inset-0 w-full h-full object-contain bg-slate-100 {{ $user->id_front ? '' : 'hidden' }} z-0">
+                            <img id="preview-id-front" src="{{ $user->id_front ? $user->id_front_url : '' }}" class="absolute inset-0 w-full h-full object-contain bg-slate-100 {{ $user->id_front ? '' : 'hidden' }} z-0">
                             
                             <div class="w-16 h-16 rounded-full bg-white shadow-sm flex items-center justify-center mb-4 transition-transform doc-icon-wrapper relative z-10 {{ $user->id_front ? 'hidden' : '' }}">
                                 <i class="fa-solid fa-cloud-arrow-up text-3xl text-slate-400 transition-colors doc-icon"></i>
@@ -201,7 +201,7 @@
 
                         <!-- Mặt sau -->
                         <label class="doc-label relative flex flex-col items-center justify-center p-6 sm:p-8 h-64 rounded-3xl bg-slate-50 transition-all cursor-not-allowed group overflow-hidden hover:bg-slate-100 {{ $user->id_back ? 'opacity-100' : 'opacity-70' }}">
-                            <img id="preview-id-back" src="{{ $user->id_back ? asset('storage/' . $user->id_back) : '' }}" class="absolute inset-0 w-full h-full object-contain bg-slate-100 {{ $user->id_back ? '' : 'hidden' }} z-0">
+                            <img id="preview-id-back" src="{{ $user->id_back ? $user->id_back_url : '' }}" class="absolute inset-0 w-full h-full object-contain bg-slate-100 {{ $user->id_back ? '' : 'hidden' }} z-0">
                             
                             <div class="w-16 h-16 rounded-full bg-white shadow-sm flex items-center justify-center mb-4 transition-transform doc-icon-wrapper relative z-10 {{ $user->id_back ? 'hidden' : '' }}">
                                 <i class="fa-solid fa-cloud-arrow-up text-3xl text-slate-400 transition-colors doc-icon"></i>
@@ -214,7 +214,7 @@
                         @if($isEnterprise)
                         <!-- Giấy phép kinh doanh -->
                         <label class="doc-label relative flex flex-col items-center justify-center p-6 sm:p-8 h-64 rounded-3xl bg-slate-50 transition-all cursor-not-allowed group overflow-hidden hover:bg-slate-100 {{ $user->business_license ? 'opacity-100' : 'opacity-70' }}">
-                            <img id="preview-business-license" src="{{ $user->business_license ? asset('storage/' . $user->business_license) : '' }}" class="absolute inset-0 w-full h-full object-contain bg-slate-100 {{ $user->business_license ? '' : 'hidden' }} z-0">
+                            <img id="preview-business-license" src="{{ $user->business_license ? $user->business_license_url : '' }}" class="absolute inset-0 w-full h-full object-contain bg-slate-100 {{ $user->business_license ? '' : 'hidden' }} z-0">
                             
                             <div class="w-16 h-16 rounded-full bg-white shadow-sm flex items-center justify-center mb-4 transition-transform doc-icon-wrapper relative z-10 {{ $user->business_license ? 'hidden' : '' }}">
                                 <i class="fa-solid fa-file-signature text-3xl text-slate-400 transition-colors doc-icon"></i>

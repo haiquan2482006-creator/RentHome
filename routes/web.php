@@ -7,8 +7,64 @@ Route::get('/', function () {
     return view('Home');
 });
 
-Route::get('/baidang', function () {
+Route::get('/baidang', function (\Illuminate\Http\Request $request) {
+    $postId = $request->query('id');
+    if ($postId) {
+        $post = \App\Models\Post::with(['user', 'building', 'imageModels'])->where('_id', $postId)->orWhere('id', $postId)->first();
+        if ($post) {
+            return view('chitiet_phong', compact('post'));
+        }
+    }
     return view('baidang');
+})->name('baidang');
+
+Route::get('/baidang/{id}', function ($id) {
+    $post = \App\Models\Post::with(['user', 'building', 'imageModels'])->where('_id', $id)->orWhere('id', $id)->first();
+    if ($post) {
+        return view('chitiet_phong', compact('post'));
+    }
+    return redirect('/baidang');
+})->name('baidang.detail');
+
+Route::get('/image/{id}', function ($id) {
+    if (strlen($id) !== 24 || !ctype_xdigit($id)) {
+        abort(404);
+    }
+
+    $cacheDir = storage_path('app/public/image_cache');
+    $cacheFile = $cacheDir . '/' . $id;
+
+    if (file_exists($cacheFile)) {
+        $mimeFile = $cacheFile . '.mime';
+        $mime = file_exists($mimeFile) ? trim(file_get_contents($mimeFile)) : 'image/jpeg';
+        return response()->file($cacheFile, [
+            'Content-Type' => $mime,
+            'Cache-Control' => 'public, max-age=31536000, immutable',
+        ]);
+    }
+
+    $img = \App\Models\Image::find($id);
+    if ($img && !empty($img->base64_data)) {
+        $binary = base64_decode($img->base64_data);
+        $mime = $img->mime_type ?: 'image/jpeg';
+
+        if (!is_dir($cacheDir)) {
+            @mkdir($cacheDir, 0755, true);
+        }
+        @file_put_contents($cacheFile, $binary);
+        @file_put_contents($cacheFile . '.mime', $mime);
+
+        return response($binary, 200, [
+            'Content-Type' => $mime,
+            'Cache-Control' => 'public, max-age=31536000, immutable',
+        ]);
+    }
+
+    return redirect('https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80');
+})->name('image.serve');
+
+Route::get('/chi-tiet-phong/{id}', function ($id) {
+    return redirect()->to('/baidang?id=' . $id);
 });
 
 Route::get('/chitietbaidang/{id}', function ($id) {
@@ -81,16 +137,24 @@ Route::post('/trangcanhanuser', function (\Illuminate\Http\Request $request) {
     }
 
     if ($request->hasFile('avatar')) {
-        $user->avatar = $request->file('avatar')->store('avatars', 'public');
+        $file = $request->file('avatar');
+        $img = \App\Models\Image::create(['base64_data' => base64_encode(file_get_contents($file->getRealPath())), 'mime_type' => $file->getMimeType()]);
+        $user->avatar = $img->_id;
     }
     if ($request->hasFile('id_front')) {
-        $user->id_front = $request->file('id_front')->store('documents', 'public');
+        $file = $request->file('id_front');
+        $img = \App\Models\Image::create(['base64_data' => base64_encode(file_get_contents($file->getRealPath())), 'mime_type' => $file->getMimeType()]);
+        $user->id_front = $img->_id;
     }
     if ($request->hasFile('id_back')) {
-        $user->id_back = $request->file('id_back')->store('documents', 'public');
+        $file = $request->file('id_back');
+        $img = \App\Models\Image::create(['base64_data' => base64_encode(file_get_contents($file->getRealPath())), 'mime_type' => $file->getMimeType()]);
+        $user->id_back = $img->_id;
     }
     if ($request->hasFile('business_license')) {
-        $user->business_license = $request->file('business_license')->store('business_licenses', 'public');
+        $file = $request->file('business_license');
+        $img = \App\Models\Image::create(['base64_data' => base64_encode(file_get_contents($file->getRealPath())), 'mime_type' => $file->getMimeType()]);
+        $user->business_license = $img->_id;
     }
 
     if ($request->has('tax_code')) {
@@ -596,3 +660,9 @@ Route::get('/api/user/posts/history', [\App\Http\Controllers\UserDashboardContro
 Route::get('/api/buildings', [\App\Http\Controllers\BuildingController::class, 'index']);
 Route::post('/api/buildings', [\App\Http\Controllers\BuildingController::class, 'store']);
 Route::get('/quan-ly-toa-nha/{id}', [\App\Http\Controllers\BuildingController::class, 'show']);
+
+// ========================================================
+// RentHome AI Assistant Routes
+// ========================================================
+Route::post('/ai/chat', [\App\Http\Controllers\AiChatController::class, 'sendMessage'])->name('ai.chat');
+Route::post('/ai/reset', [\App\Http\Controllers\AiChatController::class, 'resetChat'])->name('ai.reset');

@@ -92,7 +92,7 @@
                             @if($complaint->image)
                                 <div class="mt-4">
                                     <p class="text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Hình ảnh bằng chứng đính kèm</p>
-                                    <img src="{{ $complaint->image }}" alt="Bằng chứng" class="w-32 h-32 object-cover rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:opacity-90 transition-opacity">
+                                    <img src="{{ $complaint->display_image }}" alt="Bằng chứng" class="w-32 h-32 object-cover rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:opacity-90 transition-opacity">
                                 </div>
                             @endif
                         </div>

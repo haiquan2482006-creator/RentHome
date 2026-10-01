@@ -11,6 +11,7 @@ class Complaint extends Model
 
     protected $fillable = [
         'user_id', 
+        'complaint_code',
         'post_id', 
         'content', 
         'image', 
@@ -38,12 +39,9 @@ class Complaint extends Model
             return null;
         }
 
-        // Kiểm tra nếu image là 1 ObjectId hợp lệ của MongoDB (24 ký tự hex)
+        // Kiểm tra nếu image là 1 ObjectId hợp lệ của MongoDB (24 ký tự hex) -> Trả về URL route ảnh
         if (preg_match('/^[a-f\d]{24}$/i', $this->image)) {
-            $img = \App\Models\Image::find($this->image);
-            if ($img) {
-                return "data:{$img->mime_type};base64,{$img->base64_data}";
-            }
+            return url('/image/' . $this->image);
         }
 
         // Nếu không phải ID (tức là path cũ)

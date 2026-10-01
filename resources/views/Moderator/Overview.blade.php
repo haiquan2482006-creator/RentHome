@@ -1077,15 +1077,7 @@
                     if (data.posts && data.posts.length > 0) {
                         let html = '';
                         data.posts.forEach(post => {
-                            let imgUrl = 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=400&q=80';
-                            if (post.images && post.images.length > 0) {
-                                let rawImg = post.images[0];
-                                if (rawImg.startsWith('http') || rawImg.startsWith('data:image')) {
-                                    imgUrl = rawImg;
-                                } else {
-                                    imgUrl = rawImg.startsWith('/') ? rawImg : '/storage/' + rawImg; 
-                                }
-                            }
+                            let imgUrl = post.display_image || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=400&q=80';
 
                             const postId = post.id || post._id || 'N/A';
                             const userName = post.user ? (post.user.account_name || post.user.username) : 'Người dùng';
