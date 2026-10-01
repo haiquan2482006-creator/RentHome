@@ -7,8 +7,64 @@ Route::get('/', function () {
     return view('Home');
 });
 
-Route::get('/baidang', function () {
+Route::get('/baidang', function (\Illuminate\Http\Request $request) {
+    $postId = $request->query('id');
+    if ($postId) {
+        $post = \App\Models\Post::with(['user', 'building', 'imageModels'])->where('_id', $postId)->orWhere('id', $postId)->first();
+        if ($post) {
+            return view('chitiet_phong', compact('post'));
+        }
+    }
     return view('baidang');
+})->name('baidang');
+
+Route::get('/baidang/{id}', function ($id) {
+    $post = \App\Models\Post::with(['user', 'building', 'imageModels'])->where('_id', $id)->orWhere('id', $id)->first();
+    if ($post) {
+        return view('chitiet_phong', compact('post'));
+    }
+    return redirect('/baidang');
+})->name('baidang.detail');
+
+Route::get('/image/{id}', function ($id) {
+    if (strlen($id) !== 24 || !ctype_xdigit($id)) {
+        abort(404);
+    }
+
+    $cacheDir = storage_path('app/public/image_cache');
+    $cacheFile = $cacheDir . '/' . $id;
+
+    if (file_exists($cacheFile)) {
+        $mimeFile = $cacheFile . '.mime';
+        $mime = file_exists($mimeFile) ? trim(file_get_contents($mimeFile)) : 'image/jpeg';
+        return response()->file($cacheFile, [
+            'Content-Type' => $mime,
+            'Cache-Control' => 'public, max-age=31536000, immutable',
+        ]);
+    }
+
+    $img = \App\Models\Image::find($id);
+    if ($img && !empty($img->base64_data)) {
+        $binary = base64_decode($img->base64_data);
+        $mime = $img->mime_type ?: 'image/jpeg';
+
+        if (!is_dir($cacheDir)) {
+            @mkdir($cacheDir, 0755, true);
+        }
+        @file_put_contents($cacheFile, $binary);
+        @file_put_contents($cacheFile . '.mime', $mime);
+
+        return response($binary, 200, [
+            'Content-Type' => $mime,
+            'Cache-Control' => 'public, max-age=31536000, immutable',
+        ]);
+    }
+
+    return redirect('https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80');
+})->name('image.serve');
+
+Route::get('/chi-tiet-phong/{id}', function ($id) {
+    return redirect()->to('/baidang?id=' . $id);
 });
 
 Route::get('/Admin', function (){

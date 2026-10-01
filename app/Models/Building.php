@@ -44,17 +44,9 @@ class Building extends Model
             return 'https://placehold.co/600x400?text=Building'; // Ảnh mặc định cho tòa nhà
         }
 
-        // 1. Nhận diện ID MongoDB: Nếu là mã 24 ký tự hex (ví dụ: 6ab392f...)
+        // 1. Nhận diện ID MongoDB: 24 ký tự hex -> Trả về URL route ảnh tĩnh siêu tốc, có cache
         if (is_string($imgValue) && strlen($imgValue) === 24 && ctype_xdigit($imgValue)) {
-            // Tự động vào bảng Image tìm ảnh gốc theo ID
-            $img = \App\Models\Image::find($imgValue);
-            
-            if ($img && !empty($img->base64_data)) {
-                return "data:{$img->mime_type};base64,{$img->base64_data}";
-            }
-            
-            // CHỐT CHẶN QUAN TRỌNG: Không có ảnh trong DB thì trả về ảnh mặc định, tuyệt đối không lọt xuống storage
-            return 'https://placehold.co/600x400?text=Building';
+            return url('/image/' . $imgValue);
         }
 
         // 2. Nhận diện URL web hoặc đã là chuỗi Base64

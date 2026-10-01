@@ -40,24 +40,16 @@ class Post extends Model
     }
 
     // Accessor trả về URL ảnh hiển thị duy nhất (Base64 hoặc URL cũ)
-    protected $appends = ['display_image'];
+    protected $appends = ['display_image', 'all_images'];
 
    public function getDisplayImageAttribute()
     {
         if (!empty($this->images) && is_array($this->images) && count($this->images) > 0) {
-            // Ép kiểu về chuỗi để đảm bảo Laravel và MongoDB không bị lỗi định dạng ObjectId
             $firstImage = (string) $this->images[0];
 
-            // 1. Nhận diện ID MongoDB: Nếu là mã 24 ký tự hex (ví dụ: 6ab392f...)
+            // 1. Nhận diện ID MongoDB: 24 ký tự hex -> Trả về URL route ảnh tĩnh siêu tốc, có cache
             if (strlen($firstImage) === 24 && ctype_xdigit($firstImage)) {
-                // Tự động vào bảng Image tìm ảnh gốc theo ID
-                $img = \App\Models\Image::find($firstImage);
-                if ($img && !empty($img->base64_data)) {
-                    return "data:{$img->mime_type};base64,{$img->base64_data}";
-                }
-                
-                // NẾU LÀ MÃ ID NHƯNG DATABASE KHÔNG CÓ ẢNH -> Trả về ảnh mặc định luôn (Khóa chặn lọt xuống Bước 3)
-                return 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80';
+                return url('/image/' . $firstImage);
             }
 
             // 2. Nhận diện URL web hoặc đã là chuỗi Base64
@@ -65,11 +57,34 @@ class Post extends Model
                 return $firstImage;
             }
 
-            // 3. Nhận diện tên file cũ trong ổ cứng (chỉ khi tên file kiểu như: phong-tro.jpg)
+            // 3. Nhận diện tên file cũ trong ổ cứng
             return asset('storage/' . $firstImage);
         }
 
         // 4. Ảnh mặc định nếu bài đăng hoàn toàn không có mảng images
         return 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80';
+    }
+
+    public function getAllImagesAttribute()
+    {
+        $urls = [];
+        if (!empty($this->images) && is_array($this->images)) {
+            foreach ($this->images as $item) {
+                $imgStr = (string)$item;
+                if (strlen($imgStr) === 24 && ctype_xdigit($imgStr)) {
+                    $urls[] = url('/image/' . $imgStr);
+                    continue;
+                }
+                if (\Illuminate\Support\Str::startsWith($imgStr, 'http') || \Illuminate\Support\Str::startsWith($imgStr, 'data:')) {
+                    $urls[] = $imgStr;
+                    continue;
+                }
+                $urls[] = asset('storage/' . $imgStr);
+            }
+        }
+        if (empty($urls)) {
+            $urls[] = $this->display_image;
+        }
+        return $urls;
     }
 }

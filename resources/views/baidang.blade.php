@@ -191,7 +191,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <a href="#" class="block w-full text-center py-2.5 rounded-xl bg-brand-50 hover:bg-brand-600 text-brand-600 hover:text-white font-bold text-sm transition-all duration-300 border border-brand-100 hover:border-brand-600">
+                                    <a href="/baidang?id=${post._id || post.id}" class="block w-full text-center py-2.5 rounded-xl bg-brand-50 hover:bg-brand-600 text-brand-600 hover:text-white font-bold text-sm transition-all duration-300 border border-brand-100 hover:border-brand-600">
                                         Xem chi tiết
                                     </a>
                                 </div>

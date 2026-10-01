@@ -97,7 +97,7 @@
 
     <!-- Hero Section -->
     <section id="hero"
-        class="min-h-screen pt-32 pb-20 px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center relative overflow-hidden bg-slate-950">
+        class="pt-24 pb-12 px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center relative overflow-hidden bg-slate-950">
 
         <!-- Background Crossfade Images -->
         <div class="absolute inset-0 z-0 pointer-events-none">
@@ -131,25 +131,25 @@
         </div>
 
         <!-- CỐ ĐỊNH CHỮ VÀ NỘI DUNG -->
-        <div class="max-w-4xl mx-auto text-center mt-8 relative z-10">
+        <div class="max-w-4xl mx-auto text-center mt-2 relative z-10">
             <span
-                class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-emerald-300 text-xs font-semibold uppercase tracking-wider mb-6 shadow-md">
+                class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-emerald-300 text-xs font-semibold uppercase tracking-wider mb-3 shadow-md">
                 <i class="fa-solid fa-bolt text-yellow-400"></i> Hơn 50,000+ Căn nhà sẵn sàng cho thuê
             </span>
             <h1
-                class="text-4xl sm:text-5xl lg:text-6xl font-black text-white leading-tight tracking-tight drop-shadow-md">
+                class="text-3xl sm:text-4xl lg:text-5xl font-black text-white leading-tight tracking-tight drop-shadow-md">
                 {{ $themeSettings['banner_title'] ?? 'Tìm Ngôi Nhà Hoàn Hảo Cho Cuộc Sống Tương Lai' }}
             </h1>
-            <p class="mt-4 text-lg sm:text-xl text-slate-200 max-w-2xl mx-auto font-normal drop-shadow">
+            <p class="mt-2 text-base sm:text-lg text-slate-200 max-w-2xl mx-auto font-normal drop-shadow">
                 {{ $themeSettings['banner_subtitle'] ?? 'Khám phá hàng ngàn phòng trọ, căn hộ cao cấp, và nhà nguyên căn chính chủ với mức giá tốt nhất, không qua trung gian.' }}
             </p>
         </div>
 
         <!-- CỐ ĐỊNH KHUNG TÌM KIẾM -->
-        <div class="w-full max-w-5xl mx-auto mt-10 relative z-30">
-            <div class="glass-panel p-4 sm:p-6 rounded-3xl shadow-2xl border border-white/40">
+        <div class="w-full max-w-5xl mx-auto mt-6 relative z-30">
+            <div class="glass-panel p-4 sm:p-5 rounded-3xl shadow-2xl border border-white/40">
                 <!-- Search Tabs -->
-                <div class="flex items-center gap-3 mb-6 overflow-x-auto pb-2 border-b border-slate-200/60">
+                <div class="flex items-center gap-3 mb-4 overflow-x-auto pb-2 border-b border-slate-200/60">
                     <button
                         class="tab-btn active px-5 py-2.5 rounded-xl font-bold text-sm bg-brand-600 text-white shadow-sm flex items-center gap-2">
                         <i class="fa-solid fa-building"></i> Tất cả loại hình
@@ -260,22 +260,22 @@
         </div>
 
         <!-- CỐ ĐỊNH THÔNG SỐ -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mt-16 max-w-4xl w-full text-center relative z-10">
-            <div class="p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 shadow-sm">
-                <p class="text-3xl font-extrabold text-white">50k+</p>
-                <p class="text-xs text-slate-300 font-medium mt-1">Tin đăng cho thuê</p>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 max-w-4xl w-full text-center relative z-10">
+            <div class="py-3 px-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 shadow-sm">
+                <p class="text-2xl font-extrabold text-white">50k+</p>
+                <p class="text-xs text-slate-300 font-medium mt-0.5">Tin đăng cho thuê</p>
             </div>
-            <div class="p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 shadow-sm">
-                <p class="text-3xl font-extrabold text-emerald-400">98%</p>
-                <p class="text-xs text-slate-300 font-medium mt-1">Khách thuê hài lòng</p>
+            <div class="py-3 px-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 shadow-sm">
+                <p class="text-2xl font-extrabold text-emerald-400">98%</p>
+                <p class="text-xs text-slate-300 font-medium mt-0.5">Khách thuê hài lòng</p>
             </div>
-            <div class="p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 shadow-sm">
-                <p class="text-3xl font-extrabold text-white">120k+</p>
-                <p class="text-xs text-slate-300 font-medium mt-1">Người dùng hàng tháng</p>
+            <div class="py-3 px-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 shadow-sm">
+                <p class="text-2xl font-extrabold text-white">120k+</p>
+                <p class="text-xs text-slate-300 font-medium mt-0.5">Người dùng hàng tháng</p>
             </div>
-            <div class="p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 shadow-sm">
-                <p class="text-3xl font-extrabold text-emerald-400">0%</p>
-                <p class="text-xs text-slate-300 font-medium mt-1">Phí môi giới ẩn</p>
+            <div class="py-3 px-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 shadow-sm">
+                <p class="text-2xl font-extrabold text-emerald-400">0%</p>
+                <p class="text-xs text-slate-300 font-medium mt-0.5">Phí môi giới ẩn</p>
             </div>
         </div>
     </section>
@@ -1150,7 +1150,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <a href="#" class="block w-full text-center py-2.5 rounded-xl bg-brand-50 hover:bg-brand-600 text-brand-600 hover:text-white font-bold text-sm transition-all duration-300 border border-brand-100 hover:border-brand-600">
+                                    <a href="/baidang?id=${post._id || post.id}" class="block w-full text-center py-2.5 rounded-xl bg-brand-50 hover:bg-brand-600 text-brand-600 hover:text-white font-bold text-sm transition-all duration-300 border border-brand-100 hover:border-brand-600">
                                         Xem chi tiết
                                     </a>
                                 </div>
