@@ -89,6 +89,7 @@
 </head>
 
 <body class="bg-slate-50 font-sans text-slate-800 antialiased selection:bg-brand-500 selection:text-white min-h-screen flex flex-col">
+    @include('partials.sidebar-user', ['isDrawer' => true])
 
     <!-- TOP HEADER BAR (Bên phải có nút Tạo hợp đồng, Đổi mật khẩu, Đăng xuất) -->
     <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
@@ -112,12 +113,15 @@
                     <span>+ Tạo Hợp Đồng</span>
                 </a>
 
-                <!-- Nút Trở Về Trang Chủ -->
-                <a href="{{ url('/') }}" 
-                   class="py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs sm:text-sm flex items-center gap-2 border border-slate-200 shadow-sm hover:shadow transition-all">
-                    <i class="fa-solid fa-house text-skybrand-600"></i>
-                    <span>Trở Về Trang Chủ</span>
-                </a>
+                <!-- Nút Tài Khoản Mở Menu Ẩn -->
+                <button type="button" onclick="toggleGlobalSidebar()" 
+                   class="py-2 px-3 sm:px-4 rounded-xl {{ ((Auth::user()->account_type ?? '') === 'doanhnghiep') ? 'bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200' }} font-bold text-xs sm:text-sm flex items-center gap-2 border shadow-sm hover:shadow transition-all">
+                    <div class="w-6 h-6 rounded-full {{ ((Auth::user()->account_type ?? '') === 'doanhnghiep') ? 'bg-purple-200 text-purple-700' : 'bg-emerald-200 text-emerald-700' }} flex items-center justify-center shrink-0 hidden sm:flex">
+                        <i class="fa-solid fa-user text-[10px]"></i>
+                    </div>
+                    <span class="max-w-[100px] truncate hidden sm:block">{{ Auth::user()->username ?? Auth::user()->name ?? 'Tài khoản' }}</span>
+                    <i class="fa-solid fa-bars sm:ml-1"></i>
+                </button>
             </div>
         </div>
     </header>

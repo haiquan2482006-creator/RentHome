@@ -98,6 +98,20 @@
 
 <body class="bg-slate-50 font-sans text-slate-800 antialiased selection:bg-brand-500 selection:text-white min-h-screen flex flex-col md:flex-row">
 
+@php
+    $currentUser = Auth::user();
+    $reqType = request()->query('account_type', request()->query('type', ''));
+    $accountType = (!empty($reqType) && in_array($reqType, ['canhan', 'doanhnghiep'])) ? $reqType : ($currentUser->account_type ?? 'canhan');
+    $isEnterprise = ($accountType === 'doanhnghiep');
+    $displayName = $currentUser 
+        ? ($isEnterprise ? ($currentUser->company_name ?? $currentUser->account_name ?? 'Tập Đoàn BĐS Đạt Phát') : ($currentUser->account_name ?? $currentUser->username ?? 'Nguyễn Văn Tuấn'))
+        : ($isEnterprise ? 'Tập Đoàn BĐS Đạt Phát' : 'Nguyễn Văn Tuấn');
+    $badgeText = $isEnterprise ? 'Doanh Nghiệp' : 'Cá Nhân';
+    $subTitle = $isEnterprise ? 'Đối tác Doanh Nghiệp' : 'Tài khoản Cá nhân';
+@endphp
+
+    @include('partials.sidebar-user', ['isDrawer' => true])
+
     <!-- SIDEBAR HÀNG DỌC BÊN TRÁI (FIXED LEFT SIDEBAR) -->
     <aside class="w-full md:w-64 bg-white border-r border-slate-200/90 flex flex-col shrink-0 md:fixed md:top-0 md:bottom-0 md:left-0 md:h-screen md:z-50 overflow-y-auto">
         <!-- Sidebar Header / Logo -->
@@ -109,6 +123,27 @@
                     <span class="text-[10px] font-medium text-slate-500 uppercase tracking-widest mt-0.5">Thuê nhà ước mơ</span>
                 </div>
             </a>
+        </div>
+
+        <div class="px-4 pt-4">
+            <!-- User Account Information Card -->
+            <button onclick="toggleGlobalSidebar()"
+                class="w-full text-left p-3.5 rounded-2xl {{ $isEnterprise ? 'bg-gradient-to-br from-purple-50 to-indigo-50/50 border border-purple-100 hover:border-purple-300' : 'bg-gradient-to-br from-emerald-50 to-teal-50/50 border border-emerald-100 hover:border-emerald-300' }} flex items-center gap-3 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer">
+                <div
+                    class="w-10 h-10 rounded-xl {{ $isEnterprise ? 'bg-purple-600 text-white' : 'bg-brand-600 text-white' }} flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
+                    <i class="fa-solid {{ $isEnterprise ? 'fa-briefcase' : 'fa-user' }}"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-xs font-bold text-slate-900 truncate" title="{{ $displayName }}">
+                        {{ $displayName }}</p>
+                    <div class="flex items-center gap-1.5 mt-0.5">
+                        <span
+                            class="inline-block w-2 h-2 rounded-full {{ $isEnterprise ? 'bg-purple-500' : 'bg-emerald-500' }}"></span>
+                        <span
+                            class="text-[11px] font-semibold {{ $isEnterprise ? 'text-purple-700' : 'text-emerald-700' }}">{{ $subTitle }}</span>
+                    </div>
+                </div>
+            </button>
         </div>
 
         <!-- Sidebar Navigation Menu: 2 FORM RIÊNG BIỆT -->
@@ -149,109 +184,15 @@
             </div>
         </div>
 
-        <!-- Sidebar Footer / Account Tag & Logout Icon Button CẠNH ADMIN -->
-        <div class="p-3 border-t border-slate-100 bg-slate-50/60">
-            <div class="flex items-center justify-between p-2.5 rounded-2xl bg-white border border-slate-200 shadow-sm gap-2">
-                <div class="flex items-center gap-2.5 min-w-0">
-                    <div class="w-8 h-8 rounded-full bg-skybrand-600 text-white flex items-center justify-center font-bold text-xs shadow-sm shrink-0">
-                        <i class="fa-solid fa-user"></i>
-                    </div>
-                    <div class="truncate text-left leading-tight">
-                        <p class="text-xs font-extrabold text-slate-800 truncate">
-                            {{ Auth::user()->username ?? Auth::user()->name ?? 'admin' }}
-                        </p>
-                        <span class="text-[9px] font-bold text-skybrand-600 bg-skybrand-50 px-1.5 py-0.5 rounded inline-block mt-0.5">Cá nhân</span>
-                    </div>
-                </div>
-
-                <!-- Chỉ để Nút Icon Đăng xuất ở CẠNH Admin -->
-                <form action="{{ route('logout') }}" method="POST" class="m-0 p-0 shrink-0">
-                    @csrf
-                    <button type="submit" title="Đăng xuất" class="w-8 h-8 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 font-bold flex items-center justify-center transition-all shadow-sm">
-                        <i class="fa-solid fa-right-from-bracket text-sm"></i>
-                    </button>
-                </form>
-            </div>
+        <div class="p-3 border-t border-slate-100 bg-slate-50/60 hidden md:block opacity-0 pointer-events-none">
+            <!-- Placeholder to maintain layout if needed, or completely removed -->
         </div>
     </aside>
 
     <!-- RIGHT MAIN CONTENT WRAPPER -->
     <div class="flex-1 flex flex-col min-w-0 md:ml-64">
 
-        <!-- TOP BAR -->
-        <header class="py-3 px-4 sm:px-8 bg-white/80 backdrop-blur-md border-b border-slate-200/80 flex items-center justify-end z-40 sticky top-0">
-            <!-- User Profile Dropdown (ĐÃ BỎ NÚT ĐĂNG XUẤT CẠNH HÌNH 3) -->
-            <div class="relative inline-block text-left" id="user-dropdown-container">
-                <button type="button" onclick="toggleUserDropdown(event)"
-                    class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl hover:bg-slate-100/80 transition-all cursor-pointer border border-slate-200/80 bg-white">
-                    <div class="w-8 h-8 rounded-full bg-skybrand-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
-                        <i class="fa-solid fa-user"></i>
-                    </div>
-                    <div class="flex flex-col text-left leading-tight">
-                        <span class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-                            {{ Auth::user()->username ?? Auth::user()->name ?? 'admin' }}
-                            <i class="fa-solid fa-chevron-down text-xs text-slate-400"></i>
-                        </span>
-                        <span class="text-[10px] font-semibold text-skybrand-600 flex items-center gap-1">
-                            <i class="fa-solid fa-user-check text-[9px]"></i> Cá nhân
-                        </span>
-                    </div>
-                </button>
 
-                <div id="user-dropdown-menu" class="hidden absolute right-0 mt-2 w-64 rounded-2xl bg-white shadow-2xl border border-slate-100 py-2 z-50">
-                    <div class="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between gap-2">
-                        <div class="truncate">
-                            <p class="text-[11px] font-medium text-slate-400">Tài khoản đang đăng nhập</p>
-                            <p class="text-xs font-bold text-slate-900 truncate">
-                                {{ Auth::user()->email ?? Auth::user()->username ?? 'admin@renthome.vn' }}
-                            </p>
-                        </div>
-                        <div class="shrink-0">
-                            @if ((Auth::user()->account_type ?? '') === 'doanhnghiep')
-                                <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-bold text-[10px]">Doanh nghiệp</span>
-                            @else
-                                <span class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 font-bold text-[10px]">Cá nhân</span>
-                            @endif
-                        </div>
-                    </div>
-
-                    <a href="#" class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-emerald-600 transition-colors">
-                        <i class="fa-solid fa-circle-user text-emerald-600 w-4 text-center"></i>
-                        <span>Tài khoản</span>
-                    </a>
-
-                    <a href="{{ url('Overview') }}" class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-emerald-600 transition-colors">
-                        <i class="fa-solid fa-newspaper text-emerald-600 w-4 text-center"></i>
-                        <span>Quản lý bài đăng</span>
-                    </a>
-
-                    <a href="{{ url('quan-ly-van-hanh') }}" class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-emerald-600 transition-colors">
-                        <i class="fa-solid fa-gears text-emerald-600 w-4 text-center"></i>
-                        <span>Quản lý vận hành</span>
-                    </a>
-
-                    <a href="#" class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-emerald-600 transition-colors">
-                        <i class="fa-solid fa-envelope-open-text text-emerald-600 w-4 text-center"></i>
-                        <span>Thông báo liên hệ</span>
-                    </a>
-
-                    <a href="/dat-lai-mat-khau" class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-emerald-600 transition-colors">
-                        <i class="fa-solid fa-key text-emerald-600 w-4 text-center"></i>
-                        <span>Đổi mật khẩu</span>
-                    </a>
-
-                    <div class="my-1 border-t border-slate-100"></div>
-
-                    <form action="{{ route('logout') }}" method="POST" class="m-0 p-0">
-                        @csrf
-                        <button type="submit" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-rose-600 hover:bg-rose-50 transition-colors text-left">
-                            <i class="fa-solid fa-right-from-bracket w-4 text-center"></i>
-                            <span>Đăng xuất</span>
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </header>
 
         <!-- MAIN CONTENT CONTAINER -->
         <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -848,20 +789,6 @@
         }
 
         // Toggle User Dropdown Menu
-        function toggleUserDropdown(event) {
-            event.stopPropagation();
-            const menu = document.getElementById('user-dropdown-menu');
-            menu.classList.toggle('hidden');
-        }
-
-        document.addEventListener('click', function (e) {
-            const menu = document.getElementById('user-dropdown-menu');
-            const container = document.getElementById('user-dropdown-container');
-            if (menu && container && !container.contains(e.target)) {
-                menu.classList.add('hidden');
-            }
-        });
-
         // Switch Tabs inside Form 2
         function switchTab(tabName) {
             const tabs = ['pending', 'history', 'liabilities'];

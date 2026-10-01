@@ -67,6 +67,21 @@ Route::get('/chi-tiet-phong/{id}', function ($id) {
     return redirect()->to('/baidang?id=' . $id);
 });
 
+Route::get('/chitietbaidang/{id}', function ($id) {
+    $post = \App\Models\Post::with('user', 'building')->find($id);
+    if (!$post) {
+        abort(404, 'Bài đăng không tồn tại hoặc đã bị xóa.');
+    }
+    return view('chitietbaidang', compact('post'));
+})->name('post.detail');
+
+Route::get('/trangcanhanuser', function () {
+    if (!\Illuminate\Support\Facades\Auth::check()) {
+        return redirect()->route('login')->with('error', 'Vui lòng đăng nhập để truy cập trang cá nhân.');
+    }
+    return view('trangcanhanuser');
+})->name('user.dashboard');
+
 Route::get('/Admin', function (){
     $recentUsers = \App\Models\User::where(function ($q) {
             $q->whereNull('role')->orWhere('role', '!=', 'admin');
