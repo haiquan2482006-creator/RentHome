@@ -19,12 +19,92 @@ Route::get('/chitietbaidang/{id}', function ($id) {
     return view('chitietbaidang', compact('post'));
 })->name('post.detail');
 
+Route::get('/thong-bao-lien-he', function () {
+    if (!\Illuminate\Support\Facades\Auth::check()) {
+        return redirect()->route('login')->with('error', 'Vui lòng đăng nhập để xem thông báo liên hệ.');
+    }
+
+    $userId = \Illuminate\Support\Facades\Auth::id();
+
+    // 1. Lấy danh sách bài đăng của user kèm theo liên hệ (Eager Loading)
+    $posts = \App\Models\Post::with('contacts')
+        ->where('user_id', $userId)
+        ->orderBy('created_at', 'desc')
+        ->get();
+
+    // 2. Chỉ lấy những bài đăng có ít nhất 1 liên hệ (Sử dụng filter vì MongoDB có thể không hỗ trợ whereHas mượt mà)
+    $groupedContacts = $posts->filter(function ($post) {
+        return $post->contacts && $post->contacts->count() > 0;
+    });
+
+    // 3. Tính toán bộ đếm
+    $totalContacts = 0;
+    $pendingContacts = 0;
+
+    foreach ($groupedContacts as $post) {
+        $totalContacts += $post->contacts->count();
+        $pendingContacts += $post->contacts->where('status', 'pending')->count();
+    }
+
+    // 4. Trả về View cùng dữ liệu thật
+    return view('thongbaolienhe', compact('groupedContacts', 'totalContacts', 'pendingContacts'));
+})->name('thong-bao-lien-he');
+
 Route::get('/trangcanhanuser', function () {
     if (!\Illuminate\Support\Facades\Auth::check()) {
         return redirect()->route('login')->with('error', 'Vui lòng đăng nhập để truy cập trang cá nhân.');
     }
     return view('trangcanhanuser');
 })->name('user.dashboard');
+
+Route::post('/trangcanhanuser', function (\Illuminate\Http\Request $request) {
+    if (!\Illuminate\Support\Facades\Auth::check()) {
+        return redirect()->route('login')->with('error', 'Vui lòng đăng nhập để thực hiện.');
+    }
+    
+    $user = \Illuminate\Support\Facades\Auth::user();
+    
+    if ($request->has('account_name')) {
+        $user->account_name = $request->input('account_name');
+    }
+    if ($request->has('phone')) {
+        $user->phone = $request->input('phone');
+    }
+    if ($request->has('bank_name')) {
+        $user->bank_name = $request->input('bank_name');
+    }
+    if ($request->has('bank_account')) {
+        $user->bank_account = $request->input('bank_account');
+    }
+    if ($request->has('bank_owner')) {
+        $user->bank_owner = $request->input('bank_owner');
+    }
+
+    if ($request->hasFile('avatar')) {
+        $user->avatar = $request->file('avatar')->store('avatars', 'public');
+    }
+    if ($request->hasFile('id_front')) {
+        $user->id_front = $request->file('id_front')->store('documents', 'public');
+    }
+    if ($request->hasFile('id_back')) {
+        $user->id_back = $request->file('id_back')->store('documents', 'public');
+    }
+    if ($request->hasFile('business_license')) {
+        $user->business_license = $request->file('business_license')->store('business_licenses', 'public');
+    }
+
+    if ($request->has('tax_code')) {
+        $user->tax_code = $request->input('tax_code');
+    }
+    
+    if ($request->has('address')) {
+        $user->address = $request->input('address');
+    }
+    
+    $user->save();
+    
+    return redirect()->back()->with('success', 'Cập nhật hồ sơ thành công!');
+});
 
 Route::get('/Admin', function (){
     $recentUsers = \App\Models\User::where(function ($q) {

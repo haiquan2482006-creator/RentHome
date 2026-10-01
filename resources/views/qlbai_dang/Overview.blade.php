@@ -75,6 +75,44 @@
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
             background: #94a3b8;
         }
+
+        /* Desktop Mini Sidebar Styles */
+        @media (min-width: 768px) {
+            #sidebar-menu {
+                transition: width 0.3s ease-in-out, transform 0.3s ease-in-out;
+            }
+            #sidebar-menu.sidebar-mini {
+                width: 5.5rem !important;
+            }
+            #sidebar-menu.sidebar-mini .logo-text,
+            #sidebar-menu.sidebar-mini .user-info,
+            #sidebar-menu.sidebar-mini .menu-title,
+            #sidebar-menu.sidebar-mini .tab-btn span,
+            #sidebar-menu.sidebar-mini .sidebar-btn span {
+                display: none !important;
+            }
+            #sidebar-menu.sidebar-mini .tab-btn,
+            #sidebar-menu.sidebar-mini .sidebar-btn,
+            #sidebar-menu.sidebar-mini .user-card {
+                justify-content: center;
+                padding-left: 0;
+                padding-right: 0;
+            }
+            #sidebar-menu.sidebar-mini .tab-btn div {
+                justify-content: center;
+                width: 100%;
+            }
+            #sidebar-menu.sidebar-mini .tab-btn div span {
+                display: none !important;
+            }
+            #sidebar-menu.sidebar-mini .tab-btn i,
+            #sidebar-menu.sidebar-mini .sidebar-btn i {
+                margin-right: 0 !important;
+            }
+            #sidebar-menu.sidebar-mini #btn-collapse-sidebar i {
+                transform: rotate(180deg);
+            }
+        }
     </style>
 </head>
 
@@ -115,6 +153,15 @@
                 $badgeText = 'Cá Nhân';
             }
         }
+
+        // Đếm số lượng thông báo liên hệ chưa xử lý (pending)
+        $pendingContactCount = 0;
+        if ($currentUser) {
+            $postIds = \App\Models\Post::where('user_id', $currentUser->id)->pluck('_id');
+            $pendingContactCount = \App\Models\Contact::whereIn('post_id', $postIds)
+                                                      ->where('status', 'pending')
+                                                      ->count();
+        }
     @endphp
 
     <!-- Mobile Top Navigation Header -->
@@ -148,13 +195,18 @@
         <!-- Left Vertical Sidebar (Header Dọc bên tay trái) -->
         <aside id="sidebar-menu"
             class="fixed md:sticky top-0 left-0 z-50 md:z-30 w-72 h-screen bg-white border-r border-slate-200/80 shadow-md md:shadow-none flex flex-col justify-between transition-transform duration-300 transform -translate-x-full md:translate-x-0 shrink-0">
+            
+            <!-- Nút Thu gọn (Desktop) -->
+            <button onclick="toggleDesktopSidebarMini()" id="btn-collapse-sidebar" class="absolute -right-3 top-8 w-6 h-6 bg-white border border-slate-200 rounded-full hidden md:flex items-center justify-center text-slate-400 hover:text-brand-600 shadow-sm z-50 transition-all hover:scale-110">
+                <i class="fa-solid fa-chevron-left text-[10px] transition-transform duration-300"></i>
+            </button>
 
             <div class="p-5 overflow-y-auto space-y-6">
                 <!-- Sidebar Brand Header -->
-                <div class="flex items-center justify-between pb-2">
+                <div class="flex items-center justify-between pb-2 brand-header">
                     <a href="/" class="flex items-center gap-3 group">
                         <img src="{{ asset('img/logo.png') }}" alt="RentHome Logo" class="w-10 h-10 object-contain rounded-xl shadow-sm group-hover:scale-105 transition-transform">
-                        <div class="flex flex-col">
+                        <div class="flex flex-col logo-text">
                             <span class="text-xl font-extrabold tracking-tight text-slate-900 leading-none">Rent<span
                                     class="text-brand-600">Home</span></span>
                             <span class="text-[10px] font-medium text-slate-500 uppercase tracking-widest mt-0.5">Quản
@@ -168,13 +220,12 @@
 
                 <!-- User Account Information Card -->
                 <!-- User Account Information Card -->
-                <button onclick="toggleGlobalSidebar()"
-                    class="w-full text-left p-3.5 rounded-2xl {{ $isEnterprise ? 'bg-gradient-to-br from-purple-50 to-indigo-50/50 border border-purple-100 hover:border-purple-300' : 'bg-gradient-to-br from-emerald-50 to-teal-50/50 border border-emerald-100 hover:border-emerald-300' }} flex items-center gap-3 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer">
+                <a href="{{ route('user.dashboard') }}" class="user-card block w-full text-left p-3.5 rounded-2xl {{ $isEnterprise ? 'bg-gradient-to-br from-purple-50 to-indigo-50/50 border border-purple-100' : 'bg-gradient-to-br from-emerald-50 to-teal-50/50 border border-emerald-100' }} flex items-center gap-3 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer">
                     <div
                         class="w-10 h-10 rounded-xl {{ $isEnterprise ? 'bg-purple-600 text-white' : 'bg-brand-600 text-white' }} flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
                         <i class="fa-solid {{ $isEnterprise ? 'fa-briefcase' : 'fa-user' }}"></i>
                     </div>
-                    <div class="flex-1 min-w-0">
+                    <div class="flex-1 min-w-0 user-info">
                         <p class="text-xs font-bold text-slate-900 truncate" title="{{ $displayName }}">
                             {{ $displayName }}</p>
                         <div class="flex items-center gap-1.5 mt-0.5">
@@ -184,11 +235,11 @@
                                 class="text-[11px] font-semibold {{ $isEnterprise ? 'text-purple-700' : 'text-emerald-700' }}">{{ $subTitle }}</span>
                         </div>
                     </div>
-                </button>
+                </a>
 
                 <!-- Vertical Navigation Menu -->
                 <nav class="space-y-1.5">
-                    <p class="px-3 text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-2">Danh mục
+                    <p class="px-3 text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-2 menu-title">Danh mục
                         quản lý</p>
 
                     <button onclick="switchTab('overview')" id="tab-overview"
@@ -205,8 +256,10 @@
 
                     <button onclick="switchTab('pending-posts')" id="tab-pending-posts"
                         class="tab-btn flex items-center gap-3 px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
-                        <i class="fa-solid fa-hourglass-half text-amber-500 w-5 text-center text-sm"></i>
-                        <span> Chờ phê duyệt</span>
+                        <div class="flex items-center gap-3">
+                            <i class="fa-solid fa-hourglass-half text-amber-500 w-5 text-center text-sm"></i>
+                            <span> Chờ phê duyệt</span>
+                        </div>
                         <span id="sidebar-pending-count" class="ml-auto bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full hidden">0</span>
                     </button>
 
@@ -225,6 +278,17 @@
                         <span id="sidebar-notif-badge" class="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-bold shadow-xs">4</span>
                     </button>
 
+                    <a href="{{ route('thong-bao-lien-he') }}" id="tab-contact-notif"
+                        class="tab-btn flex items-center justify-between px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
+                        <div class="flex items-center gap-3">
+                            <i class="fa-solid fa-envelope-open-text text-amber-500 w-5 text-center text-sm"></i>
+                            <span> Thông báo liên hệ</span>
+                        </div>
+                        @if($pendingContactCount > 0)
+                            <span class="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-bold shadow-xs">{{ $pendingContactCount }}</span>
+                        @endif
+                    </a>
+
                     @if($isEnterprise)
                     <button onclick="switchTab('buildings')" id="tab-buildings"
                         class="tab-btn flex items-center gap-3 px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
@@ -238,12 +302,12 @@
             <!-- Footer / Actions in Sidebar -->
             <div class="p-4 border-t border-slate-100 space-y-1 bg-slate-50/50">
                 <a href="/"
-                    class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-semibold text-xs text-slate-600 hover:bg-white hover:text-brand-600 transition-all border border-transparent hover:border-slate-200">
+                    class="sidebar-btn flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-semibold text-xs text-slate-600 hover:bg-white hover:text-brand-600 transition-all border border-transparent hover:border-slate-200">
                     <i class="fa-solid fa-house w-5 text-center text-slate-400"></i>
                     <span>Về Trang Chủ</span>
                 </a>
                 <a href="{{ url('quan-ly-van-hanh') }}"
-                    class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-semibold text-xs text-slate-600 hover:bg-white hover:text-brand-600 transition-all border border-transparent hover:border-slate-200">
+                    class="sidebar-btn flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-semibold text-xs text-slate-600 hover:bg-white hover:text-brand-600 transition-all border border-transparent hover:border-slate-200">
                     <i class="fa-solid fa-gears w-5 text-center text-slate-400"></i>
                     <span>Quản lý vận hành</span>
                 </a>
@@ -251,7 +315,7 @@
                     <form action="{{ route('logout') }}" method="POST" class="m-0 p-0">
                         @csrf
                         <button type="submit"
-                            class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-semibold text-xs text-rose-600 hover:bg-rose-50 transition-all text-left">
+                            class="sidebar-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-semibold text-xs text-rose-600 hover:bg-rose-50 transition-all text-left">
                             <i class="fa-solid fa-right-from-bracket w-5 text-center"></i>
                             <span>Đăng xuất</span>
                         </button>
@@ -266,11 +330,13 @@
             <!-- Top Action Header in Main Content -->
             <div
                 class="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-200/70">
-                <div>
-                    <h1 id="page-heading" class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Tổng Quan
-                        Hệ Thống</h1>
-                    <p class="text-xs text-slate-500 mt-1">Quản lý hiệu suất, danh sách tin đăng và tương tác khách hàng
-                    </p>
+                <div class="flex items-center gap-4">
+                    <div>
+                        <h1 id="page-heading" class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Tổng Quan
+                            Hệ Thống</h1>
+                        <p class="text-xs text-slate-500 mt-1">Quản lý hiệu suất, danh sách tin đăng và tương tác khách hàng
+                        </p>
+                    </div>
                 </div>
                 <div class="flex items-center gap-3">
                     <!-- Notification Bell Quick Button & Dropdown -->
@@ -2051,6 +2117,29 @@ function fetchHistoryPosts() {
                 btnSubmit.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Gửi phản hồi';
             }
         }
+        function toggleDesktopSidebar() {
+            const sidebar = document.getElementById('sidebar-menu');
+            sidebar.classList.toggle('md:hidden');
+            sidebar.classList.toggle('md:flex');
+        }
+
+        function toggleDesktopSidebarMini() {
+            const sidebar = document.getElementById('sidebar-menu');
+            sidebar.classList.toggle('sidebar-mini');
+        }
+
+        // Tự động mở menu khi click vào bất kỳ mục nào
+        document.addEventListener('DOMContentLoaded', () => {
+            const menuBtns = document.querySelectorAll('.tab-btn, .sidebar-btn, .user-card');
+            menuBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const sidebar = document.getElementById('sidebar-menu');
+                    if(sidebar.classList.contains('sidebar-mini')) {
+                        sidebar.classList.remove('sidebar-mini');
+                    }
+                });
+            });
+        });
     </script>
 
     <!-- Complaint Modal -->

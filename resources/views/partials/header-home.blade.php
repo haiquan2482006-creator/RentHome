@@ -89,10 +89,7 @@
                 <div class="relative inline-block text-left" id="user-dropdown-container">
                     <button type="button" id="user-menu-button" onclick="toggleUserDropdown(event)"
                         class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl hover:bg-slate-100/80 transition-all cursor-pointer focus:outline-none">
-                        <div
-                            class="w-8 h-8 rounded-full bg-brand-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
-                            <i class="fa-solid fa-user"></i>
-                        </div>
+                        <img src="{{ Auth::user()->display_avatar ?? Auth::user()->avatar }}" alt="Avatar" class="w-8 h-8 rounded-full object-cover shadow-sm border border-slate-200">
                         <div class="flex flex-col text-left leading-tight">
                             <span class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                                 {{ Auth::user()->username ?? (Auth::user()->account_name ?? 'Thành viên') }}
@@ -157,7 +154,7 @@
                             <span>Quản lý vận hành</span>
                         </a>
 
-                        <a href="#"
+                        <a href="{{ route('thong-bao-lien-he') }}"
                             class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
                             <i class="fa-solid fa-envelope-open-text text-brand-600 w-4 text-center"></i>
                             <span>Thông báo liên hệ</span>

@@ -72,4 +72,9 @@ class Post extends Model
         // 4. Ảnh mặc định nếu bài đăng hoàn toàn không có mảng images
         return 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80';
     }
+
+    public function contacts()
+    {
+        return $this->hasMany(Contact::class);
+    }
 }
