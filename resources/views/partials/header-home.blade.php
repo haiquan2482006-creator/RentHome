@@ -19,6 +19,16 @@
     .nav-link:hover::after, .nav-link.active::after {
         width: 100% !important;
     }
+
+    @keyframes favBounce {
+        0% { transform: scale(1); }
+        45% { transform: scale(1.35); }
+        75% { transform: scale(0.9); }
+        100% { transform: scale(1); }
+    }
+    .fav-bounce {
+        animation: favBounce 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
 </style>
 
 @php
@@ -76,7 +86,59 @@
         </nav>
 
         <!-- Action Buttons -->
-        <div class="flex items-center gap-2 sm:gap-3">
+            @if (!Auth::check() || (Auth::user()->account_type ?? 'canhan') !== 'doanhnghiep')
+            <!-- Favorites Dropdown Container (Dành riêng cho khách vãng lai và Tài khoản Cá nhân) -->
+            <div class="relative inline-block text-left" id="favorite-dropdown-container">
+                <button type="button" id="favorite-menu-button" onclick="toggleFavoriteDropdown(event)"
+                    class="relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-rose-50 text-slate-700 hover:text-rose-600 transition-all cursor-pointer focus:outline-none border border-slate-200/80 hover:border-rose-200 bg-white/70 shadow-2xs">
+                    <div class="relative flex items-center justify-center">
+                        <i class="fa-solid fa-heart text-rose-500 text-sm sm:text-base"></i>
+                        <span id="header-favorite-badge"
+                            class="hidden absolute -top-2.5 -right-3 bg-rose-500 text-white font-extrabold text-[10px] min-w-[17px] h-[17px] px-1 rounded-full items-center justify-center shadow-xs border-2 border-white">
+                            0
+                        </span>
+                    </div>
+                    <span class="text-xs font-bold hidden sm:inline">Yêu thích</span>
+                </button>
+
+                <!-- Favorite Dropdown Popover List -->
+                <div id="favorite-dropdown-menu"
+                    class="hidden absolute right-0 sm:right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-white shadow-2xl border border-slate-100 py-2.5 z-50 animate-fadeIn">
+                    <!-- Dropdown Header -->
+                    <div class="px-4 pb-2 border-b border-slate-100 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="w-6 h-6 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center text-xs">
+                                <i class="fa-solid fa-heart"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-xs font-bold text-slate-900 leading-none">Bài đăng yêu thích</h4>
+                                <p class="text-[10px] text-slate-400 mt-0.5">Danh sách nhà bạn đã quan tâm</p>
+                            </div>
+                        </div>
+                        <span id="header-favorite-count-tag" class="px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 font-bold text-[10px]">
+                            0 bài
+                        </span>
+                    </div>
+
+                    <!-- Dropdown List Items -->
+                    <div id="header-favorite-list" class="max-h-80 overflow-y-auto divide-y divide-slate-100 px-2 py-1">
+                        <div class="p-6 text-center text-slate-400">
+                            <i class="fa-solid fa-circle-notch fa-spin text-brand-600 text-lg"></i>
+                            <p class="text-xs mt-2">Đang tải...</p>
+                        </div>
+                    </div>
+
+                    <!-- Dropdown Footer -->
+                    <div class="pt-2 px-4 border-t border-slate-100 flex items-center justify-between text-xs">
+                        <span class="text-[11px] text-slate-400">Bấm bài đăng để xem chi tiết</span>
+                        <a href="{{ url('/baidang') }}" class="font-bold text-brand-600 hover:text-brand-700 hover:underline flex items-center gap-1 text-xs">
+                            Xem tất cả <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            @endif
+
             @auth
                 @if ((Auth::user()->account_type ?? '') === 'admin' || (Auth::user()->role ?? '') === 'admin')
                     <a href="/Admin"
@@ -208,6 +270,13 @@
                 </a>
             @endforeach
             
+            @if (!Auth::check() || (Auth::user()->account_type ?? 'canhan') !== 'doanhnghiep')
+            <button type="button" onclick="toggleFavoriteDropdown(event); toggleMobileNav();" class="flex items-center justify-between px-4 py-2.5 rounded-xl text-base font-semibold text-rose-600 hover:bg-rose-50 w-full text-left">
+                <span class="flex items-center gap-2.5"><i class="fa-solid fa-heart text-rose-500"></i> Bài đăng yêu thích</span>
+                <span id="mobile-favorite-count" class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-bold text-xs">0</span>
+            </button>
+            @endif
+            
             @guest
                 <div class="h-px bg-slate-100 my-2"></div>
                 <a href="/login" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-base font-semibold text-slate-700 hover:bg-slate-50">
@@ -293,18 +362,301 @@
 
     function toggleUserDropdown(event) {
         if (event) event.stopPropagation();
+        const favMenu = document.getElementById('favorite-dropdown-menu');
+        if (favMenu) favMenu.classList.add('hidden');
+
         const menu = document.getElementById('user-dropdown-menu');
         if (menu) {
             menu.classList.toggle('hidden');
         }
     }
 
-    document.addEventListener('click', function(event) {
-        const container = document.getElementById('user-dropdown-container');
-        const menu = document.getElementById('user-dropdown-menu');
-        if (container && menu && !container.contains(event.target)) {
-            menu.classList.add('hidden');
+    function toggleFavoriteDropdown(event) {
+        if (event) event.stopPropagation();
+        const userMenu = document.getElementById('user-dropdown-menu');
+        if (userMenu) userMenu.classList.add('hidden');
+
+        const favMenu = document.getElementById('favorite-dropdown-menu');
+        if (favMenu) {
+            favMenu.classList.toggle('hidden');
         }
+    }
+
+    document.addEventListener('click', function(event) {
+        const userContainer = document.getElementById('user-dropdown-container');
+        const userMenu = document.getElementById('user-dropdown-menu');
+        if (userContainer && userMenu && !userContainer.contains(event.target)) {
+            userMenu.classList.add('hidden');
+        }
+
+        const favContainer = document.getElementById('favorite-dropdown-container');
+        const favMenu = document.getElementById('favorite-dropdown-menu');
+        if (favContainer && favMenu && !favContainer.contains(event.target)) {
+            favMenu.classList.add('hidden');
+        }
+    });
+
+    // ==========================================
+    // RENTHOME FAVORITES CONTROLLER (GLOBAL)
+    // ==========================================
+    window.isUserLoggedIn = {{ Auth::check() ? 'true' : 'false' }};
+    window.currentUserId = "{{ Auth::check() ? (string)Auth::id() : '' }}";
+    window.currentUserType = "{{ Auth::check() ? (Auth::user()->account_type ?? 'canhan') : '' }}";
+    window.csrfToken = "{{ csrf_token() }}";
+
+    window.RentHomeFavorites = {
+        favorites: [],
+        favoriteIds: new Set(),
+        isLoaded: false,
+
+        async init() {
+            if (window.isUserLoggedIn && window.currentUserType !== 'doanhnghiep') {
+                await this.fetchFavorites();
+            } else {
+                this.favorites = [];
+                this.favoriteIds = new Set();
+                this.renderList();
+            }
+        },
+
+        async fetchFavorites() {
+            if (window.currentUserType === 'doanhnghiep') return;
+
+            try {
+                const res = await fetch('/api/favorites');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.success) {
+                        this.favorites = data.favorites || [];
+                        this.favoriteIds = new Set((data.favorite_ids || []).map(id => String(id)));
+                        this.isLoaded = true;
+                        this.renderList();
+                        this.updateCardButtons();
+                    }
+                }
+            } catch (e) {
+                console.error('Lỗi khi tải bài đăng yêu thích:', e);
+            }
+        },
+
+        has(postId) {
+            return this.favoriteIds.has(String(postId));
+        },
+
+        async toggle(postId, event, ownerId = '') {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+
+            if (!window.isUserLoggedIn) {
+                this.showToast('Vui lòng đăng nhập bằng tài khoản cá nhân để lưu bài viết yêu thích!', 'warning');
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 1300);
+                return;
+            }
+
+            // 1. Kiểm tra tài khoản Doanh nghiệp: không được phép yêu thích
+            if (window.currentUserType === 'doanhnghiep') {
+                this.showToast('Tài khoản Doanh nghiệp không thể thực hiện chức năng yêu thích.', 'warning');
+                return;
+            }
+
+            // 2. Kiểm tra nếu là bài đăng của chính mình
+            if (window.currentUserId && ownerId && String(ownerId) === String(window.currentUserId)) {
+                this.showToast('Bạn không thể tự yêu thích bài đăng của chính mình!', 'warning');
+                return;
+            }
+
+            const idStr = String(postId);
+            const cardBtn = document.querySelector(`[data-fav-id="${idStr}"]`);
+            if (cardBtn) {
+                cardBtn.classList.add('fav-bounce');
+                setTimeout(() => cardBtn.classList.remove('fav-bounce'), 450);
+            }
+
+            try {
+                const res = await fetch('/api/favorites/toggle', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': window.csrfToken,
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ post_id: idStr })
+                });
+
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    if (data.is_favorite) {
+                        this.favoriteIds.add(idStr);
+                        if (data.post) {
+                            this.favorites = [data.post, ...this.favorites.filter(p => String(p.id) !== idStr)];
+                        } else {
+                            await this.fetchFavorites();
+                        }
+                        this.showToast(data.message || 'Đã thêm vào danh sách yêu thích!', 'success');
+                    } else {
+                        this.favoriteIds.delete(idStr);
+                        this.favorites = this.favorites.filter(p => String(p.id) !== idStr);
+                        this.showToast(data.message || 'Đã xóa khỏi danh sách yêu thích.', 'info');
+                    }
+                    this.renderList();
+                    this.updateCardButtons();
+                } else {
+                    if (data.require_login) {
+                        this.showToast(data.message, 'warning');
+                        setTimeout(() => window.location.href = '/login', 1300);
+                    } else {
+                        this.showToast(data.message || 'Có lỗi xảy ra, vui lòng thử lại!', 'error');
+                    }
+                }
+            } catch (e) {
+                console.error('Lỗi khi cập nhật yêu thích:', e);
+                this.showToast('Lỗi kết nối máy chủ.', 'error');
+            }
+        },
+
+        async remove(postId, event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            await this.toggle(postId);
+        },
+
+        renderList() {
+            const listContainer = document.getElementById('header-favorite-list');
+            const badge = document.getElementById('header-favorite-badge');
+            const countTag = document.getElementById('header-favorite-count-tag');
+            const mobileBadge = document.getElementById('mobile-favorite-count');
+
+            const count = this.favorites.length;
+
+            if (badge) {
+                badge.innerText = count;
+                badge.style.display = count > 0 ? 'inline-flex' : 'none';
+            }
+            if (countTag) {
+                countTag.innerText = count + ' bài';
+            }
+            if (mobileBadge) {
+                mobileBadge.innerText = count;
+            }
+
+            if (!listContainer) return;
+
+            if (count === 0) {
+                listContainer.innerHTML = `
+                    <div class="py-8 px-4 text-center">
+                        <div class="w-12 h-12 rounded-full bg-rose-50 text-rose-400 flex items-center justify-center mx-auto mb-2.5 shadow-2xs">
+                            <i class="fa-regular fa-heart text-xl"></i>
+                        </div>
+                        <p class="text-xs font-bold text-slate-700">Chưa có bài đăng yêu thích</p>
+                        <p class="text-[11px] text-slate-400 mt-1 max-w-[220px] mx-auto leading-relaxed">
+                            Nhấn biểu tượng trái tim ở các bài đăng để lưu lại xem nhanh tại đây!
+                        </p>
+                    </div>
+                `;
+                return;
+            }
+
+            listContainer.innerHTML = this.favorites.map(post => `
+                <div class="py-2.5 px-2 hover:bg-slate-50/80 rounded-xl transition-colors flex items-center gap-3 group relative">
+                    <a href="/chitietbaidang/${post.id}" class="flex-1 flex items-center gap-3 min-w-0">
+                        <img src="${post.display_image || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=400&q=80'}" 
+                             class="w-12 h-12 rounded-xl object-cover shrink-0 shadow-xs border border-slate-200 group-hover:scale-105 transition-transform">
+                        <div class="flex-1 min-w-0">
+                            <h5 class="text-xs font-bold text-slate-800 truncate group-hover:text-brand-600 transition-colors">
+                                ${post.title}
+                            </h5>
+                            <p class="text-[11px] font-extrabold text-brand-600 mt-0.5">
+                                ${post.price}
+                            </p>
+                            <p class="text-[10px] text-slate-400 truncate mt-0.5">
+                                <i class="fa-solid fa-location-dot text-[9px] mr-1"></i>${post.address || 'Đang cập nhật'}
+                            </p>
+                        </div>
+                    </a>
+                    <button type="button" 
+                            onclick="window.RentHomeFavorites.remove('${post.id}', event)" 
+                            class="p-2 text-slate-300 hover:text-rose-500 rounded-lg hover:bg-rose-50 transition-colors shrink-0" 
+                            title="Bỏ thích bài đăng này">
+                        <i class="fa-solid fa-trash-can text-xs"></i>
+                    </button>
+                </div>
+            `).join('');
+        },
+
+        updateCardButtons() {
+            const buttons = document.querySelectorAll('.fav-toggle-btn');
+            buttons.forEach(btn => {
+                const id = btn.getAttribute('data-fav-id');
+                const ownerId = btn.getAttribute('data-owner-id');
+                const isFav = this.has(id);
+                const icon = btn.querySelector('i');
+
+                // 1. Tài khoản Doanh nghiệp: ẩn hoàn toàn nút yêu thích
+                if (window.currentUserType === 'doanhnghiep') {
+                    btn.style.display = 'none';
+                    return;
+                }
+
+                // 2. Bài đăng của chính tài khoản hiện tại: ẩn hoàn toàn nút yêu thích
+                if (window.currentUserId && ownerId && String(ownerId) === String(window.currentUserId)) {
+                    btn.style.display = 'none';
+                    return;
+                }
+
+                btn.style.display = 'flex';
+
+                if (isFav) {
+                    btn.className = 'fav-toggle-btn absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-white text-rose-500 shadow-md ring-2 ring-rose-100 flex items-center justify-center transition-all duration-200 active:scale-90 group/heart';
+                    btn.title = 'Bỏ yêu thích';
+                    if (icon) {
+                        icon.className = 'fa-solid fa-heart text-base text-rose-500 transition-transform duration-200 group-hover/heart:scale-110';
+                    }
+                } else {
+                    btn.className = 'fav-toggle-btn absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-white/90 hover:bg-white text-slate-400 hover:text-rose-500 shadow-sm flex items-center justify-center transition-all duration-200 active:scale-90 group/heart';
+                    btn.title = 'Yêu thích bài đăng';
+                    if (icon) {
+                        icon.className = 'fa-regular fa-heart text-base text-slate-400 group-hover/heart:text-rose-500 transition-transform duration-200 group-hover/heart:scale-110';
+                    }
+                }
+            });
+        },
+
+        showToast(message, type = 'info') {
+            const oldToast = document.getElementById('renthome-toast');
+            if (oldToast) oldToast.remove();
+
+            let icon = 'fa-info-circle';
+            let bgClass = 'bg-slate-900 text-white';
+            if (type === 'success') {
+                icon = 'fa-circle-check text-emerald-400';
+            } else if (type === 'warning') {
+                icon = 'fa-circle-exclamation text-amber-400';
+            } else if (type === 'error') {
+                icon = 'fa-circle-xmark text-rose-400';
+            }
+
+            const toast = document.createElement('div');
+            toast.id = 'renthome-toast';
+            toast.className = `fixed top-24 right-4 sm:right-8 z-[99999] flex items-center gap-3 px-4 py-3 rounded-2xl ${bgClass} shadow-2xl border border-white/15 text-xs font-semibold transition-all duration-300 backdrop-blur-md`;
+            toast.innerHTML = `<i class="fa-solid ${icon} text-sm"></i><span>${message}</span>`;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-12px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+        window.RentHomeFavorites.init();
     });
 </script>
 

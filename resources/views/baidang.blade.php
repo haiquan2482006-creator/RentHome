@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>RentHome - Tất cả bài đăng</title>
 
     <!-- Google Fonts -->
@@ -158,10 +159,35 @@
                         const price = new Intl.NumberFormat('vi-VN').format(post.price) + ' ' + unitText;
                         const address = [post.address, post.ward, post.district, post.province].filter(Boolean).join(', ');
                         
+                        const postId = post.id || post._id;
+                        const postOwnerId = String(post.user_id || (post.user && (post.user._id || post.user.id)) || '');
+                        const isFav = window.RentHomeFavorites && window.RentHomeFavorites.has(postId);
+                        const isEnterprise = window.currentUserType === 'doanhnghiep';
+                        const isMyPost = Boolean(window.currentUserId && postOwnerId && postOwnerId === String(window.currentUserId));
+                        const canFavorite = !isEnterprise && !isMyPost;
+
+                        let favButtonHtml = '';
+                        if (canFavorite) {
+                            favButtonHtml = `
+                                <!-- Favorite Button -->
+                                <button type="button" 
+                                        onclick="window.RentHomeFavorites.toggle('${postId}', event, '${postOwnerId}')" 
+                                        data-fav-id="${postId}"
+                                        data-owner-id="${postOwnerId}"
+                                        class="fav-toggle-btn absolute top-3 right-3 z-10 w-9 h-9 rounded-full ${isFav ? 'bg-white text-rose-500 shadow-md ring-2 ring-rose-100' : 'bg-white/90 hover:bg-white text-slate-400 hover:text-rose-500 shadow-sm'} flex items-center justify-center transition-all duration-200 active:scale-90 group/heart"
+                                        title="${isFav ? 'Bỏ yêu thích' : 'Yêu thích bài đăng'}">
+                                    <i class="${isFav ? 'fa-solid fa-heart text-rose-500' : 'fa-regular fa-heart text-slate-400 group-hover/heart:text-rose-500'} text-base transition-transform duration-200 group-hover/heart:scale-110"></i>
+                                </button>
+                            `;
+                        }
+                        
                         html += `
                             <div class="bg-white rounded-3xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-xl transition-all duration-300 group relative">
                                 <div class="relative aspect-[4/3] overflow-hidden">
                                     <img src="${imgUrl}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                                    
+                                    ${favButtonHtml}
+
                                     <div class="absolute bottom-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl font-bold text-xs shadow-sm">
                                         <span class="text-brand-600">${price}</span>
                                     </div>
@@ -199,6 +225,9 @@
                         `;
                     });
                     container.innerHTML = html;
+                    if (window.RentHomeFavorites) {
+                        window.RentHomeFavorites.updateCardButtons();
+                    }
                 } else {
                     container.innerHTML = '<p class="col-span-full text-center text-rose-500 py-10">Lỗi khi tải dữ liệu bài đăng!</p>';
                 }

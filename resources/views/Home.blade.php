@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>RentHome - Kênh Tìm Kiếm & Cho Thuê Nhà Hàng Đầu Việt Nam</title>
 
     <!-- Google Fonts -->
@@ -1106,10 +1107,35 @@
                         const price = new Intl.NumberFormat('vi-VN').format(Number(post.price) || 0) + ' ' + unitText;
                         const address = [post.address, post.ward, post.district, post.province].filter(Boolean).join(', ');
                         
+                        const postId = post.id || post._id;
+                        const postOwnerId = String(post.user_id || (post.user && (post.user._id || post.user.id)) || '');
+                        const isFav = window.RentHomeFavorites && window.RentHomeFavorites.has(postId);
+                        const isEnterprise = window.currentUserType === 'doanhnghiep';
+                        const isMyPost = Boolean(window.currentUserId && postOwnerId && postOwnerId === String(window.currentUserId));
+                        const canFavorite = !isEnterprise && !isMyPost;
+
+                        let favButtonHtml = '';
+                        if (canFavorite) {
+                            favButtonHtml = `
+                                <!-- Favorite Button -->
+                                <button type="button" 
+                                        onclick="window.RentHomeFavorites.toggle('${postId}', event, '${postOwnerId}')" 
+                                        data-fav-id="${postId}"
+                                        data-owner-id="${postOwnerId}"
+                                        class="fav-toggle-btn absolute top-3 right-3 z-10 w-9 h-9 rounded-full ${isFav ? 'bg-white text-rose-500 shadow-md ring-2 ring-rose-100' : 'bg-white/90 hover:bg-white text-slate-400 hover:text-rose-500 shadow-sm'} flex items-center justify-center transition-all duration-200 active:scale-90 group/heart"
+                                        title="${isFav ? 'Bỏ yêu thích' : 'Yêu thích bài đăng'}">
+                                    <i class="${isFav ? 'fa-solid fa-heart text-rose-500' : 'fa-regular fa-heart text-slate-400 group-hover/heart:text-rose-500'} text-base transition-transform duration-200 group-hover/heart:scale-110"></i>
+                                </button>
+                            `;
+                        }
+
                         html += `
                             <div class="bg-white rounded-3xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-xl transition-all duration-300 group relative">
                                 <div class="relative aspect-[4/3] overflow-hidden">
                                     <img src="${imgUrl}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                                    
+                                    ${favButtonHtml}
+
                                     <div class="absolute bottom-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl font-bold text-xs shadow-sm">
                                         <span class="text-brand-600">${price}</span>
                                     </div>
@@ -1147,6 +1173,9 @@
                         `;
                     });
                     container.innerHTML = html;
+                    if (window.RentHomeFavorites) {
+                        window.RentHomeFavorites.updateCardButtons();
+                    }
 
             if (!loadMoreBtn || !goToBaidangBtn) return;
 
@@ -1203,7 +1232,29 @@
             track.style.transition = 'none';
             track.style.transform = 'translate3d(0, 0, 0)';
 
-            track.innerHTML = posts.map(post => `
+            track.innerHTML = posts.map(post => {
+                const postOwnerId = String(post.user_id || '');
+                const isEnterprise = window.currentUserType === 'doanhnghiep';
+                const isMyPost = Boolean(window.currentUserId && postOwnerId && postOwnerId === String(window.currentUserId));
+                const canFavorite = !isEnterprise && !isMyPost;
+                const isFav = window.RentHomeFavorites && window.RentHomeFavorites.has(post.id);
+
+                let favBtnHtml = '';
+                if (canFavorite) {
+                    favBtnHtml = `
+                        <!-- Favorite Button for Featured Post -->
+                        <button type="button" 
+                                onclick="window.RentHomeFavorites.toggle('${post.id}', event, '${postOwnerId}')" 
+                                data-fav-id="${post.id}"
+                                data-owner-id="${postOwnerId}"
+                                class="fav-toggle-btn absolute top-4 right-4 z-10 w-9 h-9 rounded-full ${isFav ? 'bg-white text-rose-500 shadow-md ring-2 ring-rose-100' : 'bg-white/90 hover:bg-white text-slate-400 hover:text-rose-500 shadow-md'} flex items-center justify-center transition-all duration-200 active:scale-90 group/heart"
+                                title="${isFav ? 'Bỏ yêu thích' : 'Yêu thích bài đăng'}">
+                            <i class="${isFav ? 'fa-solid fa-heart text-base text-rose-500' : 'fa-regular fa-heart text-base text-slate-400 group-hover/heart:text-rose-500'} transition-transform duration-200 group-hover/heart:scale-110"></i>
+                        </button>
+                    `;
+                }
+
+                return `
                 <div class="w-[310px] sm:w-[350px] md:w-[370px] shrink-0 bg-white rounded-3xl overflow-hidden border border-slate-200/80 shadow-card hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col group relative">
                     ${IS_ADMIN_USER ? `
                     <!-- Delete/Unfeature button for Admin only -->
@@ -1221,6 +1272,8 @@
                         <span class="absolute top-4 left-4 px-3 py-1 rounded-full bg-amber-500 text-white font-extrabold text-[11px] uppercase tracking-wider shadow-md flex items-center gap-1">
                             <i class="fa-solid fa-star text-amber-200 text-[10px]"></i> ${post.tag || 'NỔI BẬT'}
                         </span>
+
+                        ${favBtnHtml}
                         <div class="absolute bottom-4 left-4 bg-slate-900/85 backdrop-blur-md text-white px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1 shadow-md">
                             <span class="text-amber-400 text-sm font-black">${post.price}</span> ${post.period || '/ tháng'}
                         </div>
@@ -1264,6 +1317,10 @@
             if (slider) {
                 slider.onmouseenter = stopFeaturedAutoPlay;
                 slider.onmouseleave = startFeaturedAutoPlay;
+            }
+
+            if (window.RentHomeFavorites) {
+                window.RentHomeFavorites.updateCardButtons();
             }
 
             startFeaturedAutoPlay();
