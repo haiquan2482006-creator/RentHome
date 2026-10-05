@@ -113,5 +113,23 @@ class User extends Authenticatable
     public function getIdFrontUrlAttribute() { return $this->getDocumentUrl($this->id_front); }
     public function getIdBackUrlAttribute() { return $this->getDocumentUrl($this->id_back); }
     public function getBusinessLicenseUrlAttribute() { return $this->getDocumentUrl($this->business_license); }
+
+    /**
+     * Get the entity's notifications.
+     */
+    public function notifications()
+    {
+        return $this->morphMany(\App\Models\DatabaseNotification::class, 'notifiable')->latest();
+    }
+
+    /**
+     * Get the entity's unread notifications.
+     */
+    public function unreadNotifications()
+    {
+        return $this->morphMany(\App\Models\DatabaseNotification::class, 'notifiable')
+                    ->whereNull('read_at')
+                    ->latest();
+    }
 }
 

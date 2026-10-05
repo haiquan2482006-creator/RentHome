@@ -85,6 +85,34 @@
                     </a>
                 @endif
 
+                <!-- Notification Bell (Copied from Dashboard) -->
+                @auth
+                <div class="relative inline-block text-left relative-notif" id="home-notif-container">
+                    <button onclick="toggleHomeNotification(event)" class="relative p-2 mx-1 rounded-full hover:bg-slate-100 text-slate-500 hover:text-brand-600 transition-colors focus:outline-none" title="Thông báo hệ thống">
+                        <i class="fa-regular fa-bell text-[20px]"></i>
+                        <span id="home-topbar-notif-badge" class="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center border-2 border-white shadow-xs" style="display: none;">0</span>
+                    </button>
+
+                    <!-- Dropdown -->
+                    <div id="home-notif-dropdown" class="hidden absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 overflow-hidden">
+                        <div class="p-3.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                            <h4 class="font-bold text-xs text-slate-900 flex items-center gap-2">
+                                <i class="fa-solid fa-bell text-rose-500"></i> Thông báo mới nhất
+                            </h4>
+                            <span class="text-[10px] font-semibold text-slate-500">{{ (Auth::user()->account_type ?? '') === 'doanhnghiep' ? 'Đối tác Doanh Nghiệp' : 'Tài khoản Cá Nhân' }}</span>
+                        </div>
+                        <div id="home-topbar-notif-list" class="max-h-72 overflow-y-auto divide-y divide-slate-100 text-xs">
+                            <!-- Populated dynamically by JS -->
+                        </div>
+                        <div class="p-2.5 text-center bg-slate-50 border-t border-slate-100">
+                            <a href="{{ url('/Overview?tab=notifications') }}" class="text-xs font-bold text-brand-600 hover:text-brand-700 block">
+                                Xem tất cả thông báo <i class="fa-solid fa-arrow-right text-[10px] ml-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                @endauth
+
                 <!-- User Menu Dropdown Container -->
                 <div class="relative inline-block text-left" id="user-dropdown-container">
                     <button type="button" id="user-menu-button" onclick="toggleUserDropdown(event)"
@@ -154,11 +182,19 @@
                             <span>Quản lý vận hành</span>
                         </a>
 
-                        <a href="{{ route('thong-bao-lien-he') }}"
+                        <a href="{{ route('contact.index') }}"
                             class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
                             <i class="fa-solid fa-envelope-open-text text-brand-600 w-4 text-center"></i>
-                            <span>Thông báo liên hệ</span>
+                            <span>Khách hàng liên hệ</span>
                         </a>
+
+                        @if((Auth::user()->account_type ?? '') !== 'doanhnghiep')
+                        <a href="{{ route('contact.my_requests') }}"
+                            class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
+                            <i class="fa-solid fa-clock-rotate-left text-brand-600 w-4 text-center"></i>
+                            <span>Lịch sử liên hệ</span>
+                        </a>
+                        @endif
 
                         <a href="/dat-lai-mat-khau"
                             class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
@@ -306,6 +342,118 @@
             menu.classList.add('hidden');
         }
     });
+
+    document.addEventListener('DOMContentLoaded', function() {
+        if (!document.getElementById('home-notif-container')) return;
+        
+        fetchNotificationsHome();
+        setInterval(fetchNotificationsHome, 30000);
+        
+        document.addEventListener('click', (e) => {
+            const dd = document.getElementById('home-notif-dropdown');
+            if (dd && !dd.classList.contains('hidden')) {
+                const btn = e.target.closest('button[onclick*="toggleHomeNotification"]');
+                const menu = e.target.closest('#home-notif-dropdown');
+                if (!btn && !menu) {
+                    dd.classList.add('hidden');
+                }
+            }
+        });
+    });
+
+    function toggleHomeNotification(e) {
+        if (e) e.stopPropagation();
+        const dd = document.getElementById('home-notif-dropdown');
+        if (dd) dd.classList.toggle('hidden');
+    }
+
+    async function fetchNotificationsHome() {
+        try {
+            const response = await fetch('/api/notifications?t=' + new Date().getTime());
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.notifications) {
+                    renderHomeNotifications(data.notifications);
+                }
+            }
+        } catch (error) {
+            console.error("Lỗi khi fetch thông báo:", error);
+        }
+    }
+
+    function renderHomeNotifications(listRaw) {
+        const list = listRaw.map(n => {
+            let iconBg = 'bg-blue-100 text-blue-600 border-blue-200';
+            let icon = 'fa-bell';
+            let badgeBg = 'bg-blue-50 text-blue-600 border-blue-100';
+            let categoryName = 'Hệ thống';
+
+            if (n.type === 'success') {
+                iconBg = 'bg-emerald-100 text-emerald-600 border-emerald-200';
+                icon = 'fa-check-circle';
+                badgeBg = 'bg-emerald-50 text-emerald-600 border-emerald-100';
+                categoryName = 'Đã duyệt';
+            } else if (n.type === 'error') {
+                iconBg = 'bg-rose-100 text-rose-600 border-rose-200';
+                icon = 'fa-circle-xmark';
+                badgeBg = 'bg-rose-50 text-rose-600 border-rose-100';
+                categoryName = 'Từ chối';
+            }
+
+            return {
+                id: n._id || n.id,
+                title: n.title,
+                content: n.message,
+                time: new Date(n.created_at).toLocaleString('vi-VN'),
+                type: n.type,
+                isRead: n.is_read,
+                iconBg: iconBg,
+                icon: icon,
+                badgeBg: badgeBg,
+                categoryName: categoryName
+            };
+        });
+
+        const topbarList = document.getElementById('home-topbar-notif-list');
+        const badge = document.getElementById('home-topbar-notif-badge');
+        
+        if (!topbarList) return;
+
+        const unreadCount = list.filter(n => !n.isRead).length;
+        if (badge) {
+            badge.innerText = unreadCount;
+            badge.style.display = unreadCount > 0 ? 'flex' : 'none';
+        }
+
+        if (list.length === 0) {
+            topbarList.innerHTML = `<div class="p-4 text-center text-slate-400">Không có thông báo.</div>`;
+        } else {
+            topbarList.innerHTML = list.slice(0, 5).map(n => {
+                let badgeHtml = `<span class="px-1.5 py-0.2 rounded-full ${n.badgeBg} font-bold text-[9px] border">${n.categoryName}</span>`;
+                if (n.type === 'favorite') {
+                    badgeHtml = `<span class="px-1.5 py-0.2 rounded-full bg-rose-100 text-rose-700 border border-rose-200 font-bold text-[9px]">Yêu thích</span>`;
+                } else if (n.type === 'message') {
+                    badgeHtml = `<span class="px-1.5 py-0.2 rounded-full bg-blue-100 text-blue-700 border border-blue-200 font-bold text-[9px]">Tin nhắn</span>`;
+                }
+
+                return `
+                    <div onclick="window.location.href='/Overview?tab=notifications'" class="p-3 hover:bg-slate-50 transition-colors cursor-pointer flex items-start gap-3 ${!n.isRead ? 'bg-rose-50/30' : ''}">
+                        <div class="w-7 h-7 rounded-lg ${n.iconBg} flex items-center justify-center shrink-0 text-xs mt-0.5">
+                            <i class="fa-solid ${n.icon}"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between gap-1">
+                                ${badgeHtml}
+                                <span class="text-[10px] text-slate-400">${n.time}</span>
+                            </div>
+                            <p class="font-bold text-slate-900 text-xs truncate mt-0.5 ${!n.isRead ? 'text-slate-900 font-extrabold' : 'text-slate-700'}">${n.title}</p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+
 </script>
 
 <!-- RentHome AI Assistant Chat Widget -->

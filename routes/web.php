@@ -72,39 +72,31 @@ Route::get('/chitietbaidang/{id}', function ($id) {
     if (!$post) {
         abort(404, 'Bài đăng không tồn tại hoặc đã bị xóa.');
     }
-    return view('chitietbaidang', compact('post'));
+
+    $hasContacted = false;
+    $contactId = '';
+    $contactStatus = '';
+    
+    if (\Illuminate\Support\Facades\Auth::check()) {
+        $contact = \App\Models\Contact::where('post_id', $id)
+            ->where('sender_id', \Illuminate\Support\Facades\Auth::id())
+            ->first();
+            
+        if ($contact) {
+            $hasContacted = true;
+            $contactId = $contact->_id ?? $contact->id;
+            $contactStatus = $contact->status ?? '';
+        }
+    }
+
+    return view('chitietbaidang', compact('post', 'hasContacted', 'contactId', 'contactStatus'));
 })->name('post.detail');
 
-Route::get('/thong-bao-lien-he', function () {
-    if (!\Illuminate\Support\Facades\Auth::check()) {
-        return redirect()->route('login')->with('error', 'Vui lòng đăng nhập để xem thông báo liên hệ.');
-    }
-
-    $userId = \Illuminate\Support\Facades\Auth::id();
-
-    // 1. Lấy danh sách bài đăng của user kèm theo liên hệ (Eager Loading)
-    $posts = \App\Models\Post::with('contacts')
-        ->where('user_id', $userId)
-        ->orderBy('created_at', 'desc')
-        ->get();
-
-    // 2. Chỉ lấy những bài đăng có ít nhất 1 liên hệ (Sử dụng filter vì MongoDB có thể không hỗ trợ whereHas mượt mà)
-    $groupedContacts = $posts->filter(function ($post) {
-        return $post->contacts && $post->contacts->count() > 0;
-    });
-
-    // 3. Tính toán bộ đếm
-    $totalContacts = 0;
-    $pendingContacts = 0;
-
-    foreach ($groupedContacts as $post) {
-        $totalContacts += $post->contacts->count();
-        $pendingContacts += $post->contacts->where('status', 'pending')->count();
-    }
-
-    // 4. Trả về View cùng dữ liệu thật
-    return view('thongbaolienhe', compact('groupedContacts', 'totalContacts', 'pendingContacts'));
-})->name('thong-bao-lien-he');
+Route::post('/bai-dang/{id}/lien-he', [\App\Http\Controllers\ContactController::class, 'store'])->name('contact.store');
+Route::get('/thong-bao-lien-he', [\App\Http\Controllers\ContactController::class, 'index'])->middleware('auth')->name('contact.index');
+Route::get('/lich-su-lien-he', [\App\Http\Controllers\ContactController::class, 'myRequests'])->middleware('auth')->name('contact.my_requests');
+Route::delete('/contact/{id}/revoke', [\App\Http\Controllers\ContactController::class, 'revoke'])->middleware('auth')->name('contact.revoke');
+Route::patch('/contact/{id}/status', [\App\Http\Controllers\ContactController::class, 'updateStatus'])->middleware('auth')->name('contact.updateStatus');
 
 Route::get('/trangcanhanuser', function () {
     if (!\Illuminate\Support\Facades\Auth::check()) {
@@ -650,6 +642,12 @@ Route::post('/api/moderator/posts/{id}/restore', [\App\Http\Controllers\Moderato
 
 // User Dashboard APIs
 Route::get('/api/user/posts/stats', [\App\Http\Controllers\UserDashboardController::class, 'getStats']);
+
+// Notification APIs & Routes
+Route::get('/api/notifications/unread', [\App\Http\Controllers\NotificationController::class, 'getUnread'])->middleware('auth');
+Route::post('/api/notifications/{id}/read', [\App\Http\Controllers\NotificationController::class, 'markAsRead'])->middleware('auth');
+Route::get('/thong-bao', [\App\Http\Controllers\NotificationController::class, 'index'])->middleware('auth')->name('notifications.index');
+
 Route::get('/api/notifications', [\App\Http\Controllers\UserDashboardController::class, 'getNotifications']);
 Route::post('/api/notifications/read', [\App\Http\Controllers\UserDashboardController::class, 'markNotificationsRead']);
 Route::get('/api/user/posts', [\App\Http\Controllers\UserDashboardController::class, 'getPosts']);

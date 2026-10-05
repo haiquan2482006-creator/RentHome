@@ -70,27 +70,7 @@
             <i class="fa-solid fa-key w-5"></i> Đổi mật khẩu
         </a>
         
-        <p class="px-4 text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 mt-6">Quản lý</p>
-        <a href="{{ url('/Overview') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl {{ request()->is('Overview*') ? 'bg-brand-600 text-white font-semibold shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/5 hover:text-white font-semibold transition-colors' }}">
-            <i class="fa-solid fa-list-check w-5"></i> Quản lý bài đăng
-        </a>
-        
-        <a href="{{ route('quan-ly-van-hanh') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl {{ request()->routeIs('quan-ly-van-hanh') ? 'bg-brand-600 text-white font-semibold shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/5 hover:text-white font-semibold transition-colors' }}">
-            <i class="fa-solid fa-gears w-5"></i> Quản lý vận hành
-        </a>
-        
-        <a href="{{ route('thong-bao-lien-he') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl {{ request()->routeIs('thong-bao-lien-he') ? 'bg-brand-600 text-white font-semibold shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/5 hover:text-white font-semibold transition-colors' }} relative">
-            <i class="fa-solid fa-envelope-open-text w-5"></i> Thông báo liên hệ
-            @if($pendingContactCount > 0)
-                <span class="absolute right-4 w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">{{ $pendingContactCount }}</span>
-            @endif
-        </a>
 
-        @if(!$isEnterprise)
-        <a href="{{ route('nha-dang-thue') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl {{ request()->routeIs('nha-dang-thue') ? 'bg-brand-600 text-white font-semibold shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/5 hover:text-white font-semibold transition-colors' }}">
-            <i class="fa-solid fa-house-user w-5"></i> Nhà đang thuê
-        </a>
-        @endif
 
     </nav>
 

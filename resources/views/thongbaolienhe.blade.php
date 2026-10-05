@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Thông báo liên hệ - RentHome</title>
+    <title>Khách hàng liên hệ - RentHome</title>
 
     <!-- Google Fonts & FontAwesome -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,6 +14,10 @@
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
     <script>
         tailwind.config = {
             theme: {
@@ -138,7 +142,7 @@
                 <i class="fa-solid fa-chevron-left text-[10px] transition-transform duration-300"></i>
             </button>
 
-            <div class="p-5 overflow-y-auto space-y-6 custom-scrollbar">
+            <div class="p-5 pb-0 space-y-6 shrink-0">
                 <!-- Sidebar Brand Header -->
                 <div class="flex items-center justify-between pb-2 brand-header">
                     <a href="/" class="flex items-center gap-3 group">
@@ -154,19 +158,35 @@
                 </div>
 
                 <!-- User Account Information Card -->
-                <a href="{{ route('user.dashboard') }}" class="user-card block w-full text-left p-3.5 rounded-2xl {{ $isEnterprise ? 'bg-gradient-to-br from-purple-50 to-indigo-50/50 border border-purple-100' : 'bg-gradient-to-br from-emerald-50 to-teal-50/50 border border-emerald-100' }} flex items-center gap-3 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer">
-                    <div class="w-10 h-10 rounded-xl {{ $isEnterprise ? 'bg-purple-600 text-white' : 'bg-brand-600 text-white' }} flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
-                        <i class="fa-solid {{ $isEnterprise ? 'fa-briefcase' : 'fa-user' }}"></i>
-                    </div>
-                    <div class="flex-1 min-w-0 user-info">
-                        <p class="text-xs font-bold text-slate-900 truncate" title="{{ $displayName }}">{{ $displayName }}</p>
-                        <div class="flex items-center gap-1.5 mt-0.5">
-                            <span class="inline-block w-2 h-2 rounded-full {{ $isEnterprise ? 'bg-purple-500' : 'bg-emerald-500' }}"></span>
-                            <span class="text-[11px] font-semibold {{ $isEnterprise ? 'text-purple-700' : 'text-emerald-700' }}">{{ $subTitle }}</span>
+                <div class="relative group w-full user-card-wrapper z-50">
+                    <a href="{{ route('user.dashboard') }}" class="user-card block w-full text-left p-3.5 rounded-2xl {{ $isEnterprise ? 'bg-gradient-to-br from-purple-50 to-indigo-50/50 border border-purple-100' : 'bg-gradient-to-br from-emerald-50 to-teal-50/50 border border-emerald-100' }} flex items-center gap-3 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer">
+                        <div class="w-10 h-10 rounded-xl {{ $isEnterprise ? 'bg-purple-600 text-white' : 'bg-brand-600 text-white' }} flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
+                            <i class="fa-solid {{ $isEnterprise ? 'fa-briefcase' : 'fa-user' }}"></i>
+                        </div>
+                        <div class="flex-1 min-w-0 user-info">
+                            <p class="text-xs font-bold text-slate-900 truncate" title="{{ $displayName }}">{{ $displayName }}</p>
+                            <div class="flex items-center gap-1.5 mt-0.5">
+                                <span class="inline-block w-2 h-2 rounded-full {{ $isEnterprise ? 'bg-purple-500' : 'bg-emerald-500' }}"></span>
+                                <span class="text-[11px] font-semibold {{ $isEnterprise ? 'text-purple-700' : 'text-emerald-700' }}">{{ $subTitle }}</span>
+                            </div>
+                        </div>
+                    </a>
+                    
+                    <div class="absolute left-full top-0 ml-2 w-48 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50">
+                        <div class="bg-white rounded-xl shadow-xl border border-slate-100 p-1 flex flex-col gap-1 relative before:absolute before:-left-2 before:top-4 before:w-0 before:h-0 before:border-y-8 before:border-y-transparent before:border-r-8 before:border-r-white before:drop-shadow-sm">
+                            <a href="{{ route('user.dashboard') }}" class="flex items-center gap-3 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600 rounded-lg transition-colors">
+                                <i class="fa-solid fa-user-pen w-4 text-center"></i> Hồ sơ
+                            </a>
+                            <a href="/dat-lai-mat-khau" class="flex items-center gap-3 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600 rounded-lg transition-colors">
+                                <i class="fa-solid fa-key w-4 text-center"></i> Đổi mật khẩu
+                            </a>
                         </div>
                     </div>
-                </a>
+                </div>
 
+            </div>
+
+            <div class="px-5 pt-6 pb-5 overflow-y-auto flex-1 custom-scrollbar">
                 <!-- Vertical Navigation Menu -->
                 <nav class="space-y-1.5">
                     <p class="px-3 text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-2 menu-title">Danh mục quản lý</p>
@@ -200,10 +220,10 @@
                         </div>
                     </a>
 
-                    <a href="{{ route('thong-bao-lien-he') }}" class="tab-btn active flex items-center justify-between px-3.5 py-3 rounded-xl font-bold text-xs w-full text-left transition-all bg-brand-50 text-brand-600 border border-brand-200/60 shadow-xs">
+                    <a href="{{ route('contact.index') }}" class="tab-btn active flex items-center justify-between px-3.5 py-3 rounded-xl font-bold text-xs w-full text-left transition-all bg-brand-50 text-brand-600 border border-brand-200/60 shadow-xs">
                         <div class="flex items-center gap-3">
                             <i class="fa-solid fa-envelope-open-text text-amber-500 w-5 text-center text-sm"></i>
-                            <span> Thông báo liên hệ</span>
+                            <span> Khách hàng liên hệ</span>
                         </div>
                         @if($pendingContactCount > 0)
                             <span class="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-bold shadow-xs">{{ $pendingContactCount }}</span>
@@ -289,18 +309,28 @@
                     <div class="flex items-center gap-4 text-left">
                         <!-- Post Thumbnail -->
                         <div class="w-16 h-16 rounded-2xl bg-slate-100 overflow-hidden shrink-0 border border-slate-200 shadow-sm">
-                            <img src="{{ $post->image_path ? asset('storage/' . $post->image_path) : 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80' }}" alt="Room" class="w-full h-full object-cover">
+                            <img src="{{ $post->display_image }}" alt="Room" class="w-full h-full object-cover">
                         </div>
                         
                         <div>
+                            @php
+                                $typeMap = [
+                                    'NHA_O' => 'Nhà ở',
+                                    'PHONG_TRO' => 'Phòng trọ',
+                                    'MAT_BANG' => 'Mặt bằng',
+                                    'CAN_HO' => 'Căn hộ',
+                                    'VAN_PHONG' => 'Văn phòng',
+                                ];
+                                $propertyType = $typeMap[$post->property_type] ?? $post->property_type;
+                            @endphp
                             <div class="flex items-center gap-2 mb-1.5">
-                                <span class="px-2.5 py-0.5 rounded-md bg-brand-100 text-brand-700 text-[10px] font-bold uppercase tracking-wider">{{ $post->category_name }}</span>
-                                <span class="text-xs font-semibold text-slate-400"><i class="fa-solid fa-location-dot mr-1"></i>{{ $post->address }}</span>
+                                <span class="px-2.5 py-0.5 rounded-md bg-brand-100 text-brand-700 text-[10px] font-bold uppercase tracking-wider">{{ $propertyType }}</span>
+                                <span class="text-xs font-semibold text-slate-400"><i class="fa-solid fa-location-dot mr-1"></i>{{ $post->address ?? ($post->ward . ', ' . $post->district . ', ' . $post->province) }}</span>
                             </div>
                             <h3 class="text-base font-extrabold text-slate-900 leading-tight group-hover:text-brand-600 transition-colors">
                                 {{ $post->title }}
                             </h3>
-                            <p class="text-[13px] font-black text-brand-600 mt-1">{{ number_format($post->price) }} Triệu / tháng</p>
+                            <p class="text-[13px] font-black text-brand-600 mt-1">{{ number_format($post->price, 0, ',', '.') }} {{ $post->price_unit }}</p>
                         </div>
                     </div>
                     
@@ -375,7 +405,7 @@
                                     </div>
                                     <div class="flex items-center gap-2.5 {{ $statusTheme['note_text'] }} font-semibold {{ $statusTheme['note_bg'] }} px-3 py-2 rounded-lg mt-1 border {{ $statusTheme['note_border'] }}">
                                         <i class="fa-solid fa-calendar-check"></i> 
-                                        {{ $contact->note ?? 'Chưa có ghi chú' }}
+                                        Lịch hẹn: {{ $contact->appointment_date ? \Carbon\Carbon::parse($contact->appointment_date)->format('H:i - d/m/Y') : 'Chưa có lịch hẹn' }}
                                     </div>
                                 </div>
                                 
@@ -384,23 +414,49 @@
                                     "{{ $contact->message }}"
                                 </div>
                                 
-                                <div class="mt-auto pt-1" x-data="{ state: '{{ $contact->status }}' }">
+                                <div class="mt-auto pt-1" x-data="{ 
+                                    state: '{{ $contact->status }}',
+                                    isUpdating: false,
+                                    updateStatus(newStatus) {
+                                        if(this.isUpdating) return;
+                                        this.isUpdating = true;
+                                        fetch('{{ route('contact.updateStatus', $contact->_id ?? $contact->id) }}', {
+                                            method: 'PATCH',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                                                'Accept': 'application/json'
+                                            },
+                                            body: JSON.stringify({ status: newStatus })
+                                        })
+                                        .then(res => res.json())
+                                        .then(data => {
+                                            if (data.success) {
+                                                this.state = newStatus;
+                                            } else {
+                                                alert(data.message || 'Lỗi khi cập nhật trạng thái.');
+                                            }
+                                        })
+                                        .catch(err => alert('Lỗi mạng hoặc server. Vui lòng thử lại.'))
+                                        .finally(() => this.isUpdating = false);
+                                    }
+                                }">
                                     <!-- Trạng thái 1: Chưa xử lý -->
                                     <div x-show="state === 'pending'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="flex gap-2">
-                                        <button @click="state = 'rejected'" title="Từ chối" class="flex-none px-4 py-2.5 border border-slate-200 text-slate-500 hover:border-red-500 hover:text-red-500 hover:bg-red-50 text-[13px] font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 hover:-translate-y-0.5">
+                                        <button @click="updateStatus('rejected')" :disabled="isUpdating" :class="{'opacity-50 cursor-not-allowed': isUpdating}" title="Từ chối" class="flex-none px-4 py-2.5 border border-slate-200 text-slate-500 hover:border-red-500 hover:text-red-500 hover:bg-red-50 text-[13px] font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 hover:-translate-y-0.5">
                                             <i class="fa-solid fa-xmark"></i> Từ chối
                                         </button>
-                                        <button @click="state = 'communicating'" class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-bold rounded-xl transition-all shadow-[0_4px_12px_rgba(37,99,235,0.2)] hover:shadow-[0_6px_16px_rgba(37,99,235,0.3)] flex items-center justify-center gap-2 hover:-translate-y-0.5">
+                                        <button @click="updateStatus('communicating')" :disabled="isUpdating" :class="{'opacity-50 cursor-not-allowed': isUpdating}" class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-bold rounded-xl transition-all shadow-[0_4px_12px_rgba(37,99,235,0.2)] hover:shadow-[0_6px_16px_rgba(37,99,235,0.3)] flex items-center justify-center gap-2 hover:-translate-y-0.5">
                                             <i class="fa-solid fa-phone-volume"></i> Đánh dấu đang trao đổi
                                         </button>
                                     </div>
 
                                     <!-- Trạng thái 2: Đang trao đổi -->
                                     <div x-show="state === 'communicating'" x-cloak x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="flex gap-2">
-                                        <button @click="state = 'pending'" class="flex-none px-3 py-2.5 border border-red-300 text-red-500 hover:bg-red-50 text-[13px] font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 hover:-translate-y-0.5">
+                                        <button @click="updateStatus('pending')" :disabled="isUpdating" :class="{'opacity-50 cursor-not-allowed': isUpdating}" class="flex-none px-3 py-2.5 border border-red-300 text-red-500 hover:bg-red-50 text-[13px] font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 hover:-translate-y-0.5">
                                             <i class="fa-solid fa-ban"></i> Hủy giao dịch
                                         </button>
-                                        <button @click="state = 'approved'" class="flex-1 py-2.5 bg-brand-500 hover:bg-brand-600 text-white text-[14px] font-black rounded-xl transition-all shadow-[0_4px_12px_rgba(34,197,94,0.3)] hover:shadow-[0_6px_16px_rgba(34,197,94,0.4)] flex items-center justify-center gap-2 hover:-translate-y-0.5 relative overflow-hidden group">
+                                        <button @click="updateStatus('approved')" :disabled="isUpdating" :class="{'opacity-50 cursor-not-allowed': isUpdating}" class="flex-1 py-2.5 bg-brand-500 hover:bg-brand-600 text-white text-[14px] font-black rounded-xl transition-all shadow-[0_4px_12px_rgba(34,197,94,0.3)] hover:shadow-[0_6px_16px_rgba(34,197,94,0.4)] flex items-center justify-center gap-2 hover:-translate-y-0.5 relative overflow-hidden group">
                                             <span class="absolute w-0 h-0 transition-all duration-500 ease-out bg-white rounded-full group-hover:w-56 group-hover:h-56 opacity-10"></span>
                                             📝 Tạo hợp đồng
                                         </button>

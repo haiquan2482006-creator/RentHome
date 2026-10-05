@@ -16,6 +16,9 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
     <script>
         @php
             $themeSettings = file_exists(storage_path('app/theme_settings.json')) 
@@ -232,10 +235,10 @@
                         
                         <div class="flex items-center gap-4 mb-6">
                             <div class="w-14 h-14 rounded-full bg-brand-100 flex items-center justify-center text-xl text-brand-600 font-bold border-2 border-brand-200 shrink-0">
-                                {{ strtoupper(substr($post->user->account_name ?? 'U', 0, 1)) }}
+                                {{ strtoupper(substr($post->user->account_name ?? $post->user->username ?? $post->user->name ?? 'U', 0, 1)) }}
                             </div>
                             <div>
-                                <h4 class="text-base font-bold text-slate-900">{{ $post->user->account_name ?? 'Người dùng' }}</h4>
+                                <h4 class="text-base font-bold text-slate-900">{{ $post->user->account_name ?? $post->user->username ?? $post->user->name ?? 'Người dùng' }}</h4>
                                 @if(($post->user->account_type ?? '') === 'doanhnghiep')
                                 <span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider bg-purple-100 text-purple-700 mt-1">
                                     <i class="fa-solid fa-building"></i> Doanh nghiệp
@@ -291,45 +294,106 @@
                     </div>
 
                     <!-- Appointment/Contact Form -->
-                    <div class="bg-white rounded-lg p-6 shadow-sm border border-slate-200/60">
+                    <div x-data="{ isContacted: {{ $hasContacted ? 'true' : 'false' }}, contactId: '{{ $contactId ?? '' }}', contactStatus: '{{ $contactStatus ?? '' }}', isRevoking: false }" class="bg-white rounded-lg p-6 shadow-sm border border-slate-200/60 relative">
                         <h3 class="text-xs font-black text-slate-400 mb-5 uppercase tracking-widest pb-3 border-b border-slate-100">Điền thông tin liên hệ</h3>
                         
-                        <form action="#" method="POST" class="space-y-4">
+                        @if(session('success'))
+                            <div class="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg mb-4 text-sm font-semibold flex items-center gap-2">
+                                <i class="fa-solid fa-circle-check"></i>
+                                {{ session('success') }}
+                            </div>
+                        @endif
+                        @if($errors->any())
+                            <div class="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-lg mb-4 text-sm font-semibold">
+                                <ul class="list-disc list-inside">
+                                    @foreach($errors->all() as $error)
+                                        <li>{{ $error }}</li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        @endif
+                        <form action="{{ route('contact.store', $post->_id) }}" method="POST" class="space-y-4">
                             @csrf
-                            <!-- Họ và tên -->
-                            <div>
-                                <label for="fullname" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Họ và tên</label>
-                                <input type="text" id="fullname" name="fullname" placeholder="Nguyễn Văn A" class="w-full px-4 py-2.5 rounded border border-slate-200 bg-slate-50 focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all text-sm font-medium text-slate-700" required>
-                            </div>
-                            
-                            <!-- SĐT -->
-                            <div>
-                                <label for="phone" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Số điện thoại</label>
-                                <input type="tel" id="phone" name="phone" placeholder="0901234567" class="w-full px-4 py-2.5 rounded border border-slate-200 bg-slate-50 focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all text-sm font-medium text-slate-700" required>
-                            </div>
-                            
-                            <!-- Gmail -->
-                            <div>
-                                <label for="email" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Gmail</label>
-                                <input type="email" id="email" name="email" placeholder="example@gmail.com" class="w-full px-4 py-2.5 rounded border border-slate-200 bg-slate-50 focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all text-sm font-medium text-slate-700" required>
-                            </div>
+                            <div :class="{ 'opacity-50 pointer-events-none grayscale': isContacted }" class="space-y-4 transition-all duration-300">
+                                <!-- Họ và tên -->
+                                <div>
+                                    <label for="fullname" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Họ và tên</label>
+                                    <input type="text" id="fullname" name="fullname" :disabled="isContacted" value="{{ auth()->check() ? (auth()->user()->account_name ?? auth()->user()->username ?? auth()->user()->name ?? '') : '' }}" placeholder="Nguyễn Văn A" class="w-full px-4 py-2.5 rounded border border-slate-200 bg-slate-50 focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all text-sm font-medium text-slate-700" required>
+                                </div>
+                                
+                                <!-- SĐT -->
+                                <div>
+                                    <label for="phone" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Số điện thoại</label>
+                                    <input type="tel" id="phone" name="phone" :disabled="isContacted" value="{{ auth()->check() ? auth()->user()->phone : '' }}" placeholder="0901234567" class="w-full px-4 py-2.5 rounded border border-slate-200 bg-slate-50 focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all text-sm font-medium text-slate-700" required>
+                                </div>
+                                
+                                <!-- Gmail -->
+                                <div>
+                                    <label for="email" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Gmail</label>
+                                    <input type="email" id="email" name="email" :disabled="isContacted" value="{{ auth()->check() ? auth()->user()->email : '' }}" placeholder="example@gmail.com" class="w-full px-4 py-2.5 rounded border border-slate-200 bg-slate-50 focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all text-sm font-medium text-slate-700" required>
+                                </div>
 
-                            <!-- Lịch hẹn -->
-                            <div>
-                                <label for="appointment_date" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Lịch hẹn</label>
-                                <input type="datetime-local" id="appointment_date" name="appointment_date" class="w-full px-4 py-2.5 rounded border border-slate-200 bg-slate-50 focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all text-sm font-medium text-slate-700" required>
-                            </div>
-                            
-                            <!-- Lời nhắn -->
-                            <div>
-                                <label for="message" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Lời nhắn</label>
-                                <textarea id="message" name="message" rows="3" placeholder="Tôi quan tâm đến bất động sản này, vui lòng liên hệ lại với tôi..." class="w-full px-4 py-2.5 rounded border border-slate-200 bg-slate-50 focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all text-sm font-medium text-slate-700 resize-none" required></textarea>
+                                <!-- Lịch hẹn -->
+                                <div>
+                                    <label for="appointment_date" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Lịch hẹn</label>
+                                    <input type="datetime-local" id="appointment_date" name="appointment_date" :disabled="isContacted" min="{{ now()->timezone('Asia/Ho_Chi_Minh')->format('Y-m-d\TH:i') }}" class="w-full px-4 py-2.5 rounded border border-slate-200 bg-slate-50 focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all text-sm font-medium text-slate-700" required>
+                                </div>
+                                
+                                <!-- Lời nhắn -->
+                                <div>
+                                    <label for="message" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Lời nhắn</label>
+                                    <textarea id="message" name="message" :disabled="isContacted" rows="3" placeholder="Tôi quan tâm đến bất động sản này, vui lòng liên hệ lại với tôi..." class="w-full px-4 py-2.5 rounded border border-slate-200 bg-slate-50 focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all text-sm font-medium text-slate-700 resize-none" required></textarea>
+                                </div>
                             </div>
                             
                             <!-- Submit Button -->
-                            <button type="submit" class="w-full py-3.5 px-4 bg-slate-900 hover:bg-brand-600 text-white rounded-md font-bold transition-all shadow hover:shadow-lg flex items-center justify-center gap-2 mt-2">
+                            <button type="submit" x-show="!isContacted" class="w-full py-3.5 px-4 bg-slate-900 hover:bg-brand-600 text-white rounded-md font-bold transition-all shadow hover:shadow-lg flex items-center justify-center gap-2 mt-2">
                                 <i class="fa-regular fa-paper-plane"></i> Gửi thông tin
                             </button>
+                            
+                            <!-- Revoke Button -->
+                            <button type="button" 
+                                x-show="isContacted && contactStatus === 'pending'" 
+                                x-cloak
+                                @click="if(confirm('Bạn có chắc chắn muốn thu hồi yêu cầu liên hệ này không?')) {
+                                    isRevoking = true;
+                                    fetch('/contact/' + contactId + '/revoke', {
+                                        method: 'DELETE',
+                                        headers: {
+                                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                                            'Accept': 'application/json'
+                                        }
+                                    })
+                                    .then(res => res.json())
+                                    .then(data => {
+                                        if (data.success) {
+                                            isContacted = false;
+                                            contactId = '';
+                                            contactStatus = '';
+                                            alert('Đã thu hồi yêu cầu thành công!');
+                                        } else {
+                                            alert(data.message || 'Lỗi khi thu hồi.');
+                                        }
+                                    })
+                                    .catch(err => alert('Đã có lỗi mạng. Vui lòng thử lại.'))
+                                    .finally(() => isRevoking = false);
+                                }"
+                                class="w-full py-3.5 px-4 bg-rose-50 border border-rose-500 text-rose-600 hover:bg-rose-100 rounded-md font-bold transition-all shadow-sm flex items-center justify-center gap-2 mt-2"
+                                :disabled="isRevoking"
+                                :class="{'opacity-50 cursor-not-allowed': isRevoking}"
+                            >
+                                <i class="fa-solid fa-trash-can"></i> <span x-text="isRevoking ? 'Đang xử lý...' : 'Thu hồi yêu cầu'"></span>
+                            </button>
+
+                            <!-- Status Badge when not pending -->
+                            <div x-show="isContacted && contactStatus !== 'pending'" x-cloak class="w-full py-3.5 px-4 bg-slate-100 border border-slate-200 text-slate-500 rounded-md font-bold text-center mt-2 flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-lock"></i> 
+                                <span x-text="
+                                    contactStatus === 'communicating' ? 'Chủ nhà đang trao đổi' : 
+                                    (contactStatus === 'approved' ? 'Yêu cầu đã được duyệt' : 
+                                    (contactStatus === 'rejected' ? 'Yêu cầu bị từ chối' : 'Yêu cầu đã đóng'))
+                                "></span>
+                            </div>
                         </form>
                     </div>
                 </div>

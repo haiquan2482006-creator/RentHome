@@ -11,16 +11,19 @@ class Contact extends Model
 
     protected $fillable = [
         'post_id',
+        'owner_id',
+        'sender_id',
         'sender_name',
         'phone',
         'email',
+        'appointment_date',
         'note',
         'message',
-        'status', // pending, communicating, approved, closed
+        'status'
     ];
 
     public function post()
     {
-        return $this->belongsTo(Post::class);
+        return $this->belongsTo(Post::class, 'post_id', '_id');
     }
 }

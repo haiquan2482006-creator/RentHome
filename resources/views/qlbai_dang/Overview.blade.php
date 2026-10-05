@@ -201,7 +201,7 @@
                 <i class="fa-solid fa-chevron-left text-[10px] transition-transform duration-300"></i>
             </button>
 
-            <div class="p-5 overflow-y-auto space-y-6">
+            <div class="p-5 pb-0 space-y-6 shrink-0">
                 <!-- Sidebar Brand Header -->
                 <div class="flex items-center justify-between pb-2 brand-header">
                     <a href="/" class="flex items-center gap-3 group">
@@ -220,23 +220,35 @@
 
                 <!-- User Account Information Card -->
                 <!-- User Account Information Card -->
-                <a href="{{ route('user.dashboard') }}" class="user-card block w-full text-left p-3.5 rounded-2xl {{ $isEnterprise ? 'bg-gradient-to-br from-purple-50 to-indigo-50/50 border border-purple-100' : 'bg-gradient-to-br from-emerald-50 to-teal-50/50 border border-emerald-100' }} flex items-center gap-3 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer">
-                    <div
-                        class="w-10 h-10 rounded-xl {{ $isEnterprise ? 'bg-purple-600 text-white' : 'bg-brand-600 text-white' }} flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
-                        <i class="fa-solid {{ $isEnterprise ? 'fa-briefcase' : 'fa-user' }}"></i>
-                    </div>
-                    <div class="flex-1 min-w-0 user-info">
-                        <p class="text-xs font-bold text-slate-900 truncate" title="{{ $displayName }}">
-                            {{ $displayName }}</p>
-                        <div class="flex items-center gap-1.5 mt-0.5">
-                            <span
-                                class="inline-block w-2 h-2 rounded-full {{ $isEnterprise ? 'bg-purple-500' : 'bg-emerald-500' }}"></span>
-                            <span
-                                class="text-[11px] font-semibold {{ $isEnterprise ? 'text-purple-700' : 'text-emerald-700' }}">{{ $subTitle }}</span>
+                <div class="relative group w-full user-card-wrapper z-50">
+                    <a href="{{ route('user.dashboard') }}" class="user-card block w-full text-left p-3.5 rounded-2xl {{ $isEnterprise ? 'bg-gradient-to-br from-purple-50 to-indigo-50/50 border border-purple-100' : 'bg-gradient-to-br from-emerald-50 to-teal-50/50 border border-emerald-100' }} flex items-center gap-3 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer">
+                        <div class="w-10 h-10 rounded-xl {{ $isEnterprise ? 'bg-purple-600 text-white' : 'bg-brand-600 text-white' }} flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
+                            <i class="fa-solid {{ $isEnterprise ? 'fa-briefcase' : 'fa-user' }}"></i>
+                        </div>
+                        <div class="flex-1 min-w-0 user-info">
+                            <p class="text-xs font-bold text-slate-900 truncate" title="{{ $displayName }}">{{ $displayName }}</p>
+                            <div class="flex items-center gap-1.5 mt-0.5">
+                                <span class="inline-block w-2 h-2 rounded-full {{ $isEnterprise ? 'bg-purple-500' : 'bg-emerald-500' }}"></span>
+                                <span class="text-[11px] font-semibold {{ $isEnterprise ? 'text-purple-700' : 'text-emerald-700' }}">{{ $subTitle }}</span>
+                            </div>
+                        </div>
+                    </a>
+                    
+                    <div class="absolute left-full top-0 ml-2 w-48 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50">
+                        <div class="bg-white rounded-xl shadow-xl border border-slate-100 p-1 flex flex-col gap-1 relative before:absolute before:-left-2 before:top-4 before:w-0 before:h-0 before:border-y-8 before:border-y-transparent before:border-r-8 before:border-r-white before:drop-shadow-sm">
+                            <a href="{{ route('user.dashboard') }}" class="flex items-center gap-3 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600 rounded-lg transition-colors">
+                                <i class="fa-solid fa-user-pen w-4 text-center"></i> Hồ sơ
+                            </a>
+                            <a href="/dat-lai-mat-khau" class="flex items-center gap-3 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600 rounded-lg transition-colors">
+                                <i class="fa-solid fa-key w-4 text-center"></i> Đổi mật khẩu
+                            </a>
                         </div>
                     </div>
-                </a>
+                </div>
 
+            </div>
+
+            <div class="px-5 pt-6 pb-5 overflow-y-auto flex-1 custom-scrollbar">
                 <!-- Vertical Navigation Menu -->
                 <nav class="space-y-1.5">
                     <p class="px-3 text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-2 menu-title">Danh mục
@@ -278,11 +290,11 @@
                         <span id="sidebar-notif-badge" class="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-bold shadow-xs">4</span>
                     </button>
 
-                    <a href="{{ route('thong-bao-lien-he') }}" id="tab-contact-notif"
+                    <a href="{{ route('contact.index') }}" id="tab-contact-notif"
                         class="tab-btn flex items-center justify-between px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
                         <div class="flex items-center gap-3">
                             <i class="fa-solid fa-envelope-open-text text-amber-500 w-5 text-center text-sm"></i>
-                            <span> Thông báo liên hệ</span>
+                            <span> Khách hàng liên hệ</span>
                         </div>
                         @if($pendingContactCount > 0)
                             <span class="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-bold shadow-xs">{{ $pendingContactCount }}</span>
@@ -339,31 +351,7 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-3">
-                    <!-- Notification Bell Quick Button & Dropdown -->
-                    <div class="relative">
-                        <button onclick="toggleNotificationDropdown(event)" class="relative p-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200/80 shadow-xs transition-colors focus:outline-none" title="Thông báo hệ thống">
-                            <i class="fa-solid fa-bell text-rose-500 text-sm"></i>
-                            <span id="topbar-notif-badge" class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center border-2 border-white shadow-xs">4</span>
-                        </button>
 
-                        <!-- Notification Dropdown Popover -->
-                        <div id="notif-dropdown" class="hidden absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden">
-                            <div class="p-3.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
-                                <h4 class="font-bold text-xs text-slate-900 flex items-center gap-2">
-                                    <i class="fa-solid fa-bell text-rose-500"></i> Thông báo mới nhất
-                                </h4>
-                                <span class="text-[10px] font-semibold text-slate-500">{{ $isEnterprise ? 'Đối tác Doanh Nghiệp' : 'Tài khoản Cá Nhân' }}</span>
-                            </div>
-                            <div id="topbar-notif-list" class="max-h-72 overflow-y-auto divide-y divide-slate-100 text-xs">
-                                <!-- Populated dynamically by JS -->
-                            </div>
-                            <div class="p-2.5 text-center bg-slate-50 border-t border-slate-100">
-                                <button onclick="switchTab('notifications'); toggleNotificationDropdown();" class="text-xs font-bold text-brand-600 hover:text-brand-700">
-                                    Xem tất cả thông báo <i class="fa-solid fa-arrow-right text-[10px] ml-1"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
 
                     <a href="/"
                         class="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs border border-slate-200/80 shadow-xs transition-colors flex items-center gap-2">
