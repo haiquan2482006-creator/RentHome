@@ -1312,7 +1312,8 @@
                         </div>
                     </div>
                 </div>
-            `).join('');
+                `;
+            }).join('');
 
             if (slider) {
                 slider.onmouseenter = stopFeaturedAutoPlay;

@@ -116,14 +116,6 @@ class FavoriteController extends Controller
         $userId = (string) Auth::id();
         $realPostId = (string) ($post->_id ?? $post->id);
 
-        // 2. Người đăng bài không thể tự thích bài đăng của chính bản thân
-        if ((string) $post->user_id === $userId) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Bạn không thể tự yêu thích bài đăng của chính mình!'
-            ], 400);
-        }
-
         $existing = Favorite::where('user_id', $userId)
             ->where(function ($q) use ($realPostId, $postId) {
                 $q->where('post_id', $realPostId)->orWhere('post_id', $postId);
@@ -138,6 +130,14 @@ class FavoriteController extends Controller
                 'message' => 'Đã xóa bài viết khỏi danh sách yêu thích.',
                 'post_id' => $realPostId
             ]);
+        }
+
+        // 2. Người đăng bài không thể tự thích bài đăng của chính bản thân
+        if ((string) $post->user_id === $userId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bạn không thể tự yêu thích bài đăng của chính mình!'
+            ], 400);
         }
 
         // Tạo bản ghi yêu thích mới

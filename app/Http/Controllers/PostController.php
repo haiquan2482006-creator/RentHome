@@ -96,13 +96,13 @@ class PostController extends Controller
 
     public function getApproved()
     {
-        $posts = Post::with(['user', 'imageModels'])->where('status', 'approved')->orderBy('created_at', 'desc')->get();
+        $posts = Post::with(['user'])->where('status', 'approved')->orderBy('created_at', 'desc')->take(12)->get();
         return response()->json(['posts' => $posts]);
     }
 
     public function getFeatured()
     {
-        $posts = Post::with(['user', 'imageModels'])->where('status', 'approved')->orderBy('created_at', 'desc')->take(5)->get();
+        $posts = Post::with(['user'])->where('status', 'approved')->orderBy('created_at', 'desc')->take(5)->get();
         // The frontend expects the array of featured posts directly, or we can map it to match the expected format
         $mapped = $posts->map(function($post) {
             return [

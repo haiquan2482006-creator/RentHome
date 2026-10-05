@@ -86,6 +86,7 @@
         </nav>
 
         <!-- Action Buttons -->
+        <div class="flex items-center gap-2 sm:gap-3">
             @if (!Auth::check() || (Auth::user()->account_type ?? 'canhan') !== 'doanhnghiep')
             <!-- Favorites Dropdown Container (Dành riêng cho khách vãng lai và Tài khoản Cá nhân) -->
             <div class="relative inline-block text-left" id="favorite-dropdown-container">
@@ -148,7 +149,6 @@
                 @endif
 
                 <!-- Notification Bell (Copied from Dashboard) -->
-                @auth
                 <div class="relative inline-block text-left relative-notif" id="home-notif-container">
                     <button onclick="toggleHomeNotification(event)" class="relative p-2 mx-1 rounded-full hover:bg-slate-100 text-slate-500 hover:text-brand-600 transition-colors focus:outline-none" title="Thông báo hệ thống">
                         <i class="fa-regular fa-bell text-[20px]"></i>
@@ -173,7 +173,6 @@
                         </div>
                     </div>
                 </div>
-                @endauth
 
                 <!-- User Menu Dropdown Container -->
                 <div class="relative inline-block text-left" id="user-dropdown-container">
@@ -499,13 +498,23 @@
                 return;
             }
 
-            // 2. Kiểm tra nếu là bài đăng của chính mình
-            if (window.currentUserId && ownerId && String(ownerId) === String(window.currentUserId)) {
+            const idStr = String(postId);
+            const isCurrentlyFav = this.favoriteIds.has(idStr);
+
+            // 2. Kiểm tra nếu là bài đăng của chính mình (chỉ chặn khi cố gắng thêm mới)
+            if (!isCurrentlyFav && window.currentUserId && ownerId && String(ownerId) === String(window.currentUserId)) {
                 this.showToast('Bạn không thể tự yêu thích bài đăng của chính mình!', 'warning');
                 return;
             }
 
-            const idStr = String(postId);
+            // OPTIMISTIC UI UPDATE
+            if (isCurrentlyFav) {
+                this.favoriteIds.delete(idStr);
+            } else {
+                this.favoriteIds.add(idStr);
+            }
+            this.updateCardButtons();
+
             const cardBtn = document.querySelector(`[data-fav-id="${idStr}"]`);
             if (cardBtn) {
                 cardBtn.classList.add('fav-bounce');
@@ -526,7 +535,7 @@
                 const data = await res.json();
                 if (res.ok && data.success) {
                     if (data.is_favorite) {
-                        this.favoriteIds.add(idStr);
+                        this.favoriteIds.add(idStr); // Ensure sync
                         if (data.post) {
                             this.favorites = [data.post, ...this.favorites.filter(p => String(p.id) !== idStr)];
                         } else {
@@ -534,13 +543,17 @@
                         }
                         this.showToast(data.message || 'Đã thêm vào danh sách yêu thích!', 'success');
                     } else {
-                        this.favoriteIds.delete(idStr);
+                        this.favoriteIds.delete(idStr); // Ensure sync
                         this.favorites = this.favorites.filter(p => String(p.id) !== idStr);
                         this.showToast(data.message || 'Đã xóa khỏi danh sách yêu thích.', 'info');
                     }
                     this.renderList();
-                    this.updateCardButtons();
                 } else {
+                    // Revert UI on failure
+                    if (isCurrentlyFav) this.favoriteIds.add(idStr);
+                    else this.favoriteIds.delete(idStr);
+                    this.updateCardButtons();
+
                     if (data.require_login) {
                         this.showToast(data.message, 'warning');
                         setTimeout(() => window.location.href = '/login', 1300);
@@ -549,6 +562,11 @@
                     }
                 }
             } catch (e) {
+                // Revert UI on failure
+                if (isCurrentlyFav) this.favoriteIds.add(idStr);
+                else this.favoriteIds.delete(idStr);
+                this.updateCardButtons();
+
                 console.error('Lỗi khi cập nhật yêu thích:', e);
                 this.showToast('Lỗi kết nối máy chủ.', 'error');
             }
