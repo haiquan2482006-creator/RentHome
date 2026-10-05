@@ -930,6 +930,11 @@
                                 icon = 'fa-circle-xmark';
                                 badgeBg = 'bg-rose-50 text-rose-600 border-rose-100';
                                 categoryName = 'Từ chối';
+                            } else if (n.type === 'favorite') {
+                                iconBg = 'bg-rose-100 text-rose-600 border-rose-200';
+                                icon = 'fa-heart';
+                                badgeBg = 'bg-rose-50 text-rose-600 border-rose-100';
+                                categoryName = 'Yêu thích';
                             }
 
                             return {
@@ -1115,7 +1120,7 @@
                                         <i class="fa-regular fa-clock"></i> ${n.time}
                                     </span>
                                 </div>
-                                <p class="text-xs text-slate-600 mt-1.5 leading-relaxed">${n.content}</p>
+                                <p class="text-xs text-slate-600 mt-1.5 leading-relaxed whitespace-pre-line">${n.content}</p>
                                 <div class="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
                                     <div class="flex items-center gap-2">
                                         ${!n.isRead ? `

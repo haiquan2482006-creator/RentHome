@@ -112,6 +112,7 @@ class PostController extends Controller
                 'location' => implode(', ', array_filter([$post->address, $post->ward, $post->district, $post->province])),
                 'image' => $post->display_image ?? 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80',
                 'tag' => 'NỔI BẬT',
+                'user_id' => (string) ($post->user_id ?? ''),
                 'beds' => '2 PN',
                 'baths' => '2 WC',
                 'area' => $post->area . ' m²',
