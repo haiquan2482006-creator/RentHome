@@ -10,8 +10,19 @@ class ComplaintController extends Controller
 {
     public function store(Request $request)
     {
+        $userId = Auth::id();
+        $contactInfo = '';
+
         if (!Auth::check()) {
-            return response()->json(['error' => 'Vui lòng đăng nhập!'], 401);
+            $senderName = $request->input('sender_name', '');
+            $senderPhone = $request->input('sender_phone', '');
+            if (empty($senderPhone) && empty($senderName)) {
+                if ($request->wantsJson() || $request->ajax()) {
+                    return response()->json(['error' => 'Vui lòng đăng nhập hoặc cung cấp số điện thoại liên hệ để gửi khiếu nại!'], 401);
+                }
+                return redirect()->back()->with('error', 'Vui lòng đăng nhập hoặc cung cấp thông tin liên hệ!');
+            }
+            $contactInfo = " [Người gửi: {$senderName} - SĐT: {$senderPhone}]";
         }
 
         $request->validate([
@@ -22,35 +33,42 @@ class ComplaintController extends Controller
 
         $imageId = null;
 
-        // ĐOẠN NÀY ĐÃ ĐƯỢC SỬA ĐỂ LƯU VÀO DATABASE
+        // Lưu ảnh vào Image model (MongoDB) nếu có
         if ($request->hasFile('image')) {
             $file = $request->file('image');
             $base64Data = base64_encode(file_get_contents($file->getRealPath()));
             $mimeType = $file->getMimeType();
 
-            // Lưu trực tiếp ảnh thành chuỗi Base64 vào Collection Images trong MongoDB
             $newImage = \App\Models\Image::create([
                 'base64_data' => $base64Data,
                 'mime_type' => $mimeType
             ]);
 
-            // Lấy ID của ảnh vừa tạo
             $imageId = $newImage->_id;
         }
 
+        $reasonType = $request->input('reason_type', 'Khiếu nại kiểm duyệt');
+        $fullContent = "[{$reasonType}] " . $request->input('content') . $contactInfo;
+
         $complaint = Complaint::create([
-            'user_id' => Auth::id(),
+            'user_id' => $userId,
             'post_id' => $request->input('post_id'),
-            'content' => $request->input('content'),
-            'image' => $imageId, // LƯU ID CỦA MONGODB
+            'content' => $fullContent,
+            'image' => $imageId,
             'status' => 'pending',
-            'type' => 'appeal'
+            'type' => $request->input('type', 'appeal')
         ]);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Đã gửi phản hồi thành công. Chúng tôi sẽ xem xét sớm nhất có thể.',
-            'complaint_id' => $complaint->_id ?? $complaint->id
-        ]);
+        $msg = 'Khiếu nại của bạn đã được gửi đến ban kiểm duyệt thành công. Chúng tôi sẽ xác minh và xử lý trong thời gian sớm nhất!';
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => $msg,
+                'complaint_id' => $complaint->_id ?? $complaint->id
+            ]);
+        }
+
+        return redirect()->back()->with('success', $msg);
     }
 }
