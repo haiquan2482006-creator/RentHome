@@ -453,6 +453,14 @@
                     </div>
                     
                     <div class="input-group">
+                        <label class="input-label">Người đại diện <span class="required-star">*</span></label>
+                        <div class="input-box">
+                            <i class="fa-solid fa-user-tie icon-left"></i>
+                            <input type="text" name="representative" value="{{ old('representative') }}" placeholder="Nhập tên người đại diện *">
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
                         <label class="input-label">Địa chỉ doanh nghiệp <span class="required-star">*</span></label>
                         <div class="input-box">
                             <i class="fa-solid fa-location-dot icon-left"></i>

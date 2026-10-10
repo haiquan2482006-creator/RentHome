@@ -69,6 +69,7 @@ class AuthController extends Controller
             'password.confirmed' => 'Xác nhận mật khẩu không khớp.',
             'account_name.required' => 'Vui lòng nhập tên tài khoản.',
             'company_name.required' => 'Vui lòng nhập tên doanh nghiệp.',
+            'representative.required' => 'Vui lòng nhập họ tên người đại diện.',
             'company_address.required' => 'Vui lòng nhập địa chỉ doanh nghiệp.',
             'tax_code.required' => 'Vui lòng nhập mã số thuế.',
         ];
@@ -77,6 +78,7 @@ class AuthController extends Controller
             $rules['account_name'] = 'required|string|max:255';
         } else {
             $rules['company_name'] = 'required|string|max:255';
+            $rules['representative'] = 'required|string|max:255';
             $rules['company_address'] = 'required|string|max:255';
             $rules['tax_code'] = 'required|string|max:50';
             $rules['business_license'] = 'nullable|file|mimes:jpeg,png,jpg,pdf|max:5120';
@@ -101,6 +103,8 @@ class AuthController extends Controller
             $userData['account_name'] = $validated['account_name'];
         } else {
             $userData['company_name'] = $validated['company_name'];
+            $userData['representative'] = $validated['representative'];
+            $userData['account_name'] = $validated['representative']; // Người đại diện là tên của tài khoản doanh nghiệp
             $userData['company_address'] = $validated['company_address'];
             $userData['tax_code'] = $validated['tax_code'];
             $userData['company_email'] = $validated['email'];

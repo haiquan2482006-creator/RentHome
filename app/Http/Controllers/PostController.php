@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Post;
+use App\Models\Contract;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -94,15 +95,73 @@ class PostController extends Controller
         ]);
     }
 
-    public function getApproved()
+    public function getApproved(Request $request)
     {
-        $posts = Post::with(['user'])->where('status', 'approved')->orderBy('created_at', 'desc')->take(12)->get();
+        $activeContractPostIds = Contract::where('status', '!=', 'cancelled')
+            ->pluck('post_id')
+            ->filter()
+            ->toArray();
+
+        $query = Post::with(['user'])
+            ->where('status', 'approved')
+            ->where(function ($q) {
+                $q->whereNull('is_rented')
+                  ->orWhere('is_rented', false);
+            })
+            ->whereNotIn('status', ['đã cho thuê', 'rented', 'dang_thue']);
+
+        if (!empty($activeContractPostIds)) {
+            $query->whereNotIn('_id', $activeContractPostIds)
+                  ->whereNotIn('id', $activeContractPostIds);
+        }
+
+        if ($request->filled('keyword')) {
+            $kw = $request->query('keyword');
+            $query->where(function ($q) use ($kw) {
+                $q->where('title', 'like', "%{$kw}%")
+                  ->orWhere('description', 'like', "%{$kw}%")
+                  ->orWhere('address', 'like', "%{$kw}%");
+            });
+        }
+
+        if ($request->filled('type')) {
+            $query->where('property_type', $request->query('type'));
+        }
+
+        if ($request->filled('location')) {
+            $loc = $request->query('location');
+            $query->where(function ($q) use ($loc) {
+                $q->where('province', 'like', "%{$loc}%")
+                  ->orWhere('district', 'like', "%{$loc}%")
+                  ->orWhere('ward', 'like', "%{$loc}%");
+            });
+        }
+
+        $posts = $query->orderBy('created_at', 'desc')->take(24)->get();
         return response()->json(['posts' => $posts]);
     }
 
     public function getFeatured()
     {
-        $posts = Post::with(['user'])->where('status', 'approved')->orderBy('created_at', 'desc')->take(5)->get();
+        $activeContractPostIds = Contract::where('status', '!=', 'cancelled')
+            ->pluck('post_id')
+            ->filter()
+            ->toArray();
+
+        $query = Post::with(['user'])
+            ->where('status', 'approved')
+            ->where(function ($q) {
+                $q->whereNull('is_rented')
+                  ->orWhere('is_rented', false);
+            })
+            ->whereNotIn('status', ['đã cho thuê', 'rented', 'dang_thue']);
+
+        if (!empty($activeContractPostIds)) {
+            $query->whereNotIn('_id', $activeContractPostIds)
+                  ->whereNotIn('id', $activeContractPostIds);
+        }
+
+        $posts = $query->orderBy('created_at', 'desc')->take(5)->get();
         // The frontend expects the array of featured posts directly, or we can map it to match the expected format
         $mapped = $posts->map(function($post) {
             return [

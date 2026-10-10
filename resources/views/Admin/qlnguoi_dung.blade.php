@@ -522,6 +522,11 @@
                                         <span class="badge badge-business">
                                             <i class="fa-solid fa-building"></i> Doanh nghiệp
                                         </span>
+                                        @if(!empty($user->representative))
+                                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;" title="Người đại diện">
+                                                <i class="fa-solid fa-user-tie"></i> {{ $user->representative }}
+                                            </div>
+                                        @endif
                                     @else
                                         <span class="badge badge-personal">
                                             <i class="fa-solid fa-user"></i> Cá nhân

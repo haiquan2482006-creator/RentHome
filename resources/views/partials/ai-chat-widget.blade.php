@@ -1,7 +1,7 @@
 @php
     $currentUserName = '';
     if (Auth::check()) {
-        $currentUserName = Auth::user()->account_name ?: (Auth::user()->username ?? '');
+        $currentUserName = Auth::user()->display_name ?: (Auth::user()->account_name ?: (Auth::user()->username ?? ''));
     }
     $currentUserSalutation = !empty($currentUserName) ? $currentUserName : 'bạn';
 

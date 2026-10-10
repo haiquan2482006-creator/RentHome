@@ -105,6 +105,49 @@ Route::get('/trangcanhanuser', function () {
     return view('trangcanhanuser');
 })->name('user.dashboard');
 
+Route::get('/doi-mat-khau', function () {
+    if (!\Illuminate\Support\Facades\Auth::check()) {
+        return redirect()->route('login')->with('error', 'Vui lòng đăng nhập để đổi mật khẩu.');
+    }
+    return view('doi_mat_khau');
+})->name('user.change_password');
+
+Route::post('/doi-mat-khau', function (\Illuminate\Http\Request $request) {
+    if (!\Illuminate\Support\Facades\Auth::check()) {
+        return redirect()->route('login')->with('error', 'Vui lòng đăng nhập để thực hiện.');
+    }
+
+    $request->validate([
+        'current_password' => 'required',
+        'new_password' => [
+            'required',
+            'string',
+            'min:6',
+            'different:current_password',
+            'confirmed',
+        ],
+        'new_password_confirmation' => 'required',
+    ], [
+        'current_password.required' => 'Vui lòng nhập mật khẩu hiện tại.',
+        'new_password.required' => 'Vui lòng nhập mật khẩu mới.',
+        'new_password.min' => 'Mật khẩu mới phải có ít nhất 6 ký tự.',
+        'new_password.different' => 'Mật khẩu mới không được trùng với mật khẩu hiện tại.',
+        'new_password.confirmed' => 'Xác nhận mật khẩu mới không khớp.',
+        'new_password_confirmation.required' => 'Vui lòng nhập lại mật khẩu mới.',
+    ]);
+
+    $user = \Illuminate\Support\Facades\Auth::user();
+
+    if (!\Illuminate\Support\Facades\Hash::check($request->current_password, $user->password)) {
+        return back()->withErrors(['current_password' => 'Mật khẩu hiện tại không chính xác.'])->withInput();
+    }
+
+    $user->password = \Illuminate\Support\Facades\Hash::make($request->new_password);
+    $user->save();
+
+    return back()->with('success', 'Đổi mật khẩu thành công!');
+})->name('user.update_password');
+
 Route::post('/trangcanhanuser', function (\Illuminate\Http\Request $request) {
     if (!\Illuminate\Support\Facades\Auth::check()) {
         return redirect()->route('login')->with('error', 'Vui lòng đăng nhập để thực hiện.');
@@ -112,8 +155,41 @@ Route::post('/trangcanhanuser', function (\Illuminate\Http\Request $request) {
     
     $user = \Illuminate\Support\Facades\Auth::user();
     
-    if ($request->has('account_name')) {
-        $user->account_name = $request->input('account_name');
+    if ($user->account_type === 'doanhnghiep') {
+        if ($request->has('representative')) {
+            $rep = $request->input('representative');
+            $user->representative = $rep;
+            $user->account_name = $rep; // Người đại diện là tên của tài khoản doanh nghiệp
+        }
+        if ($request->has('company_name')) {
+            $user->company_name = $request->input('company_name');
+        }
+        if ($request->has('business_license_date')) {
+            $user->business_license_date = $request->input('business_license_date');
+        }
+        if ($request->has('representative_id_card')) {
+            $user->representative_id_card = $request->input('representative_id_card');
+            $user->cccd_number = $request->input('representative_id_card');
+        }
+        if ($request->has('representative_id_date')) {
+            $user->representative_id_date = $request->input('representative_id_date');
+        }
+        if ($request->has('representative_id_place')) {
+            $user->representative_id_place = $request->input('representative_id_place');
+        }
+        if ($request->has('website')) {
+            $user->website = $request->input('website');
+        }
+        if ($request->has('hotline')) {
+            $user->hotline = $request->input('hotline');
+        }
+        if ($request->has('company_description')) {
+            $user->company_description = $request->input('company_description');
+        }
+    } else {
+        if ($request->has('account_name')) {
+            $user->account_name = $request->input('account_name');
+        }
     }
     if ($request->has('phone')) {
         $user->phone = $request->input('phone');
@@ -155,6 +231,9 @@ Route::post('/trangcanhanuser', function (\Illuminate\Http\Request $request) {
     
     if ($request->has('address')) {
         $user->address = $request->input('address');
+        if ($user->account_type === 'doanhnghiep') {
+            $user->company_address = $request->input('address');
+        }
     }
     
     $user->save();
@@ -209,24 +288,81 @@ Route::get('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::post('/logout', [AuthController::class, 'logout']);
 
 Route::get('/quen-mat-khau', function () {
-    return view('dangnhapdk.quenmatkhau_b1'); 
+    return view('dangnhapdk.quyen_mat_khau_otp'); 
 });
 
 Route::get('/dat-lai-mat-khau', function () {
-    return view('dangnhapdk.quenmatkhau_b2'); 
+    return view('dangnhapdk.quen_mat_khau_xac_nhan'); 
 });
 
 Route::get('/nha-dang-thue', function () {
-    return view('nhadangthue.index');
+    $currentUser = \Illuminate\Support\Facades\Auth::user();
+    $userId = \Illuminate\Support\Facades\Auth::id();
+
+    $rentedContracts = collect();
+
+    if ($currentUser) {
+        $rentedContracts = \App\Models\Contract::where(function ($q) use ($currentUser, $userId) {
+            $q->where('tenant_id', (string)$userId);
+            if (!empty($currentUser->username)) {
+                $q->orWhere('tenant_account', $currentUser->username);
+            }
+            if (!empty($currentUser->phone)) {
+                $q->orWhere('tenant_phone', $currentUser->phone);
+            }
+            if (!empty($currentUser->email)) {
+                $q->orWhere('tenant_email', $currentUser->email);
+            }
+        })
+        ->where('status', '!=', 'cancelled')
+        ->latest()
+        ->get();
+
+        // Nếu chưa tìm thấy theo tenant_id/account/phone, kiểm tra xem có contact đã ký hợp đồng không
+        if ($rentedContracts->isEmpty()) {
+            $contactPostIds = \App\Models\Contact::where('sender_id', (string)$userId)
+                ->whereIn('status', ['đã ký hợp đồng', 'completed'])
+                ->pluck('post_id')
+                ->filter()
+                ->map(fn($id) => (string)$id)
+                ->toArray();
+
+            if (!empty($contactPostIds)) {
+                $rentedContracts = \App\Models\Contract::whereIn('post_id', $contactPostIds)
+                    ->where('status', '!=', 'cancelled')
+                    ->latest()
+                    ->get();
+            }
+        }
+    }
+
+    $totalRentedCount = $rentedContracts->count();
+    $totalRentAmount = $rentedContracts->sum('rent_price');
+
+    // Đếm số hóa đơn chưa thanh toán của các hợp đồng đang thuê
+    $contractIds = $rentedContracts->map(fn($c) => (string)($c->_id ?? $c->id))->toArray();
+    $pendingInvoicesCount = 0;
+    $pendingInvoicesTotal = 0;
+    if (!empty($contractIds)) {
+        $pendingInvoices = \App\Models\Invoice::whereIn('contract_id', $contractIds)
+            ->where(function($q) {
+                $q->where('status', 'unpaid')->orWhere('payment_status', 'unpaid');
+            })
+            ->get();
+        $pendingInvoicesCount = $pendingInvoices->count();
+        $pendingInvoicesTotal = $pendingInvoices->sum('total_amount');
+    }
+
+    return view('nhadangthue.index', compact('rentedContracts', 'totalRentedCount', 'totalRentAmount', 'pendingInvoicesCount', 'pendingInvoicesTotal'));
 })->name('nha-dang-thue');
 
-Route::get('/quan-ly-van-hanh', function () {
-    return view('qlvan_hanh.Room_list');
-})->name('quan-ly-van-hanh');
+Route::get('/quan-ly-van-hanh', [\App\Http\Controllers\OperationManagementController::class, 'index'])->name('quan-ly-van-hanh');
 
-Route::get('/qlvan_hanh/Room_list', function () {
-    return view('qlvan_hanh.Room_list');
-});
+Route::get('/qlvan_hanh/Room_list', [\App\Http\Controllers\OperationManagementController::class, 'index'])->name('qlvan_hanh.room_list');
+
+Route::get('/api/operation/check-billing-due', [\App\Http\Controllers\OperationManagementController::class, 'checkRealtimeDue'])->name('operation.check_due');
+
+Route::post('/qlvan_hanh/contracts', [\App\Http\Controllers\ContractController::class, 'store'])->name('contracts.store');
 
 Route::get('/qlvan_hanh/thanh_ly_cong_no', function () {
     return view('qlvan_hanh.thanh_ly_cong_no');
@@ -244,12 +380,118 @@ Route::get('/tao-hoa-don', function () {
     return view('qlvan_hanh.tao_hoa_don');
 })->name('tao-hoa-don');
 
-Route::get('/qlvan_hanh/tao_hop_dong', function () {
-    return view('qlvan_hanh.tao_hop_dong');
+Route::get('/qlvan_hanh/tao_hop_dong', function (\Illuminate\Http\Request $request) {
+    $userId = \Illuminate\Support\Facades\Auth::id();
+    $activeStatuses = ['active', 'approved'];
+
+    $postsQuery = \App\Models\Post::whereIn('status', $activeStatuses)
+        ->where(function ($q) {
+            $q->whereNull('is_deleted')->orWhere('is_deleted', false);
+        })
+        ->whereNull('deleted_at');
+
+    if ($userId) {
+        $userPosts = (clone $postsQuery)->where('user_id', $userId)->get();
+        $posts = $userPosts->isNotEmpty() ? $userPosts : $postsQuery->get();
+    } else {
+        $posts = $postsQuery->get();
+    }
+
+    $contacts = $userId ? \App\Models\Contact::where('owner_id', $userId)->latest()->get() : collect();
+    if ($contacts->isEmpty()) {
+        $contacts = \App\Models\Contact::latest()->get();
+    }
+
+    $contactId = $request->query('contact_id');
+    $roomId = $request->query('room_id') ?? $request->query('post_id') ?? $request->query('room');
+
+    $selectedContact = null;
+    if ($contactId) {
+        $selectedContact = \App\Models\Contact::find($contactId);
+        if ($selectedContact && !$contacts->contains(fn($c) => (string)($c->_id ?? $c->id) === (string)$contactId)) {
+            $contacts->prepend($selectedContact);
+        }
+        if (!$roomId && $selectedContact && !empty($selectedContact->post_id)) {
+            $roomId = $selectedContact->post_id;
+        }
+    }
+
+    $selectedRoom = null;
+    if ($roomId) {
+        $selectedRoom = \App\Models\Post::find($roomId);
+        if ($selectedRoom && !$posts->contains(fn($p) => (string)($p->_id ?? $p->id) === (string)$roomId)) {
+            $posts->prepend($selectedRoom);
+        }
+    }
+
+    return view('qlvan_hanh.tao_hop_dong', [
+        'availableRooms' => $posts,
+        'posts' => $posts,
+        'contacts' => $contacts,
+        'selectedContactId' => $contactId,
+        'contact_id' => $contactId,
+        'selectedContact' => $selectedContact,
+        'selectedRoomId' => $roomId,
+        'selectedRoom' => $selectedRoom,
+        'room' => $selectedRoom,
+    ]);
 });
 
-Route::get('/tao-hop-dong', function () {
-    return view('qlvan_hanh.tao_hop_dong');
+Route::get('/tao-hop-dong', function (\Illuminate\Http\Request $request) {
+    $userId = \Illuminate\Support\Facades\Auth::id();
+    $activeStatuses = ['active', 'approved'];
+
+    $postsQuery = \App\Models\Post::whereIn('status', $activeStatuses)
+        ->where(function ($q) {
+            $q->whereNull('is_deleted')->orWhere('is_deleted', false);
+        })
+        ->whereNull('deleted_at');
+
+    if ($userId) {
+        $userPosts = (clone $postsQuery)->where('user_id', $userId)->get();
+        $posts = $userPosts->isNotEmpty() ? $userPosts : $postsQuery->get();
+    } else {
+        $posts = $postsQuery->get();
+    }
+
+    $contacts = $userId ? \App\Models\Contact::where('owner_id', $userId)->latest()->get() : collect();
+    if ($contacts->isEmpty()) {
+        $contacts = \App\Models\Contact::latest()->get();
+    }
+
+    $contactId = $request->query('contact_id');
+    $roomId = $request->query('room_id') ?? $request->query('post_id') ?? $request->query('room');
+
+    $selectedContact = null;
+    if ($contactId) {
+        $selectedContact = \App\Models\Contact::find($contactId);
+        if ($selectedContact && !$contacts->contains(fn($c) => (string)($c->_id ?? $c->id) === (string)$contactId)) {
+            $contacts->prepend($selectedContact);
+        }
+        if (!$roomId && $selectedContact && !empty($selectedContact->post_id)) {
+            $roomId = $selectedContact->post_id;
+        }
+    }
+
+    $selectedRoom = null;
+    if ($roomId) {
+        $selectedRoom = \App\Models\Post::find($roomId);
+        if ($selectedRoom && !$posts->contains(fn($p) => (string)($p->_id ?? $p->id) === (string)$roomId)) {
+            $posts->prepend($selectedRoom);
+        }
+    }
+
+    return view('qlvan_hanh.tao_hop_dong', [
+        'availableRooms' => $posts,
+        'posts' => $posts,
+        'contacts' => $contacts,
+        'selectedContactId' => $contactId,
+        'contact_id' => $contactId,
+        'selectedContact' => $selectedContact,
+        'selectedRoomId' => $roomId,
+        'selectedRoom' => $selectedRoom,
+        'room' => $selectedRoom,
+    ]);
 })->name('tao-hop-dong');
 
 
@@ -288,7 +530,8 @@ Route::get('/qlnguoi_dung', function (\Illuminate\Http\Request $request) {
               ->orWhere('email', 'like', "%{$search}%")
               ->orWhere('account_name', 'like', "%{$search}%")
               ->orWhere('phone', 'like', "%{$search}%")
-              ->orWhere('company_name', 'like', "%{$search}%");
+              ->orWhere('company_name', 'like', "%{$search}%")
+              ->orWhere('representative', 'like', "%{$search}%");
         });
     }
 

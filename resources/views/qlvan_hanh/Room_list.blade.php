@@ -1,3 +1,9 @@
+@php
+    $rooms = $rooms ?? [];
+    $paidCount = $paidCount ?? 0;
+    $unpaidCount = $unpaidCount ?? 0;
+    $availableRooms = $availableRooms ?? [];
+@endphp
 <!DOCTYPE html>
 <html lang="vi" class="scroll-smooth">
 
@@ -119,7 +125,7 @@
                     <div class="w-6 h-6 rounded-full {{ ((Auth::user()->account_type ?? '') === 'doanhnghiep') ? 'bg-purple-200 text-purple-700' : 'bg-emerald-200 text-emerald-700' }} flex items-center justify-center shrink-0 hidden sm:flex">
                         <i class="fa-solid fa-user text-[10px]"></i>
                     </div>
-                    <span class="max-w-[100px] truncate hidden sm:block">{{ Auth::user()->username ?? Auth::user()->name ?? 'Tài khoản' }}</span>
+                    <span class="max-w-[100px] truncate hidden sm:block">{{ Auth::user()->display_name ?? Auth::user()->name ?? 'Tài khoản' }}</span>
                     <i class="fa-solid fa-bars sm:ml-1"></i>
                 </button>
             </div>
@@ -128,6 +134,19 @@
 
     <!-- MAIN CONTAINER -->
     <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+        @if(session('success'))
+            <div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm font-semibold flex items-center gap-2 shadow-xs">
+                <i class="fa-solid fa-circle-check text-emerald-600 text-base"></i>
+                <span>{{ session('success') }}</span>
+            </div>
+        @endif
+        @if(session('error'))
+            <div class="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs sm:text-sm font-semibold flex items-center gap-2 shadow-xs">
+                <i class="fa-solid fa-triangle-exclamation text-rose-500 text-base"></i>
+                <span>{{ session('error') }}</span>
+            </div>
+        @endif
 
         <!-- BANNER QUẢN LÝ VẬN HÀNH (MÀU DARK NAVY #0b132a SẮC NÉT) -->
         <div class="bg-[#0b132a] rounded-3xl p-6 sm:p-8 text-white border border-slate-800 shadow-xl relative overflow-hidden">
@@ -150,7 +169,7 @@
                         <span class="w-3.5 h-3.5 rounded-full bg-emerald-500 shadow-sm animate-pulse"></span>
                         <div>
                             <p class="text-[10px] text-sky-200 uppercase font-extrabold">Đã Thu Tiền</p>
-                            <p class="text-lg font-black text-emerald-400" id="statPaidCount">3 Phòng</p>
+                            <p class="text-lg font-black text-emerald-400" id="statPaidCount">{{ $paidCount }} Phòng</p>
                         </div>
                     </div>
                     <div class="h-8 w-px bg-slate-700/80"></div>
@@ -158,7 +177,7 @@
                         <span class="w-3.5 h-3.5 rounded-full bg-rose-500 shadow-sm animate-pulse"></span>
                         <div>
                             <p class="text-[10px] text-sky-200 uppercase font-extrabold">Chưa Thu Tiền</p>
-                            <p class="text-lg font-black text-rose-400" id="statUnpaidCount">2 Phòng</p>
+                            <p class="text-lg font-black text-rose-400" id="statUnpaidCount">{{ $unpaidCount }} Phòng</p>
                         </div>
                     </div>
                 </div>
@@ -173,7 +192,7 @@
             <div class="flex flex-wrap items-center gap-5 text-xs font-bold">
                 <span class="text-slate-400 uppercase tracking-wider text-[10px]">Trạng Thái:</span>
                 <button onclick="filterRooms('all')" id="filter-all" class="filter-btn active px-3.5 py-1.5 rounded-xl border border-slate-200 text-slate-700 transition-all">
-                    Tất cả (5)
+                    Tất cả ({{ count($rooms) }})
                 </button>
                 <button onclick="filterRooms('paid')" id="filter-paid" class="filter-btn px-3.5 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50/60 text-emerald-700 hover:bg-emerald-100 transition-all flex items-center gap-1.5">
                     <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block shadow-sm"></span>
@@ -195,301 +214,164 @@
 
 
         <!-- DANH SÁCH CÁC TÒA NHÀ & PHÒNG ĐANG CHO THUÊ -->
+        @if(($unpaidCount ?? 0) > 0)
+            <!-- BANNER CẢNH BÁO THỜI GIAN THỰC KHI ĐẾN HẠN ĐÓNG TIỀN PHÒNG -->
+            <div id="realtimeDueAlertBanner" class="p-4 sm:p-5 rounded-3xl bg-rose-50/90 border-2 border-rose-200/90 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-in fade-in duration-300">
+                <div class="flex items-center gap-3.5">
+                    <div class="w-12 h-12 rounded-2xl bg-rose-500 text-white flex items-center justify-center font-bold text-xl shrink-0 shadow-md animate-pulse">
+                        <i class="fa-solid fa-bell"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="px-2 py-0.5 rounded-full bg-rose-600 text-white font-black text-[10px] tracking-wider uppercase">Cảnh Báo Đến Hạn Thu Tiền</span>
+                            <span class="text-xs text-rose-700 font-bold">Hôm nay: Ngày {{ now()->day }}/{{ now()->month }}/{{ now()->year }}</span>
+                        </div>
+                        <h4 class="font-extrabold text-sm sm:text-base text-slate-900 mt-0.5">
+                            Có <span class="text-rose-600 font-black">{{ $unpaidCount }} phòng</span> đã đến hạn hoặc quá hạn đóng tiền trong tháng này!
+                        </h4>
+                        <p class="text-xs text-slate-600">Hệ thống đã tự động kích hoạt thông báo thời gian thực và đánh dấu thẻ phòng Chấm Đỏ.</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 w-full md:w-auto shrink-0">
+                    <button onclick="filterRooms('unpaid')" class="w-full md:w-auto px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-filter"></i> Xem các phòng chưa thu
+                    </button>
+                </div>
+            </div>
+        @endif
+
         <div class="space-y-6" id="roomListContainer">
 
-            <!-- PHÒNG 1: CHẤM ĐỎ (CHƯA THU TIỀN) - CÓ NÚT "CÔNG NỢ" HIỂN THỊ -->
-            <div id="card-NH-302" class="room-card unpaid bg-white rounded-3xl border-2 border-rose-200 overflow-hidden shadow-card hover:shadow-lg transition-all p-6 flex flex-col lg:flex-row justify-between gap-6 relative">
-                <div class="flex items-start gap-4">
-                    <div class="relative shrink-0">
-                        <div class="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-2xl border border-rose-200">
-                            <i class="fa-solid fa-door-closed"></i>
+            @foreach($rooms as $room)
+                <div id="card-{{ $room->room_code }}" 
+                     class="room-card @if($room->status === 'unpaid') unpaid border-2 border-rose-200 @else paid border border-slate-200/90 @endif bg-white rounded-3xl overflow-hidden shadow-card hover:shadow-lg transition-all p-6 flex flex-col lg:flex-row justify-between gap-6 relative">
+                    <div class="flex items-start gap-4">
+                        @php
+                            $roomImg = !empty($room->image) 
+                                ? $room->image 
+                                : (!empty($room->post?->display_image) 
+                                    ? $room->post->display_image 
+                                    : 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80');
+                        @endphp
+                        <div class="relative shrink-0">
+                            <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border {{ $room->status === 'unpaid' ? 'border-rose-300 ring-2 ring-rose-100' : 'border-slate-200' }} bg-slate-100 shadow-sm shrink-0">
+                                <img src="{{ $roomImg }}" 
+                                     alt="{{ $room->name ?? $room->room_name ?? 'Ảnh phòng' }}" 
+                                     class="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                                     onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80';">
+                            </div>
+                            @if($room->status === 'unpaid')
+                                <!-- CHẤM ĐỎ CHƯA THU TIỀN -->
+                                <span class="room-status-dot-ping absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 border-2 border-white shadow-md animate-ping"></span>
+                                <span class="room-status-dot absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 border-2 border-white shadow-md" title="Chưa thu tiền"></span>
+                            @else
+                                <!-- CHẤM XANH ĐÃ THU TIỀN HOẶC CHƯA ĐẾN KỲ THU -->
+                                <span class="room-status-dot absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white shadow-md" title="{{ $room->status_label ?? 'Đã thu tiền' }}"></span>
+                            @endif
                         </div>
-                        <!-- CHẤM ĐỎ CHƯA THU TIỀN -->
-                        <span class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 border-2 border-white shadow-md animate-ping"></span>
-                        <span class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 border-2 border-white shadow-md" title="Chưa thu tiền"></span>
-                    </div>
 
-                    <div class="space-y-1">
-                        <div class="flex items-center gap-2">
-                            <span class="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 font-extrabold text-[11px] flex items-center gap-1">
-                                <span class="w-2 h-2 rounded-full bg-rose-600 inline-block"></span> CHƯA THU TIỀN
-                            </span>
-                            <span class="text-xs font-bold text-slate-400">Mã phòng: NH-302</span>
-                        </div>
-                        <h3 class="text-lg font-extrabold text-slate-900">Phòng Trọ Cao Cấp Nguyên Hồng – Phòng 302</h3>
-                        <p class="text-xs text-slate-600 font-medium">
-                            <i class="fa-solid fa-user text-slate-400"></i> Người thuê: <strong class="text-slate-800">Nguyễn Văn An</strong> (SĐT: 0912 345 678)
-                        </p>
-                        <div class="flex flex-wrap gap-4 text-xs pt-1">
-                            <span>Giá thuê: <strong class="text-brand-600 font-bold">3,500,000đ/tháng</strong></span>
-                            <span>Tiền cọc: <strong class="text-skybrand-600 font-bold">3,500,000đ</strong></span>
-                            <span>Kỳ nợ: <strong class="text-rose-600 font-bold">Tháng 10/2026 (3,850,000đ)</strong></span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- NÚT THAO TÁC CHO PHÒNG 1 -->
-                <div class="flex flex-wrap items-center lg:justify-end gap-2 shrink-0 border-t lg:border-t-0 pt-4 lg:pt-0 border-slate-100">
-                    <!-- Nút Thanh Lý Hợp Đồng (Mở Form Chốt Công Nợ) -->
-                    <a href="{{ url('qlvan_hanh/thanh_ly_cong_no') }}"
-                       class="py-2.5 px-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
-                        <i class="fa-solid fa-file-contract"></i>
-                        <span>Thanh Lý Hợp Đồng</span>
-                    </a>
-
-                    <!-- Nút Tạo Hóa Đơn -->
-                    <a href="{{ url('qlvan_hanh/tao_hoa_don') }}?room=NH-302"
-                       class="py-2.5 px-3.5 rounded-xl bg-skybrand-600 hover:bg-skybrand-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
-                        <i class="fa-solid fa-file-invoice-dollar"></i>
-                        <span>Tạo Hóa Đơn</span>
-                    </a>
-
-                    <!-- Nút Xem Hóa Đơn -->
-                    <button onclick="openViewInvoiceModal('NH-302', 'HD-202610-302', 'Nguyễn Văn An', '3,850,000đ', 'Chưa thu tiền')"
-                            class="py-2.5 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
-                        <i class="fa-solid fa-receipt"></i>
-                        <span>Xem Hóa Đơn</span>
-                    </button>
-
-                    <!-- Nút Xem Hợp Đồng -->
-                    <button onclick="openViewContractModal('NH-302', 'HD-2026-302', 'Nguyễn Văn An', '0912 345 678', '3,500,000đ', '3,500,000đ', '01/06/2026', '01/06/2027')"
-                            class="py-2.5 px-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
-                        <i class="fa-solid fa-file-signature"></i>
-                        <span>Xem Hợp Đồng</span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- PHÒNG 2: CHẤM XANH (ĐÃ THU TIỀN) -->
-            <div class="room-card paid bg-white rounded-3xl border border-slate-200/90 overflow-hidden shadow-card hover:shadow-lg transition-all p-6 flex flex-col lg:flex-row justify-between gap-6">
-                <div class="flex items-start gap-4">
-                    <div class="relative shrink-0">
-                        <div class="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-2xl border border-emerald-200">
-                            <i class="fa-solid fa-door-open"></i>
-                        </div>
-                        <!-- CHẤM XANH ĐÃ THU TIỀN -->
-                        <span class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white shadow-md" title="Đã thu tiền"></span>
-                    </div>
-
-                    <div class="space-y-1">
-                        <div class="flex items-center gap-2">
-                            <span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-[11px] flex items-center gap-1">
-                                <span class="w-2 h-2 rounded-full bg-emerald-600 inline-block"></span> ĐÃ THU TIỀN
-                            </span>
-                            <span class="text-xs font-bold text-slate-400">Mã phòng: VH-1208</span>
-                        </div>
-                        <h3 class="text-lg font-extrabold text-slate-900">Căn Hộ Vinhomes Central Park – Landmark 2 (Căn 12.08)</h3>
-                        <p class="text-xs text-slate-600 font-medium">
-                            <i class="fa-solid fa-user text-slate-400"></i> Người thuê: <strong class="text-slate-800">Trần Thị Minh</strong> (SĐT: 0908 777 666)
-                        </p>
-                        <div class="flex flex-wrap gap-4 text-xs pt-1">
-                            <span>Giá thuê: <strong class="text-brand-600 font-bold">7,500,000đ/tháng</strong></span>
-                            <span>Tiền cọc: <strong class="text-skybrand-600 font-bold">7,500,000đ</strong></span>
-                            <span>Đã đóng: <strong class="text-emerald-600 font-bold">Kỳ Tháng 09/2026</strong></span>
+                        <div class="space-y-1">
+                            <div class="flex flex-wrap items-center gap-2">
+                                @if($room->status === 'unpaid')
+                                    <span class="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 font-extrabold text-[11px] flex items-center gap-1">
+                                        <span class="w-2 h-2 rounded-full bg-rose-600 inline-block"></span> CHƯA THU TIỀN
+                                    </span>
+                                @else
+                                    <span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-[11px] flex items-center gap-1">
+                                        <span class="w-2 h-2 rounded-full bg-emerald-600 inline-block"></span> {{ strtoupper($room->status_label ?? 'ĐÃ THU TIỀN') }}
+                                    </span>
+                                @endif
+                                <span class="text-xs font-bold text-slate-400">Mã: {{ $room->room_code }}</span>
+                                @if(!empty($room->bill_date))
+                                    <span class="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                                        <i class="fa-regular fa-calendar-check text-slate-400"></i> Ngày chốt: mùng {{ $room->bill_date }}
+                                    </span>
+                                @endif
+                            </div>
+                            <h3 class="text-lg font-extrabold text-slate-900">{{ $room->name ?? $room->room_name ?? ('Phòng ' . $room->room_code) }}</h3>
+                            <p class="text-xs text-slate-600 font-medium">
+                                <i class="fa-solid fa-user text-slate-400"></i> Người thuê: <strong class="text-slate-800">{{ $room->tenant_name }}</strong> (SĐT: {{ $room->tenant_phone }})
+                            </p>
+                            <div class="flex flex-wrap gap-4 text-xs pt-1">
+                                <span>Giá thuê: <strong class="text-brand-600 font-bold">{{ number_format($room->price) }}đ/tháng</strong></span>
+                                <span>Tiền cọc: <strong class="text-skybrand-600 font-bold">{{ number_format($room->deposit ?? $room->price) }}đ</strong></span>
+                                @if($room->status === 'unpaid')
+                                    <span>Kỳ nợ: <strong class="text-rose-600 font-bold">{{ $room->debt_period ?? 'Kỳ này' }} ({{ number_format($room->debt_amount ?? $room->price) }}đ)</strong></span>
+                                @else
+                                    <span>Trạng thái: <strong class="text-emerald-600 font-bold">{{ $room->status_label ?? ($room->paid_period ?? 'Đã thu tiền') }}</strong></span>
+                                @endif
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <div class="flex flex-wrap items-center lg:justify-end gap-2 shrink-0 border-t lg:border-t-0 pt-4 lg:pt-0 border-slate-100">
-                    <a href="{{ url('qlvan_hanh/thanh_ly_cong_no') }}"
-                       class="py-2.5 px-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
-                        <i class="fa-solid fa-file-contract"></i>
-                        <span>Thanh Lý Hợp Đồng</span>
-                    </a>
+                    <!-- NÚT THAO TÁC CHO PHÒNG -->
+                    <div class="flex flex-wrap items-center lg:justify-end gap-2 shrink-0 border-t lg:border-t-0 pt-4 lg:pt-0 border-slate-100">
+                        <!-- Nút Thanh Lý Hợp Đồng (Mở Form Chốt Công Nợ) -->
+                        <a href="{{ url('qlvan_hanh/thanh_ly_cong_no') }}?room={{ $room->room_code }}"
+                           class="py-2.5 px-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                            <i class="fa-solid fa-file-contract"></i>
+                            <span>Thanh Lý Hợp Đồng</span>
+                        </a>
 
-                    <a href="{{ url('qlvan_hanh/tao_hoa_don') }}?room=VH-1208"
-                       class="py-2.5 px-3.5 rounded-xl bg-skybrand-600 hover:bg-skybrand-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
-                        <i class="fa-solid fa-file-invoice-dollar"></i>
-                        <span>Tạo Hóa Đơn</span>
-                    </a>
+                        <!-- Nút Tạo Hóa Đơn -->
+                        <a href="{{ url('qlvan_hanh/tao_hoa_don') }}?room={{ $room->room_code }}"
+                           class="py-2.5 px-3.5 rounded-xl bg-skybrand-600 hover:bg-skybrand-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                            <i class="fa-solid fa-file-invoice-dollar"></i>
+                            <span>Tạo Hóa Đơn</span>
+                        </a>
 
-                    <button onclick="openViewInvoiceModal('VH-1208', 'HD-202609-VH', 'Trần Thị Minh', '7,850,000đ', 'Đã thu tiền')"
-                            class="py-2.5 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
-                        <i class="fa-solid fa-receipt"></i>
-                        <span>Xem Hóa Đơn</span>
-                    </button>
+                        <!-- Nút Xem Hóa Đơn -->
+                        <button onclick="openViewInvoiceModal('{{ $room->room_code }}', '{{ $room->invoice_code ?? ('HD-' . $room->room_code) }}', '{{ addslashes($room->tenant_name ?? '') }}', '{{ number_format($room->invoice_total ?? $room->debt_amount ?? $room->price) }}đ', '{{ $room->status === 'unpaid' ? 'Chưa thu tiền' : 'Đã thu tiền' }}')"
+                                class="py-2.5 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                            <i class="fa-solid fa-receipt"></i>
+                            <span>Xem Hóa Đơn</span>
+                        </button>
 
-                    <button onclick="openViewContractModal('VH-1208', 'HD-2026-VH', 'Trần Thị Minh', '0908 777 666', '7,500,000đ', '7,500,000đ', '15/01/2026', '15/01/2027')"
-                            class="py-2.5 px-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
-                        <i class="fa-solid fa-file-signature"></i>
-                        <span>Xem Hợp Đồng</span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- PHÒNG 3: CHẤM XANH (ĐÃ THU TIỀN) -->
-            <div class="room-card paid bg-white rounded-3xl border border-slate-200/90 overflow-hidden shadow-card hover:shadow-lg transition-all p-6 flex flex-col lg:flex-row justify-between gap-6">
-                <div class="flex items-start gap-4">
-                    <div class="relative shrink-0">
-                        <div class="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-2xl border border-emerald-200">
-                            <i class="fa-solid fa-door-open"></i>
-                        </div>
-                        <span class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white shadow-md" title="Đã thu tiền"></span>
-                    </div>
-
-                    <div class="space-y-1">
-                        <div class="flex items-center gap-2">
-                            <span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-[11px] flex items-center gap-1">
-                                <span class="w-2 h-2 rounded-full bg-emerald-600 inline-block"></span> ĐÃ THU TIỀN
-                            </span>
-                            <span class="text-xs font-bold text-slate-400">Mã phòng: MT-1504</span>
-                        </div>
-                        <h3 class="text-lg font-extrabold text-slate-900">Căn Hộ Masteri Thảo Điền – Tháp T3-1504</h3>
-                        <p class="text-xs text-slate-600 font-medium">
-                            <i class="fa-solid fa-user text-slate-400"></i> Người thuê: <strong class="text-slate-800">Lê Hoàng Nam</strong> (SĐT: 0938 111 222)
-                        </p>
-                        <div class="flex flex-wrap gap-4 text-xs pt-1">
-                            <span>Giá thuê: <strong class="text-brand-600 font-bold">10,500,000đ/tháng</strong></span>
-                            <span>Tiền cọc: <strong class="text-skybrand-600 font-bold">10,500,000đ</strong></span>
-                            <span>Đã đóng: <strong class="text-emerald-600 font-bold">Kỳ Tháng 09/2026</strong></span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="flex flex-wrap items-center lg:justify-end gap-2 shrink-0 border-t lg:border-t-0 pt-4 lg:pt-0 border-slate-100">
-                    <a href="{{ url('qlvan_hanh/thanh_ly_cong_no') }}"
-                       class="py-2.5 px-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
-                        <i class="fa-solid fa-file-contract"></i>
-                        <span>Thanh Lý Hợp Đồng</span>
-                    </a>
-
-                    <a href="{{ url('qlvan_hanh/tao_hoa_don') }}?room=MT-1504"
-                       class="py-2.5 px-3.5 rounded-xl bg-skybrand-600 hover:bg-skybrand-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
-                        <i class="fa-solid fa-file-invoice-dollar"></i>
-                        <span>Tạo Hóa Đơn</span>
-                    </a>
-
-                    <button onclick="openViewInvoiceModal('MT-1504', 'HD-202609-MT', 'Lê Hoàng Nam', '10,950,000đ', 'Đã thu tiền')"
-                            class="py-2.5 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
-                        <i class="fa-solid fa-receipt"></i>
-                        <span>Xem Hóa Đơn</span>
-                    </button>
-
-                    <button onclick="openViewContractModal('MT-1504', 'HD-2026-MT', 'Lê Hoàng Nam', '0938 111 222', '10,500,000đ', '10,500,000đ', '10/02/2026', '10/02/2027')"
-                            class="py-2.5 px-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
-                        <i class="fa-solid fa-file-signature"></i>
-                        <span>Xem Hợp Đồng</span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- PHÒNG 4: CHẤM ĐỎ (CHƯA THU TIỀN NỢ THỨ 2) - CÓ NÚT "FORM CÔNG NỢ" HIỂN THỊ -->
-            <div id="card-KVC-201" class="room-card unpaid bg-white rounded-3xl border-2 border-rose-200 overflow-hidden shadow-card hover:shadow-lg transition-all p-6 flex flex-col lg:flex-row justify-between gap-6 relative">
-                <div class="flex items-start gap-4">
-                    <div class="relative shrink-0">
-                        <div class="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-2xl border border-rose-200">
-                            <i class="fa-solid fa-door-closed"></i>
-                        </div>
-                        <!-- CHẤM ĐỎ CHƯA THU TIỀN -->
-                        <span class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 border-2 border-white shadow-md animate-ping"></span>
-                        <span class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 border-2 border-white shadow-md" title="Chưa thu tiền"></span>
-                    </div>
-
-                    <div class="space-y-1">
-                        <div class="flex items-center gap-2">
-                            <span class="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 font-extrabold text-[11px] flex items-center gap-1">
-                                <span class="w-2 h-2 rounded-full bg-rose-600 inline-block"></span> CHƯA THU TIỀN
-                            </span>
-                            <span class="text-xs font-bold text-slate-400">Mã phòng: KVC-201</span>
-                        </div>
-                        <h3 class="text-lg font-extrabold text-slate-900">Phòng Trọ Studio Kha Vạn Cân – Phòng 201</h3>
-                        <p class="text-xs text-slate-600 font-medium">
-                            <i class="fa-solid fa-user text-slate-400"></i> Người thuê: <strong class="text-slate-800">Phạm Văn Hải</strong> (SĐT: 0977 444 333)
-                        </p>
-                        <div class="flex flex-wrap gap-4 text-xs pt-1">
-                            <span>Giá thuê: <strong class="text-brand-600 font-bold">4,200,000đ/tháng</strong></span>
-                            <span>Tiền cọc: <strong class="text-skybrand-600 font-bold">4,200,000đ</strong></span>
-                            <span>Kỳ nợ: <strong class="text-rose-600 font-bold">Tháng 10/2026 (4,620,000đ)</strong></span>
-                        </div>
+                        <!-- Nút Xem Hợp Đồng -->
+                        <button type="button" 
+                                onclick="openViewContractModal({{ json_encode($room->contract_details ?? [
+                                    'room_code'              => $room->room_code,
+                                    'contract_code'          => $room->contract_code ?? $room->room_code,
+                                    'name'                   => $room->name ?? $room->room_name ?? ('Phòng ' . $room->room_code),
+                                    'tenant_name'            => $room->tenant_name ?? 'Khách thuê',
+                                    'tenant_phone'           => $room->tenant_phone ?? 'Chưa cập nhật',
+                                    'tenant_id_card'         => $room->tenant_id_card ?? 'Chưa cập nhật',
+                                    'price'                  => (float)($room->price ?? 0),
+                                    'deposit'                => (float)($room->deposit ?? 0),
+                                    'contract_start'         => $room->contract_start ?? '01/01/2026',
+                                    'contract_end'           => $room->contract_end ?? '01/01/2027',
+                                    'duration_months'        => (int)($room->duration_months ?? 12),
+                                    'electricity_price'      => (float)($room->electricity_price ?? 0),
+                                    'electricity_start'      => (int)($room->electricity_start ?? 0),
+                                    'water_calculation_type' => $room->water_calculation_type ?? 'khoi',
+                                    'water_price_block'      => (float)($room->water_price_block ?? 0),
+                                    'water_start'            => (int)($room->water_start ?? 0),
+                                    'water_price_person'     => (float)($room->water_price_person ?? 0),
+                                    'water_people_count'     => (int)($room->water_people_count ?? 1),
+                                    'internet_price'         => (float)($room->internet_price ?? 0),
+                                    'garbage_price'          => (float)($room->garbage_price ?? 0),
+                                    'payment_cycle'          => $room->payment_cycle ?? '1 tháng',
+                                    'bill_date'              => $room->bill_date ?? 5,
+                                    'payment_limit_days'     => $room->payment_limit_days ?? '5 ngày',
+                                    'late_penalty_fee'       => $room->late_penalty_fee ?? '20.000 VNĐ / ngày',
+                                ]) }})"
+                                class="py-2.5 px-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                            <i class="fa-solid fa-file-signature"></i>
+                            <span>Xem Hợp Đồng</span>
+                        </button>
                     </div>
                 </div>
+            @endforeach
 
-                <div class="flex flex-wrap items-center lg:justify-end gap-2 shrink-0 border-t lg:border-t-0 pt-4 lg:pt-0 border-slate-100">
-                    <!-- Nút Thanh Lý Hợp Đồng (Mở Form Chốt Công Nợ) -->
-                    <a href="{{ url('qlvan_hanh/thanh_ly_cong_no') }}"
-                       class="py-2.5 px-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
-                        <i class="fa-solid fa-file-contract"></i>
-                        <span>Thanh Lý Hợp Đồng</span>
-                    </a>
-
-                    <!-- Nút Tạo Hóa Đơn -->
-                    <a href="{{ url('qlvan_hanh/tao_hoa_don') }}?room=KVC-201"
-                       class="py-2.5 px-3.5 rounded-xl bg-skybrand-600 hover:bg-skybrand-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
-                        <i class="fa-solid fa-file-invoice-dollar"></i>
-                        <span>Tạo Hóa Đơn</span>
-                    </a>
-
-                    <!-- Nút Xem Hóa Đơn -->
-                    <button onclick="openViewInvoiceModal('KVC-201', 'HD-202610-KVC', 'Phạm Văn Hải', '4,620,000đ', 'Chưa thu tiền')"
-                            class="py-2.5 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
-                        <i class="fa-solid fa-receipt"></i>
-                        <span>Xem Hóa Đơn</span>
-                    </button>
-
-                    <!-- Nút Xem Hợp Đồng -->
-                    <button onclick="openViewContractModal('KVC-201', 'HD-2026-KVC', 'Phạm Văn Hải', '0977 444 333', '4,200,000đ', '4,200,000đ', '01/04/2026', '01/04/2027')"
-                            class="py-2.5 px-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
-                        <i class="fa-solid fa-file-signature"></i>
-                        <span>Xem Hợp Đồng</span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- PHÒNG 5: CHẤM XANH (ĐÃ THU TIỀN) -->
-            <div class="room-card paid bg-white rounded-3xl border border-slate-200/90 overflow-hidden shadow-card hover:shadow-lg transition-all p-6 flex flex-col lg:flex-row justify-between gap-6">
-                <div class="flex items-start gap-4">
-                    <div class="relative shrink-0">
-                        <div class="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-2xl border border-emerald-200">
-                            <i class="fa-solid fa-door-open"></i>
-                        </div>
-                        <span class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white shadow-md" title="Đã thu tiền"></span>
+            @if(count($rooms) === 0)
+                <div class="bg-white rounded-3xl border border-slate-200/90 p-12 text-center text-slate-500 shadow-card">
+                    <div class="w-16 h-16 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center font-bold text-2xl mx-auto mb-3">
+                        <i class="fa-solid fa-building-circle-exclamation"></i>
                     </div>
-
-                    <div class="space-y-1">
-                        <div class="flex items-center gap-2">
-                            <span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-[11px] flex items-center gap-1">
-                                <span class="w-2 h-2 rounded-full bg-emerald-600 inline-block"></span> ĐÃ THU TIỀN
-                            </span>
-                            <span class="text-xs font-bold text-slate-400">Mã phòng: NX-101</span>
-                        </div>
-                        <h3 class="text-lg font-extrabold text-slate-900">Nhà Nguyên Căn Nguyễn Xí – Số 48/15 Nguyễn Xí</h3>
-                        <p class="text-xs text-slate-600 font-medium">
-                            <i class="fa-solid fa-user text-slate-400"></i> Người thuê: <strong class="text-slate-800">Vũ Thị Lan</strong> (SĐT: 0903 888 999)
-                        </p>
-                        <div class="flex flex-wrap gap-4 text-xs pt-1">
-                            <span>Giá thuê: <strong class="text-brand-600 font-bold">12,000,000đ/tháng</strong></span>
-                            <span>Tiền cọc: <strong class="text-skybrand-600 font-bold">12,000,000đ</strong></span>
-                            <span>Đã đóng: <strong class="text-emerald-600 font-bold">Kỳ Tháng 09/2026</strong></span>
-                        </div>
-                    </div>
+                    <h4 class="font-bold text-base text-slate-700">Chưa có phòng hoặc hợp đồng nào</h4>
+                    <p class="text-xs text-slate-400 mt-1">Danh sách phòng đang quản lý sẽ hiển thị tại đây khi kết nối dữ liệu.</p>
                 </div>
-
-                <div class="flex flex-wrap items-center lg:justify-end gap-2 shrink-0 border-t lg:border-t-0 pt-4 lg:pt-0 border-slate-100">
-                    <a href="{{ url('qlvan_hanh/thanh_ly_cong_no') }}"
-                       class="py-2.5 px-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
-                        <i class="fa-solid fa-file-contract"></i>
-                        <span>Thanh Lý Hợp Đồng</span>
-                    </a>
-
-                    <a href="{{ url('qlvan_hanh/tao_hoa_don') }}?room=NX-101"
-                       class="py-2.5 px-3.5 rounded-xl bg-skybrand-600 hover:bg-skybrand-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
-                        <i class="fa-solid fa-file-invoice-dollar"></i>
-                        <span>Tạo Hóa Đơn</span>
-                    </a>
-
-                    <button onclick="openViewInvoiceModal('NX-101', 'HD-202609-NX', 'Vũ Thị Lan', '12,650,000đ', 'Đã thu tiền')"
-                            class="py-2.5 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
-                        <i class="fa-solid fa-receipt"></i>
-                        <span>Xem Hóa Đơn</span>
-                    </button>
-
-                    <button onclick="openViewContractModal('NX-101', 'HD-2026-NX', 'Vũ Thị Lan', '0903 888 999', '12,000,000đ', '12,000,000đ', '15/08/2026', '15/08/2027')"
-                            class="py-2.5 px-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
-                        <i class="fa-solid fa-file-signature"></i>
-                        <span>Xem Hợp Đồng</span>
-                    </button>
-                </div>
-            </div>
+            @endif
 
         </div>
 
@@ -533,9 +415,17 @@
                     <label class="font-bold text-slate-700 block mb-1">Chọn Tòa nhà / Phòng cho thuê (*):</label>
                     <select required class="w-full p-2.5 rounded-xl border border-slate-200 font-semibold focus:ring-2 focus:ring-brand-500 focus:outline-none">
                         <option value="">-- Chọn phòng --</option>
-                        <option value="Phòng Trọ Studio Kha Vạn Cân (KVC-202)">Phòng Trọ Studio Kha Vạn Cân (KVC-202) - 4,200,000đ/tháng</option>
-                        <option value="Phòng Trọ Cao Cấp Nguyên Hồng (NH-303)">Phòng Trọ Cao Cấp Nguyên Hồng (NH-303) - 3,500,000đ/tháng</option>
-                        <option value="Căn Hộ Vinhomes Central Park (VH-1509)">Căn Hộ Vinhomes Central Park (VH-1509) - 8,000,000đ/tháng</option>
+                        @if(isset($availableRooms) && count($availableRooms) > 0)
+                            @foreach($availableRooms as $availRoom)
+                                <option value="{{ $availRoom->id ?? $availRoom->room_code }}">
+                                    {{ $availRoom->name ?? $availRoom->room_name ?? ('Phòng ' . $availRoom->room_code) }} ({{ $availRoom->room_code }}) - {{ number_format($availRoom->price) }}đ/tháng
+                                </option>
+                            @endforeach
+                        @else
+                            <option value="Phòng Trọ Studio Kha Vạn Cân (KVC-202)">Phòng Trọ Studio Kha Vạn Cân (KVC-202) - 4,200,000đ/tháng</option>
+                            <option value="Phòng Trọ Cao Cấp Nguyên Hồng (NH-303)">Phòng Trọ Cao Cấp Nguyên Hồng (NH-303) - 3,500,000đ/tháng</option>
+                            <option value="Căn Hộ Vinhomes Central Park (VH-1509)">Căn Hộ Vinhomes Central Park (VH-1509) - 8,000,000đ/tháng</option>
+                        @endif
                     </select>
                 </div>
 
@@ -593,10 +483,30 @@
                 </div>
 
                 <div>
-                    <label class="font-bold text-slate-700 block mb-1">Đơn giá điện & nước thỏa thuận:</label>
+                    <label class="font-bold text-slate-700 block mb-1 flex items-center justify-between">
+                        <span>Đơn giá điện & nước thỏa thuận:</span>
+                    </label>
                     <div class="grid grid-cols-2 gap-3">
-                        <input type="text" value="Điện: 3.500đ / kWh" class="p-2.5 rounded-xl border border-slate-200 bg-slate-50">
-                        <input type="text" value="Nước: 14.000đ / m3" class="p-2.5 rounded-xl border border-slate-200 bg-slate-50">
+                        <div>
+                            <label class="text-[11px] font-semibold text-slate-600 block mb-1">Giá Điện (VNĐ/số):</label>
+                            <div class="relative">
+                                <input type="text" id="quickElecPrice" name="quick_elec_price" value="3.500" placeholder="VD: 3000 hoặc 3.500" class="w-full pl-3 pr-10 py-2 rounded-xl border border-slate-200 bg-white font-semibold text-xs text-slate-800 focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                                <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none">đ/số</span>
+                            </div>
+                            <div class="text-xs text-slate-500 mt-1 font-medium">
+                                Hiển thị: <span id="quickElecDisplay" class="font-bold text-slate-800">3.500</span> VNĐ/số
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-[11px] font-semibold text-slate-600 block mb-1">Giá Nước (VNĐ/khối):</label>
+                            <div class="relative">
+                                <input type="text" id="quickWaterPrice" name="quick_water_price" value="25.000" placeholder="VD: 25000 hoặc 25.000" class="w-full pl-3 pr-10 py-2 rounded-xl border border-slate-200 bg-white font-semibold text-xs text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                                <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none">đ/m³</span>
+                            </div>
+                            <div class="text-xs text-slate-500 mt-1 font-medium">
+                                Hiển thị: <span id="quickWaterDisplay" class="font-bold text-slate-800">25.000</span> VNĐ/m³
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -872,32 +782,90 @@
             </div>
 
             <!-- BODY CONTAINER -->
-            <div class="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1 text-xs">
+            <div class="p-6 space-y-5 overflow-y-auto custom-scrollbar flex-1 text-xs">
                 
-                <!-- 2 COLUMNS SUMMARY CARDS -->
+                <!-- 2 COLUMNS SUMMARY CARDS: BÊN THUÊ & GIÁ THUÊ -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     
-                    <!-- THÔNG TIN PHÒNG & BÊN THUÊ -->
-                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/90 space-y-3">
+                    <!-- 1. THÔNG TIN PHÒNG & BÊN THUÊ -->
+                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/90 space-y-2.5">
                         <h4 class="font-extrabold text-slate-900 text-xs border-b border-slate-200 pb-2 flex items-center gap-2">
                             <i class="fa-solid fa-user-gear text-indigo-600"></i> 1. Bên Thuê & Phòng Thuê
                         </h4>
                         <div class="space-y-2">
-                            <p class="flex justify-between"><span class="text-slate-500">Mã phòng:</span> <strong id="vcRoomCode" class="text-slate-900 font-bold">NH-302</strong></p>
-                            <p class="flex justify-between"><span class="text-slate-500">Khách thuê:</span> <strong id="vcTenant" class="text-slate-900 font-bold">Nguyễn Văn An</strong></p>
-                            <p class="flex justify-between"><span class="text-slate-500">Số điện thoại:</span> <strong id="vcPhone" class="text-skybrand-600 font-mono font-bold">0912 345 678</strong></p>
+                            <p class="flex justify-between items-center"><span class="text-slate-500">Mã phòng:</span> <strong id="vcRoomCode" class="text-slate-900 font-bold">NH-302</strong></p>
+                            <p class="flex justify-between items-center"><span class="text-slate-500">Phòng thuê:</span> <strong id="vcRoomName" class="text-slate-900 font-bold truncate max-w-[170px]">--</strong></p>
+                            <p class="flex justify-between items-center"><span class="text-slate-500">Khách thuê:</span> <strong id="vcTenant" class="text-slate-900 font-bold">Nguyễn Văn An</strong></p>
+                            <p class="flex justify-between items-center"><span class="text-slate-500">Số điện thoại:</span> <strong id="vcPhone" class="text-skybrand-600 font-mono font-bold">0912 345 678</strong></p>
+                            <p class="flex justify-between items-center"><span class="text-slate-500">CCCD/CMND:</span> <strong id="vcIdCard" class="text-slate-700 font-mono font-bold">--</strong></p>
                         </div>
                     </div>
 
-                    <!-- THỎA THUẬN TÀI CHÍNH & THỜI HẠN -->
-                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/90 space-y-3">
+                    <!-- 2. THỎA THUẬN TÀI CHÍNH & THỜI HẠN -->
+                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/90 space-y-2.5">
                         <h4 class="font-extrabold text-slate-900 text-xs border-b border-slate-200 pb-2 flex items-center gap-2">
                             <i class="fa-solid fa-coins text-amber-500"></i> 2. Giá Thuê & Tiền Cọc
                         </h4>
                         <div class="space-y-2">
-                            <p class="flex justify-between"><span class="text-slate-500">Giá thuê thỏa thuận:</span> <strong id="vcRentPrice" class="text-brand-600 font-extrabold">3,500,000đ/tháng</strong></p>
-                            <p class="flex justify-between"><span class="text-slate-500">Tiền cọc đảm bảo:</span> <strong id="vcDeposit" class="text-skybrand-600 font-extrabold">3,500,000đ</strong></p>
-                            <p class="flex justify-between"><span class="text-slate-500">Thời hạn hợp đồng:</span> <strong id="vcDates" class="text-slate-800 font-bold">01/06/2026 - 01/06/2027</strong></p>
+                            <p class="flex justify-between items-center"><span class="text-slate-500">Giá thuê phòng:</span> <strong id="vcRentPrice" class="text-brand-600 font-extrabold">3,500,000đ/tháng</strong></p>
+                            <p class="flex justify-between items-center"><span class="text-slate-500">Tiền cọc đảm bảo:</span> <strong id="vcDeposit" class="text-skybrand-600 font-extrabold">3,500,000đ</strong></p>
+                            <p class="flex justify-between items-center"><span class="text-slate-500">Thời hạn hợp đồng:</span> <strong id="vcDates" class="text-slate-800 font-bold">01/06/2026 - 01/06/2027</strong></p>
+                            <p class="flex justify-between items-center"><span class="text-slate-500">Thời lượng thuê:</span> <strong id="vcDuration" class="text-slate-700 font-semibold">12 tháng</strong></p>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- 2 COLUMNS: ĐƠN GIÁ ĐIỆN NƯỚC & PHÍ DỊCH VỤ CỐ ĐỊNH -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    
+                    <!-- 3. ĐƠN GIÁ ĐIỆN & NƯỚC THỎA THUẬN -->
+                    <div class="bg-amber-50/40 p-4 rounded-2xl border border-amber-200/80 space-y-2.5">
+                        <h4 class="font-extrabold text-slate-900 text-xs border-b border-amber-200/80 pb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-bolt-lightning text-amber-500"></i> 3. Đơn Giá Điện & Nước
+                        </h4>
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <span class="text-slate-600 font-semibold block">Tiền Điện:</span>
+                                    <span class="text-[10px] text-slate-400" id="vcElecStart">Chỉ số bắt đầu: 0 kWh</span>
+                                </div>
+                                <strong id="vcElecPrice" class="text-amber-700 font-bold text-xs bg-amber-100/70 px-2.5 py-1 rounded-lg border border-amber-200/60">3.500đ/số</strong>
+                            </div>
+                            <div class="h-px bg-amber-200/60"></div>
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <span class="text-slate-600 font-semibold block" id="vcWaterTypeLabel">Tiền Nước (Theo khối):</span>
+                                    <span class="text-[10px] text-slate-400" id="vcWaterSubInfo">Chỉ số bắt đầu: 0 m³</span>
+                                </div>
+                                <strong id="vcWaterPrice" class="text-skybrand-700 font-bold text-xs bg-sky-100/70 px-2.5 py-1 rounded-lg border border-sky-200/60">25.000đ/khối</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 4. PHÍ DỊCH VỤ CỐ ĐỊNH & QUY ĐỊNH CHỐT TIỀN -->
+                    <div class="bg-purple-50/40 p-4 rounded-2xl border border-purple-200/80 space-y-2.5">
+                        <h4 class="font-extrabold text-slate-900 text-xs border-b border-purple-200/80 pb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-wifi text-purple-600"></i> 4. Phí Dịch Vụ Cố Định & Chu Kỳ
+                        </h4>
+                        <div class="space-y-1.5">
+                            <p class="flex justify-between items-center">
+                                <span class="text-slate-500"><i class="fa-solid fa-wifi text-[10px] text-purple-500 mr-1"></i> Internet / Wifi:</span>
+                                <strong id="vcInternetPrice" class="text-slate-800 font-bold">100.000đ/tháng</strong>
+                            </p>
+                            <p class="flex justify-between items-center">
+                                <span class="text-slate-500"><i class="fa-solid fa-trash-can text-[10px] text-purple-500 mr-1"></i> Rác sinh hoạt:</span>
+                                <strong id="vcGarbagePrice" class="text-slate-800 font-bold">30.000đ/tháng</strong>
+                            </p>
+                            <div class="h-px bg-purple-200/60"></div>
+                            <p class="flex justify-between items-center">
+                                <span class="text-slate-500"><i class="fa-regular fa-calendar-check text-[10px] text-sky-500 mr-1"></i> Ngày chốt tiền:</span>
+                                <strong id="vcBillDate" class="text-skybrand-700 font-extrabold">Mùng 5 hàng tháng</strong>
+                            </p>
+                            <p class="flex justify-between items-center">
+                                <span class="text-slate-500"><i class="fa-solid fa-clock text-[10px] text-slate-400 mr-1"></i> Chu kỳ thanh toán:</span>
+                                <strong id="vcPaymentCycle" class="text-slate-700 font-semibold">1 tháng (Hàng tháng)</strong>
+                            </p>
                         </div>
                     </div>
 
@@ -905,19 +873,24 @@
 
                 <!-- CAM KẾT & QUY ĐỊNH HỢP ĐỒNG -->
                 <div class="p-4 bg-skybrand-50/70 rounded-2xl border border-skybrand-200 text-slate-700 space-y-2">
-                    <p class="font-extrabold text-skybrand-900 text-xs flex items-center gap-2">
-                        <i class="fa-solid fa-shield-halved text-skybrand-600"></i> Cam Kết & Quyền Lợi Hợp Đồng:
-                    </p>
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <p class="font-extrabold text-skybrand-900 text-xs flex items-center gap-2">
+                            <i class="fa-solid fa-shield-halved text-skybrand-600"></i> Cam Kết & Quyền Lợi Hợp Đồng:
+                        </p>
+                        <span class="text-[11px] text-rose-600 font-bold bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-full" id="vcPenaltyBadge">
+                            Phạt trễ hạn: 20.000 VNĐ / ngày
+                        </span>
+                    </div>
                     <ul class="text-[11px] space-y-1.5 text-slate-600 list-disc list-inside leading-relaxed">
                         <li>Hợp đồng được xác lập có đầy đủ hiệu lực pháp lý theo tiêu chuẩn hệ thống RentHome.</li>
-                        <li>Khách thuê cam kết thanh toán tiền thuê & điện nước đúng hạn trước ngày 05 hàng tháng.</li>
-                        <li>Tiền đặt cọc được chủ nhà cam kết bảo toàn và hoàn trả 100% khi thanh lý hợp đồng đúng điều khoản.</li>
+                        <li>Khách thuê cam kết thanh toán tiền thuê, tiền điện, tiền nước & các dịch vụ đúng hạn định kỳ hàng tháng.</li>
+                        <li>Tiền đặt cọc được chủ nhà cam kết bảo toàn và hoàn trả 100% khi thanh lý hợp đồng đúng điều khoản cam kết.</li>
                     </ul>
                 </div>
 
                 <!-- ACTION BUTTONS TOOLBAR -->
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2">
-                    <a href="{{ url('qlvan_hanh/thanh_ly_cong_no') }}" class="py-3 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all">
+                    <a id="vcBtnLiquidate" href="{{ url('qlvan_hanh/thanh_ly_cong_no') }}" class="py-3 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all">
                         <i class="fa-solid fa-file-contract"></i>
                         <span>Thanh Lý Hợp Đồng</span>
                     </a>
@@ -1074,12 +1047,20 @@
             if (targetCard) {
                 targetCard.classList.remove('unpaid', 'border-rose-200');
                 targetCard.classList.add('paid', 'border-slate-200/90');
-                targetCard.querySelector('.relative').innerHTML = `
-                    <div class="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-2xl border border-emerald-200">
-                        <i class="fa-solid fa-door-open"></i>
-                    </div>
-                    <span class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white shadow-md" title="Đã thu tiền"></span>
-                `;
+                
+                // Cập nhật chấm trạng thái sang đã thu tiền mà không làm mất ảnh phòng
+                const pingDot = targetCard.querySelector('.room-status-dot-ping');
+                if (pingDot) pingDot.remove();
+                const statusDot = targetCard.querySelector('.room-status-dot');
+                if (statusDot) {
+                    statusDot.className = "room-status-dot absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white shadow-md";
+                    statusDot.setAttribute('title', 'Đã thu tiền');
+                }
+                const imgContainer = targetCard.querySelector('.relative > div');
+                if (imgContainer) {
+                    imgContainer.classList.remove('border-rose-300', 'ring-2', 'ring-rose-100');
+                    imgContainer.classList.add('border-slate-200');
+                }
                 const badgeSpan = targetCard.querySelector('.space-y-1 .flex span');
                 if (badgeSpan) {
                     badgeSpan.className = "px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-[11px] flex items-center gap-1";
@@ -1091,7 +1072,7 @@
 
             // Tính toán lại số phòng chưa thu tiền còn lại
             const remainingUnpaid = document.querySelectorAll('.room-card.unpaid').length;
-            const remainingPaid = 5 - remainingUnpaid;
+            const remainingPaid = document.querySelectorAll('.room-card').length - remainingUnpaid;
 
             const statPaid = document.getElementById('statPaidCount');
             const statUnpaid = document.getElementById('statUnpaidCount');
@@ -1207,15 +1188,125 @@
             confirmCollectMoneyFromModal();
         }
 
-        // 6. XEM HỢP ĐỒNG
-        function openViewContractModal(roomCode, contractCode, tenant, phone, price, deposit, startDate, endDate) {
+        // Helper format VNĐ
+        function formatContractVnd(val) {
+            if (val === null || val === undefined || val === '') return '0đ';
+            if (typeof val === 'string' && val.includes('đ')) return val;
+            const num = parseFloat(String(val).replace(/[^\d.]/g, '')) || 0;
+            return new Intl.NumberFormat('vi-VN').format(num) + 'đ';
+        }
+
+        // 6. XEM HỢP ĐỒNG CHI TIẾT
+        function openViewContractModal(data, contractCode, tenant, phone, price, deposit, startDate, endDate) {
+            let info = {};
+            if (typeof data === 'object' && data !== null) {
+                info = data;
+            } else {
+                info = {
+                    room_code: data,
+                    contract_code: contractCode,
+                    tenant_name: tenant,
+                    tenant_phone: phone,
+                    price: price,
+                    deposit: deposit,
+                    contract_start: startDate,
+                    contract_end: endDate
+                };
+            }
+
+            // 1. Bên thuê & Phòng thuê
+            const roomCode = info.room_code || '--';
             document.getElementById('vcRoomCode').innerText = roomCode;
-            document.getElementById('vcContractCode').innerText = "Mã HĐ: " + contractCode;
-            document.getElementById('vcTenant').innerText = tenant;
-            document.getElementById('vcPhone').innerText = phone;
-            document.getElementById('vcRentPrice').innerText = price + "/tháng";
-            document.getElementById('vcDeposit').innerText = deposit;
-            document.getElementById('vcDates').innerText = startDate + " - " + endDate;
+            document.getElementById('vcContractCode').innerText = "Mã HĐ: " + (info.contract_code || roomCode || '--');
+            document.getElementById('vcTenant').innerText = info.tenant_name || '--';
+            document.getElementById('vcPhone').innerText = info.tenant_phone || '--';
+            if (document.getElementById('vcIdCard')) {
+                document.getElementById('vcIdCard').innerText = info.tenant_id_card || 'Chưa cập nhật';
+            }
+            if (document.getElementById('vcRoomName')) {
+                document.getElementById('vcRoomName').innerText = info.name || ('Phòng ' + roomCode);
+            }
+
+            // 2. Giá thuê & Tiền cọc
+            let rentPriceStr = '--';
+            if (info.price !== undefined && info.price !== null) {
+                rentPriceStr = typeof info.price === 'number' ? (formatContractVnd(info.price) + '/tháng') : (String(info.price).includes('/') ? info.price : info.price + '/tháng');
+            }
+            let depositStr = '--';
+            if (info.deposit !== undefined && info.deposit !== null) {
+                depositStr = typeof info.deposit === 'number' ? formatContractVnd(info.deposit) : String(info.deposit);
+            }
+            document.getElementById('vcRentPrice').innerText = rentPriceStr;
+            document.getElementById('vcDeposit').innerText = depositStr;
+
+            const datesText = (info.contract_start || '--') + ' - ' + (info.contract_end || '--');
+            document.getElementById('vcDates').innerText = datesText;
+            if (document.getElementById('vcDuration')) {
+                document.getElementById('vcDuration').innerText = (info.duration_months || 12) + ' tháng';
+            }
+
+            // 3. Đơn giá Điện & Nước
+            const elecPriceVal = info.electricity_price && info.electricity_price > 0 ? (formatContractVnd(info.electricity_price) + '/số') : '3.500đ/số';
+            const elecStartVal = info.electricity_start !== undefined && info.electricity_start !== null ? info.electricity_start : 0;
+            if (document.getElementById('vcElecPrice')) {
+                document.getElementById('vcElecPrice').innerText = elecPriceVal;
+            }
+            if (document.getElementById('vcElecStart')) {
+                document.getElementById('vcElecStart').innerText = `Chỉ số ban đầu: ${elecStartVal} kWh`;
+            }
+
+            // Nước theo khối hoặc theo người
+            const waterType = info.water_calculation_type || 'khoi';
+            if (waterType === 'nguoi') {
+                if (document.getElementById('vcWaterTypeLabel')) {
+                    document.getElementById('vcWaterTypeLabel').innerText = 'Tiền Nước (Theo người):';
+                }
+                const waterPersonVal = info.water_price_person && info.water_price_person > 0 ? (formatContractVnd(info.water_price_person) + '/người/tháng') : '100.000đ/người';
+                if (document.getElementById('vcWaterPrice')) {
+                    document.getElementById('vcWaterPrice').innerText = waterPersonVal;
+                }
+                if (document.getElementById('vcWaterSubInfo')) {
+                    document.getElementById('vcWaterSubInfo').innerText = `Số người ở: ${info.water_people_count || 1} người`;
+                }
+            } else {
+                if (document.getElementById('vcWaterTypeLabel')) {
+                    document.getElementById('vcWaterTypeLabel').innerText = 'Tiền Nước (Theo khối):';
+                }
+                const waterBlockVal = info.water_price_block && info.water_price_block > 0 ? (formatContractVnd(info.water_price_block) + '/khối (m³)') : '25.000đ/khối';
+                if (document.getElementById('vcWaterPrice')) {
+                    document.getElementById('vcWaterPrice').innerText = waterBlockVal;
+                }
+                if (document.getElementById('vcWaterSubInfo')) {
+                    document.getElementById('vcWaterSubInfo').innerText = `Chỉ số ban đầu: ${info.water_start || 0} m³`;
+                }
+            }
+
+            // 4. Phí Dịch Vụ Cố Định & Chu Kỳ
+            const internetVal = info.internet_price && info.internet_price > 0 ? (formatContractVnd(info.internet_price) + '/tháng') : '100.000đ/tháng';
+            const garbageVal = info.garbage_price && info.garbage_price > 0 ? (formatContractVnd(info.garbage_price) + '/tháng') : '30.000đ/tháng';
+            if (document.getElementById('vcInternetPrice')) {
+                document.getElementById('vcInternetPrice').innerText = internetVal;
+            }
+            if (document.getElementById('vcGarbagePrice')) {
+                document.getElementById('vcGarbagePrice').innerText = garbageVal;
+            }
+
+            const billDateVal = info.bill_date ? `Mùng ${info.bill_date} hàng tháng` : (info.billing_date || 'Mùng 5 hàng tháng');
+            if (document.getElementById('vcBillDate')) {
+                document.getElementById('vcBillDate').innerText = billDateVal;
+            }
+            if (document.getElementById('vcPaymentCycle')) {
+                document.getElementById('vcPaymentCycle').innerText = (info.payment_cycle || '1 tháng') + ` (Hạn trả: ${info.payment_limit_days || '5 ngày'})`;
+            }
+            if (document.getElementById('vcPenaltyBadge')) {
+                document.getElementById('vcPenaltyBadge').innerText = `Phạt trễ hạn: ${info.late_penalty_fee || '20.000 VNĐ / ngày'}`;
+            }
+
+            // Link thanh lý hợp đồng
+            const btnLiquidate = document.getElementById('vcBtnLiquidate');
+            if (btnLiquidate) {
+                btnLiquidate.href = `{{ url('qlvan_hanh/thanh_ly_cong_no') }}?room=${roomCode}`;
+            }
 
             document.getElementById('viewContractModal').classList.remove('hidden');
         }
@@ -1282,6 +1373,50 @@
             const selectedRoom = document.getElementById('ccRoom').value;
             showToast("Đã lưu dữ liệu hợp đồng mới vào CSDL (tbl_hop_dong) & tự động chuyển phòng " + selectedRoom + " sang 'Đã cho thuê' thành công!");
         }
+
+        // Live formatting for quick contract modal inputs
+        function bindQuickPriceFormat(inputId, displayId) {
+            const input = document.getElementById(inputId);
+            const display = document.getElementById(displayId);
+            if (!input || !display) return;
+            const update = () => {
+                const clean = String(input.value || '').replace(/[^\d]/g, '');
+                const num = clean ? parseInt(clean, 10) : 0;
+                display.innerText = num > 0 ? String(num).replace(/\B(?=(\d{3})+(?!\d))/g, ".") : '0';
+            };
+            input.addEventListener('input', update);
+            input.addEventListener('blur', () => {
+                const clean = String(input.value || '').replace(/[^\d]/g, '');
+                const num = clean ? parseInt(clean, 10) : 0;
+                if (num > 0) input.value = String(num).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                update();
+            });
+            update();
+        }
+        // KIỂM TRA HẠN THU TIỀN THỜI GIAN THỰC (REALTIME DUE CHECK)
+        async function checkRealtimeBillingDue() {
+            try {
+                const response = await fetch('/api/operation/check-billing-due');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.due_count > 0) {
+                        const alertBanner = document.getElementById('realtimeDueAlertBanner');
+                        if (alertBanner) {
+                            alertBanner.classList.remove('hidden');
+                        }
+                    }
+                }
+            } catch (err) {
+                console.debug("Check realtime due silently:", err);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            bindQuickPriceFormat('quickElecPrice', 'quickElecDisplay');
+            bindQuickPriceFormat('quickWaterPrice', 'quickWaterDisplay');
+            checkRealtimeBillingDue();
+            setInterval(checkRealtimeBillingDue, 60000);
+        });
     </script>
 </body>
 

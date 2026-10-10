@@ -558,6 +558,10 @@
                                 <td class="table-val-col"><strong>{{ $targetUser->company_name ?? 'Công ty TNHH Bất Động Sản TakiManh Việt Nam' }}</strong></td>
                             </tr>
                             <tr>
+                                <td class="table-label-col"><i class="fa-solid fa-user-tie icon-col"></i> Người đại diện</td>
+                                <td class="table-val-col"><strong>{{ $targetUser->representative ?? 'Chưa cập nhật' }}</strong></td>
+                            </tr>
+                            <tr>
                                 <td class="table-label-col"><i class="fa-solid fa-file-invoice icon-col"></i> Mã số thuế (MST)</td>
                                 <td class="table-val-col"><span style="font-family: monospace; font-size: 0.95rem; font-weight: 700;">{{ $targetUser->tax_code ?? '0316988231' }}</span></td>
                             </tr>

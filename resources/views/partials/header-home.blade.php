@@ -181,7 +181,7 @@
                         <img src="{{ Auth::user()->display_avatar ?? Auth::user()->avatar }}" alt="Avatar" class="w-8 h-8 rounded-full object-cover shadow-sm border border-slate-200">
                         <div class="flex flex-col text-left leading-tight">
                             <span class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-                                {{ Auth::user()->username ?? (Auth::user()->account_name ?? 'Thành viên') }}
+                                {{ Auth::user()->display_name }}
                                 <i class="fa-solid fa-chevron-down text-xs text-slate-400"></i>
                             </span>
                             <span class="text-[10px] font-semibold">
@@ -202,7 +202,8 @@
                             <div class="truncate">
                                 <p class="text-[11px] font-medium text-slate-400">Tài khoản đang đăng nhập</p>
                                 <p class="text-sm font-bold text-slate-900 truncate">
-                                    {{ Auth::user()->email ?? Auth::user()->username }}</p>
+                                    {{ Auth::user()->display_name }}</p>
+                                <p class="text-[11px] text-slate-400 truncate">{{ Auth::user()->email ?? '' }}</p>
                             </div>
                             <div class="shrink-0">
                                 @if ((Auth::user()->account_type ?? '') === 'doanhnghiep')
@@ -257,7 +258,7 @@
                         </a>
                         @endif
 
-                        <a href="/dat-lai-mat-khau"
+                        <a href="{{ route('user.change_password') }}"
                             class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
                             <i class="fa-solid fa-key text-brand-600 w-4 text-center"></i>
                             <span>Đổi mật khẩu</span>
@@ -817,6 +818,7 @@
                                 <span class="text-[10px] text-slate-400">${n.time}</span>
                             </div>
                             <p class="font-bold text-slate-900 text-xs truncate mt-0.5 ${!n.isRead ? 'text-slate-900 font-extrabold' : 'text-slate-700'}">${n.title}</p>
+                            <p class="text-[11px] text-slate-500 line-clamp-1 mt-0.5">${n.content}</p>
                         </div>
                     </div>
                 `;

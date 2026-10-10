@@ -185,7 +185,11 @@
             }
         }
 
-        const IS_ADMIN_USER = true && ((Auth::user()->account_type ?? '') === 'admin' || (Auth::user()->role ?? '') === 'admin'));
+        const IS_ADMIN_USER = typeof window !== 'undefined' && Boolean(
+            window.currentUserType === 'admin' || 
+            window.currentUserRole === 'admin' || 
+            (window.currentUser && (window.currentUser.account_type === 'admin' || window.currentUser.role === 'admin'))
+        );
         let featuredAutoPlayTimer = null;
         let isFeaturedScrolling = false;
 
@@ -300,7 +304,8 @@
                         </div>
                     </div>
                 </div>
-            `).join('');
+                `;
+            }).join('');
 
             if (slider) {
                 slider.onmouseenter = stopFeaturedAutoPlay;

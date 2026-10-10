@@ -239,7 +239,7 @@
                             <a href="{{ route('user.dashboard') }}" class="flex items-center gap-3 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600 rounded-lg transition-colors">
                                 <i class="fa-solid fa-user-pen w-4 text-center"></i> Hồ sơ
                             </a>
-                            <a href="/dat-lai-mat-khau" class="flex items-center gap-3 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600 rounded-lg transition-colors">
+                            <a href="{{ route('user.change_password') }}" class="flex items-center gap-3 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600 rounded-lg transition-colors">
                                 <i class="fa-solid fa-key w-4 text-center"></i> Đổi mật khẩu
                             </a>
                         </div>
@@ -481,7 +481,7 @@
             <section id="content-active-posts" class="tab-content hidden space-y-4">
                 <div class="flex items-center justify-between">
                     <h3 id="active-posts-heading" class="font-bold text-base text-slate-900">Danh sách tin đang hiển thị</h3>
-                    <input type="text" placeholder="Tìm kiếm mã tin, tên bài..."
+                    <input type="text" id="active-posts-search-input" onkeyup="filterActivePostsTable(this.value)" placeholder="Tìm kiếm mã tin, tên bài..."
                         class="px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-xs focus:ring-2 focus:ring-brand-500 focus:outline-none">
                 </div>
 
@@ -1068,6 +1068,7 @@
                                         <span class="text-[10px] text-slate-400">${n.time}</span>
                                     </div>
                                     <p class="font-bold text-slate-900 text-xs truncate mt-0.5 ${!n.isRead ? 'text-slate-900 font-extrabold' : 'text-slate-700'}">${n.title}</p>
+                                    <p class="text-[11px] text-slate-500 line-clamp-1 mt-0.5">${n.content}</p>
                                 </div>
                             </div>
                         `;
@@ -1883,27 +1884,37 @@ function fetchActivePosts() {
                 window.allPosts[post.id || post._id] = post;
                 const imgUrl = post.display_image || 'https://via.placeholder.com/150';
                 const price = new Intl.NumberFormat('vi-VN').format(post.price) + ' đ';
+                const isRented = Boolean(post.is_rented === true || post.status === 'đã cho thuê' || post.status === 'rented' || post.status === 'dang_thue');
                 return `
-                    <tr class="hover:bg-slate-50 transition-colors">
+                    <tr class="transition-all ${isRented ? 'opacity-50 hover:opacity-85 bg-slate-50/70 border-l-4 border-l-amber-500' : 'hover:bg-slate-50'}">
                         <td class="p-4 font-bold text-slate-900">${post.id || post._id}</td>
                         <td class="p-4">
                             <div class="flex items-center gap-3">
-                                <img src="${imgUrl}" class="w-10 h-10 rounded-lg object-cover border border-slate-200 shadow-xs">
+                                <img src="${imgUrl}" class="w-10 h-10 rounded-lg object-cover border border-slate-200 shadow-xs ${isRented ? 'grayscale-[25%]' : ''}">
                                 <div>
-                                    <p class="font-bold text-slate-900">${post.title}</p>
+                                    <p class="font-bold text-slate-900 flex items-center gap-2">
+                                        ${post.title}
+                                        ${isRented ? '<span class="text-[9px] bg-amber-100 text-amber-800 font-extrabold px-1.5 py-0.5 rounded border border-amber-200 uppercase tracking-wider">Đang thuê</span>' : ''}
+                                    </p>
                                     <p class="text-[10px] text-slate-400">${post.location || post.address || 'Đang cập nhật'}</p>
                                 </div>
                             </div>
                         </td>
-                        <td class="p-4 font-bold text-brand-600">${price}</td>
+                        <td class="p-4 font-bold ${isRented ? 'text-slate-600' : 'text-brand-600'}">${price}</td>
                         <td class="p-4">
-                            <span class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[10px] inline-flex items-center gap-1.5">
-                                <i class="fa-solid fa-circle-check"></i> Đang hiển thị
-                            </span>
+                            ${isRented ? `
+                                <span class="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 font-extrabold text-[10px] inline-flex items-center gap-1.5 border border-amber-200 shadow-2xs">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-amber-600 inline-block animate-pulse"></span> Đang thuê
+                                </span>
+                            ` : `
+                                <span class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[10px] inline-flex items-center gap-1.5">
+                                    <i class="fa-solid fa-circle-check"></i> Đang hiển thị
+                                </span>
+                            `}
                         </td>
                         <td class="p-4 text-center font-bold text-slate-600">${post.views || 0}</td>
                         <td class="p-4 text-right">
-                            <button onclick="editPost('${post.id || post._id}')" class="px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-xs transition-colors">
+                            <button onclick="editPost('${post.id || post._id}')" class="px-3 py-1.5 rounded-lg ${isRented ? 'bg-slate-100 hover:bg-slate-200 text-slate-600' : 'bg-blue-50 hover:bg-blue-100 text-blue-600'} font-bold text-xs transition-colors" title="${isRented ? 'Bài đăng đang cho thuê' : 'Cập nhật bài đăng'}">
                                 <i class="fa-solid fa-pen mr-1"></i> Cập nhật
                             </button>
                         </td>
@@ -1915,6 +1926,15 @@ function fetchActivePosts() {
             if (tbodyOverview) tbodyOverview.innerHTML = html;
             if (tbodyTab) tbodyTab.innerHTML = html;
         }).catch(err => console.error("Lỗi lấy tin hiển thị:", err));
+}
+
+function filterActivePostsTable(query) {
+    const term = (query || '').toLowerCase().trim();
+    const rows = document.querySelectorAll('#active-posts-tab-tbody tr');
+    rows.forEach(r => {
+        const text = r.innerText.toLowerCase();
+        r.style.display = text.includes(term) ? '' : 'none';
+    });
 }
 
 // ==================== API FETCH: TIN CHỜ PHÊ DUYỆT (PENDING) ====================

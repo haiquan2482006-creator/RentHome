@@ -177,7 +177,7 @@
                             <a href="{{ route('user.dashboard') }}" class="flex items-center gap-3 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600 rounded-lg transition-colors">
                                 <i class="fa-solid fa-user-pen w-4 text-center"></i> Hồ sơ
                             </a>
-                            <a href="/dat-lai-mat-khau" class="flex items-center gap-3 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600 rounded-lg transition-colors">
+                            <a href="{{ route('user.change_password') }}" class="flex items-center gap-3 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600 rounded-lg transition-colors">
                                 <i class="fa-solid fa-key w-4 text-center"></i> Đổi mật khẩu
                             </a>
                         </div>
@@ -262,7 +262,7 @@
         </aside>
 
         <!-- Main Content Area -->
-        <main class="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 relative overflow-x-hidden" x-data="{ searchQuery: '' }">
+        <main class="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 relative overflow-x-hidden" x-data="{ searchQuery: '', filterMode: 'all' }">
 
         
         <!-- Page Header -->
@@ -281,10 +281,10 @@
                 </div>
                 
                 <div class="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-full sm:w-auto">
-                    <button class="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-brand-50 text-brand-700 font-bold text-sm transition-colors text-center">
+                    <button @click="filterMode = 'all'" :class="filterMode === 'all' ? 'bg-brand-50 text-brand-700 shadow-xs' : 'text-slate-500 hover:bg-slate-50'" class="flex-1 sm:flex-none px-4 py-2 rounded-xl font-bold text-sm transition-all text-center">
                         Tất cả ({{ $totalContacts ?? 0 }})
                     </button>
-                    <button class="flex-1 sm:flex-none px-4 py-2 rounded-xl text-slate-500 hover:bg-slate-50 font-bold text-sm transition-colors text-center">
+                    <button @click="filterMode = 'pending'" :class="filterMode === 'pending' ? 'bg-rose-50 text-rose-600 shadow-xs' : 'text-slate-500 hover:bg-slate-50'" class="flex-1 sm:flex-none px-4 py-2 rounded-xl font-bold text-sm transition-all text-center">
                         Chưa xử lý ({{ $pendingContacts ?? 0 }})
                     </button>
                 </div>
@@ -296,11 +296,12 @@
             
             @forelse($groupedContacts as $post)
             @php
+                $postPendingCount = $post->contacts->where('status', 'pending')->count();
                 $postPhonesJson = json_encode($post->contacts->pluck('phone')->toArray());
             @endphp
             <!-- Post Item -->
             <div x-data="{ expanded: false, phones: {{ $postPhonesJson }} }" 
-                 x-show="searchQuery === '' || phones.some(p => p.includes(searchQuery))"
+                 x-show="(filterMode === 'all' || {{ $postPendingCount }} > 0) && (searchQuery === '' || phones.some(p => p.includes(searchQuery)))"
                  x-effect="if(searchQuery !== '' && phones.some(p => p.includes(searchQuery))) expanded = true; if(searchQuery === '') expanded = false;"
                  class="bg-white rounded-[20px] border border-slate-200 overflow-hidden shadow-soft transition-all duration-300 hover:border-brand-300">
                 
@@ -320,6 +321,7 @@
                                     'MAT_BANG' => 'Mặt bằng',
                                     'CAN_HO' => 'Căn hộ',
                                     'VAN_PHONG' => 'Văn phòng',
+                                    'ĐÃ CHO THUÊ' => 'Đã cho thuê',
                                 ];
                                 $propertyType = $typeMap[$post->property_type] ?? $post->property_type;
                             @endphp
@@ -343,9 +345,17 @@
                                     </div>
                                 @endforeach
                             </div>
-                            <span class="px-3 py-1.5 rounded-full bg-rose-50 text-rose-600 text-xs font-bold border border-rose-100 shadow-sm">
-                                {{ $post->contacts->count() }} Liên hệ
-                            </span>
+                            @if($postPendingCount > 0)
+                                <span class="px-3 py-1.5 rounded-full bg-rose-50 text-rose-600 text-xs font-bold border border-rose-100 shadow-sm flex items-center gap-1.5">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
+                                    {{ $postPendingCount }} Chưa xử lý
+                                </span>
+                            @else
+                                <span class="px-3 py-1.5 rounded-full bg-slate-100 text-slate-500 text-xs font-bold border border-slate-200 shadow-sm flex items-center gap-1.5">
+                                    <i class="fa-solid fa-check text-emerald-500 text-[10px]"></i>
+                                    0 Chưa xử lý
+                                </span>
+                            @endif
                         </div>
                         <div class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 transition-transform duration-300" :class="expanded ? 'rotate-180 bg-brand-50 text-brand-600' : ''">
                             <i class="fa-solid fa-chevron-down"></i>
@@ -364,20 +374,23 @@
                             
                             @forelse($post->contacts as $contact)
                             @php
+                                $isContracted = !empty($contact->contract_id) || $contact->status === 'đã ký hợp đồng';
                                 $statusTheme = match($contact->status) {
                                     'pending' => ['border' => 'bg-rose-500', 'avatar' => 'from-rose-100 to-rose-50 text-rose-600 border-rose-100', 'badge_bg' => 'bg-rose-50', 'badge_text' => 'text-rose-600', 'badge_border' => 'border-rose-100', 'label' => 'Chưa xử lý', 'note_bg' => 'bg-rose-50', 'note_text' => 'text-rose-600', 'note_border' => 'border-rose-100'],
                                     'communicating' => ['border' => 'bg-blue-500', 'avatar' => 'from-blue-100 to-blue-50 text-blue-600 border-blue-100', 'badge_bg' => 'bg-blue-50', 'badge_text' => 'text-blue-600', 'badge_border' => 'border-blue-100', 'label' => 'Đang trao đổi', 'note_bg' => 'bg-blue-50', 'note_text' => 'text-blue-600', 'note_border' => 'border-blue-100'],
-                                    'approved' => ['border' => 'bg-emerald-500', 'avatar' => 'from-emerald-100 to-emerald-50 text-emerald-600 border-emerald-100', 'badge_bg' => 'bg-emerald-50', 'badge_text' => 'text-emerald-600', 'badge_border' => 'border-emerald-100', 'label' => 'Đã duyệt', 'note_bg' => 'bg-emerald-50', 'note_text' => 'text-emerald-600', 'note_border' => 'border-emerald-100'],
+                                    'approved', 'đã ký hợp đồng' => ['border' => 'bg-emerald-500', 'avatar' => 'from-emerald-100 to-emerald-50 text-emerald-600 border-emerald-100', 'badge_bg' => 'bg-emerald-50', 'badge_text' => 'text-emerald-600', 'badge_border' => 'border-emerald-100', 'label' => 'Đã duyệt', 'note_bg' => 'bg-emerald-50', 'note_text' => 'text-emerald-600', 'note_border' => 'border-emerald-100'],
+                                    'rejected' => ['border' => 'bg-rose-400', 'avatar' => 'bg-rose-50 text-rose-600 border-rose-200', 'badge_bg' => 'bg-rose-50', 'badge_text' => 'text-rose-600', 'badge_border' => 'border-rose-100', 'label' => 'Đã từ chối', 'note_bg' => 'bg-slate-100', 'note_text' => 'text-slate-500', 'note_border' => 'border-slate-200'],
                                     default => ['border' => 'bg-slate-300', 'avatar' => 'bg-slate-100 text-slate-600 border-slate-200', 'badge_bg' => 'bg-slate-100', 'badge_text' => 'text-slate-600', 'badge_border' => 'border-slate-200', 'label' => 'Đã đóng', 'note_bg' => 'bg-slate-100', 'note_text' => 'text-slate-500', 'note_border' => 'border-slate-200']
                                 };
                             @endphp
                             <!-- Contact Card -->
-                            <div x-show="searchQuery === '' || '{{ $contact->phone }}'.includes(searchQuery)" class="bg-white p-5 rounded-[18px] border border-slate-200 shadow-sm relative overflow-hidden hover:shadow-md transition-all group flex flex-col">
-                                <div class="absolute top-0 left-0 w-1.5 h-full {{ $statusTheme['border'] }}"></div>
+                            <div x-show="searchQuery === '' || '{{ $contact->phone }}'.includes(searchQuery)" 
+                                 class="{{ $isContracted ? 'bg-slate-50/80 border-slate-200 opacity-50 grayscale-[25%] pointer-events-none select-none cursor-not-allowed shadow-none' : 'bg-white border-slate-200 shadow-sm hover:shadow-md' }} p-5 rounded-[18px] border relative overflow-hidden transition-all group flex flex-col">
+                                <div class="absolute top-0 left-0 w-1.5 h-full {{ $isContracted ? 'bg-slate-400' : $statusTheme['border'] }}"></div>
                                 
                                 <div class="flex justify-between items-start mb-4">
                                     <div class="flex items-center gap-3">
-                                        <div class="w-11 h-11 rounded-full bg-gradient-to-br {{ $statusTheme['avatar'] }} flex items-center justify-center font-black text-lg border shadow-sm">
+                                        <div class="w-11 h-11 rounded-full {{ $isContracted ? 'bg-slate-200 text-slate-500 border-slate-300' : 'bg-gradient-to-br ' . $statusTheme['avatar'] }} flex items-center justify-center font-black text-lg border shadow-sm">
                                             {{ strtoupper(substr($contact->sender_name, 0, 1)) }}
                                         </div>
                                         <div>
@@ -385,7 +398,13 @@
                                             <p class="text-[11px] text-slate-500 font-medium mt-0.5">{{ $contact->created_at->format('H:i, d/m/Y') }} • ID: #{{ $contact->id }}</p>
                                         </div>
                                     </div>
-                                    <span class="px-2.5 py-1 {{ $statusTheme['badge_bg'] }} {{ $statusTheme['badge_text'] }} text-[10px] font-bold rounded-md border {{ $statusTheme['badge_border'] }} uppercase tracking-wider">{{ $statusTheme['label'] }}</span>
+                                    @if($isContracted)
+                                        <span class="px-2.5 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-md border border-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                                            <i class="fa-solid fa-file-contract text-emerald-600"></i> Đã tạo hợp đồng
+                                        </span>
+                                    @else
+                                        <span class="px-2.5 py-1 {{ $statusTheme['badge_bg'] }} {{ $statusTheme['badge_text'] }} text-[10px] font-bold rounded-md border {{ $statusTheme['badge_border'] }} uppercase tracking-wider">{{ $statusTheme['label'] }}</span>
+                                    @endif
                                 </div>
                                 
                                 <div class="grid grid-cols-1 gap-y-2.5 mb-4 text-sm bg-slate-50/50 p-3.5 rounded-xl border border-slate-100">
@@ -414,68 +433,79 @@
                                     "{{ $contact->message }}"
                                 </div>
                                 
-                                <div class="mt-auto pt-1" x-data="{ 
-                                    state: '{{ $contact->status }}',
-                                    isUpdating: false,
-                                    updateStatus(newStatus) {
-                                        if(this.isUpdating) return;
-                                        this.isUpdating = true;
-                                        fetch('{{ route('contact.updateStatus', $contact->_id ?? $contact->id) }}', {
-                                            method: 'PATCH',
-                                            headers: {
-                                                'Content-Type': 'application/json',
-                                                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                                                'Accept': 'application/json'
-                                            },
-                                            body: JSON.stringify({ status: newStatus })
-                                        })
-                                        .then(res => res.json())
-                                        .then(data => {
-                                            if (data.success) {
-                                                this.state = newStatus;
-                                            } else {
-                                                alert(data.message || 'Lỗi khi cập nhật trạng thái.');
-                                            }
-                                        })
-                                        .catch(err => alert('Lỗi mạng hoặc server. Vui lòng thử lại.'))
-                                        .finally(() => this.isUpdating = false);
-                                    }
-                                }">
-                                    <!-- Trạng thái 1: Chưa xử lý -->
-                                    <div x-show="state === 'pending'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="flex gap-2">
-                                        <button @click="updateStatus('rejected')" :disabled="isUpdating" :class="{'opacity-50 cursor-not-allowed': isUpdating}" title="Từ chối" class="flex-none px-4 py-2.5 border border-slate-200 text-slate-500 hover:border-red-500 hover:text-red-500 hover:bg-red-50 text-[13px] font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 hover:-translate-y-0.5">
-                                            <i class="fa-solid fa-xmark"></i> Từ chối
-                                        </button>
-                                        <button @click="updateStatus('communicating')" :disabled="isUpdating" :class="{'opacity-50 cursor-not-allowed': isUpdating}" class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-bold rounded-xl transition-all shadow-[0_4px_12px_rgba(37,99,235,0.2)] hover:shadow-[0_6px_16px_rgba(37,99,235,0.3)] flex items-center justify-center gap-2 hover:-translate-y-0.5">
-                                            <i class="fa-solid fa-phone-volume"></i> Đánh dấu đang trao đổi
+                                @if($isContracted)
+                                    <!-- Đã tạo hợp đồng: Khóa hoàn toàn, không thể tương tác -->
+                                    <div class="mt-auto pt-1">
+                                        <button disabled class="w-full py-2.5 bg-slate-100 text-slate-400 border border-slate-200 text-[13px] font-bold rounded-xl flex items-center justify-center gap-2 cursor-not-allowed opacity-90 shadow-none">
+                                            <i class="fa-solid fa-lock text-slate-400"></i> Đã tạo hợp đồng (Đã khóa)
                                         </button>
                                     </div>
+                                @else
+                                    <div class="mt-auto pt-1" x-data="{ 
+                                        state: '{{ $contact->status }}',
+                                        isUpdating: false,
+                                        updateStatus(newStatus) {
+                                            if(this.isUpdating) return;
+                                            this.isUpdating = true;
+                                            fetch('{{ route('contact.updateStatus', $contact->_id ?? $contact->id) }}', {
+                                                method: 'PATCH',
+                                                headers: {
+                                                    'Content-Type': 'application/json',
+                                                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                                                    'Accept': 'application/json'
+                                                },
+                                                body: JSON.stringify({ status: newStatus })
+                                            })
+                                            .then(res => res.json())
+                                            .then(data => {
+                                                if (data.success) {
+                                                    this.state = newStatus;
+                                                } else {
+                                                    alert(data.message || 'Lỗi khi cập nhật trạng thái.');
+                                                }
+                                            })
+                                            .catch(err => alert('Lỗi mạng hoặc server. Vui lòng thử lại.'))
+                                            .finally(() => this.isUpdating = false);
+                                        }
+                                    }">
+                                        <!-- Trạng thái 1: Chưa xử lý -->
+                                        <div x-show="state === 'pending'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="flex gap-2">
+                                            <button @click="updateStatus('rejected')" :disabled="isUpdating" :class="{'opacity-50 cursor-not-allowed': isUpdating}" title="Từ chối" class="flex-none px-4 py-2.5 border border-slate-200 text-slate-500 hover:border-red-500 hover:text-red-500 hover:bg-red-50 text-[13px] font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 hover:-translate-y-0.5">
+                                                <i class="fa-solid fa-xmark"></i> Từ chối
+                                            </button>
+                                            <button @click="updateStatus('communicating')" :disabled="isUpdating" :class="{'opacity-50 cursor-not-allowed': isUpdating}" class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-bold rounded-xl transition-all shadow-[0_4px_12px_rgba(37,99,235,0.2)] hover:shadow-[0_6px_16px_rgba(37,99,235,0.3)] flex items-center justify-center gap-2 hover:-translate-y-0.5">
+                                                <i class="fa-solid fa-phone-volume"></i> Đánh dấu đang trao đổi
+                                            </button>
+                                        </div>
 
-                                    <!-- Trạng thái 2: Đang trao đổi -->
-                                    <div x-show="state === 'communicating'" x-cloak x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="flex gap-2">
-                                        <button @click="updateStatus('pending')" :disabled="isUpdating" :class="{'opacity-50 cursor-not-allowed': isUpdating}" class="flex-none px-3 py-2.5 border border-red-300 text-red-500 hover:bg-red-50 text-[13px] font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 hover:-translate-y-0.5">
-                                            <i class="fa-solid fa-ban"></i> Hủy giao dịch
-                                        </button>
-                                        <button @click="updateStatus('approved')" :disabled="isUpdating" :class="{'opacity-50 cursor-not-allowed': isUpdating}" class="flex-1 py-2.5 bg-brand-500 hover:bg-brand-600 text-white text-[14px] font-black rounded-xl transition-all shadow-[0_4px_12px_rgba(34,197,94,0.3)] hover:shadow-[0_6px_16px_rgba(34,197,94,0.4)] flex items-center justify-center gap-2 hover:-translate-y-0.5 relative overflow-hidden group">
-                                            <span class="absolute w-0 h-0 transition-all duration-500 ease-out bg-white rounded-full group-hover:w-56 group-hover:h-56 opacity-10"></span>
-                                            📝 Tạo hợp đồng
-                                        </button>
-                                    </div>
-                                    
-                                    <!-- Trạng thái 3: Đã duyệt / Có hợp đồng -->
-                                    <div x-show="state === 'approved'" x-cloak x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
-                                        <button class="w-full py-2.5 bg-emerald-600 text-white text-[13px] font-bold rounded-xl flex items-center justify-center gap-2 opacity-70 cursor-not-allowed">
-                                            <i class="fa-solid fa-check-double"></i> Đã có hợp đồng
-                                        </button>
-                                    </div>
+                                        <!-- Trạng thái 2: Đang trao đổi -->
+                                        <div x-show="state === 'communicating'" x-cloak x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="flex gap-2">
+                                            <button @click="updateStatus('pending')" :disabled="isUpdating" :class="{'opacity-50 cursor-not-allowed': isUpdating}" class="flex-none px-3 py-2.5 border border-red-300 text-red-500 hover:bg-red-50 text-[13px] font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 hover:-translate-y-0.5">
+                                                <i class="fa-solid fa-ban"></i> Hủy giao dịch
+                                            </button>
+                                            <a href="{{ url('qlvan_hanh/tao_hop_dong') }}?contact_id={{ $contact->_id ?? $contact->id }}&room_id={{ $post->_id ?? $post->id ?? $contact->post_id }}" class="flex-1 py-2.5 bg-brand-500 hover:bg-brand-600 text-white text-[14px] font-black rounded-xl transition-all shadow-[0_4px_12px_rgba(34,197,94,0.3)] hover:shadow-[0_6px_16px_rgba(34,197,94,0.4)] flex items-center justify-center gap-2 hover:-translate-y-0.5 relative overflow-hidden group">
+                                                <span class="absolute w-0 h-0 transition-all duration-500 ease-out bg-white rounded-full group-hover:w-56 group-hover:h-56 opacity-10"></span>
+                                                📝 Tạo hợp đồng
+                                            </a>
+                                        </div>
+                                        
+                                        <!-- Trạng thái 3: Đã duyệt / Có hợp đồng -->
+                                        <div x-show="state === 'approved'" x-cloak x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="flex gap-2">
+                                            <a href="{{ url('qlvan_hanh/tao_hop_dong') }}?contact_id={{ $contact->_id ?? $contact->id }}&room_id={{ $post->_id ?? $post->id ?? $contact->post_id }}" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] font-bold rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all hover:-translate-y-0.5">
+                                                <i class="fa-solid fa-file-signature"></i> Tạo / Xem hợp đồng
+                                            </a>
+                                        </div>
 
-                                    <!-- Trạng thái 4: Đã đóng / Bị từ chối -->
-                                    <div x-show="state === 'rejected' || state === 'closed'" x-cloak x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
-                                        <button class="w-full py-2.5 bg-slate-100 text-slate-500 border border-slate-200 text-[13px] font-bold rounded-xl flex items-center justify-center gap-2 opacity-70 cursor-not-allowed">
-                                            <i class="fa-solid fa-lock"></i> Đã đóng
-                                        </button>
+                                        <!-- Trạng thái 4: Đã đóng / Bị từ chối -->
+                                        <div x-show="state === 'rejected' || state === 'closed'" x-cloak x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+                                            <button class="w-full py-2.5 bg-slate-100 text-slate-500 border border-slate-200 text-[13px] font-bold rounded-xl flex items-center justify-center gap-2 opacity-70 cursor-not-allowed">
+                                                <i class="fa-solid fa-ban" x-show="state === 'rejected'"></i>
+                                                <i class="fa-solid fa-lock" x-show="state !== 'rejected'"></i>
+                                                <span x-text="state === 'rejected' ? 'Đã từ chối' : 'Đã đóng'"></span>
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
+                                @endif
                             </div>
                             @empty
                             <div class="col-span-full py-8 text-center text-slate-500">

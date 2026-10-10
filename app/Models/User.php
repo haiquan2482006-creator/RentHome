@@ -29,6 +29,7 @@ class User extends Authenticatable
         'account_type',
         'account_name',
         'company_name',
+        'representative',
         'company_address',
         'tax_code',
         'company_email',
@@ -49,6 +50,14 @@ class User extends Authenticatable
         'bank_name',
         'bank_account',
         'bank_owner',
+        'address',
+        'business_license_date',
+        'representative_id_card',
+        'representative_id_date',
+        'representative_id_place',
+        'website',
+        'hotline',
+        'company_description',
     ];
 
 
@@ -92,10 +101,23 @@ class User extends Authenticatable
                 return asset('storage/' . $this->avatar);
             }
         }
-        $name = $this->account_name ?? $this->username ?? 'User';
+        $name = ($this->account_type === 'doanhnghiep')
+            ? ($this->representative ?? $this->account_name ?? $this->company_name ?? $this->username ?? 'Doanh nghiệp')
+            : ($this->account_name ?? $this->username ?? 'User');
         $initial = mb_strtoupper(mb_substr($name, 0, 1, 'UTF-8'), 'UTF-8');
         $svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 150"><rect width="150" height="150" fill="#16a34a"/><text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="#ffffff" font-family="sans-serif" font-size="75" font-weight="bold">'.$initial.'</text></svg>';
         return 'data:image/svg+xml;base64,' . base64_encode($svg);
+    }
+
+    /**
+     * Tên hiển thị của tài khoản
+     */
+    public function getDisplayNameAttribute()
+    {
+        if ($this->account_type === 'doanhnghiep') {
+            return $this->representative ?? $this->account_name ?? $this->company_name ?? $this->username ?? 'Doanh nghiệp';
+        }
+        return $this->account_name ?? $this->username ?? 'Thành viên';
     }
 
     private function getDocumentUrl($fieldValue)

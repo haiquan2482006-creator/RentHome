@@ -57,28 +57,34 @@
         }
     </style>
 </head>
-<body class="antialiased flex h-screen overflow-hidden text-slate-800">
+<body class="antialiased flex h-screen overflow-hidden text-slate-800 bg-white">
 
     @php
         $user = \Illuminate\Support\Facades\Auth::user();
         $isEnterprise = $user && $user->account_type === 'doanhnghiep';
-        $userName = $user ? ($user->account_name ?? $user->username ?? 'Người dùng') : 'Người dùng';
+        $userName = $user ? ($isEnterprise ? ($user->representative ?? $user->account_name ?? $user->company_name ?? $user->username ?? 'Doanh nghiệp') : ($user->account_name ?? $user->username ?? 'Người dùng')) : 'Người dùng';
     @endphp
 
     @include('partials.sidebar-user')
+    @include('partials.sidebar-user', ['isDrawer' => true])
 
     <!-- Main Content -->
-    <main class="flex-1 flex flex-col h-full overflow-hidden bg-white relative">
-        <!-- Top Header -->
-        <header class="h-20 border-b border-slate-100 flex items-center justify-between px-8 z-10 shrink-0 bg-white/80 backdrop-blur-md">
-            <div class="flex items-center gap-4 sm:gap-6">
+    <main class="flex-1 flex flex-col h-full min-w-0 overflow-hidden bg-white relative">
+        <!-- Top Header (Chiếm toàn bộ chiều ngang tính từ lề phải sidebar) -->
+        <header class="h-20 border-b border-slate-100 flex items-center justify-between px-6 lg:px-10 z-10 shrink-0 bg-white/90 backdrop-blur-md">
+            <div class="flex items-center gap-3 sm:gap-4">
+                <!-- Nút toggle sidebar cho màn hình nhỏ -->
+                <button type="button" onclick="toggleGlobalSidebar()" class="md:hidden w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors">
+                    <i class="fa-solid fa-bars text-lg"></i>
+                </button>
+
                 <div>
                     <h1 class="text-xl font-bold text-slate-900 tracking-tight">Hồ sơ cá nhân</h1>
-                    <p class="text-sm text-slate-500 font-medium hidden md:block">Cập nhật thông tin tài khoản và giấy tờ xác minh</p>
+                    <p class="text-xs sm:text-sm text-slate-500 font-medium hidden sm:block">Cập nhật thông tin tài khoản và giấy tờ xác minh</p>
                 </div>
             </div>
             
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2.5 sm:gap-3">
                 <button type="button" onclick="enableEditMode()" id="btn-edit-mode" class="flex px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold transition-colors shadow-sm items-center gap-2">
                     <i class="fa-solid fa-pen-to-square"></i> Chỉnh sửa
                 </button>
@@ -87,185 +93,420 @@
                     <i class="fa-solid fa-xmark"></i> Hủy
                 </button>
                 
-                <button type="submit" form="profile-form" id="btn-save-edit" class="hidden px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold transition-colors shadow-sm items-center gap-2">
+                <button type="submit" form="profile-form" id="btn-save-edit" class="hidden px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold transition-colors shadow-md shadow-brand-500/20 items-center gap-2">
                     <i class="fa-solid fa-floppy-disk"></i> Lưu thay đổi
                 </button>
 
                 <div class="w-px h-6 bg-slate-200 mx-1 hidden sm:block"></div>
-                <a href="{{ url('/') }}" class="hidden sm:flex px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 text-sm font-bold rounded-xl transition-colors items-center gap-2">
+                <a href="{{ url('/') }}" class="hidden sm:flex px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 text-sm font-bold rounded-xl transition-colors border border-slate-200/60 items-center gap-2">
                     <i class="fa-solid fa-arrow-up-right-from-square"></i> Ra trang chủ
                 </a>
             </div>
         </header>
 
-        <!-- Profile Form Content -->
-        <div class="flex-1 overflow-y-auto p-4 sm:p-8">
-            <form id="profile-form" action="#" method="POST" enctype="multipart/form-data" class="max-w-4xl mx-auto space-y-10 pb-8">
+        <!-- Profile Form Content: Chiếm trọn chiều ngang, không nằm trong các khung hộp bó hẹp -->
+        <div class="flex-1 overflow-y-auto w-full px-6 lg:px-10 py-8 custom-scrollbar">
+            <form id="profile-form" action="{{ url('/trangcanhanuser') }}" method="POST" enctype="multipart/form-data" class="w-full space-y-10 pb-28">
                 @csrf
                 
-                <!-- Form Content Starts Here -->
-                
-                <!-- Khu vực 1: Thông tin cơ bản -->
-                <section class="space-y-6 bg-slate-50/50 p-6 sm:p-8 rounded-[2rem] border border-slate-100/80">
-                    <h3 class="text-xl font-bold text-slate-900 flex items-center gap-3">
-                        <span class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-sm"><i class="fa-solid fa-id-card"></i></span>
-                        Thông tin cơ bản
-                    </h3>
-                    
-                    <div class="flex flex-col gap-8">
-                        <!-- Top: Avatar & Name -->
-                        <div class="flex flex-col sm:flex-row items-center sm:items-start gap-8">
-                            <!-- Avatar -->
-                            <div class="flex flex-col items-center justify-center gap-4 shrink-0">
-                                <div class="w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden relative group bg-slate-50 shadow-sm border border-slate-100">
-                                    <img id="preview-avatar" src="{{ $user->display_avatar }}" alt="Avatar" class="w-full h-full object-cover">
-                                    <div id="avatar-upload-overlay" class="absolute inset-0 bg-black/40 hidden items-center justify-center transition-all cursor-pointer backdrop-blur-[2px]">
-                                        <i class="fa-solid fa-camera text-white text-2xl"></i>
-                                    </div>
-                                    <input type="file" name="avatar" id="avatar-upload" disabled class="absolute inset-0 opacity-0 cursor-pointer w-full h-full disabled:cursor-not-allowed" accept="image/*">
-                                </div>
-                                <button type="button" id="btn-change-avatar" class="text-sm font-bold text-brand-600 hover:text-brand-700 transition-colors bg-transparent opacity-50 cursor-not-allowed pointer-events-none">
-                                    Đổi ảnh
-                                </button>
-                            </div>
+                @if(session('success'))
+                <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center justify-between shadow-sm">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-circle-check text-emerald-600 text-lg"></i>
+                        <span class="text-sm font-semibold">{{ session('success') }}</span>
+                    </div>
+                    <button type="button" onclick="this.parentElement.remove()" class="text-emerald-500 hover:text-emerald-700 transition-colors">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                @endif
 
-                            <!-- User Info Display -->
-                            <div class="flex flex-col items-center sm:items-start justify-center pt-2 sm:pt-6">
-                                <h2 class="text-2xl md:text-3xl font-bold text-slate-900 text-center sm:text-left">{{ $user->account_name ?? $user->username ?? 'Người dùng' }}</h2>
-                                <p class="text-slate-500 mt-1.5 font-medium text-center sm:text-left">{{ $user->email ?? 'Chưa cập nhật email' }}</p>
-                                <span class="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg {{ $isEnterprise ? 'bg-purple-50 text-purple-600 border-purple-100' : 'bg-brand-50 text-brand-600 border-brand-100' }} text-sm font-bold border">
+                @if(session('error'))
+                <div class="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 flex items-center justify-between shadow-sm">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-triangle-exclamation text-rose-600 text-lg"></i>
+                        <span class="text-sm font-semibold">{{ session('error') }}</span>
+                    </div>
+                    <button type="button" onclick="this.parentElement.remove()" class="text-rose-500 hover:text-rose-700 transition-colors">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                @endif
+
+                <!-- KHU VỰC ĐỈNH: AVATAR & THÔNG TIN TỔNG QUAN (Trải dài toàn bộ chiều ngang) -->
+                <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 pb-8 border-b border-slate-100">
+                    <div class="flex flex-col sm:flex-row items-center sm:items-start lg:items-center gap-6">
+                        <!-- Avatar -->
+                        <div class="flex flex-col items-center justify-center gap-2 shrink-0">
+                            <div class="w-28 h-28 md:w-32 md:h-32 rounded-full overflow-hidden relative group bg-slate-100 shadow-sm border-2 border-slate-100">
+                                <img id="preview-avatar" src="{{ $user->display_avatar }}" alt="Avatar" class="w-full h-full object-cover">
+                                <div id="avatar-upload-overlay" onclick="document.getElementById('avatar-upload').click()" class="absolute inset-0 bg-black/40 hidden items-center justify-center transition-all cursor-pointer backdrop-blur-[2px]">
+                                    <i class="fa-solid fa-camera text-white text-2xl"></i>
+                                </div>
+                                <input type="file" name="avatar" id="avatar-upload" disabled class="absolute inset-0 opacity-0 cursor-pointer w-full h-full disabled:cursor-not-allowed" accept="image/*">
+                            </div>
+                            <button type="button" id="btn-change-avatar" onclick="document.getElementById('avatar-upload').click()" class="text-xs font-bold text-brand-600 hover:text-brand-700 transition-colors bg-transparent opacity-50 cursor-not-allowed pointer-events-none flex items-center gap-1.5 py-1 px-2 rounded-lg">
+                                <i class="fa-solid fa-camera text-xs"></i> Đổi ảnh
+                            </button>
+                        </div>
+
+                        <!-- Thông tin cá nhân cơ bản -->
+                        <div class="flex flex-col items-center sm:items-start text-center sm:text-left">
+                            <div class="flex flex-wrap items-center justify-center sm:justify-start gap-3">
+                                <h2 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">{{ $userName }}</h2>
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full {{ $isEnterprise ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-brand-50 text-brand-700 border-brand-200' }} text-xs font-bold border">
                                     <i class="fa-solid {{ $isEnterprise ? 'fa-building' : 'fa-user' }}"></i> {{ $isEnterprise ? 'Tài khoản Doanh nghiệp' : 'Tài khoản Cá nhân' }}
                                 </span>
                             </div>
-                        </div>
-
-                        <!-- Bottom: Fields -->
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5 pt-8 border-t border-slate-100">
-                            <div class="space-y-2">
-                                <label class="text-sm font-bold text-slate-700 flex items-center gap-2"><i class="fa-solid fa-user-tag text-slate-400"></i> Tên hiển thị</label>
-                                <input type="text" name="username" value="{{ $user->username ?? '' }}" disabled class="editable-input w-full px-4 py-3 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500 transition-all font-medium text-slate-800 placeholder-slate-400 disabled:opacity-70 disabled:cursor-not-allowed">
-                            </div>
-
-                            <div class="space-y-2">
-                                <label class="text-sm font-bold text-slate-700 flex items-center gap-2"><i class="fa-solid fa-signature text-slate-400"></i> Họ tên</label>
-                                <input type="text" name="account_name" value="{{ $user->account_name ?? '' }}" disabled class="editable-input w-full px-4 py-3 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500 transition-all font-medium text-slate-800 placeholder-slate-400 disabled:opacity-70 disabled:cursor-not-allowed">
-                            </div>
-
-                            <div class="space-y-2">
-                                <label class="text-sm font-bold text-slate-700 flex items-center gap-2"><i class="fa-solid fa-phone text-slate-400"></i> Số điện thoại</label>
-                                <input type="text" name="phone" value="{{ $user->phone ?? '' }}" disabled class="editable-input w-full px-4 py-3 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500 transition-all font-medium text-slate-800 placeholder-slate-400 disabled:opacity-70 disabled:cursor-not-allowed">
-                            </div>
-                            
-                            <div class="space-y-2">
-                                <label class="text-sm font-bold text-slate-700 flex items-center gap-2"><i class="fa-solid fa-envelope text-slate-400"></i> Email</label>
-                                <input type="email" value="{{ $user->email ?? '' }}" readonly class="w-full px-4 py-3 rounded-xl bg-slate-100 text-slate-500 cursor-not-allowed font-medium opacity-70">
-                            </div>
-
-                            @if($isEnterprise)
-                            <div class="space-y-2">
-                                <label class="text-sm font-bold text-slate-700 flex items-center gap-2"><i class="fa-solid fa-file-invoice text-slate-400"></i> Mã số thuế</label>
-                                <input type="text" name="tax_code" value="{{ $user->tax_code ?? '' }}" disabled placeholder="VD: 0101234567" class="editable-input w-full px-4 py-3 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500 transition-all font-medium text-slate-800 placeholder-slate-400 disabled:opacity-70 disabled:cursor-not-allowed">
-                            </div>
-                            
-                            <div class="space-y-2">
-                                <label class="text-sm font-bold text-slate-700 flex items-center gap-2"><i class="fa-solid fa-map-location-dot text-slate-400"></i> Địa chỉ trụ sở</label>
-                                <input type="text" name="address" value="{{ $user->address ?? '' }}" disabled placeholder="Nhập địa chỉ trụ sở chính..." class="editable-input w-full px-4 py-3 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500 transition-all font-medium text-slate-800 placeholder-slate-400 disabled:opacity-70 disabled:cursor-not-allowed">
-                            </div>
+                            <p class="text-slate-500 mt-1.5 font-medium text-sm flex items-center gap-2">
+                                <i class="fa-regular fa-envelope text-slate-400"></i> {{ $user->email ?? 'Chưa cập nhật email' }}
+                            </p>
+                            @if(!empty($user->phone))
+                            <p class="text-slate-500 mt-1 font-medium text-sm flex items-center gap-2">
+                                <i class="fa-solid fa-phone text-slate-400"></i> {{ $user->phone }}
+                            </p>
                             @endif
                         </div>
                     </div>
-                </section>
 
-                <!-- Khu vực 2: Giấy tờ xác minh -->
-                <section class="space-y-6 bg-slate-50/50 p-6 sm:p-8 rounded-[2rem] border border-slate-100/80">
-                    <div>
-                        <h3 class="text-xl font-bold text-slate-900 flex items-center gap-3">
-                            <span class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-sm"><i class="fa-solid fa-shield-halved"></i></span>
-                            Giấy tờ xác minh
-                        </h3>
-                        <p class="text-base text-slate-500 mt-2 font-medium">Vui lòng tải lên ảnh chụp giấy tờ xác minh (CCCD/CMND) rõ nét. Doanh nghiệp cần tải thêm Giấy phép ĐKKD.</p>
+                    <!-- Huy hiệu trạng thái tài khoản -->
+                    <div class="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-start sm:justify-end">
+                        <div class="px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                                <i class="fa-solid fa-shield-halved"></i>
+                            </div>
+                            <div>
+                                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Xác minh</p>
+                                <p class="text-xs font-bold text-slate-700">
+                                    {{ ($user->id_front && $user->id_back) ? 'Đã tải lên giấy tờ' : 'Chưa đủ giấy tờ' }}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                                <i class="fa-solid fa-building-columns"></i>
+                            </div>
+                            <div>
+                                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Ngân hàng</p>
+                                <p class="text-xs font-bold text-slate-700 truncate max-w-[140px]">
+                                    {{ !empty($user->bank_name) ? $user->bank_name : 'Chưa cập nhật' }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KHU VỰC 1: THÔNG TIN CƠ BẢN (Không nằm trong khung hộp, mở rộng toàn bộ bề ngang) -->
+                <section class="space-y-6">
+                    <div class="flex items-center gap-3 pb-3 border-b border-slate-100">
+                        <span class="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center text-sm font-bold">
+                            <i class="fa-solid fa-id-card"></i>
+                        </span>
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-900 tracking-tight">Thông tin cơ bản</h3>
+                            <p class="text-xs text-slate-500 font-medium">Hồ sơ định danh cá nhân và thông tin liên hệ chính thức</p>
+                        </div>
                     </div>
                     
-                    <div class="grid grid-cols-1 md:grid-cols-2 {{ $isEnterprise ? 'lg:grid-cols-3' : '' }} gap-5">
-                        <!-- Mặt trước -->
-                        <label class="doc-label relative flex flex-col items-center justify-center p-6 sm:p-8 h-64 rounded-3xl bg-slate-50 transition-all cursor-not-allowed group overflow-hidden hover:bg-slate-100 {{ $user->id_front ? 'opacity-100' : 'opacity-70' }}">
-                            <img id="preview-id-front" src="{{ $user->id_front ? $user->id_front_url : '' }}" class="absolute inset-0 w-full h-full object-contain bg-slate-100 {{ $user->id_front ? '' : 'hidden' }} z-0">
-                            
-                            <div class="w-16 h-16 rounded-full bg-white shadow-sm flex items-center justify-center mb-4 transition-transform doc-icon-wrapper relative z-10 {{ $user->id_front ? 'hidden' : '' }}">
-                                <i class="fa-solid fa-cloud-arrow-up text-3xl text-slate-400 transition-colors doc-icon"></i>
+                    @if($isEnterprise)
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-1">
+                        <!-- 1. HÀNG 1: Tên doanh nghiệp & Người đại diện -->
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+                                <i class="fa-solid fa-building text-slate-400"></i> Tên doanh nghiệp
+                            </label>
+                            <input type="text" name="company_name" value="{{ $user->company_name ?? '' }}" disabled placeholder="Nhập tên doanh nghiệp / công ty..." class="editable-input w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200/80 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium text-slate-800 placeholder-slate-400 disabled:opacity-75 disabled:cursor-not-allowed">
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+                                <i class="fa-solid fa-user-tie text-slate-400"></i> Người đại diện theo pháp luật
+                            </label>
+                            <input type="text" name="representative" value="{{ $user->representative ?? $user->account_name ?? '' }}" disabled placeholder="Họ và tên người đại diện pháp luật" class="editable-input w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200/80 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium text-slate-800 placeholder-slate-400 disabled:opacity-75 disabled:cursor-not-allowed">
+                        </div>
+
+                        <!-- 2. HÀNG 2: Mã số thuế & Ngày cấp GPKD -->
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+                                <i class="fa-solid fa-file-invoice text-slate-400"></i> Mã số thuế
+                            </label>
+                            <input type="text" name="tax_code" value="{{ $user->tax_code ?? '' }}" disabled placeholder="VD: 0101234567" class="editable-input w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200/80 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium text-slate-800 placeholder-slate-400 disabled:opacity-75 disabled:cursor-not-allowed">
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+                                <i class="fa-regular fa-calendar-check text-slate-400"></i> Ngày cấp Giấy phép kinh doanh
+                            </label>
+                            <input type="date" name="business_license_date" value="{{ $user->business_license_date ?? '' }}" disabled class="editable-input w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200/80 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium text-slate-800 placeholder-slate-400 disabled:opacity-75 disabled:cursor-not-allowed">
+                        </div>
+
+                        <!-- 3. HÀNG 3: Số điện thoại & Email -->
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+                                <i class="fa-solid fa-phone text-slate-400"></i> Số điện thoại
+                            </label>
+                            <input type="text" name="phone" value="{{ $user->phone ?? '' }}" disabled placeholder="Nhập số điện thoại liên hệ..." class="editable-input w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200/80 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium text-slate-800 placeholder-slate-400 disabled:opacity-75 disabled:cursor-not-allowed">
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center justify-between">
+                                <span class="flex items-center gap-2"><i class="fa-solid fa-envelope text-slate-400"></i> Email</span>
+                                <span class="text-[11px] font-semibold text-slate-400 flex items-center gap-1"><i class="fa-solid fa-lock text-[10px]"></i> Cố định</span>
+                            </label>
+                            <input type="email" value="{{ $user->email ?? '' }}" readonly class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-200/80 text-slate-500 cursor-not-allowed font-medium select-none">
+                        </div>
+
+                        <!-- 4. HÀNG 4: Số CCCD người đại diện & (Ngày cấp + Nơi cấp) -->
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+                                <i class="fa-solid fa-id-card-clip text-slate-400"></i> Số CCCD / CMND (Người đại diện)
+                            </label>
+                            <input type="text" name="representative_id_card" value="{{ $user->representative_id_card ?? $user->cccd_number ?? '' }}" disabled placeholder="Nhập 12 số CCCD người đại diện..." class="editable-input w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200/80 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium text-slate-800 placeholder-slate-400 disabled:opacity-75 disabled:cursor-not-allowed">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-2">
+                                <label class="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+                                    <i class="fa-regular fa-calendar text-slate-400"></i> Ngày cấp
+                                </label>
+                                <input type="date" name="representative_id_date" value="{{ $user->representative_id_date ?? '' }}" disabled class="editable-input w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200/80 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium text-slate-800 placeholder-slate-400 disabled:opacity-75 disabled:cursor-not-allowed">
                             </div>
-                            <span class="text-base font-bold text-slate-700 text-center doc-text relative z-10 {{ $user->id_front ? 'hidden' : '' }}">CCCD mặt trước</span>
-                            <span class="text-sm text-slate-500 mt-1.5 font-medium relative z-10 doc-subtext {{ $user->id_front ? 'hidden' : '' }}">PNG, JPG tối đa 5MB</span>
+                            <div class="space-y-2">
+                                <label class="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+                                    <i class="fa-solid fa-landmark text-slate-400"></i> Nơi cấp
+                                </label>
+                                <input type="text" name="representative_id_place" value="{{ $user->representative_id_place ?? '' }}" disabled placeholder="Cục CS QLHC..." class="editable-input w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200/80 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium text-slate-800 placeholder-slate-400 disabled:opacity-75 disabled:cursor-not-allowed">
+                            </div>
+                        </div>
+
+                        <!-- 5. HÀNG 5: Địa chỉ trụ sở chính (Full 2 cột) -->
+                        <div class="space-y-2 md:col-span-2">
+                            <label class="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+                                <i class="fa-solid fa-map-location-dot text-slate-400"></i> Địa chỉ trụ sở chính
+                            </label>
+                            <input type="text" name="address" value="{{ $user->address ?? $user->company_address ?? '' }}" disabled placeholder="Nhập địa chỉ trụ sở chính đăng ký kinh doanh..." class="editable-input w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200/80 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium text-slate-800 placeholder-slate-400 disabled:opacity-75 disabled:cursor-not-allowed">
+                        </div>
+
+                        <!-- 6. HÀNG 6: Link Website / Fanpage & Hotline Zalo -->
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+                                <i class="fa-solid fa-globe text-slate-400"></i> Link Website / Fanpage (Tùy chọn)
+                            </label>
+                            <input type="url" name="website" value="{{ $user->website ?? '' }}" disabled placeholder="https://congty.vn hoặc Fanpage..." class="editable-input w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200/80 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium text-slate-800 placeholder-slate-400 disabled:opacity-75 disabled:cursor-not-allowed">
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+                                <i class="fa-solid fa-headset text-slate-400"></i> Hotline / Zalo Doanh nghiệp (Tùy chọn)
+                            </label>
+                            <input type="text" name="hotline" value="{{ $user->hotline ?? '' }}" disabled placeholder="Hotline hỗ trợ CSKH hoặc số Zalo..." class="editable-input w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200/80 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium text-slate-800 placeholder-slate-400 disabled:opacity-75 disabled:cursor-not-allowed">
+                        </div>
+
+                        <!-- 7. HÀNG 7: Giới thiệu doanh nghiệp (Full 2 cột) -->
+                        <div class="space-y-2 md:col-span-2">
+                            <label class="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+                                <i class="fa-solid fa-circle-info text-slate-400"></i> Giới thiệu doanh nghiệp
+                            </label>
+                            <textarea name="company_description" rows="4" disabled placeholder="Giới thiệu ngắn về dịch vụ cho thuê của công ty bạn..." class="editable-input w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200/80 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium text-slate-800 placeholder-slate-400 disabled:opacity-75 disabled:cursor-not-allowed resize-none leading-relaxed">{{ $user->company_description ?? '' }}</textarea>
+                        </div>
+                    </div>
+                    @else
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 pt-1">
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+                                <i class="fa-solid fa-user-tag text-slate-400"></i> Tên hiển thị
+                            </label>
+                            <input type="text" name="username" value="{{ $user->username ?? '' }}" disabled class="editable-input w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200/80 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium text-slate-800 placeholder-slate-400 disabled:opacity-75 disabled:cursor-not-allowed">
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+                                <i class="fa-solid fa-signature text-slate-400"></i> Họ tên
+                            </label>
+                            <input type="text" name="account_name" value="{{ $user->account_name ?? '' }}" disabled class="editable-input w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200/80 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium text-slate-800 placeholder-slate-400 disabled:opacity-75 disabled:cursor-not-allowed">
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+                                <i class="fa-solid fa-phone text-slate-400"></i> Số điện thoại
+                            </label>
+                            <input type="text" name="phone" value="{{ $user->phone ?? '' }}" disabled class="editable-input w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200/80 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium text-slate-800 placeholder-slate-400 disabled:opacity-75 disabled:cursor-not-allowed">
+                        </div>
+                        
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center justify-between">
+                                <span class="flex items-center gap-2"><i class="fa-solid fa-envelope text-slate-400"></i> Email</span>
+                                <span class="text-[11px] font-semibold text-slate-400 flex items-center gap-1"><i class="fa-solid fa-lock text-[10px]"></i> Cố định</span>
+                            </label>
+                            <input type="email" value="{{ $user->email ?? '' }}" readonly class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-200/80 text-slate-500 cursor-not-allowed font-medium select-none">
+                        </div>
+                    </div>
+                    @endif
+                </section>
+
+                @php
+                    $hasFront = !empty($user->id_front);
+                    $hasBack = !empty($user->id_back);
+                    $hasLicense = !empty($user->business_license);
+                @endphp
+
+                <!-- KHU VỰC 2: GIẤY TỜ XÁC MINH (CCCD 2 mặt theo thiết kế mẫu) -->
+                <section class="space-y-6">
+                    <div class="flex items-center gap-3 pb-3 border-b border-slate-100">
+                        <span class="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center text-sm font-bold">
+                            <i class="fa-solid fa-shield-halved"></i>
+                        </span>
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-900 tracking-tight">Giấy tờ xác minh</h3>
+                            <p class="text-xs text-slate-500 font-medium">Vui lòng tải lên ảnh chụp căn cước công dân (CCCD/CMND) rõ nét 2 mặt.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex flex-wrap items-center justify-center gap-6 sm:gap-8 pt-1 w-full">
+                        <!-- CCCD Mặt trước -->
+                        <label class="doc-label relative flex flex-col items-center justify-between p-3.5 w-full sm:w-[330px] rounded-2xl transition-all cursor-not-allowed group overflow-hidden {{ $hasFront ? 'bg-white border-2 border-slate-200/90 opacity-100 shadow-xs' : 'bg-[#f0fbf5] border-2 border-dashed border-teal-300/80 opacity-90' }}">
+                            
+                            <!-- Trạng thái ĐÃ TẢI LÊN (dựa như trong ảnh) -->
+                            <div id="wrapper-preview-id-front" class="{{ $hasFront ? 'flex' : 'hidden' }} flex-col items-center w-full">
+                                <div class="w-full h-44 rounded-xl overflow-hidden border border-slate-200 shadow-xs bg-slate-100 flex items-center justify-center">
+                                    <img id="preview-id-front" src="{{ $hasFront ? $user->id_front_url : '' }}" alt="CCCD mặt trước" class="w-full h-full object-cover">
+                                </div>
+                                <p class="mt-2.5 mb-1 text-xs sm:text-sm font-semibold text-emerald-600 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-check"></i> Đã tải lên (Bấm để đổi)
+                                </p>
+                            </div>
+
+                            <!-- Trạng thái CHƯA TẢI LÊN (dựa như trong ảnh) -->
+                            <div id="placeholder-id-front" class="{{ $hasFront ? 'hidden' : 'flex' }} flex-col items-center justify-center text-center p-6 h-[210px] w-full">
+                                <div class="w-10 h-10 rounded-xl bg-teal-50 border border-teal-200/80 text-teal-600 flex items-center justify-center text-lg mb-2.5 doc-icon-wrapper transition-transform">
+                                    <i class="fa-regular fa-id-card doc-icon transition-colors"></i>
+                                </div>
+                                <span class="text-sm font-bold text-slate-800 doc-text transition-colors">CCCD Mặt Trước <span class="text-emerald-500">*</span></span>
+                                <span class="text-xs text-slate-400 mt-1 font-medium doc-subtext">Nhấp để tải ảnh mặt trước</span>
+                            </div>
+
                             <input type="file" name="id_front" disabled class="doc-upload absolute inset-0 w-full h-full opacity-0 cursor-not-allowed disabled:cursor-not-allowed z-20" accept="image/*">
                         </label>
 
-                        <!-- Mặt sau -->
-                        <label class="doc-label relative flex flex-col items-center justify-center p-6 sm:p-8 h-64 rounded-3xl bg-slate-50 transition-all cursor-not-allowed group overflow-hidden hover:bg-slate-100 {{ $user->id_back ? 'opacity-100' : 'opacity-70' }}">
-                            <img id="preview-id-back" src="{{ $user->id_back ? $user->id_back_url : '' }}" class="absolute inset-0 w-full h-full object-contain bg-slate-100 {{ $user->id_back ? '' : 'hidden' }} z-0">
+                        <!-- CCCD Mặt sau -->
+                        <label class="doc-label relative flex flex-col items-center justify-between p-3.5 w-full sm:w-[330px] rounded-2xl transition-all cursor-not-allowed group overflow-hidden {{ $hasBack ? 'bg-white border-2 border-slate-200/90 opacity-100 shadow-xs' : 'bg-[#f0fbf5] border-2 border-dashed border-teal-300/80 opacity-90' }}">
                             
-                            <div class="w-16 h-16 rounded-full bg-white shadow-sm flex items-center justify-center mb-4 transition-transform doc-icon-wrapper relative z-10 {{ $user->id_back ? 'hidden' : '' }}">
-                                <i class="fa-solid fa-cloud-arrow-up text-3xl text-slate-400 transition-colors doc-icon"></i>
+                            <!-- Trạng thái ĐÃ TẢI LÊN (dựa như trong ảnh) -->
+                            <div id="wrapper-preview-id-back" class="{{ $hasBack ? 'flex' : 'hidden' }} flex-col items-center w-full">
+                                <div class="w-full h-44 rounded-xl overflow-hidden border border-slate-200 shadow-xs bg-slate-100 flex items-center justify-center">
+                                    <img id="preview-id-back" src="{{ $hasBack ? $user->id_back_url : '' }}" alt="CCCD mặt sau" class="w-full h-full object-cover">
+                                </div>
+                                <p class="mt-2.5 mb-1 text-xs sm:text-sm font-semibold text-emerald-600 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-check"></i> Đã tải lên (Bấm để đổi)
+                                </p>
                             </div>
-                            <span class="text-base font-bold text-slate-700 text-center doc-text relative z-10 {{ $user->id_back ? 'hidden' : '' }}">CCCD mặt sau</span>
-                            <span class="text-sm text-slate-500 mt-1.5 font-medium relative z-10 doc-subtext {{ $user->id_back ? 'hidden' : '' }}">PNG, JPG tối đa 5MB</span>
+
+                            <!-- Trạng thái CHƯA TẢI LÊN (dựa như trong ảnh) -->
+                            <div id="placeholder-id-back" class="{{ $hasBack ? 'hidden' : 'flex' }} flex-col items-center justify-center text-center p-6 h-[210px] w-full">
+                                <div class="w-10 h-10 rounded-xl bg-teal-50 border border-teal-200/80 text-teal-600 flex items-center justify-center text-lg mb-2.5 doc-icon-wrapper transition-transform">
+                                    <i class="fa-regular fa-rectangle-list doc-icon transition-colors"></i>
+                                </div>
+                                <span class="text-sm font-bold text-slate-800 doc-text transition-colors">CCCD Mặt Sau <span class="text-emerald-500">*</span></span>
+                                <span class="text-xs text-slate-400 mt-1 font-medium doc-subtext">Nhấp để tải ảnh mặt sau</span>
+                            </div>
+
                             <input type="file" name="id_back" disabled class="doc-upload absolute inset-0 w-full h-full opacity-0 cursor-not-allowed disabled:cursor-not-allowed z-20" accept="image/*">
                         </label>
-
-                        @if($isEnterprise)
-                        <!-- Giấy phép kinh doanh -->
-                        <label class="doc-label relative flex flex-col items-center justify-center p-6 sm:p-8 h-64 rounded-3xl bg-slate-50 transition-all cursor-not-allowed group overflow-hidden hover:bg-slate-100 {{ $user->business_license ? 'opacity-100' : 'opacity-70' }}">
-                            <img id="preview-business-license" src="{{ $user->business_license ? $user->business_license_url : '' }}" class="absolute inset-0 w-full h-full object-contain bg-slate-100 {{ $user->business_license ? '' : 'hidden' }} z-0">
-                            
-                            <div class="w-16 h-16 rounded-full bg-white shadow-sm flex items-center justify-center mb-4 transition-transform doc-icon-wrapper relative z-10 {{ $user->business_license ? 'hidden' : '' }}">
-                                <i class="fa-solid fa-file-signature text-3xl text-slate-400 transition-colors doc-icon"></i>
-                            </div>
-                            <span class="text-base font-bold text-slate-700 text-center doc-text relative z-10 {{ $user->business_license ? 'hidden' : '' }}">Giấy phép ĐKKD</span>
-                            <span class="text-sm text-slate-500 mt-1.5 font-medium relative z-10 doc-subtext {{ $user->business_license ? 'hidden' : '' }}">PNG, JPG tối đa 5MB</span>
-                            <input type="file" name="business_license" disabled class="doc-upload absolute inset-0 w-full h-full opacity-0 cursor-not-allowed disabled:cursor-not-allowed z-20" accept="image/*">
-                        </label>
-                        @endif
                     </div>
                 </section>
 
-                <!-- Khu vực 3: Thông tin thanh toán -->
-                <section class="space-y-6 bg-slate-50/50 p-6 sm:p-8 rounded-[2rem] border border-slate-100/80">
-                    <h3 class="text-xl font-bold text-slate-900 flex items-center gap-3">
-                        <span class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-sm"><i class="fa-solid fa-building-columns"></i></span>
-                        Thông tin thanh toán
-                    </h3>
+                @if($isEnterprise)
+                <!-- KHU VỰC: GIẤY PHÉP KINH DOANH (Khổ đứng A4 Portrait) -->
+                <section class="space-y-6">
+                    <div class="flex items-center gap-3 pb-3 border-b border-slate-100">
+                        <span class="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center text-sm font-bold">
+                            <i class="fa-solid fa-file-contract"></i>
+                        </span>
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-900 tracking-tight">Giấy phép kinh doanh</h3>
+                            <p class="text-xs text-slate-500 font-medium">Bản chụp hoặc scan Giấy chứng nhận đăng ký kinh doanh (ĐKKD) còn thời hạn hiệu lực</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-center mt-4 w-full">
+                        <!-- Khung GPKD Khổ đứng Portrait (Tỷ lệ A4 aspect-[1/1.414]) -->
+                        <label class="doc-label relative flex flex-col items-center justify-center w-72 md:w-80 aspect-[1/1.414] rounded-2xl transition-all cursor-not-allowed group overflow-hidden {{ $hasLicense ? 'bg-slate-50 border-2 border-slate-200 opacity-100 shadow-xs' : 'bg-slate-50/50 border-2 border-dashed border-slate-300 opacity-90 hover:border-brand-400 hover:bg-slate-50' }}">
+                            
+                            <!-- Trạng thái ĐÃ CÓ ẢNH PREVIEW -->
+                            <div id="wrapper-preview-business-license" class="{{ $hasLicense ? 'flex' : 'hidden' }} relative w-full h-full items-center justify-center">
+                                <!-- Nút nhỏ "Thay đổi ảnh" ở góc trên bên phải -->
+                                <div class="absolute top-3 right-3 z-30 px-2.5 py-1 rounded-lg bg-slate-900/75 text-white text-[11px] font-bold flex items-center gap-1.5 shadow-md backdrop-blur-xs transition-transform group-hover:scale-105 pointer-events-none">
+                                    <i class="fa-solid fa-camera text-[10px]"></i> Thay đổi ảnh
+                                </div>
+
+                                <img id="preview-business-license" src="{{ $hasLicense ? $user->business_license_url : '' }}" alt="Giấy phép ĐKKD" class="w-full h-full object-contain bg-slate-50 rounded-2xl">
+                            </div>
+
+                            <!-- Trạng thái CHƯA CÓ ẢNH (sắp xếp dọc theo chiều đứng của khung) -->
+                            <div id="placeholder-business-license" class="{{ $hasLicense ? 'hidden' : 'flex' }} flex-col items-center justify-center text-center p-6 h-full w-full">
+                                <div class="w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200 text-slate-500 flex items-center justify-center text-2xl mb-4 doc-icon-wrapper transition-transform group-hover:scale-105 group-hover:text-brand-600">
+                                    <i class="fa-regular fa-file-lines doc-icon transition-colors"></i>
+                                </div>
+                                <span class="text-sm font-bold text-slate-800 doc-text transition-colors">Giấy phép ĐKKD <span class="text-emerald-500">*</span></span>
+                                <p class="text-xs text-slate-400 mt-2 font-medium leading-relaxed px-2 doc-subtext">Kéo thả hoặc Click để tải lên bản chụp/scan Giấy phép ĐKKD (định dạng ảnh/PDF tối đa 5MB)</p>
+                            </div>
+
+                            <input type="file" name="business_license" disabled class="doc-upload absolute inset-0 w-full h-full opacity-0 cursor-not-allowed disabled:cursor-not-allowed z-40" accept="image/*,application/pdf">
+                        </label>
+                    </div>
+                </section>
+                @endif
+
+                <!-- KHU VỰC 3: THÔNG TIN THANH TOÁN (Trải rộng 3 cột toàn màn hình) -->
+                <section class="space-y-6">
+                    <div class="flex items-center gap-3 pb-3 border-b border-slate-100">
+                        <span class="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center text-sm font-bold">
+                            <i class="fa-solid fa-building-columns"></i>
+                        </span>
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-900 tracking-tight">Thông tin thanh toán</h3>
+                            <p class="text-xs text-slate-500 font-medium">Tài khoản ngân hàng dùng để nhận thanh toán tiền thuê hoặc hoàn cọc từ hệ thống</p>
+                        </div>
+                    </div>
                     
                     <!-- Form Inputs -->
-                    <div class="w-full grid grid-cols-1 md:grid-cols-3 gap-5 mt-4">
-                            <!-- Custom Bank Dropdown -->
-                            <div class="space-y-2 relative" id="bank-dropdown-container">
-                                <label class="text-sm font-bold text-slate-700 flex items-center gap-2"><i class="fa-solid fa-building-columns text-slate-400"></i> Ngân hàng</label>
-                                <input type="hidden" name="bank_name" id="input-bank-name" value="{{ $user->bank_name ?? '' }}">
-                                
-                                <button type="button" disabled id="btn-select-bank" class="editable-input w-full px-4 py-3 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500 transition-all text-left flex items-center justify-between disabled:opacity-70 disabled:cursor-not-allowed group border border-transparent">
-                                    <div class="flex items-center gap-3 overflow-hidden">
-                                        <div id="selected-bank-logo-container" class="w-8 h-8 rounded-md bg-white shadow-sm flex items-center justify-center p-1 hidden shrink-0">
-                                            <img id="selected-bank-logo" src="" class="w-full h-full object-contain">
-                                        </div>
-                                        <span id="selected-bank-text" class="font-bold text-slate-800 truncate">{{ $user->bank_name ?? 'Chọn ngân hàng...' }}</span>
+                    <div class="w-full grid grid-cols-1 md:grid-cols-3 gap-6 pt-1">
+                        <!-- Custom Bank Dropdown -->
+                        <div class="space-y-2 relative" id="bank-dropdown-container">
+                            <label class="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+                                <i class="fa-solid fa-building-columns text-slate-400"></i> Ngân hàng thụ hưởng
+                            </label>
+                            <input type="hidden" name="bank_name" id="input-bank-name" value="{{ $user->bank_name ?? '' }}">
+                            
+                            <button type="button" disabled id="btn-select-bank" class="editable-input w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200/80 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all text-left flex items-center justify-between disabled:opacity-75 disabled:cursor-not-allowed group">
+                                <div class="flex items-center gap-3 overflow-hidden min-w-0">
+                                    <div id="selected-bank-logo-container" class="w-8 h-8 rounded-lg bg-white shadow-xs border border-slate-100 flex items-center justify-center p-1 hidden shrink-0">
+                                        <img id="selected-bank-logo" src="" class="w-full h-full object-contain">
                                     </div>
-                                    <i class="fa-solid fa-chevron-down text-slate-400 group-hover:text-brand-500 transition-colors"></i>
-                                </button>
-                                
-                                <!-- Dropdown List -->
-                                <div id="bank-dropdown-list" class="hidden absolute bottom-full mb-2 left-0 right-0 bg-white rounded-xl shadow-xl border border-slate-100 max-h-72 overflow-y-auto z-50 py-2">
-                                    <div class="p-4 text-center text-sm text-slate-500"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Đang tải dữ liệu...</div>
+                                    <span id="selected-bank-text" class="font-bold text-slate-800 truncate text-sm">{{ $user->bank_name ?? 'Chọn ngân hàng...' }}</span>
                                 </div>
+                                <i class="fa-solid fa-chevron-down text-slate-400 group-hover:text-brand-500 transition-colors shrink-0 ml-2"></i>
+                            </button>
+                            
+                            <!-- Dropdown List -->
+                            <div id="bank-dropdown-list" class="hidden absolute bottom-full mb-2 left-0 right-0 bg-white rounded-2xl shadow-2xl border border-slate-100 max-h-72 overflow-y-auto z-50 py-2">
+                                <div class="p-4 text-center text-sm text-slate-500"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Đang tải dữ liệu...</div>
                             </div>
+                        </div>
 
-                            <div class="space-y-2">
-                                <label class="text-sm font-bold text-slate-700 flex items-center gap-2"><i class="fa-solid fa-hashtag text-slate-400"></i> Số tài khoản</label>
-                                <input type="text" inputmode="numeric" id="input-bank-account" name="bank_account" value="{{ $user->bank_account ?? '' }}" disabled placeholder="VD: 190300000000" class="editable-input w-full px-4 py-3 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500 transition-all font-bold text-slate-800 placeholder-slate-400 font-mono tracking-wider disabled:opacity-70 disabled:cursor-not-allowed border border-transparent">
-                            </div>
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+                                <i class="fa-solid fa-hashtag text-slate-400"></i> Số tài khoản
+                            </label>
+                            <input type="text" inputmode="numeric" id="input-bank-account" name="bank_account" value="{{ $user->bank_account ?? '' }}" disabled placeholder="VD: 190300000000" class="editable-input w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200/80 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-bold text-slate-800 placeholder-slate-400 font-mono tracking-wider disabled:opacity-75 disabled:cursor-not-allowed">
+                        </div>
 
-                            <div class="space-y-2">
-                                <label class="text-sm font-bold text-slate-700 flex items-center gap-2"><i class="fa-solid fa-user text-slate-400"></i> Tên chủ tài khoản</label>
-                                <input type="text" id="input-bank-owner" name="bank_owner" value="{{ $user->bank_owner ?? '' }}" disabled placeholder="VD: NGUYEN VAN A" class="editable-input w-full px-4 py-3 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500 transition-all font-bold text-slate-800 placeholder-slate-400 uppercase disabled:opacity-70 disabled:cursor-not-allowed border border-transparent">
-                            </div>
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+                                <i class="fa-solid fa-user text-slate-400"></i> Tên chủ tài khoản
+                            </label>
+                            <input type="text" id="input-bank-owner" name="bank_owner" value="{{ $user->bank_owner ?? '' }}" disabled placeholder="VD: NGUYEN VAN A" class="editable-input w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200/80 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-bold text-slate-800 placeholder-slate-400 uppercase disabled:opacity-75 disabled:cursor-not-allowed">
                         </div>
                     </div>
                 </section>
@@ -287,6 +528,7 @@
             const btnSave = document.getElementById('btn-save-edit');
             btnSave.classList.remove('hidden');
             btnSave.classList.add('flex');
+
             // Mở khóa các ô input chữ
             const inputs = document.querySelectorAll('.editable-input');
             inputs.forEach(input => {
@@ -295,15 +537,21 @@
             
             // Mở khóa avatar
             const avatarUpload = document.getElementById('avatar-upload');
-            avatarUpload.removeAttribute('disabled');
-            avatarUpload.classList.remove('disabled:cursor-not-allowed');
+            if (avatarUpload) {
+                avatarUpload.removeAttribute('disabled');
+                avatarUpload.classList.remove('disabled:cursor-not-allowed');
+            }
             
             const avatarOverlay = document.getElementById('avatar-upload-overlay');
-            avatarOverlay.classList.add('group-hover:flex');
+            if (avatarOverlay) {
+                avatarOverlay.classList.add('group-hover:flex');
+            }
             
             const btnAvatar = document.getElementById('btn-change-avatar');
-            btnAvatar.classList.remove('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
-            btnAvatar.classList.add('hover:bg-slate-200');
+            if (btnAvatar) {
+                btnAvatar.classList.remove('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+                btnAvatar.classList.add('hover:bg-slate-100');
+            }
 
             // Mở khóa tải giấy tờ
             const docUploads = document.querySelectorAll('.doc-upload');
@@ -315,22 +563,24 @@
             
             const docLabels = document.querySelectorAll('.doc-label');
             docLabels.forEach(label => {
-                label.classList.remove('opacity-70', 'cursor-not-allowed');
-                label.classList.add('hover:bg-slate-100', 'cursor-pointer');
+                label.classList.remove('opacity-90', 'cursor-not-allowed');
+                label.classList.add('hover:border-teal-400', 'cursor-pointer');
                 
                 // Add hover styles manually using group-hover classes
                 const iconWrapper = label.querySelector('.doc-icon-wrapper');
-                iconWrapper.classList.add('group-hover:scale-105');
+                if (iconWrapper) iconWrapper.classList.add('group-hover:scale-105');
                 
                 const icon = label.querySelector('.doc-icon');
-                icon.classList.add('group-hover:text-brand-500');
+                if (icon) icon.classList.add('group-hover:text-teal-600');
                 
                 const text = label.querySelector('.doc-text');
-                text.classList.add('group-hover:text-brand-600');
+                if (text) text.classList.add('group-hover:text-emerald-700');
             });
             
             // Focus vào input đầu tiên
-            inputs[0].focus();
+            if (inputs.length > 0) {
+                inputs[0].focus();
+            }
         }
 
         function cancelEditMode() {
@@ -347,43 +597,71 @@
                     
                     reader.onload = function(e) {
                         if (input.name === 'avatar') {
-                            document.getElementById('preview-avatar').src = e.target.result;
+                            const preview = document.getElementById('preview-avatar');
+                            if (preview) preview.src = e.target.result;
                         } else if (input.name === 'id_front') {
                             const preview = document.getElementById('preview-id-front');
-                            preview.src = e.target.result;
-                            preview.classList.remove('hidden');
+                            if (preview) preview.src = e.target.result;
+
+                            const wrapper = document.getElementById('wrapper-preview-id-front');
+                            if (wrapper) {
+                                wrapper.classList.remove('hidden');
+                                wrapper.classList.add('flex');
+                            }
+
+                            const placeholder = document.getElementById('placeholder-id-front');
+                            if (placeholder) {
+                                placeholder.classList.add('hidden');
+                                placeholder.classList.remove('flex');
+                            }
                             
-                            // Ẩn icon và chữ đi
                             const label = input.closest('label');
-                            label.classList.remove('opacity-70');
-                            label.classList.add('opacity-100');
-                            label.querySelector('.doc-icon-wrapper').classList.add('hidden');
-                            label.querySelector('.doc-text').classList.add('hidden');
-                            label.querySelector('.doc-subtext').classList.add('hidden');
+                            if (label) {
+                                label.classList.remove('bg-[#f0fbf5]', 'border-dashed', 'border-teal-300/80', 'opacity-90');
+                                label.classList.add('bg-white', 'border-solid', 'border-slate-200/90', 'opacity-100');
+                            }
                         } else if (input.name === 'id_back') {
                             const preview = document.getElementById('preview-id-back');
-                            preview.src = e.target.result;
-                            preview.classList.remove('hidden');
+                            if (preview) preview.src = e.target.result;
+
+                            const wrapper = document.getElementById('wrapper-preview-id-back');
+                            if (wrapper) {
+                                wrapper.classList.remove('hidden');
+                                wrapper.classList.add('flex');
+                            }
+
+                            const placeholder = document.getElementById('placeholder-id-back');
+                            if (placeholder) {
+                                placeholder.classList.add('hidden');
+                                placeholder.classList.remove('flex');
+                            }
                             
-                            // Ẩn icon và chữ đi
                             const label = input.closest('label');
-                            label.classList.remove('opacity-70');
-                            label.classList.add('opacity-100');
-                            label.querySelector('.doc-icon-wrapper').classList.add('hidden');
-                            label.querySelector('.doc-text').classList.add('hidden');
-                            label.querySelector('.doc-subtext').classList.add('hidden');
+                            if (label) {
+                                label.classList.remove('bg-[#f0fbf5]', 'border-dashed', 'border-teal-300/80', 'opacity-90');
+                                label.classList.add('bg-white', 'border-solid', 'border-slate-200/90', 'opacity-100');
+                            }
                         } else if (input.name === 'business_license') {
                             const preview = document.getElementById('preview-business-license');
-                            preview.src = e.target.result;
-                            preview.classList.remove('hidden');
+                            if (preview) preview.src = e.target.result;
+
+                            const wrapper = document.getElementById('wrapper-preview-business-license');
+                            if (wrapper) {
+                                wrapper.classList.remove('hidden');
+                                wrapper.classList.add('flex');
+                            }
+
+                            const placeholder = document.getElementById('placeholder-business-license');
+                            if (placeholder) {
+                                placeholder.classList.add('hidden');
+                                placeholder.classList.remove('flex');
+                            }
                             
-                            // Ẩn icon và chữ đi
                             const label = input.closest('label');
-                            label.classList.remove('opacity-70');
-                            label.classList.add('opacity-100');
-                            label.querySelector('.doc-icon-wrapper').classList.add('hidden');
-                            label.querySelector('.doc-text').classList.add('hidden');
-                            label.querySelector('.doc-subtext').classList.add('hidden');
+                            if (label) {
+                                label.classList.remove('bg-slate-50/50', 'bg-[#f0fbf5]', 'border-dashed', 'border-slate-300', 'border-teal-300/80', 'opacity-90');
+                                label.classList.add('bg-slate-50', 'border-solid', 'border-slate-200', 'opacity-100');
+                            }
                         }
                     }
                     
@@ -393,7 +671,7 @@
         });
 
         // ============================================
-        // JS Logic Ngân Hàng - Virtual Card - VietQR API
+        // JS Logic Ngân Hàng - VietQR API
         // ============================================
         const bankDropdownBtn = document.getElementById('btn-select-bank');
         const bankDropdownList = document.getElementById('bank-dropdown-list');
@@ -414,7 +692,6 @@
                     // Khôi phục UI logo nếu đã có bank_name từ server
                     const currentBank = inputBankName.value;
                     if(currentBank) {
-                        // So khớp theo shortName
                         const bank = banksData.find(b => b.shortName.toLowerCase() === currentBank.toLowerCase());
                         if(bank) {
                             updateSelectedBank(bank);
@@ -449,9 +726,9 @@
                 data.forEach(bank => {
                     const btn = document.createElement('button');
                     btn.type = 'button';
-                    btn.className = 'w-full text-left px-4 py-2 hover:bg-slate-50 transition-colors flex items-center gap-3 border-b border-slate-50 last:border-0';
+                    btn.className = 'w-full text-left px-4 py-2.5 hover:bg-slate-50 transition-colors flex items-center gap-3 border-b border-slate-50 last:border-0';
                     btn.innerHTML = `
-                        <div class="w-12 h-8 rounded bg-white shadow-sm border border-slate-100 p-1 flex items-center justify-center shrink-0">
+                        <div class="w-12 h-8 rounded bg-white shadow-xs border border-slate-100 p-1 flex items-center justify-center shrink-0">
                             <img src="${bank.logo}" class="w-full h-full object-contain">
                         </div>
                         <div class="flex flex-col overflow-hidden w-full">
@@ -470,11 +747,14 @@
             renderList(banks);
             
             // Lắng nghe tìm kiếm
-            document.getElementById('search-bank').addEventListener('input', function(e) {
-                const keyword = e.target.value.toLowerCase();
-                const filtered = banks.filter(b => b.shortName.toLowerCase().includes(keyword) || b.name.toLowerCase().includes(keyword));
-                renderList(filtered);
-            });
+            const searchInputEl = document.getElementById('search-bank');
+            if (searchInputEl) {
+                searchInputEl.addEventListener('input', function(e) {
+                    const keyword = e.target.value.toLowerCase();
+                    const filtered = banks.filter(b => b.shortName.toLowerCase().includes(keyword) || b.name.toLowerCase().includes(keyword));
+                    renderList(filtered);
+                });
+            }
         }
         
         // 3. Update Selected Bank
@@ -489,17 +769,19 @@
         }
         
         // 4. Toggle Dropdown Menu
-        bankDropdownBtn.addEventListener('click', () => {
-            bankDropdownList.classList.toggle('hidden');
-            if(!bankDropdownList.classList.contains('hidden')) {
-                const searchInput = document.getElementById('search-bank');
-                if(searchInput) setTimeout(() => searchInput.focus(), 100);
-            }
-        });
+        if (bankDropdownBtn) {
+            bankDropdownBtn.addEventListener('click', () => {
+                bankDropdownList.classList.toggle('hidden');
+                if(!bankDropdownList.classList.contains('hidden')) {
+                    const searchInput = document.getElementById('search-bank');
+                    if(searchInput) setTimeout(() => searchInput.focus(), 100);
+                }
+            });
+        }
         
         // Close dropdown when clicking outside
         document.addEventListener('click', (e) => {
-            if(!bankDropdownBtn.contains(e.target) && !bankDropdownList.contains(e.target)) {
+            if(bankDropdownBtn && bankDropdownList && !bankDropdownBtn.contains(e.target) && !bankDropdownList.contains(e.target)) {
                 bankDropdownList.classList.add('hidden');
             }
         });

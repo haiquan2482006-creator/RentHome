@@ -157,7 +157,7 @@
                             <i class="fa-solid fa-house-user text-sm"></i>
                         </div>
                         <span class="text-sm font-semibold">Nhà đang thuê</span>
-                        <span class="ml-auto px-2 py-0.5 rounded-full bg-skybrand-100 text-skybrand-700 font-extrabold text-[10px]" id="sidebar-rented-count">0</span>
+                        <span class="ml-auto px-2 py-0.5 rounded-full bg-skybrand-100 text-skybrand-700 font-extrabold text-[10px]" id="sidebar-rented-count">{{ $totalRentedCount ?? 0 }}</span>
                     </button>
 
                     <!-- 2. Form Thanh toán hóa đơn -->
@@ -167,7 +167,7 @@
                             <i class="fa-solid fa-file-invoice-dollar text-sm"></i>
                         </div>
                         <span class="text-sm font-semibold">Thanh toán hóa đơn</span>
-                        <span class="ml-auto px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-extrabold text-[10px]" id="sidebar-pending-count">0</span>
+                        <span class="ml-auto px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-extrabold text-[10px]" id="sidebar-pending-count">{{ $pendingInvoicesCount ?? 0 }}</span>
                     </button>
 
                     <div class="my-2 border-t border-slate-100"></div>
@@ -223,7 +223,7 @@
                             <div>
                                 <p class="text-xs text-sky-200 font-medium">Tổng căn đang thuê</p>
                                 <p class="text-sm font-extrabold text-white">
-                                    <span id="total-rented-count-1">0</span> Căn hộ / Phòng trọ
+                                    <span id="total-rented-count-1">{{ $totalRentedCount ?? 0 }}</span> Căn hộ / Phòng trọ
                                 </p>
                             </div>
                         </div>
@@ -244,12 +244,12 @@
                                 </div>
                             </div>
                             <span class="px-3.5 py-1 rounded-full bg-emerald-500 text-white text-xs font-bold shadow-sm">
-                                <i class="fa-solid fa-circle-check text-[10px]"></i> <span id="total-active-count">0</span> Căn hoạt động
+                                <i class="fa-solid fa-circle-check text-[10px]"></i> <span id="total-active-count">{{ $totalRentedCount ?? 0 }}</span> Căn hoạt động
                             </span>
                         </div>
 
                         <div class="mt-6 flex items-baseline gap-3">
-                            <span class="text-4xl font-black text-slate-900" id="total-rented-count-2">0</span>
+                            <span class="text-4xl font-black text-slate-900" id="total-rented-count-2">{{ $totalRentedCount ?? 0 }}</span>
                             <span class="text-sm font-bold text-slate-600">Căn hộ / Phòng trọ bạn đang đứng tên thuê</span>
                         </div>
 
@@ -257,28 +257,118 @@
                             <span class="text-emerald-600 font-bold flex items-center gap-1">
                                 <i class="fa-solid fa-shield-check"></i> Hợp đồng đầy đủ hiệu lực
                             </span>
-                            <span class="text-skybrand-700 font-bold">Tổng tiền thuê: <span id="total-rent-amount">0</span>đ/tháng</span>
+                            <span class="text-skybrand-700 font-bold">Tổng tiền thuê: <span id="total-rent-amount">{{ number_format($totalRentAmount ?? 0) }}</span>đ/tháng</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- DANH SÁCH 5 NHÀ ĐANG THUÊ (HÌNH CHỮ NHẬT NẰM NGANG) -->
+                <!-- DANH SÁCH NHÀ ĐANG THUÊ (HÌNH CHỮ NHẬT NẰM NGANG) -->
                 <div class="space-y-6">
                     <div class="flex items-center justify-between border-b border-slate-200 pb-4">
                         <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
                             <i class="fa-solid fa-house-flag text-skybrand-600"></i>
-                            Chi Tiết <span id="detail-active-count">0</span> Căn Nhà Đang Thuê
+                            Chi Tiết <span id="detail-active-count">{{ $totalRentedCount ?? 0 }}</span> Căn Nhà Đang Thuê
                         </h2>
                         <span class="px-3.5 py-1.5 rounded-full bg-skybrand-100 text-skybrand-700 text-xs font-extrabold border border-skybrand-200">
-                            Tổng số: <span id="detail-total-count">0</span> nhà đang thuê
+                            Tổng số: <span id="detail-total-count">{{ $totalRentedCount ?? 0 }}</span> nhà đang thuê
                         </span>
                     </div>
 
                     <div id="rented-houses-container" class="flex flex-col gap-6">
-                        <div style="text-align: center; padding: 60px 20px; background: #fff; border-radius: 20px; border: 1px dashed #cbd5e1;">
-                            <i class="fa-solid fa-house-crack" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 16px;"></i>
-                            <p style="font-size: 1.1rem; font-weight: 600; color: #475569;">Bạn chưa thuê nhà/phòng nào</p>
-                        </div>
+                        @forelse($rentedContracts ?? [] as $contract)
+                            @php
+                                $post = $contract->post ?: \App\Models\Post::find($contract->post_id);
+                                $owner = $contract->owner ?: ($post ? \App\Models\User::find($post->user_id) : null);
+                                $landlordName = $owner->account_name ?? ($owner->username ?? 'Chủ nhà');
+                                $landlordPhone = $owner->phone ?? ($contract->owner_phone ?? 'Chưa cập nhật');
+                                $houseTitle = $post ? ($post->title ?? 'Nhà / Phòng cho thuê') : ($contract->tenant_name ? 'Phòng ' . $contract->tenant_name : 'Phòng trọ');
+                                $roomCode = $contract->contract_code ?? ('HD-' . substr((string)($contract->_id ?? $contract->id), -4));
+                                $price = (float)($contract->rent_price ?? ($post->price ?? 0));
+                                $deposit = (float)($contract->deposit ?? 0);
+                                $startDate = $contract->start_date ? date('d/m/Y', strtotime($contract->start_date)) : '01/01/2026';
+                                $endDate = $contract->end_date ?: ($contract->start_date ? date('d/m/Y', strtotime($contract->start_date . ' + ' . ($contract->duration_months ?? 12) . ' months')) : '01/01/2027');
+                                $address = $post ? ($post->address . ($post->district ? ', ' . $post->district : '') . ($post->province ? ', ' . $post->province : '')) : 'Địa chỉ phòng trọ';
+                                $imgUrl = ($post && !empty($post->display_image)) ? $post->display_image : 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80';
+                            @endphp
+
+                            <div class="bg-white rounded-3xl border border-slate-200/90 overflow-hidden shadow-card hover:shadow-lg transition-all flex flex-col md:flex-row">
+                                <div class="relative w-full md:w-80 lg:w-96 shrink-0 min-h-[220px] md:min-h-full bg-slate-100 overflow-hidden">
+                                    <img src="{{ $imgUrl }}" alt="{{ $houseTitle }}" class="w-full h-full object-cover">
+                                    <div class="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:to-slate-950/20"></div>
+                                    
+                                    <div class="absolute top-3 left-3 flex flex-wrap gap-2 z-10">
+                                        <span class="px-3 py-1 rounded-full bg-emerald-500/90 text-white text-xs font-bold backdrop-blur-md shadow-sm">
+                                            <i class="fa-solid fa-circle-check text-[10px]"></i> Đang thuê
+                                        </span>
+                                        <span class="px-3 py-1 rounded-full bg-black/60 text-white text-xs font-semibold backdrop-blur-md">
+                                            Mã: {{ $roomCode }}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div class="flex-1 p-5 md:p-6 flex flex-col justify-between space-y-4">
+                                    <div>
+                                        <div class="border-b border-slate-100 pb-3">
+                                            <h3 class="text-lg md:text-xl font-extrabold text-slate-900 leading-snug">{{ $houseTitle }}</h3>
+                                            <p class="text-xs text-slate-500 font-medium flex items-center gap-1.5 mt-1">
+                                                <i class="fa-solid fa-location-dot text-rose-500"></i> {{ $address }}
+                                            </p>
+                                        </div>
+
+                                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs bg-slate-50 p-3.5 rounded-2xl border border-slate-100 mt-3">
+                                            <div>
+                                                <span class="text-slate-500 block text-[11px]">Giá thuê tháng:</span>
+                                                <span class="text-sm font-extrabold text-brand-600">{{ number_format($price) }}đ <span class="text-[10px] font-normal text-slate-500">/tháng</span></span>
+                                            </div>
+                                            <div>
+                                                <span class="text-slate-500 block text-[11px]">Thời hạn hợp đồng:</span>
+                                                <span class="font-bold text-slate-800">{{ $startDate }} - {{ $endDate }}</span>
+                                            </div>
+                                            <div>
+                                                <span class="text-slate-500 block text-[11px]">Tiền cọc đã gửi:</span>
+                                                <span class="font-bold text-skybrand-600">{{ number_format($deposit) }}đ</span>
+                                            </div>
+                                            <div>
+                                                <span class="text-slate-500 block text-[11px]">Ngày đóng tiền:</span>
+                                                <span class="font-bold text-amber-600">{{ $contract->billing_date ? 'Hạn ' . $contract->billing_date : 'Ngày 05 hàng tháng' }}</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="flex items-center justify-between p-3 rounded-2xl bg-skybrand-50/60 border border-skybrand-100 mt-3">
+                                            <div class="flex items-center gap-3">
+                                                <div class="w-9 h-9 rounded-full bg-skybrand-600 text-white flex items-center justify-center font-bold text-sm">
+                                                    <i class="fa-solid fa-user-tie"></i>
+                                                </div>
+                                                <div>
+                                                    <span class="text-[10px] font-bold text-skybrand-600 uppercase">Chủ nhà / Quản lý</span>
+                                                    <h4 class="text-xs font-bold text-slate-900">{{ $landlordName }}</h4>
+                                                    <p class="text-[11px] text-slate-500">SĐT: {{ $landlordPhone }}</p>
+                                                </div>
+                                            </div>
+                                            <span class="px-2.5 py-1 rounded-lg bg-white border border-skybrand-200 text-skybrand-700 text-xs font-bold">
+                                                <i class="fa-solid fa-shield-check text-emerald-500"></i> Chính chủ
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                                        <button onclick="openContactModal('{{ addslashes($landlordName) }}', '{{ $landlordPhone }}', '{{ addslashes($houseTitle) }}')"
+                                            class="w-full py-2.5 px-4 rounded-xl bg-skybrand-600 hover:bg-skybrand-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-sm">
+                                            <i class="fa-solid fa-phone"></i> Liên hệ chủ nhà
+                                        </button>
+                                        <button onclick="openReturnModal('{{ addslashes($houseTitle) }}', '{{ $roomCode }}', '{{ addslashes($landlordName) }}', '{{ number_format($deposit) }}đ')"
+                                            class="w-full py-2.5 px-4 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs flex items-center justify-center gap-2 transition-all">
+                                            <i class="fa-solid fa-arrow-right-from-bracket"></i> Gửi yêu cầu trả nhà
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        @empty
+                            <div style="text-align: center; padding: 60px 20px; background: #fff; border-radius: 20px; border: 1px dashed #cbd5e1;">
+                                <i class="fa-solid fa-house-crack" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 16px;"></i>
+                                <p style="font-size: 1.1rem; font-weight: 600; color: #475569;">Bạn chưa thuê nhà/phòng nào</p>
+                            </div>
+                        @endforelse
                     </div>
                 </div>
             </div>
@@ -309,9 +399,9 @@
                                 <i class="fa-solid fa-qrcode"></i>
                             </div>
                             <div>
-                                <p class="text-xs text-emerald-200 font-medium">Cần thanh toán (<span id="pending-houses-count">0</span> nhà)</p>
+                                <p class="text-xs text-emerald-200 font-medium">Cần thanh toán (<span id="pending-houses-count">{{ $pendingInvoicesCount ?? 0 }}</span> nhà)</p>
                                 <p class="text-sm font-extrabold text-rose-400">
-                                    <span id="pending-total-amount">0</span> VNĐ
+                                    <span id="pending-total-amount">{{ number_format($pendingInvoicesTotal ?? 0) }}</span> VNĐ
                                 </p>
                             </div>
                         </div>
@@ -333,7 +423,7 @@
                             <!-- Filter Tabs -->
                             <div class="flex items-center gap-1 bg-slate-200/70 p-1 rounded-2xl text-xs font-semibold self-start sm:self-auto">
                                 <button onclick="switchTab('pending')" id="tab-pending" class="tab-btn active px-3.5 py-2 rounded-xl transition-all">
-                                    <i class="fa-solid fa-clock text-amber-500"></i> Hóa đơn cần thanh toán (2)
+                                    <i class="fa-solid fa-clock text-amber-500"></i> Hóa đơn cần thanh toán (<span id="tab-pending-count">{{ $pendingInvoicesCount ?? 0 }}</span>)
                                 </button>
                                 <button onclick="switchTab('history')" id="tab-history" class="tab-btn px-3.5 py-2 rounded-xl transition-all text-slate-600">
                                     <i class="fa-solid fa-history text-skybrand-600"></i> Hóa đơn cũ
@@ -382,10 +472,10 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div class="p-5 rounded-2xl bg-skybrand-50/70 border border-skybrand-200 space-y-3">
                                 <div class="flex items-center justify-between">
-                                    <span class="text-xs font-bold text-skybrand-700 uppercase tracking-wider">Tổng tiền cọc 5 nhà đang giữ</span>
+                                    <span class="text-xs font-bold text-skybrand-700 uppercase tracking-wider">Tổng tiền cọc {{ $totalRentedCount ?? 0 }} nhà đang giữ</span>
                                     <i class="fa-solid fa-shield-halved text-skybrand-600 text-lg"></i>
                                 </div>
-                                <p class="text-2xl font-black text-slate-900"><span id="total-deposit-amount">0</span> VNĐ</p>
+                                <p class="text-2xl font-black text-slate-900"><span id="total-deposit-amount">{{ number_format($rentedContracts->sum('deposit') ?? 0) }}</span> VNĐ</p>
                                 <p class="text-xs text-slate-600">Tiền cọc được bảo toàn 100% và sẽ hoàn trả cho bạn khi thanh lý hợp đồng & chủ nhà xác nhận.</p>
                             </div>
 
