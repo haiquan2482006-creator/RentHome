@@ -396,6 +396,21 @@
                             </div>
                         </form>
                     </div>
+
+                    <!-- Box Khiếu Nại & Báo Cáo Kiểm Duyệt -->
+                    <div class="bg-amber-50/60 rounded-xl p-4 border border-amber-200 mt-4">
+                        <div class="flex items-center gap-2 font-bold text-amber-900 text-xs mb-1">
+                            <i class="fa-solid fa-shield-halved text-amber-600 text-sm"></i>
+                            <span>Khiếu nại kiểm duyệt / Báo cáo bài đăng</span>
+                        </div>
+                        <p class="text-[11px] text-slate-500 leading-relaxed mb-3">
+                            Phát hiện kiểm duyệt có sai sót hoặc tin đăng có dấu hiệu vi phạm? Gửi ngay để Ban Kiểm Duyệt xử lý kịp thời.
+                        </p>
+                        <button type="button" onclick="openComplaintModal()" class="w-full py-2.5 px-3 rounded-lg bg-white hover:bg-amber-500 hover:text-white text-amber-800 font-bold border border-amber-300 transition-all flex items-center justify-center gap-2 shadow-sm text-xs group cursor-pointer">
+                            <i class="fa-solid fa-flag text-amber-600 group-hover:text-white transition-colors"></i>
+                            <span>Gửi khiếu nại tới Kiểm duyệt viên</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -457,10 +472,11 @@
         @endif
     </main>
 
-    <!-- Footer Simple -->
-    <footer class="bg-white py-8 mt-12 border-t border-slate-200 text-center">
-        <p class="text-slate-500 font-medium text-sm">&copy; {{ date('Y') }} {{ $themeSettings['brand_name'] ?? 'RentHome' }}. Tất cả các quyền được bảo lưu.</p>
-    </footer>
+    <!-- Footer -->
+    @include('partials.footer')
+
+    <!-- Modal Khiếu Nại Kiểm Duyệt -->
+    @include('partials.complaint-modal')
 
 
 </body>

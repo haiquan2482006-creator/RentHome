@@ -328,8 +328,8 @@
                             <i class="fa-regular fa-heart text-rose-500"></i> Lưu tin đăng yêu thích
                         </button>
 
-                        <button type="button" onclick="alert('Cảm ơn bạn. Ban Quản Trị RentHome sẽ tiếp nhận và kiểm tra phản ánh về bài đăng này trong vòng 24h.')" class="w-full py-2.5 px-4 rounded-xl bg-slate-50 hover:bg-rose-50 text-slate-600 hover:text-rose-600 font-semibold text-xs transition-colors flex items-center gap-2 border border-slate-200">
-                            <i class="fa-solid fa-flag text-slate-400"></i> Báo cáo tin đăng sai giá / lừa đảo
+                        <button type="button" onclick="openComplaintModal()" class="w-full py-2.5 px-4 rounded-xl bg-amber-50/70 hover:bg-amber-100 text-amber-800 hover:text-amber-900 font-semibold text-xs transition-colors flex items-center gap-2 border border-amber-200 cursor-pointer">
+                            <i class="fa-solid fa-shield-halved text-amber-600"></i> Khiếu nại kiểm duyệt / Báo cáo bài đăng
                         </button>
                     </div>
                 </div>
@@ -339,6 +339,9 @@
         </div>
 
     </main>
+
+    <!-- Footer -->
+    @include('partials.footer')
 
     <!-- Modal: Đặt Lịch Hẹn Xem Phòng -->
     <div id="schedule-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
@@ -435,5 +438,8 @@
             alert('🎉 ĐẶT LỊCH HẸN THÀNH CÔNG!\n\nChủ nhà {{ $posterName }} đã nhận được yêu cầu hẹn xem phòng của bạn và sẽ liên hệ xác nhận trong thời gian sớm nhất!');
         }
     </script>
+
+    <!-- Modal Khiếu Nại Kiểm Duyệt -->
+    @include('partials.complaint-modal')
 </body>
 </html>
