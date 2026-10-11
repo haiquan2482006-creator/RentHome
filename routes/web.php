@@ -295,6 +295,13 @@ Route::get('/dat-lai-mat-khau', function () {
     return view('dangnhapdk.quen_mat_khau_xac_nhan'); 
 });
 
+Route::get('/nha_dang_thue', function () {
+    return redirect('/nha-dang-thue');
+});
+Route::get('/nha dang thue', function () {
+    return redirect('/nha-dang-thue');
+});
+
 Route::get('/nha-dang-thue', function () {
     $currentUser = \Illuminate\Support\Facades\Auth::user();
     $userId = \Illuminate\Support\Facades\Auth::id();
@@ -336,25 +343,114 @@ Route::get('/nha-dang-thue', function () {
         }
     }
 
+    // Đảm bảo mỗi hợp đồng đang thuê đều có hóa đơn cọc & tháng đầu tiên
+    foreach ($rentedContracts as $contract) {
+        $cId = (string)($contract->_id ?? $contract->id);
+        $invoice = \App\Models\Invoice::where('contract_id', $cId)->first();
+        if ($invoice) {
+            $needsSave = false;
+            if (empty($invoice->deposit) && !empty($contract->deposit)) {
+                $invoice->deposit = (float)$contract->deposit;
+                $needsSave = true;
+            }
+            if (empty($invoice->rent_price) && !empty($contract->rent_price)) {
+                $invoice->rent_price = (float)$contract->rent_price;
+                $needsSave = true;
+            }
+            // Đối với hóa đơn kỳ đầu tiên khi mới nhận nhà: điện và nước bằng 0 VNĐ (chỉ ghi nhận chỉ số đầu)
+            if (str_contains($invoice->billing_period ?? '', 'Kỳ đầu tiên') || str_contains($invoice->note ?? '', 'đầu tiên')) {
+                if ((float)$invoice->electricity_amount != 0 || (float)$invoice->water_amount != 0) {
+                    $invoice->electricity_amount = 0;
+                    $invoice->water_amount = 0;
+                    $servAmount = (float)($contract->internet_price ?? 0) + (float)($contract->garbage_price ?? 0);
+                    $invoice->service_amount = $servAmount;
+                    $invoice->total_amount = (float)$invoice->deposit + (float)$invoice->rent_price + $servAmount;
+                    $needsSave = true;
+                }
+            }
+            if ($needsSave) {
+                $invoice->save();
+            }
+        } else {
+            $post = $contract->post ?: \App\Models\Post::find($contract->post_id);
+            $depositAmount = (float)($contract->deposit ?? 0);
+            $rentPriceAmount = (float)($contract->rent_price ?? ($post->price ?? 0));
+            $elecAmount = 0; // Tháng đầu tiên: chỉ số đầu, thành tiền = 0 VNĐ
+            $waterAmount = 0; // Tháng đầu tiên: chỉ số đầu, thành tiền = 0 VNĐ
+            $servAmount = (float)($contract->internet_price ?? 0) + (float)($contract->garbage_price ?? 0);
+            $totAmount = $depositAmount + $rentPriceAmount + $elecAmount + $waterAmount + $servAmount;
+
+            \App\Models\Invoice::create([
+                'contract_id'        => $cId,
+                'room_id'            => (string)($contract->room_id ?? $contract->post_id),
+                'post_id'            => (string)$contract->post_id,
+                'owner_id'           => (string)$contract->owner_id,
+                'tenant_id'          => (string)($contract->tenant_id ?? $userId),
+                'tenant_name'        => $contract->tenant_name ?? ($currentUser->account_name ?? 'Khách thuê'),
+                'invoice_code'       => 'INV-' . date('Ym') . '-' . strtoupper(substr(md5($cId), -4)),
+                'billing_month'      => date('m/Y'),
+                'billing_period'     => 'Kỳ đầu tiên (Cọc & Tháng đầu)',
+                'month'              => (int)date('m'),
+                'year'               => (int)date('Y'),
+                'rent_price'         => $rentPriceAmount,
+                'deposit'            => $depositAmount,
+                'electricity_amount' => $elecAmount,
+                'water_amount'       => $waterAmount,
+                'service_amount'     => $servAmount,
+                'total_amount'       => $totAmount,
+                'status'             => 'unpaid',
+                'payment_status'     => 'unpaid',
+                'note'               => 'Hóa đơn tiền cọc và tháng đầu tiên khi nhận nhà (Điện nước ghi nhận chỉ số đầu, thành tiền 0 VNĐ)',
+            ]);
+        }
+    }
+
     $totalRentedCount = $rentedContracts->count();
     $totalRentAmount = $rentedContracts->sum('rent_price');
 
-    // Đếm số hóa đơn chưa thanh toán của các hợp đồng đang thuê
+    // Lấy tất cả hóa đơn của các hợp đồng đang thuê
     $contractIds = $rentedContracts->map(fn($c) => (string)($c->_id ?? $c->id))->toArray();
     $pendingInvoicesCount = 0;
     $pendingInvoicesTotal = 0;
+    $pendingInvoices = collect();
+    $paidInvoices = collect();
+    $allInvoices = collect();
+
     if (!empty($contractIds)) {
-        $pendingInvoices = \App\Models\Invoice::whereIn('contract_id', $contractIds)
-            ->where(function($q) {
-                $q->where('status', 'unpaid')->orWhere('payment_status', 'unpaid');
-            })
+        $allInvoices = \App\Models\Invoice::whereIn('contract_id', $contractIds)
+            ->latest()
             ->get();
+
+        $pendingInvoices = $allInvoices->filter(function($inv) {
+            $st = strtolower($inv->status ?? '');
+            $pst = strtolower($inv->payment_status ?? '');
+            return ($st === 'unpaid' || $st === 'pending' || $pst === 'unpaid' || $pst === 'pending') && ($st !== 'paid' && $pst !== 'paid');
+        })->values();
+
+        $paidInvoices = $allInvoices->filter(function($inv) {
+            $st = strtolower($inv->status ?? '');
+            $pst = strtolower($inv->payment_status ?? '');
+            return $st === 'paid' || $pst === 'paid';
+        })->values();
+
         $pendingInvoicesCount = $pendingInvoices->count();
         $pendingInvoicesTotal = $pendingInvoices->sum('total_amount');
     }
 
-    return view('nhadangthue.index', compact('rentedContracts', 'totalRentedCount', 'totalRentAmount', 'pendingInvoicesCount', 'pendingInvoicesTotal'));
+    return view('nhadangthue.index', compact('rentedContracts', 'totalRentedCount', 'totalRentAmount', 'pendingInvoicesCount', 'pendingInvoicesTotal', 'pendingInvoices', 'paidInvoices', 'allInvoices'));
 })->name('nha-dang-thue');
+
+Route::post('/api/invoices/{code}/pay', function ($code) {
+    $invoice = \App\Models\Invoice::where('invoice_code', $code)->orWhere('_id', $code)->first();
+    if ($invoice) {
+        $invoice->status = 'paid';
+        $invoice->payment_status = 'paid';
+        $invoice->payment_date = now()->format('d/m/Y H:i');
+        $invoice->save();
+        return response()->json(['success' => true, 'message' => 'Thanh toán hóa đơn thành công!']);
+    }
+    return response()->json(['success' => false, 'message' => 'Không tìm thấy hóa đơn'], 404);
+});
 
 Route::get('/quan-ly-van-hanh', [\App\Http\Controllers\OperationManagementController::class, 'index'])->name('quan-ly-van-hanh');
 
@@ -372,13 +468,12 @@ Route::get('/thanh-ly-cong-no', function () {
     return view('qlvan_hanh.thanh_ly_cong_no');
 })->name('thanh-ly-cong-no');
 
-Route::get('/qlvan_hanh/tao_hoa_don', function () {
-    return view('qlvan_hanh.tao_hoa_don');
-});
+Route::get('/qlvan_hanh/tao_hoa_don', [\App\Http\Controllers\OperationManagementController::class, 'createInvoice'])->name('qlvan_hanh.create_invoice');
+Route::post('/qlvan_hanh/tao_hoa_don', [\App\Http\Controllers\OperationManagementController::class, 'storeInvoice'])->name('qlvan_hanh.store_invoice');
+Route::post('/qlvan_hanh/update_payment_status', [\App\Http\Controllers\OperationManagementController::class, 'updatePaymentStatus'])->name('qlvan_hanh.update_payment_status');
 
-Route::get('/tao-hoa-don', function () {
-    return view('qlvan_hanh.tao_hoa_don');
-})->name('tao-hoa-don');
+Route::get('/tao-hoa-don', [\App\Http\Controllers\OperationManagementController::class, 'createInvoice'])->name('tao-hoa-don');
+Route::post('/tao-hoa-don', [\App\Http\Controllers\OperationManagementController::class, 'storeInvoice']);
 
 Route::get('/qlvan_hanh/tao_hop_dong', function (\Illuminate\Http\Request $request) {
     $userId = \Illuminate\Support\Facades\Auth::id();

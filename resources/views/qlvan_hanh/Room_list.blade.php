@@ -12,6 +12,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Quản Lý Vận Hành & Cho Thuê Nhà - RentHome</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -90,6 +91,27 @@
             color: #ffffff;
             font-weight: 700;
             box-shadow: 0 4px 14px 0 rgba(2, 132, 199, 0.39);
+        }
+
+        /* Tối ưu in ấn riêng cho Tờ giấy Hợp đồng Pháp lý A4 */
+        @media print {
+            body * {
+                visibility: hidden !important;
+            }
+            #legalContractSheet, #legalContractSheet * {
+                visibility: visible !important;
+            }
+            #legalContractSheet {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 15mm 20mm !important;
+                background: white !important;
+                box-shadow: none !important;
+                border: none !important;
+            }
         }
     </style>
 </head>
@@ -244,7 +266,8 @@
 
             @foreach($rooms as $room)
                 <div id="card-{{ $room->room_code }}" 
-                     class="room-card @if($room->status === 'unpaid') unpaid border-2 border-rose-200 @else paid border border-slate-200/90 @endif bg-white rounded-3xl overflow-hidden shadow-card hover:shadow-lg transition-all p-6 flex flex-col lg:flex-row justify-between gap-6 relative">
+                     class="room-card @if($room->status === 'unpaid') unpaid border-2 border-rose-200 @else paid border border-slate-200/90 @endif bg-white rounded-3xl overflow-hidden shadow-card hover:shadow-lg transition-all p-6 flex flex-col lg:flex-row justify-between gap-6 relative"
+                     data-status="{{ $room->status }}">
                     <div class="flex items-start gap-4">
                         @php
                             $roomImg = !empty($room->image) 
@@ -254,33 +277,37 @@
                                     : 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80');
                         @endphp
                         <div class="relative shrink-0">
-                            <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border {{ $room->status === 'unpaid' ? 'border-rose-300 ring-2 ring-rose-100' : 'border-slate-200' }} bg-slate-100 shadow-sm shrink-0">
+                            <div id="room-img-wrapper-{{ $room->id }}" class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border {{ $room->status === 'unpaid' ? 'border-rose-300 ring-2 ring-rose-100' : 'border-slate-200' }} bg-slate-100 shadow-sm shrink-0">
                                 <img src="{{ $roomImg }}" 
                                      alt="{{ $room->name ?? $room->room_name ?? 'Ảnh phòng' }}" 
                                      class="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                                      onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80';">
                             </div>
-                            @if($room->status === 'unpaid')
-                                <!-- CHẤM ĐỎ CHƯA THU TIỀN -->
-                                <span class="room-status-dot-ping absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 border-2 border-white shadow-md animate-ping"></span>
-                                <span class="room-status-dot absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 border-2 border-white shadow-md" title="Chưa thu tiền"></span>
-                            @else
-                                <!-- CHẤM XANH ĐÃ THU TIỀN HOẶC CHƯA ĐẾN KỲ THU -->
-                                <span class="room-status-dot absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white shadow-md" title="{{ $room->status_label ?? 'Đã thu tiền' }}"></span>
-                            @endif
+                            <div id="room-status-dot-container-{{ $room->id }}">
+                                @if($room->status === 'unpaid')
+                                    <!-- CHẤM ĐỎ CHƯA THU TIỀN -->
+                                    <span class="room-status-dot-ping absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 border-2 border-white shadow-md animate-ping"></span>
+                                    <span class="room-status-dot absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 border-2 border-white shadow-md" title="Chưa thu tiền"></span>
+                                @else
+                                    <!-- CHẤM XANH ĐÃ THU TIỀN HOẶC CHƯA ĐẾN KỲ THU -->
+                                    <span class="room-status-dot absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white shadow-md" title="{{ $room->status_label ?? 'Đã thu tiền' }}"></span>
+                                @endif
+                            </div>
                         </div>
 
                         <div class="space-y-1">
                             <div class="flex flex-wrap items-center gap-2">
-                                @if($room->status === 'unpaid')
-                                    <span class="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 font-extrabold text-[11px] flex items-center gap-1">
-                                        <span class="w-2 h-2 rounded-full bg-rose-600 inline-block"></span> CHƯA THU TIỀN
-                                    </span>
-                                @else
-                                    <span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-[11px] flex items-center gap-1">
-                                        <span class="w-2 h-2 rounded-full bg-emerald-600 inline-block"></span> {{ strtoupper($room->status_label ?? 'ĐÃ THU TIỀN') }}
-                                    </span>
-                                @endif
+                                <div id="room-status-badge-{{ $room->id }}" class="inline-flex">
+                                    @if($room->status === 'unpaid')
+                                        <span class="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 font-extrabold text-[11px] flex items-center gap-1">
+                                            <span class="w-2 h-2 rounded-full bg-rose-600 inline-block"></span> CHƯA THU TIỀN
+                                        </span>
+                                    @else
+                                        <span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-[11px] flex items-center gap-1">
+                                            <span class="w-2 h-2 rounded-full bg-emerald-600 inline-block"></span> {{ strtoupper($room->status_label ?? 'ĐÃ THU TIỀN') }}
+                                        </span>
+                                    @endif
+                                </div>
                                 <span class="text-xs font-bold text-slate-400">Mã: {{ $room->room_code }}</span>
                                 @if(!empty($room->bill_date))
                                     <span class="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
@@ -295,17 +322,39 @@
                             <div class="flex flex-wrap gap-4 text-xs pt-1">
                                 <span>Giá thuê: <strong class="text-brand-600 font-bold">{{ number_format($room->price) }}đ/tháng</strong></span>
                                 <span>Tiền cọc: <strong class="text-skybrand-600 font-bold">{{ number_format($room->deposit ?? $room->price) }}đ</strong></span>
-                                @if($room->status === 'unpaid')
-                                    <span>Kỳ nợ: <strong class="text-rose-600 font-bold">{{ $room->debt_period ?? 'Kỳ này' }} ({{ number_format($room->debt_amount ?? $room->price) }}đ)</strong></span>
-                                @else
-                                    <span>Trạng thái: <strong class="text-emerald-600 font-bold">{{ $room->status_label ?? ($room->paid_period ?? 'Đã thu tiền') }}</strong></span>
-                                @endif
+                                <div id="room-debt-status-{{ $room->id }}" class="inline-block">
+                                    @if($room->status === 'unpaid')
+                                        <span>Kỳ nợ: <strong class="text-rose-600 font-bold">{{ $room->debt_period ?? 'Kỳ này' }} ({{ number_format($room->debt_amount ?? $room->price) }}đ)</strong></span>
+                                    @else
+                                        <span>Trạng thái: <strong class="text-emerald-600 font-bold">{{ $room->status_label ?? ($room->paid_period ?? 'Đã thu tiền') }}</strong></span>
+                                    @endif
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- NÚT THAO TÁC CHO PHÒNG -->
-                    <div class="flex flex-wrap items-center lg:justify-end gap-2 shrink-0 border-t lg:border-t-0 pt-4 lg:pt-0 border-slate-100">
+                    <!-- NÚT THAO TÁC CHO PHÒNG & NÚT CHUYỂN TRẠNG THÁI THU TIỀN -->
+                    <div class="flex flex-wrap items-center lg:justify-end gap-2.5 shrink-0 border-t lg:border-t-0 pt-4 lg:pt-0 border-slate-100">
+                        <!-- CỤM NÚT TRẠNG THÁI THU TIỀN (CHUYỂN TỪ TRANG TẠO HÓA ĐƠN RA NGOÀI ĐÂY) -->
+                        <div class="inline-flex p-1 bg-slate-100 rounded-2xl border border-slate-200 shadow-inner items-center gap-1 {{ $room->status === 'paid' ? 'hidden' : '' }}" id="payment-toggle-group-{{ $room->id }}">
+                            <button type="button" 
+                                    onclick="updateRoomPaymentStatus('{{ $room->id }}', '{{ $room->room_code }}', 'unpaid', this)"
+                                    id="btn-status-unpaid-{{ $room->id }}"
+                                    title="Chuyển sang Chưa Thu Tiền"
+                                    class="px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 {{ $room->status === 'unpaid' ? 'bg-white text-rose-700 shadow-sm border border-rose-300 ring-2 ring-rose-500/20 font-extrabold' : 'text-slate-500 hover:text-rose-600 hover:bg-white/60' }}">
+                                <span class="w-2.5 h-2.5 rounded-full {{ $room->status === 'unpaid' ? 'bg-rose-500 ring-2 ring-rose-200' : 'border-2 border-slate-400' }}"></span>
+                                <span>Chưa Thu Tiền</span>
+                            </button>
+                            <button type="button" 
+                                    onclick="updateRoomPaymentStatus('{{ $room->id }}', '{{ $room->room_code }}', 'paid', this)"
+                                    id="btn-status-paid-{{ $room->id }}"
+                                    title="Chuyển sang Đã Thu Tiền"
+                                    class="px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 {{ $room->status === 'paid' ? 'bg-white text-emerald-700 shadow-sm border border-emerald-300 ring-2 ring-emerald-500/20 font-extrabold' : 'text-slate-500 hover:text-emerald-700 hover:bg-white/60' }}">
+                                <span class="w-2.5 h-2.5 rounded-full {{ $room->status === 'paid' ? 'bg-emerald-500 ring-2 ring-emerald-200' : 'border-2 border-slate-400' }}"></span>
+                                <span>Đã Thu Tiền</span>
+                            </button>
+                        </div>
+
                         <!-- Nút Thanh Lý Hợp Đồng (Mở Form Chốt Công Nợ) -->
                         <a href="{{ url('qlvan_hanh/thanh_ly_cong_no') }}?room={{ $room->room_code }}"
                            class="py-2.5 px-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
@@ -354,6 +403,7 @@
                                     'bill_date'              => $room->bill_date ?? 5,
                                     'payment_limit_days'     => $room->payment_limit_days ?? '5 ngày',
                                     'late_penalty_fee'       => $room->late_penalty_fee ?? '20.000 VNĐ / ngày',
+                                    'address'                => $room->address ?? 'Số 18 Trần Phú, Phường Mộ Lao, Quận Hà Đông, TP. Hà Nội',
                                 ]) }})"
                                 class="py-2.5 px-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
                             <i class="fa-solid fa-file-signature"></i>
@@ -759,154 +809,261 @@
 
 
     <!-- ========================================================================= -->
-    <!-- MODAL 6: XEM HỢP ĐỒNG CHI TIẾT (DESIGN MỚI ĐẲNG CẤP VÀ ĐẦY ĐỦ THÔNG TIN) -->
+    <!-- MODAL 6: XEM HỢP ĐỒNG CHI TIẾT (TỜ GIẤY HỢP ĐỒNG PHÁP LÝ A4 ĐỒNG BỘ MÀU SẮC) -->
     <!-- ========================================================================= -->
-    <div id="viewContractModal" class="fixed inset-0 z-50 hidden bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden border border-slate-100 max-h-[92vh] flex flex-col transform transition-all animate-in fade-in zoom-in duration-200">
+    <div id="viewContractModal" class="fixed inset-0 z-50 hidden bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-2 sm:p-5 overflow-y-auto print:p-0 print:bg-white">
+        <div class="bg-white rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden border border-slate-200 max-h-[94vh] flex flex-col transform transition-all my-auto print:border-none print:shadow-none print:my-0 print:max-h-none">
             
-            <!-- HEADER BANNER ĐÊM SANG TRỌNG -->
-            <div class="bg-[#0b132a] p-6 text-white relative overflow-hidden shrink-0">
-                <div class="relative z-10 flex items-center justify-between gap-4">
-                    <div class="space-y-1">
-                        <div class="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-bold uppercase tracking-wider">
-                            <i class="fa-solid fa-file-contract"></i> Hợp Đồng Cho Thuê Nhà Chính Thức
-                        </div>
-                        <h3 class="text-xl sm:text-2xl font-extrabold text-white">Chi Tiết Hợp Đồng & Cam Kết</h3>
-                        <p class="text-xs text-slate-300 font-mono" id="vcContractCode">Mã HĐ: HD-2026-302</p>
-                    </div>
+            <!-- TOP TOOLBAR: Thanh tiêu đề màu sáng trang nhã, đồng bộ tuyệt đối với tờ hợp đồng -->
+            <div class="bg-white text-slate-800 px-5 sm:px-6 py-3.5 flex items-center justify-between shrink-0 border-b border-slate-200 print:hidden">
+                <div class="flex items-center gap-2.5">
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold uppercase tracking-wider">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Văn Bản Hợp Đồng Pháp Lý
+                    </span>
+                    <span class="text-xs text-slate-500 font-mono hidden sm:inline" id="vcContractCodeHeader">Mã HĐ: HD-202610-D5FB</span>
+                </div>
 
-                    <button onclick="closeViewContractModal()" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors">
-                        <i class="fa-solid fa-xmark text-lg"></i>
+                <div class="flex items-center gap-2">
+                    <button onclick="window.print()" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs text-slate-700 font-sans font-semibold transition flex items-center gap-1.5 border border-slate-300">
+                        <i class="fa-solid fa-print"></i>
+                        <span>In A4</span>
+                    </button>
+                    <button onclick="closeViewContractModal()" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 flex items-center justify-center transition border border-slate-200">
+                        <i class="fa-solid fa-xmark text-base"></i>
                     </button>
                 </div>
             </div>
 
-            <!-- BODY CONTAINER -->
-            <div class="p-6 space-y-5 overflow-y-auto custom-scrollbar flex-1 text-xs">
+            <!-- VIEWPORT CUỘN: Nền sáng nhẹ nhàng giúp tờ giấy trắng nổi bật liền mạch -->
+            <div class="p-3 sm:p-6 md:p-8 overflow-y-auto custom-scrollbar flex-1 bg-slate-100/90 print:p-0 print:bg-white print:overflow-visible">
                 
-                <!-- 2 COLUMNS SUMMARY CARDS: BÊN THUÊ & GIÁ THUÊ -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    
-                    <!-- 1. THÔNG TIN PHÒNG & BÊN THUÊ -->
-                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/90 space-y-2.5">
-                        <h4 class="font-extrabold text-slate-900 text-xs border-b border-slate-200 pb-2 flex items-center gap-2">
-                            <i class="fa-solid fa-user-gear text-indigo-600"></i> 1. Bên Thuê & Phòng Thuê
-                        </h4>
-                        <div class="space-y-2">
-                            <p class="flex justify-between items-center"><span class="text-slate-500">Mã phòng:</span> <strong id="vcRoomCode" class="text-slate-900 font-bold">NH-302</strong></p>
-                            <p class="flex justify-between items-center"><span class="text-slate-500">Phòng thuê:</span> <strong id="vcRoomName" class="text-slate-900 font-bold truncate max-w-[170px]">--</strong></p>
-                            <p class="flex justify-between items-center"><span class="text-slate-500">Khách thuê:</span> <strong id="vcTenant" class="text-slate-900 font-bold">Nguyễn Văn An</strong></p>
-                            <p class="flex justify-between items-center"><span class="text-slate-500">Số điện thoại:</span> <strong id="vcPhone" class="text-skybrand-600 font-mono font-bold">0912 345 678</strong></p>
-                            <p class="flex justify-between items-center"><span class="text-slate-500">CCCD/CMND:</span> <strong id="vcIdCard" class="text-slate-700 font-mono font-bold">--</strong></p>
-                        </div>
-                    </div>
+                <!-- TỜ GIẤY A4 PHÁP LÝ (LEGAL CONTRACT SHEET): Nền trắng tinh khiết liền mạch 100% -->
+                <div id="legalContractSheet" 
+                     class="w-full max-w-3xl mx-auto bg-white text-slate-900 px-6 py-8 sm:px-12 sm:py-14 md:px-16 md:py-16 shadow-xl border border-slate-200/90 rounded-xl leading-relaxed text-[13.5px] sm:text-[14px] relative print:shadow-none print:border-none print:p-0 print:bg-white"
+                     style="background-color: #ffffff !important; min-height: 100%; height: auto !important; font-family: 'Times New Roman', Times, 'Liberation Serif', serif;">
 
-                    <!-- 2. THỎA THUẬN TÀI CHÍNH & THỜI HẠN -->
-                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/90 space-y-2.5">
-                        <h4 class="font-extrabold text-slate-900 text-xs border-b border-slate-200 pb-2 flex items-center gap-2">
-                            <i class="fa-solid fa-coins text-amber-500"></i> 2. Giá Thuê & Tiền Cọc
-                        </h4>
-                        <div class="space-y-2">
-                            <p class="flex justify-between items-center"><span class="text-slate-500">Giá thuê phòng:</span> <strong id="vcRentPrice" class="text-brand-600 font-extrabold">3,500,000đ/tháng</strong></p>
-                            <p class="flex justify-between items-center"><span class="text-slate-500">Tiền cọc đảm bảo:</span> <strong id="vcDeposit" class="text-skybrand-600 font-extrabold">3,500,000đ</strong></p>
-                            <p class="flex justify-between items-center"><span class="text-slate-500">Thời hạn hợp đồng:</span> <strong id="vcDates" class="text-slate-800 font-bold">01/06/2026 - 01/06/2027</strong></p>
-                            <p class="flex justify-between items-center"><span class="text-slate-500">Thời lượng thuê:</span> <strong id="vcDuration" class="text-slate-700 font-semibold">12 tháng</strong></p>
-                        </div>
-                    </div>
-
-                </div>
-
-                <!-- 2 COLUMNS: ĐƠN GIÁ ĐIỆN NƯỚC & PHÍ DỊCH VỤ CỐ ĐỊNH -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    
-                    <!-- 3. ĐƠN GIÁ ĐIỆN & NƯỚC THỎA THUẬN -->
-                    <div class="bg-amber-50/40 p-4 rounded-2xl border border-amber-200/80 space-y-2.5">
-                        <h4 class="font-extrabold text-slate-900 text-xs border-b border-amber-200/80 pb-2 flex items-center gap-2">
-                            <i class="fa-solid fa-bolt-lightning text-amber-500"></i> 3. Đơn Giá Điện & Nước
-                        </h4>
-                        <div class="space-y-2">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <span class="text-slate-600 font-semibold block">Tiền Điện:</span>
-                                    <span class="text-[10px] text-slate-400" id="vcElecStart">Chỉ số bắt đầu: 0 kWh</span>
-                                </div>
-                                <strong id="vcElecPrice" class="text-amber-700 font-bold text-xs bg-amber-100/70 px-2.5 py-1 rounded-lg border border-amber-200/60">3.500đ/số</strong>
-                            </div>
-                            <div class="h-px bg-amber-200/60"></div>
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <span class="text-slate-600 font-semibold block" id="vcWaterTypeLabel">Tiền Nước (Theo khối):</span>
-                                    <span class="text-[10px] text-slate-400" id="vcWaterSubInfo">Chỉ số bắt đầu: 0 m³</span>
-                                </div>
-                                <strong id="vcWaterPrice" class="text-skybrand-700 font-bold text-xs bg-sky-100/70 px-2.5 py-1 rounded-lg border border-sky-200/60">25.000đ/khối</strong>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 4. PHÍ DỊCH VỤ CỐ ĐỊNH & QUY ĐỊNH CHỐT TIỀN -->
-                    <div class="bg-purple-50/40 p-4 rounded-2xl border border-purple-200/80 space-y-2.5">
-                        <h4 class="font-extrabold text-slate-900 text-xs border-b border-purple-200/80 pb-2 flex items-center gap-2">
-                            <i class="fa-solid fa-wifi text-purple-600"></i> 4. Phí Dịch Vụ Cố Định & Chu Kỳ
-                        </h4>
-                        <div class="space-y-1.5">
-                            <p class="flex justify-between items-center">
-                                <span class="text-slate-500"><i class="fa-solid fa-wifi text-[10px] text-purple-500 mr-1"></i> Internet / Wifi:</span>
-                                <strong id="vcInternetPrice" class="text-slate-800 font-bold">100.000đ/tháng</strong>
-                            </p>
-                            <p class="flex justify-between items-center">
-                                <span class="text-slate-500"><i class="fa-solid fa-trash-can text-[10px] text-purple-500 mr-1"></i> Rác sinh hoạt:</span>
-                                <strong id="vcGarbagePrice" class="text-slate-800 font-bold">30.000đ/tháng</strong>
-                            </p>
-                            <div class="h-px bg-purple-200/60"></div>
-                            <p class="flex justify-between items-center">
-                                <span class="text-slate-500"><i class="fa-regular fa-calendar-check text-[10px] text-sky-500 mr-1"></i> Ngày chốt tiền:</span>
-                                <strong id="vcBillDate" class="text-skybrand-700 font-extrabold">Mùng 5 hàng tháng</strong>
-                            </p>
-                            <p class="flex justify-between items-center">
-                                <span class="text-slate-500"><i class="fa-solid fa-clock text-[10px] text-slate-400 mr-1"></i> Chu kỳ thanh toán:</span>
-                                <strong id="vcPaymentCycle" class="text-slate-700 font-semibold">1 tháng (Hàng tháng)</strong>
-                            </p>
-                        </div>
-                    </div>
-
-                </div>
-
-                <!-- CAM KẾT & QUY ĐỊNH HỢP ĐỒNG -->
-                <div class="p-4 bg-skybrand-50/70 rounded-2xl border border-skybrand-200 text-slate-700 space-y-2">
-                    <div class="flex flex-wrap items-center justify-between gap-2">
-                        <p class="font-extrabold text-skybrand-900 text-xs flex items-center gap-2">
-                            <i class="fa-solid fa-shield-halved text-skybrand-600"></i> Cam Kết & Quyền Lợi Hợp Đồng:
+                    <!-- 1. QUỐC HIỆU & TIÊU NGỮ CHUẨN THỂ THỨC -->
+                    <div class="text-center mb-6">
+                        <p class="font-bold uppercase tracking-wider text-sm sm:text-base text-slate-900">
+                            CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
                         </p>
-                        <span class="text-[11px] text-rose-600 font-bold bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-full" id="vcPenaltyBadge">
-                            Phạt trễ hạn: 20.000 VNĐ / ngày
-                        </span>
+                        <p class="font-bold text-sm sm:text-base text-slate-900 mt-0.5">
+                            Độc lập - Tự do - Hạnh phúc
+                        </p>
+                        <div class="w-36 h-[1.5px] bg-slate-900 mx-auto mt-1.5 mb-4"></div>
+                        <p class="text-right italic text-xs sm:text-sm text-slate-700" id="vcLegalAutoDate">
+                            Hà Nội, ngày 11 tháng 10 năm 2026
+                        </p>
                     </div>
-                    <ul class="text-[11px] space-y-1.5 text-slate-600 list-disc list-inside leading-relaxed">
-                        <li>Hợp đồng được xác lập có đầy đủ hiệu lực pháp lý theo tiêu chuẩn hệ thống RentHome.</li>
-                        <li>Khách thuê cam kết thanh toán tiền thuê, tiền điện, tiền nước & các dịch vụ đúng hạn định kỳ hàng tháng.</li>
-                        <li>Tiền đặt cọc được chủ nhà cam kết bảo toàn và hoàn trả 100% khi thanh lý hợp đồng đúng điều khoản cam kết.</li>
-                    </ul>
+
+                    <!-- 2. TIÊU ĐỀ LỚN Ở GIỮA -->
+                    <div class="text-center my-6">
+                        <h3 class="text-xl sm:text-2xl font-black uppercase tracking-wider text-slate-950">
+                            HỢP ĐỒNG CHO THUÊ PHÒNG TRỌ / CĂN HỘ
+                        </h3>
+                        <p class="text-xs sm:text-sm italic text-slate-600 mt-1 font-sans" id="vcContractCode">
+                            Mã HĐ: HD-202610-D5FB
+                        </p>
+                    </div>
+
+                    <!-- CĂN CỨ PHÁP LÝ -->
+                    <p class="italic text-xs sm:text-[13px] text-slate-600 mb-4 text-justify indent-6 leading-normal">
+                        - Căn cứ Bộ luật Dân sự số 91/2015/QH13 và Luật Nhà ở hiện hành;<br/>
+                        - Căn cứ vào thỏa thuận tự nguyện và trách nhiệm dân sự của hai bên tham gia ký kết.
+                    </p>
+                    <p class="mb-3 text-slate-800">Hôm nay, hai bên chúng tôi gồm có:</p>
+
+                    <!-- THÔNG TIN BÊN A (BÊN CHO THUÊ - CHỦ NHÀ) -->
+                    <div class="space-y-1.5 mb-4 pl-3 sm:pl-4 border-l-2 border-slate-300">
+                        <p class="font-bold uppercase text-slate-950 text-xs sm:text-sm">BÊN A (BÊN CHO THUÊ):</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-1 gap-x-4 text-xs sm:text-sm">
+                            <p>Họ và tên: <strong class="uppercase text-slate-950" id="vcPartyAName">{{ Auth::user()->account_name ?? Auth::user()->name ?? 'Nguyễn Văn Tuấn' }}</strong></p>
+                            <p>CCCD/CMND: <span class="font-semibold font-mono" id="vcPartyAIdCard">{{ Auth::user()->id_card ?? '001089012345' }}</span></p>
+                            <p>Số điện thoại: <span class="font-semibold font-mono" id="vcPartyAPhone">{{ Auth::user()->phone ?? '0988 777 666' }}</span></p>
+                            <p>Địa chỉ: <span id="vcPartyAAddress">{{ Auth::user()->address ?? 'Số 18 Trần Phú, Mộ Lao, Hà Đông, TP. Hà Nội' }}</span></p>
+                        </div>
+                    </div>
+
+                    <!-- THÔNG TIN BÊN B (BÊN THUÊ) -->
+                    <div class="space-y-1.5 mb-5 pl-3 sm:pl-4 border-l-2 border-slate-300">
+                        <p class="font-bold uppercase text-slate-950 text-xs sm:text-sm">BÊN B (BÊN THUÊ):</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-1 gap-x-4 text-xs sm:text-sm">
+                            <p>Họ và tên: <strong class="uppercase text-slate-950" id="vcTenant">--</strong></p>
+                            <p>CCCD/CMND: <span class="font-semibold font-mono" id="vcIdCard">--</span></p>
+                            <p>Số điện thoại: <span class="font-semibold font-mono text-slate-950" id="vcPhone">--</span></p>
+                            <p>Địa chỉ liên hệ: <span id="vcTenantAddress">Theo CCCD / Thông tin đăng ký thuê</span></p>
+                        </div>
+                    </div>
+
+                    <p class="italic mb-4 text-justify text-slate-700">Hai bên cùng thỏa thuận và thống nhất ký kết hợp đồng thuê phòng với các điều khoản sau:</p>
+
+                    <!-- NỘI DUNG CÁC ĐIỀU KHOẢN VĂN XUÔI -->
+                    <div class="space-y-4 text-justify leading-relaxed text-slate-900">
+                        
+                        <!-- ĐIỀU 1: THÔNG TIN PHÒNG THUÊ -->
+                        <div>
+                            <p class="font-bold text-slate-950">Điều 1. Thông tin phòng thuê</p>
+                            <p class="mt-1 indent-6">
+                                Bên A đồng ý cho Bên B thuê phòng số: 
+                                <strong class="underline decoration-dotted text-slate-950 font-bold" id="vcRoomName">--</strong> 
+                                (Mã phòng: <span id="vcRoomCode" class="font-bold">--</span>), 
+                                tại địa chỉ: <span id="vcAddress" class="font-semibold text-slate-950">Số 18 Trần Phú, Hà Đông, TP. Hà Nội</span>.
+                                Phòng được bàn giao với đầy đủ các trang thiết bị cơ bản và Bên B có trách nhiệm sử dụng đúng mục đích để ở.
+                            </p>
+                        </div>
+
+                        <!-- ĐIỀU 2: GIÁ CẢ VÀ THỜI HẠN -->
+                        <div>
+                            <p class="font-bold text-slate-950">Điều 2. Thời hạn thuê, giá cả và tiền đặt cọc</p>
+                            <ul class="list-disc pl-6 space-y-1 mt-1 text-slate-800">
+                                <li>
+                                    <strong>Thời hạn thuê:</strong> <span class="font-semibold" id="vcDuration">12 tháng</span>, 
+                                    từ ngày <span class="font-semibold" id="vcDates">--</span>.
+                                </li>
+                                <li>
+                                    <strong>Giá thuê phòng:</strong> 
+                                    <strong class="text-slate-950 font-bold" id="vcRentPrice">--</strong> 
+                                    (Giá thuê cố định, thanh toán theo chu kỳ thỏa thuận).
+                                </li>
+                                <li>
+                                    <strong>Tiền đặt cọc đảm bảo:</strong> 
+                                    <strong class="text-slate-950 font-bold" id="vcDeposit">--</strong>. 
+                                    Tiền cọc được Bên A bảo toàn và hoàn trả 100% cho Bên B khi kết thúc hợp đồng theo đúng cam kết sau khi trừ các khoản chi phí phát sinh hư hại (nếu có).
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- ĐIỀU 3: PHÍ DỊCH VỤ ĐI KÈM -->
+                        <div>
+                            <p class="font-bold text-slate-950">Điều 3. Phí dịch vụ đi kèm</p>
+                            <p class="mt-1 indent-6">
+                                Ngoài tiền thuê phòng cố định hàng tháng, Bên B có nghĩa vụ thanh toán đầy đủ các chi phí dịch vụ thực tế phát sinh định kỳ gồm:
+                            </p>
+                            <ul class="list-disc pl-6 space-y-1 mt-1 text-slate-800">
+                                <li>
+                                    <strong>Tiền điện tiêu thụ:</strong> 
+                                    <strong id="vcElecPrice" class="font-semibold text-slate-950">--</strong> 
+                                    (<span id="vcElecStart" class="text-slate-600 font-mono">Chỉ số ban đầu: 0 kWh</span>).
+                                </li>
+                                <li>
+                                    <strong id="vcWaterTypeLabel">Tiền nước sinh hoạt:</strong> 
+                                    <strong id="vcWaterPrice" class="font-semibold text-slate-950">--</strong> 
+                                    (<span id="vcWaterSubInfo" class="text-slate-600 font-mono">Chỉ số ban đầu: 0 m³</span>).
+                                </li>
+                                <li>
+                                    <strong>Phí Internet và Rác sinh hoạt:</strong> 
+                                    <strong id="vcInternetGarbagePrice" class="font-semibold text-slate-950">--</strong> 
+                                    (Internet/Wifi: <span id="vcInternetPrice">--</span>, Rác sinh hoạt: <span id="vcGarbagePrice">--</span>).
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- ĐIỀU 4: CAM KẾT THANH TOÁN -->
+                        <div>
+                            <p class="font-bold text-slate-950">Điều 4. Cam kết và quy định thanh toán</p>
+                            <ul class="list-disc pl-6 space-y-1 mt-1 text-slate-800">
+                                <li>
+                                    <strong>Chu kỳ thanh toán:</strong> 
+                                    Là <span class="font-semibold" id="vcPaymentCycle">1 tháng (Hàng tháng)</span>.
+                                </li>
+                                <li>
+                                    <strong>Ngày chốt tiền:</strong> 
+                                    Định kỳ vào ngày <strong id="vcBillDate" class="underline text-slate-950">Mùng 10 hàng tháng</strong>.
+                                </li>
+                                <li>
+                                    <strong>Quy định chậm thanh toán:</strong> 
+                                    Bên B cam kết thanh toán đúng hạn. Trường hợp chậm trễ, Bên B chấp thuận áp dụng mức 
+                                    <strong class="text-rose-700" id="vcPenaltyBadge">Phạt trễ hạn: 20.000 VNĐ / ngày</strong>.
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- ĐIỀU 5: CAM KẾT CHUNG -->
+                        <div>
+                            <p class="font-bold text-slate-950">Điều 5. Cam kết chung và hiệu lực hợp đồng</p>
+                            <p class="mt-1 indent-6">
+                                Hợp đồng này được xác lập có đầy đủ hiệu lực pháp lý theo tiêu chuẩn hệ thống RentHome. Hai bên cam kết thực hiện đúng và đầy đủ các điều khoản trên. Hợp đồng được lập thành 02 bản có giá trị pháp lý như nhau, mỗi bên giữ 01 bản để thi hành.
+                            </p>
+                        </div>
+
+                    </div>
+
+                    <!-- 3. HAI CỘT CHỮ KÝ ĐẠI DIỆN BÊN A VÀ BÊN B -->
+                    <div class="grid grid-cols-2 gap-8 text-center mt-12 pt-4 border-t border-slate-200">
+                        <div>
+                            <p class="font-bold uppercase text-xs sm:text-sm text-slate-950">
+                                ĐẠI DIỆN BÊN A
+                            </p>
+                            <p class="text-[11px] sm:text-xs italic text-slate-500">
+                                (Ký và ghi rõ họ tên)
+                            </p>
+                            <div class="h-20 sm:h-24 flex items-center justify-center">
+                                <span class="text-xs italic text-slate-400 font-sans border border-dashed border-slate-300 rounded px-3 py-1.5 select-none">[Chủ nhà đã phê duyệt]</span>
+                            </div>
+                            <p class="font-bold uppercase text-xs sm:text-sm text-slate-900 mt-1" id="vcSignPartyA">
+                                {{ Auth::user()->account_name ?? Auth::user()->name ?? 'Nguyễn Văn Tuấn' }}
+                            </p>
+                        </div>
+
+                        <div>
+                            <p class="font-bold uppercase text-xs sm:text-sm text-slate-950">
+                                ĐẠI DIỆN BÊN B
+                            </p>
+                            <p class="text-[11px] sm:text-xs italic text-slate-500">
+                                (Ký và ghi rõ họ tên)
+                            </p>
+                            <div class="h-20 sm:h-24 flex items-center justify-center">
+                                <span class="text-xs italic text-slate-400 font-sans border border-dashed border-slate-300 rounded px-3 py-1.5 select-none">[Chờ khách thuê ký]</span>
+                            </div>
+                            <p class="font-bold uppercase text-xs sm:text-sm text-slate-900 mt-1" id="vcSignPartyB">
+                                --
+                            </p>
+                        </div>
+                    </div>
+
+                </div>
+                <!-- END TỜ GIẤY A4 -->
+
+            </div>
+
+            <!-- ================================================================= -->
+            <!-- STICKY FOOTER CỐ ĐỊNH Ở DƯỚI CÙNG MODAL (NỀN TRẮNG ĐỒNG BỘ 100%) -->
+            <!-- ================================================================= -->
+            <div class="sticky bottom-0 z-20 bg-white px-5 sm:px-6 py-4 border-t border-slate-200 shadow-[0_-8px_25px_rgba(0,0,0,0.06)] flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0 print:hidden">
+                
+                <!-- Tổng thanh toán đợt đầu -->
+                <div class="text-left w-full sm:w-auto">
+                    <span class="text-xs text-slate-500 font-sans block">
+                        Tổng tiền tháng đầu + Cọc:
+                    </span>
+                    <strong class="text-xl sm:text-2xl font-black text-amber-600 font-sans tracking-tight" id="vcTotalInitialPay">
+                        30.000.000đ
+                    </strong>
                 </div>
 
-                <!-- ACTION BUTTONS TOOLBAR -->
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2">
-                    <a id="vcBtnLiquidate" href="{{ url('qlvan_hanh/thanh_ly_cong_no') }}" class="py-3 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all">
+                <!-- Nhóm nút bấm -->
+                <div class="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+                    <!-- Nút Thanh lý tiện ích -->
+                    <a id="vcBtnLiquidate" href="{{ url('qlvan_hanh/thanh_ly_cong_no') }}" class="px-3.5 py-2.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-sans text-xs font-bold transition flex items-center gap-1.5">
                         <i class="fa-solid fa-file-contract"></i>
-                        <span>Thanh Lý Hợp Đồng</span>
+                        <span>Thanh Lý HĐ</span>
                     </a>
 
-                    <button onclick="window.print()" class="py-3 px-3 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all">
-                        <i class="fa-solid fa-print"></i>
-                        <span>In Hợp Đồng PDF</span>
+                    <!-- Nút Từ Chối (Màu xám Outline) -->
+                    <button type="button" onclick="closeViewContractModal()" class="px-4 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-700 font-sans text-xs sm:text-sm font-semibold transition">
+                        Từ chối
                     </button>
 
-                    <button onclick="closeViewContractModal()" class="py-3 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-2 transition-all">
-                        <i class="fa-solid fa-xmark"></i>
-                        <span>Đóng Cửa Sổ</span>
+                    <!-- Nút Chính: Xác nhận ký & Thanh toán: [Tổng tiền tháng đầu + Cọc] (Màu cam nổi bật) -->
+                    <button type="button" id="vcBtnConfirmSign" onclick="confirmSignAndPayContract()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 active:scale-[0.98] text-white font-sans text-xs sm:text-sm font-bold shadow-lg shadow-orange-500/25 transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-signature"></i>
+                        <span id="vcBtnConfirmSignText">Xác nhận ký & Thanh toán: 30.000.000đ</span>
                     </button>
                 </div>
 
             </div>
+
         </div>
     </div>
 
@@ -1196,7 +1353,7 @@
             return new Intl.NumberFormat('vi-VN').format(num) + 'đ';
         }
 
-        // 6. XEM HỢP ĐỒNG CHI TIẾT
+        // 6. XEM HỢP ĐỒNG CHI TIẾT (TỜ GIẤY PHÁP LÝ A4)
         function openViewContractModal(data, contractCode, tenant, phone, price, deposit, startDate, endDate) {
             let info = {};
             if (typeof data === 'object' && data !== null) {
@@ -1214,33 +1371,54 @@
                 };
             }
 
+            // Tự động sinh ngày tháng năm pháp lý theo thời gian thực (Hà Nội, ngày ... tháng ... năm ...)
+            const now = new Date();
+            const dayStr = String(now.getDate()).padStart(2, '0');
+            const monthStr = String(now.getMonth() + 1).padStart(2, '0');
+            const yearStr = now.getFullYear();
+            if (document.getElementById('vcLegalAutoDate')) {
+                document.getElementById('vcLegalAutoDate').innerText = `Hà Nội, ngày ${dayStr} tháng ${monthStr} năm ${yearStr}`;
+            }
+
             // 1. Bên thuê & Phòng thuê
             const roomCode = info.room_code || '--';
-            document.getElementById('vcRoomCode').innerText = roomCode;
-            document.getElementById('vcContractCode').innerText = "Mã HĐ: " + (info.contract_code || roomCode || '--');
-            document.getElementById('vcTenant').innerText = info.tenant_name || '--';
-            document.getElementById('vcPhone').innerText = info.tenant_phone || '--';
+            const cCode = info.contract_code || roomCode || '--';
+            if (document.getElementById('vcRoomCode')) document.getElementById('vcRoomCode').innerText = roomCode;
+            if (document.getElementById('vcContractCode')) document.getElementById('vcContractCode').innerText = "Mã HĐ: " + cCode;
+            if (document.getElementById('vcContractCodeHeader')) document.getElementById('vcContractCodeHeader').innerText = "Mã HĐ: " + cCode;
+            if (document.getElementById('vcTenant')) document.getElementById('vcTenant').innerText = info.tenant_name || '--';
+            if (document.getElementById('vcPhone')) document.getElementById('vcPhone').innerText = info.tenant_phone || '--';
             if (document.getElementById('vcIdCard')) {
                 document.getElementById('vcIdCard').innerText = info.tenant_id_card || 'Chưa cập nhật';
             }
             if (document.getElementById('vcRoomName')) {
                 document.getElementById('vcRoomName').innerText = info.name || ('Phòng ' + roomCode);
             }
+            if (document.getElementById('vcTenantAddress')) {
+                document.getElementById('vcTenantAddress').innerText = info.tenant_address || 'Theo CCCD / Hồ sơ đăng ký thuê';
+            }
+            if (document.getElementById('vcAddress')) {
+                document.getElementById('vcAddress').innerText = info.address || 'Số 18 Trần Phú, Phường Mộ Lao, Quận Hà Đông, TP. Hà Nội';
+            }
 
-            // 2. Giá thuê & Tiền cọc
+            // 2. Giá thuê & Tiền cọc & Thời hạn
             let rentPriceStr = '--';
+            let rentPriceNum = 0;
             if (info.price !== undefined && info.price !== null) {
+                rentPriceNum = typeof info.price === 'number' ? info.price : (parseFloat(String(info.price).replace(/[^\d.]/g, '')) || 0);
                 rentPriceStr = typeof info.price === 'number' ? (formatContractVnd(info.price) + '/tháng') : (String(info.price).includes('/') ? info.price : info.price + '/tháng');
             }
             let depositStr = '--';
+            let depositNum = 0;
             if (info.deposit !== undefined && info.deposit !== null) {
+                depositNum = typeof info.deposit === 'number' ? info.deposit : (parseFloat(String(info.deposit).replace(/[^\d.]/g, '')) || 0);
                 depositStr = typeof info.deposit === 'number' ? formatContractVnd(info.deposit) : String(info.deposit);
             }
-            document.getElementById('vcRentPrice').innerText = rentPriceStr;
-            document.getElementById('vcDeposit').innerText = depositStr;
+            if (document.getElementById('vcRentPrice')) document.getElementById('vcRentPrice').innerText = rentPriceStr;
+            if (document.getElementById('vcDeposit')) document.getElementById('vcDeposit').innerText = depositStr;
 
             const datesText = (info.contract_start || '--') + ' - ' + (info.contract_end || '--');
-            document.getElementById('vcDates').innerText = datesText;
+            if (document.getElementById('vcDates')) document.getElementById('vcDates').innerText = datesText;
             if (document.getElementById('vcDuration')) {
                 document.getElementById('vcDuration').innerText = (info.duration_months || 12) + ' tháng';
             }
@@ -1259,7 +1437,7 @@
             const waterType = info.water_calculation_type || 'khoi';
             if (waterType === 'nguoi') {
                 if (document.getElementById('vcWaterTypeLabel')) {
-                    document.getElementById('vcWaterTypeLabel').innerText = 'Tiền Nước (Theo người):';
+                    document.getElementById('vcWaterTypeLabel').innerText = 'Tiền nước sinh hoạt (Theo người):';
                 }
                 const waterPersonVal = info.water_price_person && info.water_price_person > 0 ? (formatContractVnd(info.water_price_person) + '/người/tháng') : '100.000đ/người';
                 if (document.getElementById('vcWaterPrice')) {
@@ -1270,7 +1448,7 @@
                 }
             } else {
                 if (document.getElementById('vcWaterTypeLabel')) {
-                    document.getElementById('vcWaterTypeLabel').innerText = 'Tiền Nước (Theo khối):';
+                    document.getElementById('vcWaterTypeLabel').innerText = 'Tiền nước sinh hoạt (Theo khối):';
                 }
                 const waterBlockVal = info.water_price_block && info.water_price_block > 0 ? (formatContractVnd(info.water_price_block) + '/khối (m³)') : '25.000đ/khối';
                 if (document.getElementById('vcWaterPrice')) {
@@ -1281,7 +1459,7 @@
                 }
             }
 
-            // 4. Phí Dịch Vụ Cố Định & Chu Kỳ
+            // 4. Phí Dịch Vụ Cố Định (Internet + Rác) & Chu Kỳ
             const internetVal = info.internet_price && info.internet_price > 0 ? (formatContractVnd(info.internet_price) + '/tháng') : '100.000đ/tháng';
             const garbageVal = info.garbage_price && info.garbage_price > 0 ? (formatContractVnd(info.garbage_price) + '/tháng') : '30.000đ/tháng';
             if (document.getElementById('vcInternetPrice')) {
@@ -1289,6 +1467,10 @@
             }
             if (document.getElementById('vcGarbagePrice')) {
                 document.getElementById('vcGarbagePrice').innerText = garbageVal;
+            }
+            if (document.getElementById('vcInternetGarbagePrice')) {
+                const totalService = (parseFloat(String(info.internet_price || 0).replace(/[^\d.]/g, '')) || 0) + (parseFloat(String(info.garbage_price || 0).replace(/[^\d.]/g, '')) || 0);
+                document.getElementById('vcInternetGarbagePrice').innerText = totalService > 0 ? (formatContractVnd(totalService) + '/tháng') : (internetVal + ' + Rác: ' + garbageVal);
             }
 
             const billDateVal = info.bill_date ? `Mùng ${info.bill_date} hàng tháng` : (info.billing_date || 'Mùng 5 hàng tháng');
@@ -1302,6 +1484,21 @@
                 document.getElementById('vcPenaltyBadge').innerText = `Phạt trễ hạn: ${info.late_penalty_fee || '20.000 VNĐ / ngày'}`;
             }
 
+            // 5. Cột Chữ Ký Đại Diện Bên B
+            if (document.getElementById('vcSignPartyB')) {
+                document.getElementById('vcSignPartyB').innerText = info.tenant_name || 'Khách thuê';
+            }
+
+            // 6. Tính Tổng tiền thanh toán tháng đầu + Tiền cọc (Sticky Footer)
+            const totalFirstPayment = rentPriceNum + depositNum;
+            const totalFirstPaymentStr = formatContractVnd(totalFirstPayment);
+            if (document.getElementById('vcTotalInitialPay')) {
+                document.getElementById('vcTotalInitialPay').innerText = totalFirstPaymentStr;
+            }
+            if (document.getElementById('vcBtnConfirmSignText')) {
+                document.getElementById('vcBtnConfirmSignText').innerText = `Xác nhận ký & Thanh toán: ${totalFirstPaymentStr}`;
+            }
+
             // Link thanh lý hợp đồng
             const btnLiquidate = document.getElementById('vcBtnLiquidate');
             if (btnLiquidate) {
@@ -1313,6 +1510,20 @@
 
         function closeViewContractModal() {
             document.getElementById('viewContractModal').classList.add('hidden');
+        }
+
+        // Xử lý khi nhấn nút "Xác nhận ký & Thanh toán"
+        function confirmSignAndPayContract() {
+            const codeEl = document.getElementById('vcContractCode');
+            const code = codeEl ? codeEl.innerText : 'Hợp đồng';
+            const totalEl = document.getElementById('vcTotalInitialPay');
+            const total = totalEl ? totalEl.innerText : '0đ';
+            
+            showToast(`Đã xác nhận ký ${code} thành công!`);
+            setTimeout(() => {
+                alert(`Xác nhận ký ${code} thành công!\nTổng tiền đợt đầu: ${total}.\nĐang tiến hành lập phiếu thu và kích hoạt hiệu lực pháp lý.`);
+                closeViewContractModal();
+            }, 300);
         }
 
         // 7. FORM TẠO HỢP ĐỒNG MỚI & CẤU HÌNH PHÒNG
@@ -1404,10 +1615,200 @@
                         if (alertBanner) {
                             alertBanner.classList.remove('hidden');
                         }
+                        // Khi đến hạn đóng tiền, tự động hiện nút Chưa thu / Đã thu ra cho các phòng đến hạn
+                        if (data.due_rooms && Array.isArray(data.due_rooms)) {
+                            data.due_rooms.forEach(r => {
+                                const toggleGroup = document.getElementById(`payment-toggle-group-${r.contract_id}`);
+                                if (toggleGroup) {
+                                    toggleGroup.classList.remove('hidden');
+                                }
+                                const card = document.getElementById(`card-${r.room_code}`);
+                                if (card) {
+                                    card.setAttribute('data-status', 'unpaid');
+                                    card.classList.remove('paid', 'border', 'border-slate-200/90');
+                                    card.classList.add('unpaid', 'border-2', 'border-rose-200');
+                                }
+                                const badge = document.getElementById(`room-status-badge-${r.contract_id}`);
+                                if (badge) {
+                                    badge.innerHTML = '<span class="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 font-extrabold text-[11px] flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-600 inline-block"></span> CHƯA THU TIỀN</span>';
+                                }
+                                const dotContainer = document.getElementById(`room-status-dot-container-${r.contract_id}`);
+                                if (dotContainer) {
+                                    dotContainer.innerHTML = '<span class="room-status-dot-ping absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 border-2 border-white shadow-md animate-ping"></span><span class="room-status-dot absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 border-2 border-white shadow-md" title="Chưa thu tiền"></span>';
+                                }
+                            });
+                            recalculateHeaderCounts();
+                        }
                     }
                 }
             } catch (err) {
                 console.debug("Check realtime due silently:", err);
+            }
+        }
+
+        // CẬP NHẬT TRẠNG THÁI THU TIỀN TRỰC TIẾP TỪ BÊN NGOÀI DANH SÁCH PHÒNG
+        async function updateRoomPaymentStatus(contractId, roomCode, newStatus, btnElement) {
+            if (btnElement && btnElement.disabled) return;
+            if (btnElement) {
+                btnElement.disabled = true;
+                btnElement.style.opacity = '0.7';
+            }
+
+            const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
+
+            try {
+                const response = await fetch("{{ route('qlvan_hanh.update_payment_status') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': token,
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        contract_id: contractId,
+                        status: newStatus
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast(data.message || (newStatus === 'paid' ? 'Đã thu tiền thành công!' : 'Đã chuyển thành Chưa thu tiền!'));
+
+                    // 1. Cập nhật hiển thị/ẩn cụm nút trạng thái thu tiền: khi đã thu tiền thì ẩn đi, khi chưa thu tiền thì hiện ra
+                    const toggleGroup = document.getElementById(`payment-toggle-group-${contractId}`);
+                    if (toggleGroup) {
+                        if (newStatus === 'paid') {
+                            toggleGroup.classList.add('hidden');
+                        } else {
+                            toggleGroup.classList.remove('hidden');
+                        }
+                    }
+
+                    const btnUnpaid = document.getElementById(`btn-status-unpaid-${contractId}`);
+                    const btnPaid = document.getElementById(`btn-status-paid-${contractId}`);
+
+                    if (newStatus === 'paid') {
+                        if (btnPaid) {
+                            btnPaid.className = 'px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 bg-white text-emerald-700 shadow-sm border border-emerald-300 ring-2 ring-emerald-500/20 font-extrabold';
+                            btnPaid.innerHTML = '<span class="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200"></span><span>Đã Thu Tiền</span>';
+                        }
+                        if (btnUnpaid) {
+                            btnUnpaid.className = 'px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 text-slate-500 hover:text-rose-600 hover:bg-white/60';
+                            btnUnpaid.innerHTML = '<span class="w-2.5 h-2.5 rounded-full border-2 border-slate-400"></span><span>Chưa Thu Tiền</span>';
+                        }
+                    } else {
+                        if (btnUnpaid) {
+                            btnUnpaid.className = 'px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 bg-white text-rose-700 shadow-sm border border-rose-300 ring-2 ring-rose-500/20 font-extrabold';
+                            btnUnpaid.innerHTML = '<span class="w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-rose-200"></span><span>Chưa Thu Tiền</span>';
+                        }
+                        if (btnPaid) {
+                            btnPaid.className = 'px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 text-slate-500 hover:text-emerald-700 hover:bg-white/60';
+                            btnPaid.innerHTML = '<span class="w-2.5 h-2.5 rounded-full border-2 border-slate-400"></span><span>Đã Thu Tiền</span>';
+                        }
+                    }
+
+                    // 2. Cập nhật thẻ Card viền & data-status
+                    const card = document.getElementById(`card-${roomCode}`);
+                    if (card) {
+                        card.setAttribute('data-status', newStatus);
+                        if (newStatus === 'paid') {
+                            card.classList.remove('unpaid', 'border-2', 'border-rose-200');
+                            card.classList.add('paid', 'border', 'border-slate-200/90');
+                        } else {
+                            card.classList.remove('paid', 'border', 'border-slate-200/90');
+                            card.classList.add('unpaid', 'border-2', 'border-rose-200');
+                        }
+                    }
+
+                    // 3. Cập nhật avatar viền
+                    const imgWrapper = document.getElementById(`room-img-wrapper-${contractId}`);
+                    if (imgWrapper) {
+                        if (newStatus === 'paid') {
+                            imgWrapper.className = 'w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 shadow-sm shrink-0';
+                        } else {
+                            imgWrapper.className = 'w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border border-rose-300 ring-2 ring-rose-100 bg-slate-100 shadow-sm shrink-0';
+                        }
+                    }
+
+                    // 4. Cập nhật Chấm xanh / Chấm đỏ trên ảnh
+                    const dotContainer = document.getElementById(`room-status-dot-container-${contractId}`);
+                    if (dotContainer) {
+                        if (newStatus === 'paid') {
+                            dotContainer.innerHTML = '<span class="room-status-dot absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white shadow-md" title="Đã thu tiền"></span>';
+                        } else {
+                            dotContainer.innerHTML = '<span class="room-status-dot-ping absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 border-2 border-white shadow-md animate-ping"></span><span class="room-status-dot absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 border-2 border-white shadow-md" title="Chưa thu tiền"></span>';
+                        }
+                    }
+
+                    // 5. Cập nhật Badge Trạng thái
+                    const badgeContainer = document.getElementById(`room-status-badge-${contractId}`);
+                    if (badgeContainer) {
+                        if (newStatus === 'paid') {
+                            badgeContainer.innerHTML = '<span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-[11px] flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-600 inline-block"></span> ĐÃ THU TIỀN</span>';
+                        } else {
+                            badgeContainer.innerHTML = '<span class="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 font-extrabold text-[11px] flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-600 inline-block"></span> CHƯA THU TIỀN</span>';
+                        }
+                    }
+
+                    // 6. Cập nhật dòng chữ Kỳ nợ / Trạng thái
+                    const debtContainer = document.getElementById(`room-debt-status-${contractId}`);
+                    if (debtContainer) {
+                        if (newStatus === 'paid') {
+                            debtContainer.innerHTML = '<span>Trạng thái: <strong class="text-emerald-600 font-bold">Đã thu tiền</strong></span>';
+                        } else {
+                            debtContainer.innerHTML = '<span>Kỳ nợ: <strong class="text-rose-600 font-bold">Kỳ này (Chưa thu)</strong></span>';
+                        }
+                    }
+
+                    // 7. Cập nhật bộ đếm trên tiêu đề
+                    recalculateHeaderCounts();
+
+                } else {
+                    showToast(data.message || 'Có lỗi xảy ra, vui lòng thử lại!');
+                }
+            } catch (err) {
+                console.error('Update payment status error:', err);
+                showToast('Không thể kết nối đến máy chủ!');
+            } finally {
+                if (btnElement) {
+                    btnElement.disabled = false;
+                    btnElement.style.opacity = '1';
+                }
+            }
+        }
+
+        // Cập nhật số đếm thống kê trên Header và nút bộ lọc
+        function recalculateHeaderCounts() {
+            const cards = document.querySelectorAll('.room-card');
+            let paid = 0;
+            let unpaid = 0;
+            cards.forEach(c => {
+                if (c.getAttribute('data-status') === 'paid') paid++;
+                else if (c.getAttribute('data-status') === 'unpaid') unpaid++;
+            });
+
+            const statPaid = document.getElementById('statPaidCount');
+            const statUnpaid = document.getElementById('statUnpaidCount');
+            if (statPaid) statPaid.innerText = `${paid} Phòng`;
+            if (statUnpaid) statUnpaid.innerText = `${unpaid} Phòng`;
+
+            const filterPaidBtn = document.getElementById('filter-paid');
+            const filterUnpaidBtn = document.getElementById('filter-unpaid');
+            if (filterPaidBtn) {
+                filterPaidBtn.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block shadow-sm"></span><span>Đã thu tiền (${paid})</span>`;
+            }
+            if (filterUnpaidBtn) {
+                filterUnpaidBtn.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block shadow-sm"></span><span>Chưa thu tiền (${unpaid})</span>`;
+            }
+
+            const alertBanner = document.getElementById('realtimeDueAlertBanner');
+            if (alertBanner) {
+                if (unpaid === 0) {
+                    alertBanner.classList.add('hidden');
+                } else {
+                    alertBanner.classList.remove('hidden');
+                }
             }
         }
 

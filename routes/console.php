@@ -8,4 +8,5 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 \Illuminate\Support\Facades\Schedule::command('billing:check-due')->dailyAt('08:00');
+\Illuminate\Support\Facades\Schedule::command('billing:generate-monthly')->dailyAt('00:05');
 

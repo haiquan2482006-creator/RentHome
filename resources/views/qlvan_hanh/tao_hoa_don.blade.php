@@ -57,6 +57,17 @@
     </script>
 
     <style>
+        /* Ẩn hoàn toàn thanh trượt / nút mũi tên tăng giảm (spinner) của input type=number */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none !important;
+            margin: 0 !important;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield !important;
+            appearance: textfield !important;
+        }
+
         .glass-panel {
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(16px);
@@ -163,6 +174,9 @@
 
         <!-- FORM LAYOUT (LEFT: FORM INPUTS | RIGHT: REALTIME SUMMARY) -->
         <form id="invoiceForm" onsubmit="handleInvoiceSubmit(event)" class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <input type="hidden" name="_token" id="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" id="contract_id" name="contract_id" value="{{ $selectedData['contractId'] ?? '' }}">
+            <input type="hidden" id="contract_code" name="contract_code" value="{{ $selectedData['contractCode'] ?? '' }}">
             
             <!-- LEFT COLUMN: INPUT SECTIONS (8 COLS) -->
             <div class="lg:col-span-8 space-y-6">
@@ -181,7 +195,7 @@
                         </div>
 
                         <span class="px-3 py-1 rounded-full bg-slate-100 text-slate-700 font-extrabold text-xs border border-slate-200">
-                            Mã HĐ: <span id="display_contract_id" class="text-skybrand-600">HD-2026-302</span>
+                            Mã HĐ: <span id="display_contract_id" class="text-skybrand-600">{{ $selectedData['contractCode'] ?? 'Chưa chọn' }}</span>
                         </span>
                     </div>
 
@@ -192,11 +206,15 @@
                                 <i class="fa-solid fa-door-closed absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
                                 <select id="room_select" onchange="onRoomChange(this.value)"
                                         class="w-full pl-9 pr-8 py-2.5 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:ring-2 focus:ring-skybrand-500 focus:outline-none transition-all">
-                                    <option value="NH-302">Phòng Trọ Cao Cấp Nguyên Hồng – Phòng 302 (Mã: NH-302)</option>
-                                    <option value="VH-1208">Căn Hộ Vinhomes Central Park – Landmark 2 (Mã: VH-1208)</option>
-                                    <option value="MT-1504">Căn Hộ Masteri Thảo Điền – Tháp T3-1504 (Mã: MT-1504)</option>
-                                    <option value="KVC-201">Phòng Trọ Studio Kha Vạn Cân – Phòng 201 (Mã: KVC-201)</option>
-                                    <option value="NX-101">Nhà Nguyên Căn Nguyễn Xí – Số 48/15 (Mã: NX-101)</option>
+                                    @if(!empty($contracts) && count($contracts) > 0)
+                                        @foreach($contracts as $c)
+                                            <option value="{{ $c->code }}" {{ ($selectedKey ?? '') === $c->code ? 'selected' : '' }}>
+                                                {{ $c->title }}
+                                            </option>
+                                        @endforeach
+                                    @else
+                                        <option value="">Chưa có hợp đồng nào đang hoạt động</option>
+                                    @endif
                                 </select>
                             </div>
                         </div>
@@ -205,7 +223,7 @@
                             <label class="font-bold text-slate-700 block mb-1">Tên khách thuê đại diện (*):</label>
                             <div class="relative">
                                 <i class="fa-solid fa-user absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                                <input type="text" id="tenant_name" readonly value="Nguyễn Văn An (SĐT: 0912 345 678)" 
+                                <input type="text" id="tenant_name" readonly value="{{ $selectedData['tenantName'] ?? '' }}" 
                                        class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-100/80 font-bold text-slate-800 focus:outline-none">
                             </div>
                         </div>
@@ -214,7 +232,7 @@
                             <label class="font-bold text-slate-700 block mb-1">Kỳ hóa đơn / Tháng tính tiền (*):</label>
                             <div class="relative">
                                 <i class="fa-solid fa-calendar-days absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                                <input type="text" id="billing_period" value="Tháng 10/2026" oninput="calculateInvoice()"
+                                <input type="text" id="billing_period" value="{{ $selectedData['billingPeriod'] ?? ('Tháng ' . date('m/Y')) }}" oninput="calculateInvoice()"
                                        class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:ring-2 focus:ring-skybrand-500 focus:outline-none">
                             </div>
                         </div>
@@ -223,7 +241,7 @@
                             <label class="font-bold text-slate-700 block mb-1">Hạn thanh toán hóa đơn (*):</label>
                             <div class="relative">
                                 <i class="fa-solid fa-clock absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                                <input type="date" id="due_date" value="2026-10-05" 
+                                <input type="date" id="due_date" value="{{ $selectedData['dueDate'] ?? date('Y-m-05') }}" 
                                        class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:ring-2 focus:ring-skybrand-500 focus:outline-none">
                             </div>
                         </div>
@@ -261,20 +279,29 @@
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                             <div>
                                 <label class="font-bold text-slate-600 block mb-1">Giá thuê (VNĐ/tháng):</label>
-                                <input type="number" id="room_rent_price" value="3500000" oninput="calculateInvoice()" 
-                                       class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                                <div class="relative">
+                                    <input type="number" id="room_rent_price" value="{{ $selectedData['rent'] ?? 0 }}" oninput="calculateInvoice()" 
+                                           class="w-full pl-3 pr-12 py-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 pointer-events-none">VNĐ</span>
+                                </div>
+                                <span id="room_rent_price_text" class="text-[11px] font-bold text-brand-600 mt-1 block">
+                                    {{ number_format($selectedData['rent'] ?? 0) }} VNĐ
+                                </span>
                             </div>
 
                             <div id="days_container" class="opacity-50 pointer-events-none">
                                 <label class="font-bold text-slate-600 block mb-1">Số ngày ở trong tháng:</label>
-                                <input type="number" id="days_stayed" value="30" oninput="calculateInvoice()" min="1" max="31"
-                                       class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                                <div class="relative">
+                                    <input type="number" id="days_stayed" value="30" oninput="calculateInvoice()" min="1" max="31"
+                                           class="w-full pl-3 pr-14 py-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 pointer-events-none">ngày</span>
+                                </div>
                             </div>
 
                             <div>
                                 <label class="font-bold text-slate-600 block mb-1">Thành tiền phòng:</label>
                                 <div class="px-3 py-2 rounded-xl bg-brand-50 border border-brand-200 font-extrabold text-brand-700 text-right text-sm" id="room_rent_total_display">
-                                    3,500,000 VNĐ
+                                    {{ number_format($selectedData['rent'] ?? 0) }} VNĐ
                                 </div>
                             </div>
                         </div>
@@ -287,33 +314,45 @@
                                 <i class="fa-solid fa-bolt text-amber-500"></i> B. Tiền Điện Hàng Tháng (Chốt Chỉ Số Cũ & Mới)
                             </h3>
                             <span class="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[11px] font-bold" id="elec_usage_badge">
-                                Tiêu thụ: 80 kWh
+                                Tiêu thụ: 0 kWh
                             </span>
                         </div>
 
                         <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
                             <div>
                                 <label class="font-bold text-slate-600 block mb-1">Chỉ số điện CŨ (kWh):</label>
-                                <input type="number" id="elec_old" value="1420" oninput="calculateInvoice()" 
-                                       class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                                <div class="relative">
+                                    <input type="number" id="elec_old" value="{{ $selectedData['elecOld'] ?? 0 }}" oninput="calculateInvoice()" 
+                                           class="w-full pl-3 pr-12 py-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 pointer-events-none">kWh</span>
+                                </div>
                             </div>
 
                             <div>
                                 <label class="font-bold text-slate-600 block mb-1">Chỉ số điện MỚI (kWh):</label>
-                                <input type="number" id="elec_new" value="1500" oninput="calculateInvoice()" 
-                                       class="w-full px-3 py-2 rounded-xl border border-amber-300 bg-amber-50/50 font-extrabold text-amber-900 focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                                <div class="relative">
+                                    <input type="number" id="elec_new" value="{{ $selectedData['elecNew'] ?? 0 }}" oninput="calculateInvoice()" 
+                                           class="w-full pl-3 pr-12 py-2 rounded-xl border border-amber-300 bg-amber-50/50 font-extrabold text-amber-900 focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-amber-600 pointer-events-none">kWh</span>
+                                </div>
                             </div>
 
                             <div>
                                 <label class="font-bold text-slate-600 block mb-1">Đơn giá (VNĐ/kWh):</label>
-                                <input type="number" id="elec_rate" value="3500" oninput="calculateInvoice()" 
-                                       class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                                <div class="relative">
+                                    <input type="number" id="elec_rate" value="{{ $selectedData['elecRate'] ?? 3500 }}" oninput="calculateInvoice()" 
+                                           class="w-full pl-3 pr-14 py-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 pointer-events-none">đ/kWh</span>
+                                </div>
+                                <span id="elec_rate_text" class="text-[11px] font-bold text-amber-700 mt-1 block">
+                                    {{ number_format($selectedData['elecRate'] ?? 3500) }} VNĐ / kWh
+                                </span>
                             </div>
 
                             <div>
                                 <label class="font-bold text-slate-600 block mb-1">Thành tiền điện:</label>
                                 <div class="px-3 py-2 rounded-xl bg-amber-100/80 border border-amber-200 font-extrabold text-amber-800 text-right text-sm" id="elec_total_display">
-                                    280,000 VNĐ
+                                    0 VNĐ
                                 </div>
                             </div>
                         </div>
@@ -326,33 +365,45 @@
                                 <i class="fa-solid fa-droplet text-skybrand-500"></i> C. Tiền Nước Hàng Tháng (Chốt Chỉ Số Cũ & Mới)
                             </h3>
                             <span class="px-2.5 py-0.5 rounded-full bg-skybrand-100 text-skybrand-800 text-[11px] font-bold" id="water_usage_badge">
-                                Tiêu thụ: 10 m³
+                                Tiêu thụ: 0 m³
                             </span>
                         </div>
 
                         <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
                             <div>
                                 <label class="font-bold text-slate-600 block mb-1">Chỉ số nước CŨ (m³):</label>
-                                <input type="number" id="water_old" value="45" oninput="calculateInvoice()" 
-                                       class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:ring-2 focus:ring-skybrand-500 focus:outline-none">
+                                <div class="relative">
+                                    <input type="number" id="water_old" value="{{ $selectedData['waterOld'] ?? 0 }}" oninput="calculateInvoice()" 
+                                           class="w-full pl-3 pr-10 py-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:ring-2 focus:ring-skybrand-500 focus:outline-none">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 pointer-events-none">m³</span>
+                                </div>
                             </div>
 
                             <div>
                                 <label class="font-bold text-slate-600 block mb-1">Chỉ số nước MỚI (m³):</label>
-                                <input type="number" id="water_new" value="55" oninput="calculateInvoice()" 
-                                       class="w-full px-3 py-2 rounded-xl border border-skybrand-300 bg-skybrand-50/50 font-extrabold text-skybrand-900 focus:ring-2 focus:ring-skybrand-500 focus:outline-none">
+                                <div class="relative">
+                                    <input type="number" id="water_new" value="{{ $selectedData['waterNew'] ?? 0 }}" oninput="calculateInvoice()" 
+                                           class="w-full pl-3 pr-10 py-2 rounded-xl border border-skybrand-300 bg-skybrand-50/50 font-extrabold text-skybrand-900 focus:ring-2 focus:ring-skybrand-500 focus:outline-none">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-skybrand-600 pointer-events-none">m³</span>
+                                </div>
                             </div>
 
                             <div>
                                 <label class="font-bold text-slate-600 block mb-1">Đơn giá (VNĐ/m³):</label>
-                                <input type="number" id="water_rate" value="15000" oninput="calculateInvoice()" 
-                                       class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:ring-2 focus:ring-skybrand-500 focus:outline-none">
+                                <div class="relative">
+                                    <input type="number" id="water_rate" value="{{ $selectedData['waterRate'] ?? 15000 }}" oninput="calculateInvoice()" 
+                                           class="w-full pl-3 pr-12 py-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:ring-2 focus:ring-skybrand-500 focus:outline-none">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 pointer-events-none">đ/m³</span>
+                                </div>
+                                <span id="water_rate_text" class="text-[11px] font-bold text-skybrand-700 mt-1 block">
+                                    {{ number_format($selectedData['waterRate'] ?? 15000) }} VNĐ / m³
+                                </span>
                             </div>
 
                             <div>
                                 <label class="font-bold text-slate-600 block mb-1">Thành tiền nước:</label>
                                 <div class="px-3 py-2 rounded-xl bg-skybrand-100/80 border border-skybrand-200 font-extrabold text-skybrand-800 text-right text-sm" id="water_total_display">
-                                    150,000 VNĐ
+                                    0 VNĐ
                                 </div>
                             </div>
                         </div>
@@ -367,26 +418,50 @@
                         <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
                             <div>
                                 <label class="font-bold text-slate-600 block mb-1">Internet / Wifi (VNĐ):</label>
-                                <input type="number" id="fee_wifi" value="100000" oninput="calculateInvoice()" 
-                                       class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                                <div class="relative">
+                                    <input type="number" id="fee_wifi" value="{{ $selectedData['wifi'] ?? 0 }}" oninput="calculateInvoice()" 
+                                           class="w-full pl-3 pr-12 py-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 pointer-events-none">VNĐ</span>
+                                </div>
+                                <span id="fee_wifi_text" class="text-[11px] font-bold text-indigo-600 mt-1 block">
+                                    {{ number_format($selectedData['wifi'] ?? 0) }} VNĐ
+                                </span>
                             </div>
 
                             <div>
                                 <label class="font-bold text-slate-600 block mb-1">Vệ sinh / Rác (VNĐ):</label>
-                                <input type="number" id="fee_garbage" value="50000" oninput="calculateInvoice()" 
-                                       class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                                <div class="relative">
+                                    <input type="number" id="fee_garbage" value="{{ $selectedData['garbage'] ?? 0 }}" oninput="calculateInvoice()" 
+                                           class="w-full pl-3 pr-12 py-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 pointer-events-none">VNĐ</span>
+                                </div>
+                                <span id="fee_garbage_text" class="text-[11px] font-bold text-indigo-600 mt-1 block">
+                                    {{ number_format($selectedData['garbage'] ?? 0) }} VNĐ
+                                </span>
                             </div>
 
                             <div>
                                 <label class="font-bold text-slate-600 block mb-1">Phí giữ xe / Khác (VNĐ):</label>
-                                <input type="number" id="fee_parking" value="100000" oninput="calculateInvoice()" 
-                                       class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                                <div class="relative">
+                                    <input type="number" id="fee_parking" value="{{ $selectedData['parking'] ?? 0 }}" oninput="calculateInvoice()" 
+                                           class="w-full pl-3 pr-12 py-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 pointer-events-none">VNĐ</span>
+                                </div>
+                                <span id="fee_parking_text" class="text-[11px] font-bold text-indigo-600 mt-1 block">
+                                    {{ number_format($selectedData['parking'] ?? 0) }} VNĐ
+                                </span>
                             </div>
 
                             <div>
                                 <label class="font-bold text-slate-600 block mb-1">Khấu trừ / Giảm giá (VNĐ):</label>
-                                <input type="number" id="discount_amount" value="0" oninput="calculateInvoice()" placeholder="VD: 50000"
-                                       class="w-full px-3 py-2 rounded-xl border border-emerald-300 bg-emerald-50/50 font-bold text-emerald-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                                <div class="relative">
+                                    <input type="number" id="discount_amount" value="0" oninput="calculateInvoice()" placeholder="VD: 50000"
+                                           class="w-full pl-3 pr-12 py-2 rounded-xl border border-emerald-300 bg-emerald-50/50 font-bold text-emerald-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-emerald-600 pointer-events-none">VNĐ</span>
+                                </div>
+                                <span id="discount_amount_text" class="text-[11px] font-bold text-emerald-600 mt-1 block">
+                                    0 VNĐ
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -409,22 +484,25 @@
                         <div class="space-y-3 text-xs">
                             <div>
                                 <label class="font-bold text-slate-700 block mb-1">Ngân hàng thụ hưởng:</label>
-                                <input type="text" value="MB Bank (Ngân Hàng Quân Đội)" readonly class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-100 font-bold text-slate-800">
+                                <input type="text" id="bank_name" value="{{ $selectedData['bankName'] ?? 'VietBank' }}" readonly class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-100 font-bold text-slate-800">
                             </div>
                             <div>
                                 <label class="font-bold text-slate-700 block mb-1">Số tài khoản & Chủ tài khoản:</label>
-                                <input type="text" value="9999 8888 999 - NGUYEN VAN CHU NHA" readonly class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-100 font-bold text-slate-800">
+                                <input type="text" id="bank_account_info" value="{{ ($selectedData['bankAccount'] ?? '00939399884747') . ' - ' . ($selectedData['bankHolder'] ?? 'NGUYEN THI VAN ANH') }}" readonly class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-100 font-bold text-slate-800">
                             </div>
                             <div>
                                 <label class="font-bold text-slate-700 block mb-1">Nội dung chuyển khoản mặc định:</label>
-                                <input type="text" id="transfer_memo" value="NH302 THANG 10/2026" readonly class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-100 font-bold text-skybrand-700">
+                                <input type="text" id="transfer_memo" value="{{ $selectedData['memo'] ?? '' }}" readonly class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-100 font-bold text-skybrand-700">
                             </div>
                         </div>
 
                         <!-- LIVE QR CODE PREVIEW -->
                         <div class="bg-slate-50 rounded-2xl border border-slate-200 p-4 flex flex-col items-center justify-center text-center space-y-2">
                             <div class="w-32 h-32 bg-white p-2 rounded-xl border border-slate-200 shadow-sm flex items-center justify-center relative group">
-                                <img id="qr_code_img" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=RentHome_Invoice_NH302_4180000" alt="VietQR Code" class="w-full h-full object-contain">
+                                <img id="qr_code_img" 
+                                     src="https://img.vietqr.io/image/vietbank-{{ $selectedData['bankAccount'] ?? '00939399884747' }}-compact2.png?amount={{ $selectedData['rent'] ?? 0 }}&addInfo={{ urlencode($selectedData['memo'] ?? '') }}&accountName={{ urlencode($selectedData['bankHolder'] ?? 'NGUYEN THI VAN ANH') }}" 
+                                     onerror="this.src='https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + encodeURIComponent('{{ $selectedData['memo'] ?? '' }}')" 
+                                     alt="VietQR Code" class="w-full h-full object-contain">
                             </div>
                             <span class="text-[11px] font-bold text-slate-600 flex items-center gap-1">
                                 <i class="fa-solid fa-shield-halved text-emerald-500"></i> Quét mã VietQR chuyển khoản tự động
@@ -476,20 +554,8 @@
                         </div>
                     </div>
 
-                    <!-- CHỌN TRẠNG THÁI HÓA ĐƠN -->
-                    <div class="space-y-2">
-                        <label class="font-bold text-slate-700 text-xs block">Trạng thái thu tiền (*):</label>
-                        <div class="grid grid-cols-2 gap-2 text-xs font-bold">
-                            <label class="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-rose-200 bg-rose-50/50 text-rose-700 cursor-pointer has-[:checked]:ring-2 has-[:checked]:ring-rose-500">
-                                <input type="radio" name="payment_status" value="unpaid" checked onchange="updateStatusTheme('unpaid')" class="text-rose-600 focus:ring-rose-500">
-                                <span>Chưa Thu Tiền</span>
-                            </label>
-                            <label class="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-emerald-200 bg-emerald-50/50 text-emerald-700 cursor-pointer has-[:checked]:ring-2 has-[:checked]:ring-emerald-500">
-                                <input type="radio" name="payment_status" value="paid" onchange="updateStatusTheme('paid')" class="text-emerald-600 focus:ring-emerald-500">
-                                <span>Đã Thu Tiền</span>
-                            </label>
-                        </div>
-                    </div>
+                    <!-- TRẠNG THÁI HÓA ĐƠN: Mặc định Chưa thu tiền khi phát hành mới (Nút chuyển trạng thái thu tiền đã chuyển ra danh sách phòng) -->
+                    <input type="hidden" name="payment_status" id="payment_status_input" value="unpaid">
 
                     <!-- KẾT QUẢ TỔNG TIỀN -->
                     <div id="grandTotalBox" class="p-5 rounded-2xl bg-rose-50 border border-rose-200 text-center space-y-1 transition-all">
@@ -601,118 +667,86 @@
 
     <!-- JAVASCRIPT LOGIC -->
     <script>
-        // DATA DICTIONARY FOR ROOMS
-        const roomData = {
-            'NH-302': {
-                contractId: 'HD-2026-302',
-                roomName: 'Phòng Trọ Cao Cấp Nguyên Hồng (Phòng 302 - Tòa A)',
-                tenantName: 'Nguyễn Văn An (SĐT: 0912 345 678)',
-                rent: 3500000,
-                elecOld: 1420,
-                elecNew: 1500,
-                elecRate: 3500,
-                waterOld: 45,
-                waterNew: 55,
-                waterRate: 15000,
-                wifi: 100000,
-                garbage: 50000,
-                parking: 100000,
-                memo: 'NH302 THANG 10/2026'
-            },
-            'VH-1208': {
-                contractId: 'HD-2026-VH',
-                roomName: 'Căn Hộ Vinhomes Central Park – Landmark 2 (Căn 12.08)',
-                tenantName: 'Trần Thị Minh (SĐT: 0908 777 666)',
-                rent: 7500000,
-                elecOld: 2130,
-                elecNew: 2250,
-                elecRate: 3500,
-                waterOld: 100,
-                waterNew: 115,
-                waterRate: 18000,
-                wifi: 150000,
-                garbage: 50000,
-                parking: 150000,
-                memo: 'VH1208 THANG 10/2026'
-            },
-            'MT-1504': {
-                contractId: 'HD-2026-MT',
-                roomName: 'Căn Hộ Masteri Thảo Điền – Tháp T3-1504',
-                tenantName: 'Lê Hoàng Nam (SĐT: 0938 111 222)',
-                rent: 10500000,
-                elecOld: 1780,
-                elecNew: 1920,
-                elecRate: 3500,
-                waterOld: 80,
-                waterNew: 92,
-                waterRate: 18000,
-                wifi: 150000,
-                garbage: 50000,
-                parking: 200000,
-                memo: 'MT1504 THANG 10/2026'
-            },
-            'KVC-201': {
-                contractId: 'HD-2026-KVC',
-                roomName: 'Phòng Trọ Studio Kha Vạn Cân – Phòng 201',
-                tenantName: 'Phạm Văn Hải (SĐT: 0977 444 333)',
-                rent: 4200000,
-                elecOld: 950,
-                elecNew: 1020,
-                elecRate: 3500,
-                waterOld: 35,
-                waterNew: 42,
-                waterRate: 15000,
-                wifi: 100000,
-                garbage: 50000,
-                parking: 100000,
-                memo: 'KVC201 THANG 10/2026'
-            },
-            'NX-101': {
-                contractId: 'HD-2026-NX',
-                roomName: 'Nhà Nguyên Căn Nguyễn Xí – Số 48/15 Nguyễn Xí',
-                tenantName: 'Vũ Thị Lan (SĐT: 0903 888 999)',
-                rent: 12000000,
-                elecOld: 3100,
-                elecNew: 3280,
-                elecRate: 3500,
-                waterOld: 150,
-                waterNew: 175,
-                waterRate: 18000,
-                wifi: 200000,
-                garbage: 50000,
-                parking: 0,
-                memo: 'NX101 THANG 10/2026'
-            }
-        };
+        // DATA DICTIONARY CHO CÁC PHÒNG TỪ DỮ LIỆU THỰC TẾ
+        const roomData = @json($roomsDataMap ?? []);
 
-        // HELPER FORMAT CURRENCY
+        // HELPER FORMAT TIỀN TỆ VNĐ
         function formatVND(amount) {
             return new Intl.NumberFormat('vi-VN').format(amount) + ' VNĐ';
         }
 
-        // ROOM SWITCH HANDLER
+        // XỬ LÝ KHI CHỌN PHÒNG KHÁC TRONG DROPDOWN
         function onRoomChange(roomCode) {
-            const data = roomData[roomCode];
+            if (!roomCode) return;
+            let data = roomData[roomCode];
+            if (!data) {
+                const norm = roomCode.replace(/\s+/g, '-');
+                data = roomData[norm];
+            }
             if (!data) return;
 
-            document.getElementById('display_contract_id').innerText = data.contractId;
-            document.getElementById('tenant_name').value = data.tenantName;
-            document.getElementById('room_rent_price').value = data.rent;
-            document.getElementById('elec_old').value = data.elecOld;
-            document.getElementById('elec_new').value = data.elecNew;
-            document.getElementById('elec_rate').value = data.elecRate;
-            document.getElementById('water_old').value = data.waterOld;
-            document.getElementById('water_new').value = data.waterNew;
-            document.getElementById('water_rate').value = data.waterRate;
-            document.getElementById('fee_wifi').value = data.wifi;
-            document.getElementById('fee_garbage').value = data.garbage;
-            document.getElementById('fee_parking').value = data.parking;
-            document.getElementById('transfer_memo').value = data.memo;
+            if (document.getElementById('contract_id')) {
+                document.getElementById('contract_id').value = data.contractId || '';
+            }
+            if (document.getElementById('contract_code')) {
+                document.getElementById('contract_code').value = data.contractCode || '';
+            }
+            if (document.getElementById('display_contract_id')) {
+                document.getElementById('display_contract_id').innerText = data.contractCode || '';
+            }
+            if (document.getElementById('tenant_name')) {
+                document.getElementById('tenant_name').value = data.tenantName || '';
+            }
+            if (document.getElementById('room_rent_price')) {
+                document.getElementById('room_rent_price').value = data.rent || 0;
+            }
+            if (document.getElementById('elec_old')) {
+                document.getElementById('elec_old').value = data.elecOld || 0;
+            }
+            if (document.getElementById('elec_new')) {
+                document.getElementById('elec_new').value = data.elecNew || 0;
+            }
+            if (document.getElementById('elec_rate')) {
+                document.getElementById('elec_rate').value = data.elecRate || 3500;
+            }
+            if (document.getElementById('water_old')) {
+                document.getElementById('water_old').value = data.waterOld || 0;
+            }
+            if (document.getElementById('water_new')) {
+                document.getElementById('water_new').value = data.waterNew || 0;
+            }
+            if (document.getElementById('water_rate')) {
+                document.getElementById('water_rate').value = data.waterRate || 15000;
+            }
+            if (document.getElementById('fee_wifi')) {
+                document.getElementById('fee_wifi').value = data.wifi || 0;
+            }
+            if (document.getElementById('fee_garbage')) {
+                document.getElementById('fee_garbage').value = data.garbage || 0;
+            }
+            if (document.getElementById('fee_parking')) {
+                document.getElementById('fee_parking').value = data.parking || 0;
+            }
+            if (document.getElementById('bank_name') && data.bankName) {
+                document.getElementById('bank_name').value = data.bankName;
+            }
+            if (document.getElementById('bank_account_info')) {
+                document.getElementById('bank_account_info').value = (data.bankAccount || '') + ' - ' + (data.bankHolder || '');
+            }
+            if (document.getElementById('transfer_memo') && data.memo) {
+                document.getElementById('transfer_memo').value = data.memo;
+            }
+            if (document.getElementById('billing_period') && data.billingPeriod) {
+                document.getElementById('billing_period').value = data.billingPeriod;
+            }
+            if (document.getElementById('due_date') && data.dueDate) {
+                document.getElementById('due_date').value = data.dueDate;
+            }
 
             calculateInvoice();
         }
 
-        // FULL MONTH CHECKBOX TOGGLE
+        // BẬT / TẮT TÍNH TRỌN 1 THÁNG
         function toggleFullMonth(isFull) {
             const container = document.getElementById('days_container');
             if (isFull) {
@@ -724,7 +758,7 @@
             calculateInvoice();
         }
 
-        // REAL-TIME INVOICE CALCULATION ENGINE
+        // TÍNH TOÁN REAL-TIME CHI TIẾT TỪNG KHOẢN
         function calculateInvoice() {
             // 1. Tiền phòng
             const isFullMonth = document.getElementById('full_month_check').checked;
@@ -775,13 +809,64 @@
 
             document.getElementById('grandTotalAmount').innerText = formattedGrandTotal;
 
-            // Update QR code data
-            const roomCode = document.getElementById('room_select').value;
-            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=RentHome_${roomCode}_${grandTotal}`;
-            document.getElementById('qr_code_img').src = qrUrl;
+            const period = document.getElementById('billing_period').value;
+            if (document.getElementById('grandTotalDesc')) {
+                document.getElementById('grandTotalDesc').innerText = `Tổng tiền hóa đơn ${period} gửi người thuê.`;
+            }
+
+            // Cập nhật text mệnh giá hiển thị bên dưới các ô nhập tiền
+            if (document.getElementById('room_rent_price_text')) {
+                document.getElementById('room_rent_price_text').innerText = formatVND(rentPrice);
+            }
+            if (document.getElementById('elec_rate_text')) {
+                document.getElementById('elec_rate_text').innerText = formatVND(elecRate) + ' / kWh';
+            }
+            if (document.getElementById('water_rate_text')) {
+                document.getElementById('water_rate_text').innerText = formatVND(waterRate) + ' / m³';
+            }
+            if (document.getElementById('fee_wifi_text')) {
+                document.getElementById('fee_wifi_text').innerText = formatVND(wifi);
+            }
+            if (document.getElementById('fee_garbage_text')) {
+                document.getElementById('fee_garbage_text').innerText = formatVND(garbage);
+            }
+            if (document.getElementById('fee_parking_text')) {
+                document.getElementById('fee_parking_text').innerText = formatVND(parking);
+            }
+            if (document.getElementById('discount_amount_text')) {
+                document.getElementById('discount_amount_text').innerText = formatVND(discount);
+            }
+
+            // Cập nhật mã VietQR Preview động
+            const memo = document.getElementById('transfer_memo') ? document.getElementById('transfer_memo').value : '';
+            const roomCode = document.getElementById('room_select') ? document.getElementById('room_select').value : '';
+            const curData = roomData[roomCode] || {};
+            const curBankAcc = curData.bankAccount || '00939399884747';
+            const curBankHolder = curData.bankHolder || 'NGUYEN THI VAN ANH';
+            const qrUrl = `https://img.vietqr.io/image/vietbank-${curBankAcc}-compact2.png?amount=${grandTotal}&addInfo=${encodeURIComponent(memo)}&accountName=${encodeURIComponent(curBankHolder)}`;
+            const qrImg = document.getElementById('qr_code_img');
+            if (qrImg) {
+                qrImg.src = qrUrl;
+                qrImg.onerror = function() {
+                    this.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(memo + ' ' + grandTotal)}`;
+                };
+            }
+
+            return {
+                roomTotal,
+                elecOld,
+                elecNew,
+                elecTotal,
+                waterOld,
+                waterNew,
+                waterTotal,
+                serviceTotal,
+                discount,
+                grandTotal
+            };
         }
 
-        // THEME SWITCH BASED ON PAYMENT STATUS
+        // ĐỔI MÀU THEME KHI CHỌN ĐÃ THU HOẶC CHƯA THU
         function updateStatusTheme(status) {
             const box = document.getElementById('grandTotalBox');
             const label = document.getElementById('grandTotalLabel');
@@ -798,16 +883,17 @@
             }
         }
 
-        // FORM SUBMIT HANDLER
+        // XỬ LÝ SUBMIT TẠO HÓA ĐƠN THẬT VÀO DATABASE
         function handleInvoiceSubmit(e) {
             e.preventDefault();
 
-            const roomCode = document.getElementById('room_select').value;
-            const selectedOptText = document.getElementById('room_select').options[document.getElementById('room_select').selectedIndex].text;
+            const calc = calculateInvoice();
+            const selectedOpt = document.getElementById('room_select');
+            const selectedOptText = selectedOpt.options[selectedOpt.selectedIndex] ? selectedOpt.options[selectedOpt.selectedIndex].text : '';
             const tenant = document.getElementById('tenant_name').value.split('(')[0].trim();
             const period = document.getElementById('billing_period').value;
             const total = document.getElementById('grandTotalAmount').innerText;
-            const statusVal = document.querySelector('input[name="payment_status"]:checked').value;
+            const statusVal = document.getElementById('payment_status_input')?.value || 'unpaid';
 
             // Fill Modal
             document.getElementById('modal_room_title').innerText = selectedOptText;
@@ -824,26 +910,63 @@
                 modalBadge.innerText = 'Chưa Thu Tiền';
             }
 
-            // Show Top Banner notification
-            const bannerContainer = document.getElementById('savedBannerContainer');
-            bannerContainer.innerHTML = `
-                <div class="p-4 rounded-2xl bg-emerald-500 text-white border border-emerald-600 shadow-lg flex items-center justify-between gap-4 animate-in fade-in slide-in-from-top duration-300">
-                    <div class="flex items-center gap-3">
-                        <i class="fa-solid fa-circle-check text-2xl"></i>
-                        <div>
-                            <strong class="font-extrabold block text-sm">Đã lưu & phát hành hóa đơn thành công!</strong>
-                            <span class="text-xs text-emerald-100">Hóa đơn kỳ ${period} của ${tenant} đã sẵn sàng để gửi khách.</span>
-                        </div>
-                    </div>
-                    <button onclick="this.parentElement.remove()" class="text-emerald-100 hover:text-white font-bold text-sm px-2">✕</button>
-                </div>
-            `;
+            // Chuẩn bị dữ liệu gửi POST lên backend lưu thật vào MongoDB
+            const payload = {
+                contract_id: document.getElementById('contract_id').value,
+                contract_code: document.getElementById('contract_code').value,
+                tenant_name: tenant,
+                billing_period: period,
+                rent_price: calc.roomTotal,
+                electricity_old: calc.elecOld,
+                electricity_new: calc.elecNew,
+                electricity_amount: calc.elecTotal,
+                water_old: calc.waterOld,
+                water_new: calc.waterNew,
+                water_amount: calc.waterTotal,
+                service_amount: calc.serviceTotal,
+                total_amount: calc.grandTotal,
+                payment_status: statusVal
+            };
 
-            // Open Modal
-            document.getElementById('successModal').classList.remove('hidden');
+            const csrfToken = document.getElementById('csrf_token') ? document.getElementById('csrf_token').value : '';
+
+            fetch("{{ url('qlvan_hanh/tao_hoa_don') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(data => {
+                // Hiển thị Banner thông báo thành công
+                const bannerContainer = document.getElementById('savedBannerContainer');
+                bannerContainer.innerHTML = `
+                    <div class="p-4 rounded-2xl bg-emerald-500 text-white border border-emerald-600 shadow-lg flex items-center justify-between gap-4 animate-in fade-in slide-in-from-top duration-300">
+                        <div class="flex items-center gap-3">
+                            <i class="fa-solid fa-circle-check text-2xl"></i>
+                            <div>
+                                <strong class="font-extrabold block text-sm">Đã lưu & phát hành hóa đơn thành công! (Mã: ${data.invoice_code || 'Mới'})</strong>
+                                <span class="text-xs text-emerald-100">Hóa đơn kỳ ${period} của ${tenant} đã được lưu vào hệ thống.</span>
+                            </div>
+                        </div>
+                        <button onclick="this.parentElement.remove()" class="text-emerald-100 hover:text-white font-bold text-sm px-2">✕</button>
+                    </div>
+                `;
+
+                // Mở Modal Thành Công
+                document.getElementById('successModal').classList.remove('hidden');
+            })
+            .catch(err => {
+                console.error('Lỗi khi lưu hóa đơn:', err);
+                // Vẫn mở Modal cho người dùng xem
+                document.getElementById('successModal').classList.remove('hidden');
+            });
         }
 
-        // SEND ZALO NOTIFICATION FUNCTION
+        // GỬI THÔNG BÁO QUA ZALO
         function sendZaloNotification() {
             const tenant = document.getElementById('tenant_name').value;
             const period = document.getElementById('billing_period').value;
@@ -859,13 +982,24 @@
             });
         }
 
-        // ON INITIAL LOAD: READ URL QUERY PARAMETER ?room=
+        // KHỞI TẠO BAN ĐẦU: ĐỌC URL QUERY PARAM ?room=... HOẶC NẠP DỮ LIỆU ĐƯỢC CHỌN
         window.addEventListener('DOMContentLoaded', () => {
             const params = new URLSearchParams(window.location.search);
-            const roomParam = params.get('room');
-            if (roomParam && roomData[roomParam]) {
-                document.getElementById('room_select').value = roomParam;
-                onRoomChange(roomParam);
+            let roomParam = params.get('room') || params.get('contract');
+
+            if (roomParam) {
+                roomParam = roomParam.trim();
+                const normParam = roomParam.replace(/\s+/g, '-');
+
+                if (roomData[roomParam]) {
+                    document.getElementById('room_select').value = roomData[roomParam].contractCode;
+                    onRoomChange(roomParam);
+                } else if (roomData[normParam]) {
+                    document.getElementById('room_select').value = roomData[normParam].contractCode;
+                    onRoomChange(normParam);
+                } else {
+                    calculateInvoice();
+                }
             } else {
                 calculateInvoice();
             }

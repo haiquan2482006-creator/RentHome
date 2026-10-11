@@ -8,6 +8,7 @@ use App\Models\Post;
 use App\Models\Contact;
 use App\Models\Notification;
 use App\Models\User;
+use App\Models\Invoice;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -114,6 +115,39 @@ class ContractController extends Controller
 
             $contract = Contract::create($contractData);
 
+            // 1.1 Tự động tạo 1 Hóa đơn đóng tiền cọc và tháng đầu tiên cho khách thuê
+            // Tháng đầu tiên khi mới nhận nhà: điện và nước chỉ ghi nhận chỉ số đầu, thành tiền bằng 0 VNĐ vì chưa sử dụng
+            $depositAmount = (float)($contract->deposit ?? 0);
+            $rentPriceAmount = (float)($contract->rent_price ?? 0);
+            $electricityAmount = 0; // Thành tiền điện tháng đầu = 0 VNĐ
+            $waterAmount = 0;       // Thành tiền nước tháng đầu = 0 VNĐ
+            $serviceAmount = (float)($contract->internet_price ?? 0) + (float)($contract->garbage_price ?? 0);
+            $totalFirstMonth = $depositAmount + $rentPriceAmount + $electricityAmount + $waterAmount + $serviceAmount;
+
+            $firstInvoiceCode = 'INV-' . date('Ym') . '-' . strtoupper(substr(uniqid(), -4));
+            Invoice::create([
+                'contract_id'        => (string)($contract->_id ?? $contract->id),
+                'room_id'            => (string)$roomId,
+                'post_id'            => (string)$roomId,
+                'owner_id'           => (string)$ownerId,
+                'tenant_id'          => $contract->tenant_id,
+                'tenant_name'        => $contract->tenant_name,
+                'invoice_code'       => $firstInvoiceCode,
+                'billing_month'      => date('m/Y'),
+                'billing_period'     => 'Kỳ đầu tiên (Cọc & Tiền phòng tháng đầu)',
+                'month'              => (int)date('m'),
+                'year'               => (int)date('Y'),
+                'rent_price'         => $rentPriceAmount,
+                'deposit'            => $depositAmount,
+                'electricity_amount' => $electricityAmount,
+                'water_amount'       => $waterAmount,
+                'service_amount'     => $serviceAmount,
+                'total_amount'       => $totalFirstMonth,
+                'status'             => 'unpaid',
+                'payment_status'     => 'unpaid',
+                'note'               => 'Hóa đơn tiền cọc và tháng đầu tiên khi nhận nhà (Điện nước ghi nhận chỉ số đầu, thành tiền 0 VNĐ)',
+            ]);
+
             // 2. Cập nhật trạng thái của phòng thành 'đã cho thuê'
             if ($post) {
                 $post->status = 'đã cho thuê';
@@ -127,20 +161,20 @@ class ContractController extends Controller
                 $contact->contract_id = (string)($contract->_id ?? $contract->id);
                 $contact->save();
 
-                // Gửi thông báo đến khách thuê được duyệt nếu có tài khoản liên kết
-                $recipientId = $contact->sender_id ?? ($tenantUser ? ($tenantUser->id ?? $tenantUser->_id) : null);
-                if ($recipientId) {
-                    Notification::create([
-                        'user_id'  => (string)$recipientId,
-                        'post_id'  => (string)$roomId,
-                        'title'    => 'Hợp đồng thuê nhà đã được ký kết!',
-                        'message'  => 'Chủ nhà đã tạo hợp đồng thuê thành công cho bài đăng "' . ($post->title ?? 'phòng trọ') . '". Bạn có thể xem chi tiết tại mục Nhà đang thuê.',
-                        'type'     => 'success',
-                        'is_read'  => false,
-                        'category' => 'contract',
-                    ]);
-                }
+            // Gửi thông báo đến khách thuê nếu có tài khoản liên kết
+            $recipientId = $contact ? ($contact->sender_id ?? ($tenantUser ? ($tenantUser->id ?? $tenantUser->_id) : null)) : ($tenantUser ? ($tenantUser->id ?? $tenantUser->_id) : null);
+            if ($recipientId) {
+                Notification::create([
+                    'user_id'  => (string)$recipientId,
+                    'post_id'  => (string)$roomId,
+                    'title'    => 'Bạn đã nhận được Hợp đồng thuê nhà & Hóa đơn đóng tiền cọc đầu tháng!',
+                    'message'  => 'Chủ nhà đã tạo hợp đồng thuê và xuất hóa đơn tiền cọc & tháng đầu tiên cho bài đăng "' . ($post->title ?? 'phòng trọ') . '". Bạn có thể xem hợp đồng và nhấn "Đóng tiền cọc đầu tháng" tại mục Nhà đang thuê.',
+                    'type'     => 'success',
+                    'is_read'  => false,
+                    'category' => 'contract',
+                ]);
             }
+        }
 
             // 4. Tự động từ chối tất cả các yêu cầu khác gửi đến bài đăng đó và gửi thông báo
             $acceptedContactId = $contact ? (string)($contact->_id ?? $contact->id) : null;
