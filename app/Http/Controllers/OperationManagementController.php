@@ -47,8 +47,30 @@ class OperationManagementController extends Controller
         $currentMonth = $now->month;
         $currentYear = $now->year;
 
+        // Lấy thông tin tài khoản ngân hàng của chủ nhà để tạo mã VietQR
+        $bankUser = Auth::user();
+        if (!$bankUser || empty($bankUser->bank_account)) {
+            $fallbackBankUser = \App\Models\User::whereNotNull('bank_account')->where('bank_account', '!=', '')->first();
+            if ($fallbackBankUser) {
+                $bankUser = $fallbackBankUser;
+            }
+        }
+
+        $bankName = !empty($bankUser->bank_name) ? $bankUser->bank_name : 'VietBank';
+        $bankAccount = !empty($bankUser->bank_account) ? $bankUser->bank_account : '00939399884747';
+        $rawHolder = (!empty($bankUser->bank_owner)) 
+            ? $bankUser->bank_owner 
+            : (!empty($bankUser->bank_account_holder) 
+                ? $bankUser->bank_account_holder 
+                : (!empty($bankUser->account_name) 
+                    ? $bankUser->account_name 
+                    : (!empty($bankUser->name) 
+                        ? $bankUser->name 
+                        : 'NGUYEN THI VAN ANH')));
+        $bankHolder = mb_strtoupper($rawHolder, 'UTF-8');
+
         // 2. Duyệt qua từng hợp đồng và tính toán trạng thái thanh toán ảo theo logic thời gian
-        $rooms = $contracts->map(function ($contract) use ($now, $today, $currentMonth, $currentYear, $currentMonthStr) {
+        $rooms = $contracts->map(function ($contract) use ($now, $today, $currentMonth, $currentYear, $currentMonthStr, $bankName, $bankAccount, $bankHolder) {
             $contractId = (string)($contract->_id ?? $contract->id);
             $post = $contract->post;
             if (!$post && !empty($contract->post_id)) {
@@ -67,6 +89,17 @@ class OperationManagementController extends Controller
             if ($billDate <= 0 || $billDate > 31) {
                 $billDate = 5; // Mặc định ngày 5 nếu chưa thiết lập
             }
+
+            // Lấy hóa đơn mới nhất của hợp đồng này (nếu có)
+            $latestInvoice = Invoice::where(function ($q) use ($contractId, $contract) {
+                    $q->where('contract_id', $contractId);
+                    if (!empty($contract->contract_code)) {
+                        $q->orWhere('contract_id', $contract->contract_code)
+                          ->orWhere('contract_code', $contract->contract_code);
+                    }
+                })
+                ->latest()
+                ->first();
 
             // Kiểm tra xem tháng hiện tại đã có hóa đơn nào trong bảng invoices được thanh toán chưa
             $hasPaidInvoice = Invoice::where(function ($q) use ($contractId, $contract) {
@@ -113,6 +146,83 @@ class OperationManagementController extends Controller
             $contractStart = $contract->start_date ? date('d/m/Y', strtotime($contract->start_date)) : '01/01/2026';
             $contractEnd = $contract->end_date ?: ($contract->start_date ? date('d/m/Y', strtotime($contract->start_date . ' + ' . ($contract->duration_months ?? 12) . ' months')) : '01/01/2027');
 
+            // Tính toán chi tiết dữ liệu thực tế của hóa đơn để tránh lệch dữ liệu với popup xem hóa đơn
+            $invRentPrice = $latestInvoice && isset($latestInvoice->rent_price) ? (float)$latestInvoice->rent_price : (float)($contract->rent_price ?? ($post->price ?? 0));
+            $invDeposit = $latestInvoice && isset($latestInvoice->deposit) ? (float)$latestInvoice->deposit : 0;
+
+            // Điện
+            $elecRate = (float)($contract->electricity_price ?? 3500);
+            $elecOld = $latestInvoice && isset($latestInvoice->electricity_old) ? (float)$latestInvoice->electricity_old : (float)($contract->electricity_start ?? 0);
+            $elecNew = $latestInvoice && isset($latestInvoice->electricity_new) ? (float)$latestInvoice->electricity_new : $elecOld;
+            $elecUsage = max(0, $elecNew - $elecOld);
+            $elecAmount = $latestInvoice && isset($latestInvoice->electricity_amount) ? (float)$latestInvoice->electricity_amount : ($elecUsage * $elecRate);
+
+            // Nước
+            $waterRate = (float)($contract->water_price_block ?? 15000);
+            $waterOld = $latestInvoice && isset($latestInvoice->water_old) ? (float)$latestInvoice->water_old : (float)($contract->water_start ?? 0);
+            $waterNew = $latestInvoice && isset($latestInvoice->water_new) ? (float)$latestInvoice->water_new : $waterOld;
+            $waterUsage = max(0, $waterNew - $waterOld);
+            $waterAmount = $latestInvoice && isset($latestInvoice->water_amount) ? (float)$latestInvoice->water_amount : ($waterUsage * $waterRate);
+
+            // Dịch vụ cố định (Wifi, rác, xe...)
+            $wifiPrice = (float)($contract->internet_price ?? 0);
+            $garbagePrice = (float)($contract->garbage_price ?? 0);
+            $parkingPrice = (float)($contract->parking_price ?? 0);
+            $defaultService = $wifiPrice + $garbagePrice + $parkingPrice;
+            $serviceAmount = $latestInvoice && isset($latestInvoice->service_amount) ? (float)$latestInvoice->service_amount : $defaultService;
+
+            // Tổng hóa đơn thực tế
+            if ($latestInvoice && isset($latestInvoice->total_amount) && (float)$latestInvoice->total_amount > 0) {
+                $invTotal = (float)$latestInvoice->total_amount;
+            } else {
+                $invTotal = $invRentPrice + $elecAmount + $waterAmount + $serviceAmount + $invDeposit;
+            }
+
+            // Mã hóa đơn chuẩn (chuẩn hóa không bị trùng lặp HD-HD-)
+            $cleanInvCode = $latestInvoice && !empty($latestInvoice->invoice_code) ? $latestInvoice->invoice_code : ($contract->contract_code ?: $roomCode);
+            if (!$cleanInvCode) {
+                $cleanInvCode = $roomCode;
+            }
+            // Loại bỏ tiền tố lặp thừa
+            $cleanInvCode = preg_replace('/^(HD-)+/i', 'HD-', $cleanInvCode);
+
+            $invPeriod = $latestInvoice && !empty($latestInvoice->billing_period) ? $latestInvoice->billing_period : ('Tháng ' . $currentMonthStr);
+            $invMonth = $latestInvoice && !empty($latestInvoice->billing_month) ? $latestInvoice->billing_month : $currentMonthStr;
+
+            $invoiceDetails = [
+                'invoice_code'    => $cleanInvCode,
+                'contract_code'   => $contract->contract_code ?: $roomCode,
+                'room_code'       => $roomCode,
+                'room_name'       => $postTitle,
+                'tenant_name'     => $contract->tenant_name ?: 'Khách thuê',
+                'tenant_phone'    => $contract->tenant_phone ?: '',
+                'billing_period'  => $invPeriod,
+                'billing_month'   => $invMonth,
+                'status'          => $status,
+                'status_label'    => $statusLabel,
+                'rent_price'      => $invRentPrice,
+                'deposit'         => $invDeposit,
+                'elec_old'        => $elecOld,
+                'elec_new'        => $elecNew,
+                'elec_usage'      => $elecUsage,
+                'elec_rate'       => $elecRate,
+                'elec_amount'     => $elecAmount,
+                'water_old'       => $waterOld,
+                'water_new'       => $waterNew,
+                'water_usage'     => $waterUsage,
+                'water_rate'      => $waterRate,
+                'water_amount'    => $waterAmount,
+                'wifi_price'      => $wifiPrice,
+                'garbage_price'   => $garbagePrice,
+                'parking_price'   => $parkingPrice,
+                'service_amount'  => $serviceAmount,
+                'total_amount'    => $invTotal,
+                'bank_name'       => $bankName,
+                'bank_account'    => $bankAccount,
+                'bank_holder'     => $bankHolder,
+                'memo'            => strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $cleanInvCode)) . ' ' . $now->format('mY'),
+            ];
+
             $contractDetails = [
                 'room_code'              => $roomCode,
                 'contract_code'          => $contract->contract_code ?: $roomCode,
@@ -157,7 +267,7 @@ class OperationManagementController extends Controller
                 'status_label'           => $statusLabel, // 'Chưa đến kỳ thu', 'Chưa thu tiền', 'Đã thu tiền'
                 'is_due'                 => $isDue, // true nếu đến hạn và chưa thu
                 'debt_period'            => 'Kỳ ' . $currentMonthStr . ' (Hạn ' . $billDate . '/' . $currentMonth . ')',
-                'debt_amount'            => (float)($contract->rent_price ?? 0),
+                'debt_amount'            => $invTotal,
                 'paid_period'            => 'Kỳ ' . $currentMonthStr,
                 'contract_code'          => $contract->contract_code ?: $roomCode,
                 'contract_start'         => $contractStart,
@@ -176,8 +286,9 @@ class OperationManagementController extends Controller
                 'payment_limit_days'     => $contract->payment_limit_days ?: '5 ngày',
                 'late_penalty_fee'       => $contract->late_penalty_fee ?: '20.000 VNĐ / ngày',
                 'contract_details'       => $contractDetails,
-                'invoice_code'           => 'HD-' . $roomCode,
-                'invoice_total'          => (float)($contract->rent_price ?? 0),
+                'invoice_code'           => $cleanInvCode,
+                'invoice_total'          => $invTotal,
+                'invoice_details'        => $invoiceDetails,
                 'post'                   => $post,
                 'image'                  => $post ? $post->display_image : 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80',
             ];
@@ -420,32 +531,58 @@ class OperationManagementController extends Controller
 
             $bankHolder = mb_strtoupper($rawHolder, 'UTF-8');
 
+            // Thông tin tiền cọc hợp đồng & kiểm tra tháng đầu tiên
+            $contractDeposit = (float)($contract->deposit ?? 0);
+
+            // Kiểm tra xem hợp đồng này đã có hóa đơn nào chưa:
+            // Nếu invoices->count() == 0 thì đây là hóa đơn đầu tiên (tháng đầu mới ký)
+            $invoicesCount = Invoice::where(function ($q) use ($contractId, $contract) {
+                    $q->where('contract_id', $contractId);
+                    if (!empty($contract->contract_code)) {
+                        $q->orWhere('contract_id', $contract->contract_code)
+                          ->orWhere('contract_code', $contract->contract_code);
+                    }
+                })
+                ->where('status', '!=', 'cancelled')
+                ->count();
+
+            $isFirstMonth = ($invoicesCount === 0);
+            $defaultDeposit = ($isFirstMonth && $contractDeposit > 0) ? $contractDeposit : 0;
+
+            $startMonthYear = !empty($contract->start_date)
+                ? (date('m/Y', strtotime($contract->start_date)) ?: $now->format('m/Y'))
+                : ($contract->created_at ? Carbon::parse($contract->created_at)->format('m/Y') : $now->format('m/Y'));
+
             $tenantNameDisplay = ($contract->tenant_name ?: 'Khách thuê') . ($contract->tenant_phone ? ' (SĐT: ' . $contract->tenant_phone . ')' : '');
 
             $item = [
-                'contractId'    => $contractId,
-                'contractCode'  => $contractCode,
-                'roomName'      => $postTitle . ' (' . $contractCode . ')',
-                'postTitle'     => $postTitle,
-                'tenantName'    => $tenantNameDisplay,
-                'tenantRawName' => $contract->tenant_name ?: 'Khách thuê',
-                'tenantPhone'   => $contract->tenant_phone ?: '',
-                'rent'          => (float)($contract->rent_price ?? ($post->price ?? 0)),
-                'elecOld'       => $elecOld,
-                'elecNew'       => $elecOld, // Khởi tạo bằng số cũ
-                'elecRate'      => $elecRate,
-                'waterOld'      => $waterOld,
-                'waterNew'      => $waterOld, // Khởi tạo bằng số cũ
-                'waterRate'     => $waterRate,
-                'wifi'          => (float)($contract->internet_price ?? 0),
-                'garbage'       => (float)($contract->garbage_price ?? 0),
-                'parking'       => (float)($contract->parking_price ?? 0),
-                'billingPeriod' => $currentMonthStr,
-                'dueDate'       => $dueDate,
-                'bankName'      => $bankName,
-                'bankAccount'   => $bankAccount,
-                'bankHolder'    => $bankHolder,
-                'memo'          => strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $contractCode)) . ' THANG ' . $now->format('m/Y'),
+                'contractId'      => $contractId,
+                'contractCode'    => $contractCode,
+                'roomName'        => $postTitle . ' (' . $contractCode . ')',
+                'postTitle'       => $postTitle,
+                'tenantName'      => $tenantNameDisplay,
+                'tenantRawName'   => $contract->tenant_name ?: 'Khách thuê',
+                'tenantPhone'     => $contract->tenant_phone ?: '',
+                'rent'            => (float)($contract->rent_price ?? ($post->price ?? 0)),
+                'contractDeposit' => $contractDeposit,
+                'deposit'         => $defaultDeposit,
+                'isFirstMonth'    => $isFirstMonth,
+                'startMonth'      => $startMonthYear,
+                'elecOld'         => $elecOld,
+                'elecNew'         => $elecOld, // Khởi tạo bằng số cũ
+                'elecRate'        => $elecRate,
+                'waterOld'        => $waterOld,
+                'waterNew'        => $waterOld, // Khởi tạo bằng số cũ
+                'waterRate'       => $waterRate,
+                'wifi'            => (float)($contract->internet_price ?? 0),
+                'garbage'         => (float)($contract->garbage_price ?? 0),
+                'parking'         => (float)($contract->parking_price ?? 0),
+                'billingPeriod'   => $currentMonthStr,
+                'dueDate'         => $dueDate,
+                'bankName'        => $bankName,
+                'bankAccount'     => $bankAccount,
+                'bankHolder'      => $bankHolder,
+                'memo'            => strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $contractCode)) . ' THANG ' . $now->format('m/Y'),
             ];
 
             // Lưu vào dictionary với nhiều key để tra cứu linh hoạt
@@ -549,12 +686,19 @@ class OperationManagementController extends Controller
             'water_amount'       => (float)$request->input('water_amount', 0),
             'service_amount'     => (float)$request->input('service_amount', 0),
             'total_amount'       => (float)$request->input('total_amount', 0),
-            'deposit'            => 0, // Tiền cọc chỉ thu 1 lần ở tháng đầu, các tháng sau = 0
+            'deposit'            => (float)$request->input('deposit', 0),
             'status'             => $request->input('payment_status', 'unpaid'),
             'payment_status'     => $request->input('payment_status', 'unpaid'),
             'payment_date'       => $request->input('payment_status') === 'paid' ? $now->toDateTimeString() : null,
             'note'               => $request->input('note', ''),
         ]);
+
+        if ($request->input('payment_status') === 'paid') {
+            $contract->payment_status = 'paid';
+            $contract->last_paid_period = $now->format('m/Y');
+            $contract->last_paid_date = $now->toDateTimeString();
+            $contract->save();
+        }
 
         return response()->json([
             'success'      => true,

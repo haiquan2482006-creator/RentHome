@@ -370,7 +370,20 @@
                         </a>
 
                         <!-- Nút Xem Hóa Đơn -->
-                        <button onclick="openViewInvoiceModal('{{ $room->room_code }}', '{{ $room->invoice_code ?? ('HD-' . $room->room_code) }}', '{{ addslashes($room->tenant_name ?? '') }}', '{{ number_format($room->invoice_total ?? $room->debt_amount ?? $room->price) }}đ', '{{ $room->status === 'unpaid' ? 'Chưa thu tiền' : 'Đã thu tiền' }}')"
+                        <button type="button" 
+                                onclick="openViewInvoiceModal({{ json_encode($room->invoice_details ?? [
+                                    'room_code'      => $room->room_code,
+                                    'invoice_code'   => $room->invoice_code ?? $room->room_code,
+                                    'tenant_name'    => $room->tenant_name ?? 'Khách thuê',
+                                    'status'         => $room->status,
+                                    'status_label'   => $room->status_label ?? ($room->status === 'unpaid' ? 'Chưa thu tiền' : 'Đã thu tiền'),
+                                    'total_amount'   => $room->invoice_total ?? $room->debt_amount ?? $room->price,
+                                    'rent_price'     => $room->price,
+                                    'elec_amount'    => 0,
+                                    'water_amount'   => 0,
+                                    'service_amount' => 0,
+                                    'deposit'        => 0,
+                                ]) }})"
                                 class="py-2.5 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
                             <i class="fa-solid fa-receipt"></i>
                             <span>Xem Hóa Đơn</span>
@@ -726,35 +739,8 @@
                                 <th class="py-3 px-4 text-right">Thành tiền</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-100 font-medium text-slate-800">
-                            <tr class="hover:bg-slate-50/80">
-                                <td class="py-3 px-4 flex items-center gap-2 font-bold">
-                                    <i class="fa-solid fa-house-user text-brand-600"></i> Tiền phòng kỳ này
-                                </td>
-                                <td class="py-3 px-4 text-center text-slate-500">Trọn 1 tháng</td>
-                                <td class="py-3 px-4 text-right font-extrabold text-slate-900">3,500,000đ</td>
-                            </tr>
-                            <tr class="hover:bg-slate-50/80">
-                                <td class="py-3 px-4 flex items-center gap-2 font-bold">
-                                    <i class="fa-solid fa-bolt text-amber-500"></i> Tiền điện hàng tháng
-                                </td>
-                                <td class="py-3 px-4 text-center text-slate-500">80 kWh x 3,500đ</td>
-                                <td class="py-3 px-4 text-right font-extrabold text-amber-700">280,000đ</td>
-                            </tr>
-                            <tr class="hover:bg-slate-50/80">
-                                <td class="py-3 px-4 flex items-center gap-2 font-bold">
-                                    <i class="fa-solid fa-droplet text-skybrand-500"></i> Tiền nước hàng tháng
-                                </td>
-                                <td class="py-3 px-4 text-center text-slate-500">10 m³ x 15,000đ</td>
-                                <td class="py-3 px-4 text-right font-extrabold text-skybrand-700">150,000đ</td>
-                            </tr>
-                            <tr class="hover:bg-slate-50/80">
-                                <td class="py-3 px-4 flex items-center gap-2 font-bold">
-                                    <i class="fa-solid fa-wifi text-indigo-500"></i> Phí Wifi & Vệ sinh rác
-                                </td>
-                                <td class="py-3 px-4 text-center text-slate-500">Gói cố định</td>
-                                <td class="py-3 px-4 text-right font-extrabold text-indigo-700">150,000đ</td>
-                            </tr>
+                        <tbody id="viTableBody" class="divide-y divide-slate-100 font-medium text-slate-800">
+                            <!-- Render động từ dữ liệu thật của hóa đơn -->
                         </tbody>
                     </table>
                 </div>
@@ -763,7 +749,7 @@
                 <div id="viTotalBox" class="p-5 rounded-2xl bg-rose-50 border border-rose-200 text-center space-y-1">
                     <span class="text-xs font-bold text-rose-600 uppercase tracking-wider block">TỔNG CỘNG TIỀN HÓA ĐƠN THÁNG</span>
                     <div class="text-2xl sm:text-3xl font-black text-rose-600 tracking-tight" id="viTotal">
-                        3,850,000đ
+                        0đ
                     </div>
                 </div>
 
@@ -773,12 +759,13 @@
                         <span class="font-extrabold text-slate-800 block text-xs flex items-center gap-1.5 justify-center sm:justify-start">
                             <i class="fa-solid fa-qrcode text-emerald-600"></i> Quét VietQR Chuyển Khoản Nhanh
                         </span>
-                        <p class="text-slate-500 text-[11px]">Ngân hàng MB Bank: <strong class="text-slate-800 font-mono">9999 8888 999</strong></p>
-                        <p class="text-slate-500 text-[11px]">Chủ TK: <strong class="text-slate-800">NGUYEN VAN CHU NHA</strong></p>
+                        <p class="text-slate-500 text-[11px]">Ngân hàng <span id="viBankName" class="font-bold text-slate-800">VietBank</span>: <strong class="text-slate-800 font-mono" id="viBankAccount">00939399884747</strong></p>
+                        <p class="text-slate-500 text-[11px]">Chủ TK: <strong class="text-slate-800 uppercase" id="viBankHolder">NGUYEN THI VAN ANH</strong></p>
+                        <p class="text-slate-500 text-[11px]">Nội dung CK: <strong class="text-slate-800 font-mono" id="viMemo"></strong></p>
                     </div>
 
                     <div class="w-24 h-24 bg-white p-1.5 rounded-xl border border-slate-200 shadow-sm shrink-0">
-                        <img id="viQrCodeImg" src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=RentHome_Invoice_NH302_3850000" alt="VietQR" class="w-full h-full object-contain">
+                        <img id="viQrCodeImg" src="" alt="VietQR" class="w-full h-full object-contain">
                     </div>
                 </div>
 
@@ -1278,20 +1265,48 @@
         }
 
         // 5. XEM HÓA ĐƠN
-        function openViewInvoiceModal(roomCode, code, tenant, total, status) {
-            document.getElementById('viCode').innerText = "Mã HĐ: " + code;
-            document.getElementById('viTenant').innerText = tenant;
-            document.getElementById('viRoomCode').innerText = roomCode;
-            document.getElementById('viTotal').innerText = total;
+        let currentActiveInvoiceData = null;
 
+        function openViewInvoiceModal(dataOrRoomCode, code, tenant, total, status) {
+            let data = {};
+            if (typeof dataOrRoomCode === 'object' && dataOrRoomCode !== null) {
+                data = dataOrRoomCode;
+            } else {
+                data = {
+                    room_code: dataOrRoomCode,
+                    invoice_code: code,
+                    tenant_name: tenant,
+                    total_amount: total,
+                    status: status,
+                    rent_price: total,
+                    elec_amount: 0,
+                    water_amount: 0,
+                    service_amount: 0,
+                    deposit: 0
+                };
+            }
+            currentActiveInvoiceData = data;
+
+            // 1. Mã Hóa đơn (loại bỏ lặp prefix HD HD-)
+            let rawCode = data.invoice_code || data.contract_code || data.room_code || '';
+            rawCode = String(rawCode).replace(/^Mã HĐ:\s*/i, '').trim();
+            rawCode = rawCode.replace(/^(HD-)+/i, 'HD-').replace(/^(HD\s+)+/i, 'HD-');
+            document.getElementById('viCode').innerText = "Mã HĐ: " + rawCode;
+
+            // 2. Tên khách & Mã phòng
+            document.getElementById('viTenant').innerText = data.tenant_name || 'Khách thuê';
+            document.getElementById('viRoomCode').innerText = data.room_code || '';
+
+            // 3. Trạng thái thanh toán
+            const isPaid = (data.status === 'paid' || data.status === 'Đã thu tiền' || (data.status_label && data.status_label.includes('Đã thu')));
             const badge = document.getElementById('viStatusBadge');
             const btnBox = document.getElementById('viCollectBtnContainer');
             const totalBox = document.getElementById('viTotalBox');
 
-            if (status === 'Đã thu tiền') {
+            if (isPaid) {
                 badge.className = "mt-1 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-xs";
                 badge.innerHTML = "<span class='w-2 h-2 rounded-full bg-emerald-600 inline-block'></span> ĐÃ THU TIỀN";
-                btnBox.classList.add('hidden');
+                if (btnBox) btnBox.classList.add('hidden');
                 if (totalBox) {
                     totalBox.className = "p-5 rounded-2xl bg-emerald-50 border border-emerald-200 text-center space-y-1";
                     const spanLabel = totalBox.querySelector('span');
@@ -1302,7 +1317,7 @@
             } else {
                 badge.className = "mt-1 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-100 text-rose-700 font-extrabold text-xs";
                 badge.innerHTML = "<span class='w-2 h-2 rounded-full bg-rose-600 inline-block'></span> CHƯA THU TIỀN";
-                btnBox.classList.remove('hidden');
+                if (btnBox) btnBox.classList.remove('hidden');
                 if (totalBox) {
                     totalBox.className = "p-5 rounded-2xl bg-rose-50 border border-rose-200 text-center space-y-1";
                     const spanLabel = totalBox.querySelector('span');
@@ -1312,25 +1327,145 @@
                 }
             }
 
-            // Set QR code preview
+            // 4. Bảng chi tiết hạng mục phí (Dữ liệu ĐỘNG 100% Khớp Hóa Đơn)
+            const tbody = document.getElementById('viTableBody');
+            if (tbody) {
+                tbody.innerHTML = '';
+
+                // Hàng 1: Tiền phòng
+                const rentVal = parseFloat(data.rent_price) || 0;
+                const periodText = data.billing_period || 'Trọn 1 tháng';
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50/80">
+                        <td class="py-3 px-4 flex items-center gap-2 font-bold">
+                            <i class="fa-solid fa-house-user text-brand-600"></i> Tiền phòng kỳ này
+                        </td>
+                        <td class="py-3 px-4 text-center text-slate-500">${periodText}</td>
+                        <td class="py-3 px-4 text-right font-extrabold text-slate-900">${formatContractVnd(rentVal)}</td>
+                    </tr>
+                `;
+
+                // Hàng 2: Tiền điện
+                const elecAmount = parseFloat(data.elec_amount) || 0;
+                const elecUsage = parseFloat(data.elec_usage) || 0;
+                const elecRate = parseFloat(data.elec_rate) || 3500;
+                let elecDesc = `${elecUsage} kWh x ${formatContractVnd(elecRate)}`;
+                if (elecUsage === 0) {
+                    elecDesc = `0 kWh (Chỉ số: ${data.elec_old || 0})`;
+                } else if (data.elec_old !== undefined && data.elec_new !== undefined) {
+                    elecDesc = `${elecUsage} kWh (${data.elec_old} → ${data.elec_new}) x ${formatContractVnd(elecRate)}`;
+                }
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50/80">
+                        <td class="py-3 px-4 flex items-center gap-2 font-bold">
+                            <i class="fa-solid fa-bolt text-amber-500"></i> Tiền điện hàng tháng
+                        </td>
+                        <td class="py-3 px-4 text-center text-slate-500">${elecDesc}</td>
+                        <td class="py-3 px-4 text-right font-extrabold text-amber-700">${formatContractVnd(elecAmount)}</td>
+                    </tr>
+                `;
+
+                // Hàng 3: Tiền nước
+                const waterAmount = parseFloat(data.water_amount) || 0;
+                const waterUsage = parseFloat(data.water_usage) || 0;
+                const waterRate = parseFloat(data.water_rate) || 15000;
+                let waterDesc = `${waterUsage} m³ x ${formatContractVnd(waterRate)}`;
+                if (waterUsage === 0) {
+                    waterDesc = `0 m³ (Chỉ số: ${data.water_old || 0})`;
+                } else if (data.water_old !== undefined && data.water_new !== undefined) {
+                    waterDesc = `${waterUsage} m³ (${data.water_old} → ${data.water_new}) x ${formatContractVnd(waterRate)}`;
+                }
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50/80">
+                        <td class="py-3 px-4 flex items-center gap-2 font-bold">
+                            <i class="fa-solid fa-droplet text-skybrand-500"></i> Tiền nước hàng tháng
+                        </td>
+                        <td class="py-3 px-4 text-center text-slate-500">${waterDesc}</td>
+                        <td class="py-3 px-4 text-right font-extrabold text-skybrand-700">${formatContractVnd(waterAmount)}</td>
+                    </tr>
+                `;
+
+                // Hàng 4: Phí dịch vụ (Wifi, rác...)
+                const serviceAmount = parseFloat(data.service_amount) || 0;
+                if (serviceAmount > 0 || (data.wifi_price > 0 || data.garbage_price > 0)) {
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-50/80">
+                            <td class="py-3 px-4 flex items-center gap-2 font-bold">
+                                <i class="fa-solid fa-wifi text-indigo-500"></i> Phí Wifi & Vệ sinh rác
+                            </td>
+                            <td class="py-3 px-4 text-center text-slate-500">Gói cố định</td>
+                            <td class="py-3 px-4 text-right font-extrabold text-indigo-700">${formatContractVnd(serviceAmount)}</td>
+                        </tr>
+                    `;
+                }
+
+                // Hàng 5: Tiền cọc (nếu có trong hóa đơn này, ví dụ tháng đầu tiên)
+                const depositVal = parseFloat(data.deposit) || 0;
+                if (depositVal > 0) {
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-50/80">
+                            <td class="py-3 px-4 flex items-center gap-2 font-bold">
+                                <i class="fa-solid fa-shield-halved text-emerald-600"></i> Tiền cọc giữ phòng (Kỳ đầu)
+                            </td>
+                            <td class="py-3 px-4 text-center text-slate-500">Cọc bàn giao phòng</td>
+                            <td class="py-3 px-4 text-right font-extrabold text-emerald-700">${formatContractVnd(depositVal)}</td>
+                        </tr>
+                    `;
+                }
+            }
+
+            // 5. Tổng tiền thanh toán
+            const totalNum = parseFloat(data.total_amount) || (parseFloat(data.rent_price || 0) + parseFloat(data.elec_amount || 0) + parseFloat(data.water_amount || 0) + parseFloat(data.service_amount || 0) + parseFloat(data.deposit || 0));
+            document.getElementById('viTotal').innerText = formatContractVnd(totalNum);
+
+            // 6. Ngân hàng & VietQR
+            const bankName = data.bank_name || 'VietBank';
+            const bankAccount = data.bank_account || '00939399884747';
+            const bankHolder = data.bank_holder || 'NGUYEN THI VAN ANH';
+            const memo = data.memo || (`${rawCode.replace(/[^A-Za-z0-9]/g, '')} THANG 10`);
+
+            const elBankName = document.getElementById('viBankName');
+            const elBankAcc = document.getElementById('viBankAccount');
+            const elBankHolder = document.getElementById('viBankHolder');
+            const elMemo = document.getElementById('viMemo');
+
+            if (elBankName) elBankName.innerText = bankName;
+            if (elBankAcc) elBankAcc.innerText = bankAccount;
+            if (elBankHolder) elBankHolder.innerText = bankHolder;
+            if (elMemo) elMemo.innerText = memo;
+
+            // Mã VietQR link
+            const cleanBankCode = bankName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'vietbank';
             const qrImg = document.getElementById('viQrCodeImg');
             if (qrImg) {
-                qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=RentHome_Invoice_${roomCode}_${total}`;
+                qrImg.src = `https://img.vietqr.io/image/${cleanBankCode}-${bankAccount}-compact2.png?amount=${Math.round(totalNum)}&addInfo=${encodeURIComponent(memo)}&accountName=${encodeURIComponent(bankHolder)}`;
             }
 
             document.getElementById('viewInvoiceModal').classList.remove('hidden');
         }
 
         function sendZaloInvoiceFromModal() {
-            const tenant = document.getElementById('viTenant').innerText;
+            if (!currentActiveInvoiceData) return;
+            const d = currentActiveInvoiceData;
             const code = document.getElementById('viCode').innerText;
             const total = document.getElementById('viTotal').innerText;
-            const roomCode = document.getElementById('viRoomCode').innerText;
+            const tenant = d.tenant_name || document.getElementById('viTenant').innerText;
+            const roomCode = d.room_code || document.getElementById('viRoomCode').innerText;
+            const bankName = d.bank_name || 'VietBank';
+            const bankAccount = d.bank_account || '00939399884747';
+            const bankHolder = d.bank_holder || 'NGUYEN THI VAN ANH';
 
-            const msg = `[RentHome] Kính gửi anh/chị ${tenant},\nRentHome xin gửi thông báo ${code} cho phòng ${roomCode}:\n- Tổng tiền thanh toán: ${total}.\n- Vui lòng chuyển khoản trước hạn. Xin cảm ơn!`;
-            
+            let msg = `[RentHome] Kính gửi anh/chị ${tenant},\nRentHome xin gửi thông báo ${code} cho phòng ${roomCode} (${d.billing_period || 'tháng này'}):\n`;
+            msg += `- Tiền phòng: ${formatContractVnd(d.rent_price)}\n`;
+            if (parseFloat(d.elec_amount) > 0) msg += `- Tiền điện: ${formatContractVnd(d.elec_amount)} (${d.elec_usage || 0} kWh)\n`;
+            if (parseFloat(d.water_amount) > 0) msg += `- Tiền nước: ${formatContractVnd(d.water_amount)} (${d.water_usage || 0} m³)\n`;
+            if (parseFloat(d.service_amount) > 0) msg += `- Dịch vụ (Wifi, rác): ${formatContractVnd(d.service_amount)}\n`;
+            if (parseFloat(d.deposit) > 0) msg += `- Tiền cọc giữ phòng: ${formatContractVnd(d.deposit)}\n`;
+            msg += `=> TỔNG CỘNG: ${total}\n`;
+            msg += `Thông tin chuyển khoản:\n- Ngân hàng: ${bankName}\n- STK: ${bankAccount}\n- Chủ TK: ${bankHolder}\n- Nội dung: ${d.memo || roomCode}\nXin cảm ơn!`;
+
             navigator.clipboard.writeText(msg).then(() => {
-                showToast("Đã sao chép tin nhắn Zalo hóa đơn gửi khách thuê!");
+                showToast("Đã sao chép nội dung tin nhắn Zalo gửi khách thuê!");
             }).catch(() => {
                 alert("Nội dung tin nhắn Zalo:\n\n" + msg);
             });
@@ -1341,8 +1476,67 @@
         }
 
         function confirmCollectMoneyFromInvoiceModal() {
+            if (!currentActiveInvoiceData) {
+                closeViewInvoiceModal();
+                return;
+            }
+            const roomCode = currentActiveInvoiceData.room_code;
+            const contractId = currentActiveInvoiceData.contract_code || roomCode;
+
+            // Gọi API lưu trạng thái sang DB
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
+            fetch("{{ url('qlvan_hanh/update_payment_status') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                body: JSON.stringify({
+                    contract_id: contractId,
+                    status: 'paid'
+                })
+            }).catch(e => console.error(e));
+
+            // Cập nhật card trên giao diện
+            const targetCard = document.getElementById('card-' + roomCode);
+            if (targetCard) {
+                targetCard.classList.remove('unpaid', 'border-rose-200');
+                targetCard.classList.add('paid', 'border-slate-200/90');
+                targetCard.dataset.status = 'paid';
+
+                const pingDot = targetCard.querySelector('.room-status-dot-ping');
+                if (pingDot) pingDot.remove();
+                const statusDot = targetCard.querySelector('.room-status-dot');
+                if (statusDot) {
+                    statusDot.className = "room-status-dot absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white shadow-md";
+                    statusDot.setAttribute('title', 'Đã thu tiền');
+                }
+                const imgContainer = targetCard.querySelector('.relative > div');
+                if (imgContainer) {
+                    imgContainer.classList.remove('border-rose-300', 'ring-2', 'ring-rose-100');
+                    imgContainer.classList.add('border-slate-200');
+                }
+                const badgeContainer = targetCard.querySelector('[id^="room-status-badge-"]');
+                if (badgeContainer) {
+                    badgeContainer.innerHTML = `<span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-[11px] flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-600 inline-block"></span> ĐÃ THU TIỀN</span>`;
+                }
+                const debtContainer = targetCard.querySelector('[id^="room-debt-status-"]');
+                if (debtContainer) {
+                    debtContainer.innerHTML = `<span>Trạng thái: <strong class="text-emerald-600 font-bold">Đã thu tiền</strong></span>`;
+                }
+            }
+
+            // Cập nhật số lượng thống kê
+            const remainingUnpaid = document.querySelectorAll('.room-card.unpaid').length;
+            const remainingPaid = document.querySelectorAll('.room-card').length - remainingUnpaid;
+            const statPaid = document.getElementById('statPaidCount');
+            const statUnpaid = document.getElementById('statUnpaidCount');
+            if (statPaid) statPaid.innerText = remainingPaid + " Phòng";
+            if (statUnpaid) statUnpaid.innerText = remainingUnpaid + " Phòng";
+
             closeViewInvoiceModal();
-            confirmCollectMoneyFromModal();
+            showToast("Đã xác nhận thu tiền phòng " + roomCode + " thành công! Chuyển phòng sang Chấm Xanh.");
         }
 
         // Helper format VNĐ

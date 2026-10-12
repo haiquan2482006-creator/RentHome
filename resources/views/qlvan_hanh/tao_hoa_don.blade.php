@@ -173,13 +173,14 @@
         <div id="savedBannerContainer"></div>
 
         <!-- FORM LAYOUT (LEFT: FORM INPUTS | RIGHT: REALTIME SUMMARY) -->
-        <form id="invoiceForm" onsubmit="handleInvoiceSubmit(event)" class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <form id="invoiceForm" onsubmit="handleInvoiceSubmit(event)" class="w-full">
             <input type="hidden" name="_token" id="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" id="contract_id" name="contract_id" value="{{ $selectedData['contractId'] ?? '' }}">
             <input type="hidden" id="contract_code" name="contract_code" value="{{ $selectedData['contractCode'] ?? '' }}">
             
-            <!-- LEFT COLUMN: INPUT SECTIONS (8 COLS) -->
-            <div class="lg:col-span-8 space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
+                <!-- LEFT COLUMN: INPUT SECTIONS (8 COLS ON DESKTOP, 7 COLS ON LAPTOP/TABLET) -->
+                <div class="md:col-span-7 lg:col-span-8 space-y-6">
 
                 <!-- 1. PHẦN THÔNG TIN CHUNG HỢP ĐỒNG & KỲ THANH TOÁN -->
                 <div class="bg-white rounded-3xl border border-slate-200/90 shadow-card p-6 space-y-5">
@@ -303,6 +304,53 @@
                                 <div class="px-3 py-2 rounded-xl bg-brand-50 border border-brand-200 font-extrabold text-brand-700 text-right text-sm" id="room_rent_total_display">
                                     {{ number_format($selectedData['rent'] ?? 0) }} VNĐ
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- MỤC TIỀN CỌC HỢP ĐỒNG (THÁNG ĐẦU TÍNH, THÁNG SAU TỰ ĐỘNG BỎ) -->
+                    <div class="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200/90 space-y-3">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <h3 class="font-extrabold text-slate-800 text-xs flex items-center gap-2">
+                                <i class="fa-solid fa-shield-halved text-emerald-600"></i> Tiền Cọc Hợp Đồng (Chỉ thu kỳ đầu nhận nhà)
+                            </h3>
+                            <div class="flex items-center gap-2">
+                                <span id="deposit_badge" class="px-2.5 py-1 rounded-full text-[11px] font-bold inline-flex items-center gap-1.5 {{ (!empty($selectedData['isFirstMonth'])) ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-600 border border-slate-200' }}">
+                                    @if(!empty($selectedData['isFirstMonth']))
+                                        <i class="fa-solid fa-star text-amber-500"></i> Tháng đầu: Tự động tính tiền cọc
+                                    @else
+                                        <i class="fa-solid fa-check text-emerald-600"></i> Từ tháng sau: Tự động không tính cọc (0đ)
+                                    @endif
+                                </span>
+                                <input type="hidden" id="is_first_month" value="{{ (!empty($selectedData['isFirstMonth'])) ? '1' : '0' }}">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                            <div>
+                                <label class="font-bold text-slate-600 block mb-1">Số tiền cọc quy định (VNĐ):</label>
+                                <div class="relative">
+                                    <input type="number" id="deposit_price" value="{{ $selectedData['contractDeposit'] ?? ($selectedData['deposit'] ?? 0) }}" oninput="calculateInvoice()" {{ empty($selectedData['isFirstMonth']) ? 'readonly' : '' }}
+                                           class="w-full pl-3 pr-12 py-2 rounded-xl border border-slate-200 {{ empty($selectedData['isFirstMonth']) ? 'bg-slate-100 text-slate-500' : 'bg-white text-slate-800' }} font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 pointer-events-none">VNĐ</span>
+                                </div>
+                                <span id="deposit_price_text" class="text-[11px] font-bold text-emerald-700 mt-1 block">
+                                    {{ number_format($selectedData['contractDeposit'] ?? ($selectedData['deposit'] ?? 0)) }} VNĐ
+                                </span>
+                            </div>
+
+                            <div>
+                                <label class="font-bold text-slate-600 block mb-1">Thành tiền cọc tính kỳ này:</label>
+                                <div class="px-3 py-2 rounded-xl bg-emerald-100/70 border border-emerald-300 font-extrabold text-emerald-800 text-right text-sm" id="deposit_total_display">
+                                    {{ number_format(!empty($selectedData['isFirstMonth']) ? ($selectedData['contractDeposit'] ?? ($selectedData['deposit'] ?? 0)) : 0) }} VNĐ
+                                </div>
+                                <p id="deposit_note_text" class="text-[11px] text-slate-500 mt-1">
+                                    @if(!empty($selectedData['isFirstMonth']))
+                                        * Hợp đồng mới ký (tháng đầu tiên): Hệ thống tự động tính tiền cọc vào hóa đơn.
+                                    @else
+                                        * Từ tháng thứ 2 trở đi: Tiền cọc đã thu ở kỳ đầu nên tự động không tính cọc.
+                                    @endif
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -513,9 +561,9 @@
 
             </div>
 
-            <!-- RIGHT COLUMN: REALTIME SUMMARY CARD (4 COLS - STICKY) -->
-            <div class="lg:col-span-4 space-y-6">
-                <div class="bg-white rounded-3xl border border-slate-200/90 shadow-card p-6 space-y-6 sticky top-24">
+            <!-- RIGHT COLUMN: REALTIME SUMMARY CARD (STICKY TOP RIGHT) -->
+            <div class="md:col-span-5 lg:col-span-4 sticky top-20 z-20">
+                <div class="bg-white rounded-3xl border border-slate-200/90 shadow-card p-6 space-y-6">
                     
                     <div class="flex items-center justify-between border-b border-slate-100 pb-4">
                         <h2 class="text-base font-extrabold text-slate-900 flex items-center gap-2">
@@ -531,6 +579,11 @@
                         <div class="flex items-center justify-between text-slate-600">
                             <span>+ Tiền phòng:</span>
                             <strong class="text-slate-800" id="summary_room">3,500,000 VNĐ</strong>
+                        </div>
+
+                        <div class="flex items-center justify-between text-slate-600" id="summary_deposit_row">
+                            <span>+ Tiền cọc (Kỳ đầu):</span>
+                            <strong class="text-emerald-700 font-extrabold" id="summary_deposit">0 VNĐ</strong>
                         </div>
 
                         <div class="flex items-center justify-between text-slate-600">
@@ -586,6 +639,7 @@
                 </div>
             </div>
 
+            </div>
         </form>
 
     </main>
@@ -700,6 +754,41 @@
             if (document.getElementById('room_rent_price')) {
                 document.getElementById('room_rent_price').value = data.rent || 0;
             }
+
+            // Đồng bộ tiền cọc: Tự động theo tháng đầu / tháng sau (hệ thống tự quyết định 100%)
+            const contractDeposit = parseFloat(data.contractDeposit) || 0;
+            const isFirstMonth = Boolean(data.isFirstMonth);
+            const depositInput = document.getElementById('deposit_price');
+            const depositBadge = document.getElementById('deposit_badge');
+            const depositNote = document.getElementById('deposit_note_text');
+            const isFirstMonthHidden = document.getElementById('is_first_month');
+
+            if (isFirstMonthHidden) {
+                isFirstMonthHidden.value = isFirstMonth ? '1' : '0';
+            }
+            if (depositInput) {
+                depositInput.value = contractDeposit;
+                if (!isFirstMonth) {
+                    depositInput.readOnly = true;
+                    depositInput.classList.add('bg-slate-100', 'text-slate-500');
+                    depositInput.classList.remove('bg-white', 'text-slate-800');
+                } else {
+                    depositInput.readOnly = false;
+                    depositInput.classList.remove('bg-slate-100', 'text-slate-500');
+                    depositInput.classList.add('bg-white', 'text-slate-800');
+                }
+            }
+            if (depositBadge) {
+                if (isFirstMonth) {
+                    depositBadge.className = 'px-2.5 py-1 rounded-full text-[11px] font-bold inline-flex items-center gap-1.5 bg-emerald-100 text-emerald-800 border border-emerald-200';
+                    depositBadge.innerHTML = '<i class="fa-solid fa-star text-amber-500"></i> Tháng đầu: Tự động tính tiền cọc';
+                    if (depositNote) depositNote.innerText = '* Hợp đồng mới ký (tháng đầu tiên): Hệ thống tự động tính tiền cọc vào hóa đơn.';
+                } else {
+                    depositBadge.className = 'px-2.5 py-1 rounded-full text-[11px] font-bold inline-flex items-center gap-1.5 bg-slate-100 text-slate-600 border border-slate-200';
+                    depositBadge.innerHTML = '<i class="fa-solid fa-check text-emerald-600"></i> Từ tháng sau: Tự động không tính cọc (0đ)';
+                    if (depositNote) depositNote.innerText = '* Từ tháng thứ 2 trở đi: Tiền cọc đã thu ở kỳ đầu nên tự động không tính cọc.';
+                }
+            }
             if (document.getElementById('elec_old')) {
                 document.getElementById('elec_old').value = data.elecOld || 0;
             }
@@ -769,6 +858,33 @@
             document.getElementById('room_rent_total_display').innerText = formatVND(roomTotal);
             document.getElementById('summary_room').innerText = formatVND(roomTotal);
 
+            // 1.1 Tiền cọc (Tự động 100%: Tháng đầu tính cọc, từ tháng thứ 2 ép bằng 0đ)
+            const selectedRoomCode = document.getElementById('room_select') ? document.getElementById('room_select').value : null;
+            const currentRoomData = (selectedRoomCode && typeof roomData !== 'undefined') ? (roomData[selectedRoomCode] || roomData[selectedRoomCode.replace(/\s+/g, '-')]) : null;
+            const isFirstMonth = currentRoomData ? Boolean(currentRoomData.isFirstMonth) : (document.getElementById('is_first_month')?.value === '1');
+            const rawDepositPrice = parseFloat(document.getElementById('deposit_price') ? document.getElementById('deposit_price').value : 0) || 0;
+            
+            // Công thức: isFirstMonth là true thì lấy rawDepositPrice, false thì lập tức ép bằng 0
+            const depositTotal = isFirstMonth ? rawDepositPrice : 0;
+
+            if (document.getElementById('deposit_price_text')) {
+                document.getElementById('deposit_price_text').innerText = formatVND(rawDepositPrice);
+            }
+            if (document.getElementById('deposit_total_display')) {
+                document.getElementById('deposit_total_display').innerText = formatVND(depositTotal);
+            }
+            if (document.getElementById('summary_deposit')) {
+                document.getElementById('summary_deposit').innerText = formatVND(depositTotal);
+            }
+            const summaryDepositRow = document.getElementById('summary_deposit_row');
+            if (summaryDepositRow) {
+                if (depositTotal > 0) {
+                    summaryDepositRow.classList.remove('opacity-40');
+                } else {
+                    summaryDepositRow.classList.add('opacity-40');
+                }
+            }
+
             // 2. Tiền điện
             const elecOld = parseFloat(document.getElementById('elec_old').value) || 0;
             const elecNew = parseFloat(document.getElementById('elec_new').value) || 0;
@@ -803,8 +919,8 @@
             document.getElementById('summary_services').innerText = formatVND(serviceTotal);
             document.getElementById('summary_discount').innerText = formatVND(discount);
 
-            // 5. Tổng cộng
-            const grandTotal = roomTotal + elecTotal + waterTotal + serviceTotal - discount;
+            // 5. Tổng cộng (Bao gồm cả Tiền cọc nếu tháng đầu)
+            const grandTotal = roomTotal + depositTotal + elecTotal + waterTotal + serviceTotal - discount;
             const formattedGrandTotal = formatVND(grandTotal);
 
             document.getElementById('grandTotalAmount').innerText = formattedGrandTotal;
@@ -854,6 +970,7 @@
 
             return {
                 roomTotal,
+                depositTotal,
                 elecOld,
                 elecNew,
                 elecTotal,
@@ -917,6 +1034,7 @@
                 tenant_name: tenant,
                 billing_period: period,
                 rent_price: calc.roomTotal,
+                deposit: calc.depositTotal,
                 electricity_old: calc.elecOld,
                 electricity_new: calc.elecNew,
                 electricity_amount: calc.elecTotal,
@@ -1001,7 +1119,12 @@
                     calculateInvoice();
                 }
             } else {
-                calculateInvoice();
+                const currentSelectVal = document.getElementById('room_select') ? document.getElementById('room_select').value : null;
+                if (currentSelectVal && roomData[currentSelectVal]) {
+                    onRoomChange(currentSelectVal);
+                } else {
+                    calculateInvoice();
+                }
             }
         });
     </script>
