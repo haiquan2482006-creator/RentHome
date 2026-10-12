@@ -35,15 +35,9 @@
 
         <!-- Back Button -->
         <div class="absolute top-6 left-6 z-10">
-            @if(Auth::check() && (Auth::user()->role === 'moderator' || Auth::user()->account_type === 'moderator'))
-                <a href="javascript:window.close();" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium backdrop-blur-md transition-all border border-white/20">
-                    <i class="fa-solid fa-xmark"></i> Đóng thẻ này
-                </a>
-            @else
-                <a href="{{ url('/Overview?tab=buildings') }}" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium backdrop-blur-md transition-all border border-white/20">
-                    <i class="fa-solid fa-arrow-left"></i> Quay lại danh sách
-                </a>
-            @endif
+            <a href="{{ url('/Overview?tab=buildings') }}" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium backdrop-blur-md transition-all border border-white/20">
+                <i class="fa-solid fa-arrow-left"></i> Quay lại danh sách
+            </a>
         </div>
 
         <!-- Banner Content -->
@@ -89,11 +83,9 @@
                         <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
                         <input type="text" placeholder="Tìm mã phòng..." class="pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none w-64 transition-all">
                     </div>
-                    @if(!(Auth::check() && (Auth::user()->role === 'moderator' || Auth::user()->account_type === 'moderator')))
-                        <button class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md shadow-blue-500/30 transition-all flex items-center gap-2">
-                            <i class="fa-solid fa-plus"></i> Thêm phòng mới
-                        </button>
-                    @endif
+                    <a href="{{ url('dangbai?building_id=' . ($building->id ?? $building->_id)) }}" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md shadow-blue-500/30 transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-plus"></i> Thêm phòng mới
+                    </a>
                 </div>
             </div>
 

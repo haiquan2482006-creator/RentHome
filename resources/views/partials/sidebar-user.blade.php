@@ -85,9 +85,30 @@
         <a href="{{ route('user.change_password') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl {{ request()->routeIs('user.change_password') ? 'bg-brand-600 text-white font-semibold shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/5 hover:text-white font-semibold transition-colors' }}">
             <i class="fa-solid fa-key w-5"></i> Đổi mật khẩu
         </a>
-        
 
-
+        @if($isEnterprise || ($user && $user->role === 'admin'))
+        <p class="px-4 text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 mt-4">Doanh nghiệp RentHome</p>
+        <a href="{{ url('/Overview?tab=overview') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-white/5 hover:text-white font-semibold transition-colors">
+            <i class="fa-solid fa-gauge-high w-5 text-emerald-400"></i> Quản lý tổng quan
+        </a>
+        <a href="{{ url('/Overview?tab=buildings') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-white/5 hover:text-white font-semibold transition-colors">
+            <i class="fa-solid fa-city w-5 text-purple-400"></i> Quản lý tòa nhà
+        </a>
+        <a href="{{ url('/Overview?tab=moderation') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-white/5 hover:text-white font-semibold transition-colors">
+            <i class="fa-solid fa-shield-halved w-5 text-indigo-400"></i> Kiểm duyệt tin đăng
+        </a>
+        <a href="{{ url('/Overview?tab=sub-accounts') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-white/5 hover:text-white font-semibold transition-colors">
+            <i class="fa-solid fa-users-gear w-5 text-teal-400"></i> Tài khoản con & Phân quyền
+        </a>
+        @elseif($user && $user->isSubAccount())
+        <p class="px-4 text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 mt-4">Quản lý vận hành</p>
+        <a href="{{ url('/Overview?tab=buildings') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-white/5 hover:text-white font-semibold transition-colors">
+            <i class="fa-solid fa-city w-5 text-purple-400"></i> Tòa nhà được giao
+        </a>
+        <a href="{{ url('/Overview?tab=overview') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-white/5 hover:text-white font-semibold transition-colors">
+            <i class="fa-solid fa-list-check w-5 text-emerald-400"></i> Quản lý bài đăng
+        </a>
+        @endif
     </nav>
 
     <!-- Danger & Logout -->

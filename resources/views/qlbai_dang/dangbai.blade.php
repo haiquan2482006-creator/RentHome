@@ -56,14 +56,16 @@
 
 @php
     $currentUser = Auth::user();
-    $reqType = request()->query('account_type', request()->query('type', ''));
-    $accountType = (!empty($reqType) && in_array($reqType, ['canhan', 'doanhnghiep'])) ? $reqType : ($currentUser->account_type ?? 'canhan');
-    $isEnterprise = ($accountType === 'doanhnghiep');
-    $displayName = $currentUser 
-        ? ($isEnterprise ? ($currentUser->company_name ?? $currentUser->account_name ?? 'Tập Đoàn BĐS Đạt Phát') : ($currentUser->account_name ?? $currentUser->username ?? 'Nguyễn Văn Tuấn'))
-        : ($isEnterprise ? 'Tập Đoàn BĐS Đạt Phát' : 'Nguyễn Văn Tuấn');
-    $badgeText = $isEnterprise ? 'Doanh Nghiệp' : 'Cá Nhân';
-    $subTitle = $isEnterprise ? 'Đối tác Doanh Nghiệp' : 'Tài khoản Cá nhân';
+    if ($currentUser && $currentUser->isIndividual()) {
+        header('Location: ' . url('/'));
+        exit;
+    }
+    $isEnterprise = $currentUser && $currentUser->isEnterprise();
+    $isSubAccount = $currentUser && $currentUser->isSubAccount();
+    $displayName = $currentUser ? $currentUser->display_name : 'Quản lý';
+    $badgeText = $isEnterprise ? 'Doanh Nghiệp RentHome' : 'Quản Lý Tòa Nhà';
+    $subTitle = $isEnterprise ? 'RentHome Quản Trị' : 'Tài Khoản Phân Quyền';
+    $preselectedBuildingId = request()->query('building_id', '');
 @endphp
 
     <!-- Modal Container -->
@@ -88,6 +90,36 @@
 
             <!-- Modal Body -->
             <div class="p-6 space-y-4 flex-1 min-h-0 overflow-visible">
+                <!-- Chọn tòa nhà được phân quyền quản lý -->
+                <div class="p-4 rounded-2xl bg-purple-50/70 border border-purple-200/80 mb-4">
+                    <label class="block text-xs font-bold text-purple-900 mb-1.5 flex items-center justify-between">
+                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-city text-purple-600"></i> Chọn Tòa Nhà Đăng Tin <span class="text-rose-500">*</span></span>
+                        @if($isSubAccount)
+                            <span class="text-[10px] font-bold text-purple-700 bg-purple-100 px-2.5 py-0.5 rounded-full border border-purple-200"><i class="fa-solid fa-lock mr-1"></i>Chỉ tòa nhà được phân công</span>
+                        @else
+                            <span class="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200"><i class="fa-solid fa-crown mr-1"></i>Doanh nghiệp RentHome</span>
+                        @endif
+                    </label>
+                    <select id="select-building-id" name="building_id" class="w-full px-4 py-3 rounded-xl bg-white border border-purple-200 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-purple-400 focus:outline-none" onchange="onBuildingSelected(this)">
+                        <option value="">-- Chọn tòa nhà --</option>
+                        @foreach($buildings as $b)
+                            <option value="{{ $b->_id ?? $b->id }}" 
+                                data-province="{{ $b->province }}"
+                                data-district="{{ $b->district }}"
+                                data-ward="{{ $b->ward }}"
+                                data-address="{{ $b->address_detail }}"
+                                {{ ($preselectedBuildingId == ($b->_id ?? $b->id)) ? 'selected' : '' }}>
+                                🏢 {{ $b->name }} ({{ $b->province }} - {{ $b->total_rooms ?? 0 }} phòng)
+                            </option>
+                        @endforeach
+                    </select>
+                    @if($isSubAccount)
+                        <p class="text-[11px] text-purple-700 font-medium mt-1.5 flex items-center gap-1">
+                            <i class="fa-solid fa-shield-halved"></i> Bạn chỉ có thể quản lý và đăng bài cho các tòa nhà do Doanh nghiệp RentHome phân quyền.
+                        </p>
+                    @endif
+                </div>
+
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <div class="flex items-center justify-between mb-1.5">
@@ -1205,15 +1237,17 @@
                 alert('Vui lòng nhập giá cho thuê!');
                 return;
             }
-            if (!areaInput || !areaInput.value.trim()) {
-                alert('Vui lòng nhập diện tích!');
+            const isSubAccount = @json($isSubAccount);
+            const buildingId = document.getElementById('select-building-id')?.value || '';
+            if (isSubAccount && !buildingId) {
+                alert('Vui lòng chọn Tòa nhà được phân công quản lý trước khi đăng bài!');
+                document.getElementById('select-building-id')?.focus();
                 return;
             }
 
             const formData = new FormData();
             formData.append('title', title);
 
-            const buildingId = document.getElementById('select-building-id')?.value || '';
             if (buildingId) {
                 formData.append('building_id', buildingId);
             }
@@ -1345,8 +1379,45 @@
             formatPriceInput(input);
         }
 
+        function onBuildingSelected(selectElement) {
+            const selectedOption = selectElement.options[selectElement.selectedIndex];
+            if (!selectedOption || !selectedOption.value) return;
+            
+            const prov = selectedOption.getAttribute('data-province');
+            const dist = selectedOption.getAttribute('data-district');
+            const ward = selectedOption.getAttribute('data-ward');
+            const addr = selectedOption.getAttribute('data-address');
+
+            if (prov) {
+                const provInput = document.getElementById('select-province');
+                if (provInput) provInput.value = prov;
+                const provText = document.getElementById('form-province-text');
+                if (provText) provText.innerText = prov;
+            }
+            if (dist) {
+                const distInput = document.getElementById('select-district');
+                if (distInput) distInput.value = dist;
+                const distText = document.getElementById('form-district-text');
+                if (distText) distText.innerText = dist;
+            }
+            if (ward) {
+                const wardInput = document.getElementById('select-ward');
+                if (wardInput) wardInput.value = ward;
+                const wardText = document.getElementById('form-ward-text');
+                if (wardText) wardText.innerText = ward;
+            }
+            if (addr) {
+                const addrInput = document.getElementById('input-address');
+                if (addrInput) addrInput.value = addr;
+            }
+        }
+
         // ======================= SỰ KIỆN KHỞI TẠO & ĐÓNG MENU =======================
         document.addEventListener('DOMContentLoaded', function () {
+            const bSelect = document.getElementById('select-building-id');
+            if (bSelect && bSelect.value) {
+                onBuildingSelected(bSelect);
+            }
             
             const editDataStr = sessionStorage.getItem('edit_post_data');
             if (editDataStr) {

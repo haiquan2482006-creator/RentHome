@@ -33,11 +33,15 @@ class AuthController extends Controller
                 return redirect()->intended('/Admin')->with('success', 'Xin chào Admin! Đăng nhập thành công.');
             }
 
-            if ($user->account_type === 'moderator' || $user->role === 'moderator') {
-                return redirect()->intended('/Moderator')->with('success', 'Xin chào Kiểm Duyệt Viên! Đăng nhập thành công.');
+            if ($user->account_type === 'doanhnghiep' || $user->role === 'doanhnghiep') {
+                return redirect()->intended('/Overview')->with('success', 'Xin chào Doanh nghiệp RentHome! Đăng nhập thành công.');
             }
 
-            return redirect()->intended('/')->with('success', 'Đăng nhập thành công!');
+            if ($user->account_type === 'sub_account' || $user->role === 'sub_account') {
+                return redirect()->intended('/Overview')->with('success', 'Xin chào Quản lý tòa nhà! Đăng nhập thành công.');
+            }
+
+            return redirect()->intended('/')->with('success', 'Đăng nhập thành công! Chào mừng bạn đến với RentHome.');
         }
 
         return back()->withErrors([
@@ -52,68 +56,43 @@ class AuthController extends Controller
 
     public function register(Request $request)
     {
+        // Tài khoản Doanh nghiệp được cấp trực tiếp dưới tên RentHome, không cho đăng ký ngoài
         $rules = [
+            'account_name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'phone' => 'required|string|max:20',
             'password' => 'required|string|min:6|confirmed',
-            'account_type' => 'required|in:canhan,doanhnghiep',
         ];
 
         $messages = [
+            'account_name.required' => 'Vui lòng nhập họ và tên của bạn.',
             'email.required' => 'Vui lòng nhập địa chỉ Email.',
-            'email.email' => 'Email không hợp lệ.',
-            'email.unique' => 'Email này đã được sử dụng.',
+            'email.email' => 'Địa chỉ Email không hợp lệ.',
+            'email.unique' => 'Email này đã được đăng ký trong hệ thống.',
             'phone.required' => 'Vui lòng nhập số điện thoại.',
             'password.required' => 'Vui lòng nhập mật khẩu.',
             'password.min' => 'Mật khẩu phải chứa ít nhất 6 ký tự.',
             'password.confirmed' => 'Xác nhận mật khẩu không khớp.',
-            'account_name.required' => 'Vui lòng nhập tên tài khoản.',
-            'company_name.required' => 'Vui lòng nhập tên doanh nghiệp.',
-            'representative.required' => 'Vui lòng nhập họ tên người đại diện.',
-            'company_address.required' => 'Vui lòng nhập địa chỉ doanh nghiệp.',
-            'tax_code.required' => 'Vui lòng nhập mã số thuế.',
         ];
-
-        if ($request->account_type === 'canhan') {
-            $rules['account_name'] = 'required|string|max:255';
-        } else {
-            $rules['company_name'] = 'required|string|max:255';
-            $rules['representative'] = 'required|string|max:255';
-            $rules['company_address'] = 'required|string|max:255';
-            $rules['tax_code'] = 'required|string|max:50';
-            $rules['business_license'] = 'nullable|file|mimes:jpeg,png,jpg,pdf|max:5120';
-        }
 
         $validated = $request->validate($rules, $messages);
 
-        $licensePath = null;
-        if ($request->hasFile('business_license')) {
-            $licensePath = $request->file('business_license')->store('business_licenses', 'public');
-        }
-
         $userData = [
+            'account_name' => $validated['account_name'],
             'email' => $validated['email'],
             'username' => explode('@', $validated['email'])[0],
             'phone' => $validated['phone'],
             'password' => Hash::make($validated['password']),
-            'account_type' => $validated['account_type'],
+            'account_type' => 'canhan',
+            'role' => 'user',
+            'status' => 'active',
+            'is_locked' => false,
+            'is_deleted' => false,
         ];
-
-        if ($validated['account_type'] === 'canhan') {
-            $userData['account_name'] = $validated['account_name'];
-        } else {
-            $userData['company_name'] = $validated['company_name'];
-            $userData['representative'] = $validated['representative'];
-            $userData['account_name'] = $validated['representative']; // Người đại diện là tên của tài khoản doanh nghiệp
-            $userData['company_address'] = $validated['company_address'];
-            $userData['tax_code'] = $validated['tax_code'];
-            $userData['company_email'] = $validated['email'];
-            $userData['business_license'] = $licensePath;
-        }
 
         User::create($userData);
 
-        return redirect('/login')->with('success', 'Đăng ký tài khoản thành công! Vui lòng đăng nhập.');
+        return redirect('/login')->with('success', 'Đăng ký tài khoản người thuê nhà thành công! Vui lòng đăng nhập.');
     }
 
     public function logout(Request $request)

@@ -15,6 +15,30 @@ class PostController extends Controller
             return response()->json(['error' => 'Vui lòng đăng nhập!'], 401);
         }
 
+        $user = Auth::user();
+
+        // 1. Tài khoản cá nhân KHÔNG THỂ đăng bài cho thuê
+        if ($user->isIndividual()) {
+            return response()->json([
+                'error' => 'Tài khoản cá nhân chỉ có thể thuê nhà, không thể đăng bài cho thuê! Chức năng đăng bài dành riêng cho Doanh nghiệp RentHome và Quản lý tòa nhà.'
+            ], 403);
+        }
+
+        // 2. Tài khoản con CHỈ được đăng bài cho các tòa nhà được phân quyền
+        if ($user->isSubAccount()) {
+            $buildingId = $request->input('building_id');
+            if (empty($buildingId)) {
+                return response()->json([
+                    'error' => 'Vui lòng chọn Tòa nhà được phân công quản lý khi đăng tin!'
+                ], 422);
+            }
+            if (!$user->canManageBuilding($buildingId)) {
+                return response()->json([
+                    'error' => 'Bạn không có quyền đăng bài cho tòa nhà này! Bạn chỉ được quản lý các tòa nhà được Doanh nghiệp phân công.'
+                ], 403);
+            }
+        }
+
         $validatedData = $request->validate([
             'post_id' => 'nullable|string',
             'title' => 'required|string|max:255',
@@ -38,8 +62,13 @@ class PostController extends Controller
 
         if ($postId) {
             $post = Post::where('_id', $postId)->orWhere('id', $postId)->first();
-            if ($post && $post->user_id != Auth::id()) {
-                return response()->json(['error' => 'Không có quyền sửa bài đăng này!'], 403);
+            if ($post) {
+                if ($user->isSubAccount() && !$user->canManageBuilding($post->building_id)) {
+                    return response()->json(['error' => 'Bạn không có quyền chỉnh sửa bài đăng của tòa nhà này!'], 403);
+                }
+                if (!$user->isEnterprise() && $user->role !== 'admin' && $post->user_id != $user->id && !$user->canManageBuilding($post->building_id)) {
+                    return response()->json(['error' => 'Không có quyền sửa bài đăng này!'], 403);
+                }
             }
         }
 

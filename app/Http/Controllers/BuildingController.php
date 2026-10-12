@@ -13,9 +13,22 @@ class BuildingController extends Controller
     public function index(Request $request)
     {
         try {
-            $buildings = Building::where('user_id', Auth::id())
-                                ->orderBy('created_at', 'desc')
-                                ->get(); 
+            $user = Auth::user();
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'Chưa đăng nhập!'], 401);
+            }
+
+            if ($user->isSubAccount()) {
+                // Tài khoản con CHỈ lấy các tòa nhà được phân công
+                $assignedIds = (array) ($user->assigned_buildings ?? []);
+                $buildings = Building::whereIn('_id', $assignedIds)->orderBy('created_at', 'desc')->get();
+            } elseif ($user->isEnterprise() || $user->role === 'admin' || $user->account_type === 'admin') {
+                // Doanh nghiệp RentHome quản lý toàn bộ tòa nhà của hệ thống/doanh nghiệp
+                $buildings = Building::orderBy('created_at', 'desc')->get();
+            } else {
+                // Tài khoản cá nhân không quản lý tòa nhà
+                $buildings = collect();
+            }
 
             return response()->json([
                 'success' => true,
@@ -34,13 +47,26 @@ class BuildingController extends Controller
     public function store(Request $request)
     {
         try {
+            $user = Auth::user();
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'Chưa đăng nhập!'], 401);
+            }
+
+            // Chỉ tài khoản Doanh nghiệp (RentHome) hoặc Admin mới được phép tạo tòa nhà
+            if (!$user->isEnterprise() && $user->role !== 'admin' && $user->account_type !== 'admin') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Chỉ tài khoản Doanh nghiệp RentHome mới có quyền tạo thêm tòa nhà mới! Tài khoản con chỉ quản lý các tòa nhà được phân công.'
+                ], 403);
+            }
+
             // Nhận các trường dữ liệu text
             $data = $request->only([
                 'name', 'project', 'type', 'province', 'district', 'ward', 'address_detail', 'total_rooms', 'description'
             ]);
             
             // Tự động gắn ID của người đang đăng nhập
-            $data['user_id'] = Auth::id(); 
+            $data['user_id'] = $user->_id ?? $user->id; 
             $data['status'] = 'active'; 
 
             // Xử lý lưu File Ảnh đại diện (Nếu có chọn ảnh)
@@ -77,10 +103,14 @@ class BuildingController extends Controller
     public function show($id)
     {
         try {
+            $user = Auth::user();
+            if (!$user) {
+                return redirect()->route('login')->with('error', 'Vui lòng đăng nhập.');
+            }
+
             $building = Building::where('_id', $id)->first();
             
             if (!$building) {
-                // Thử tìm bằng 'id' phòng trường hợp MySQL thay vì MongoDB
                 $building = Building::find($id);
             }
 
@@ -88,13 +118,22 @@ class BuildingController extends Controller
                 abort(404, 'Không tìm thấy tòa nhà.');
             }
 
-            // Đảm bảo chỉ chủ tòa nhà mới được xem
-            if ($building->user_id !== Auth::id()) {
-                abort(403, 'Bạn không có quyền truy cập tòa nhà này.');
+            $bId = (string)($building->_id ?? $building->id);
+
+            // Kiểm tra phân quyền:
+            // 1. Tài khoản con CHỈ được xem tòa nhà trong assigned_buildings
+            if ($user->isSubAccount()) {
+                if (!$user->canManageBuilding($bId)) {
+                    abort(403, 'Bạn không có quyền quản lý tòa nhà này! Bạn chỉ được quản lý các tòa nhà do RentHome phân công.');
+                }
+            } elseif ($user->isIndividual()) {
+                // Tài khoản cá nhân không có quyền quản lý tòa nhà
+                abort(403, 'Tài khoản cá nhân không có quyền quản lý tòa nhà.');
             }
 
             // Tìm tất cả các Phòng (Post) thuộc tòa nhà đó
-            $rooms = \App\Models\Post::where('building_id', $id)
+            $rooms = \App\Models\Post::where('building_id', $bId)
+                                    ->orWhere('building_id', (string)$id)
                                     ->orderBy('created_at', 'desc')
                                     ->get();
 
@@ -102,6 +141,9 @@ class BuildingController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Lỗi xem chi tiết tòa nhà: ' . $e->getMessage());
+            if ($e instanceof \Symfony\Component\HttpKernel\Exception\HttpException) {
+                throw $e;
+            }
             abort(500, 'Lỗi hệ thống: ' . $e->getMessage());
         }
     }

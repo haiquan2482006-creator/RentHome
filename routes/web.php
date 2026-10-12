@@ -787,6 +787,10 @@ Route::get('/Overview', function(){
     if (!Auth::check()) {
         return redirect()->guest(route('login'));
     }
+    $user = Auth::user();
+    if ($user->isIndividual()) {
+        return redirect()->route('user.dashboard')->with('info', 'Tài khoản cá nhân chỉ dành cho người tìm thuê nhà. Quản lý bài đăng và tòa nhà thuộc quyền Doanh nghiệp RentHome.');
+    }
     return view('qlbai_dang.Overview');
 });
 
@@ -794,21 +798,30 @@ Route::get('/dangbai', function(){
     if (!Auth::check()) {
         return redirect()->guest(route('login'));
     }
-    $buildings = \App\Models\Building::where('user_id', Auth::id())->orderBy('created_at', 'desc')->get();
+    $user = Auth::user();
+    if ($user->isIndividual()) {
+        return redirect()->route('user.dashboard')->with('error', 'Tài khoản cá nhân chỉ có thể thuê nhà, không thể đăng bài cho thuê!');
+    }
+    if ($user->isSubAccount()) {
+        $assigned = (array) ($user->assigned_buildings ?? []);
+        $buildings = \App\Models\Building::whereIn('_id', $assigned)->orderBy('created_at', 'desc')->get();
+    } else {
+        $buildings = \App\Models\Building::orderBy('created_at', 'desc')->get();
+    }
     return view('qlbai_dang.dangbai', compact('buildings'));
 })->name('dangbai');
 
-// Routes dành cho Kiểm duyệt viên (Moderator)
+// Chức năng Kiểm duyệt đã được tích hợp trực tiếp vào Doanh nghiệp RentHome
 Route::get('/Moderator', function () {
-    return view('Moderator.Overview');
+    return redirect('/Overview?tab=moderation');
 })->name('moderator.overview');
 
 Route::get('/moderator', function () {
-    return redirect('/Moderator');
+    return redirect('/Overview?tab=moderation');
 });
 
 Route::get('/moderator/qlpheduyet', function () {
-    return view('Moderator.qlpheduyet');
+    return redirect('/Overview?tab=moderation');
 });
 
 Route::get('/moderator/qlnguoidung', function () {
@@ -976,11 +989,11 @@ Route::post('/api/favorites/toggle', [\App\Http\Controllers\FavoriteController::
 Route::post('/api/complaints', [\App\Http\Controllers\ComplaintController::class, 'store'])->name('complaints.store');
 
 // APIs for Moderator
-Route::get('/api/moderator/posts/pending', [\App\Http\Controllers\ModeratorController::class, 'getPending'])->name('moderator.posts.pending');
-Route::post('/api/moderator/posts/{id}/approve', [\App\Http\Controllers\ModeratorController::class, 'approve'])->name('moderator.posts.approve');
-Route::post('/api/moderator/posts/{id}/reject', [\App\Http\Controllers\ModeratorController::class, 'reject'])->name('moderator.posts.reject');
-Route::get('/api/moderator/posts/history', [\App\Http\Controllers\ModeratorController::class, 'getHistory'])->name('moderator.posts.history');
-Route::post('/api/moderator/posts/{id}/restore', [\App\Http\Controllers\ModeratorController::class, 'restore'])->name('moderator.posts.restore');
+Route::get('/api/moderator/posts/pending', [\App\Http\Controllers\ModeratorController::class, 'getPending'])->middleware('auth')->name('moderator.posts.pending');
+Route::post('/api/moderator/posts/{id}/approve', [\App\Http\Controllers\ModeratorController::class, 'approve'])->middleware('auth')->name('moderator.posts.approve');
+Route::post('/api/moderator/posts/{id}/reject', [\App\Http\Controllers\ModeratorController::class, 'reject'])->middleware('auth')->name('moderator.posts.reject');
+Route::get('/api/moderator/posts/history', [\App\Http\Controllers\ModeratorController::class, 'getHistory'])->middleware('auth')->name('moderator.posts.history');
+Route::post('/api/moderator/posts/{id}/restore', [\App\Http\Controllers\ModeratorController::class, 'restore'])->middleware('auth')->name('moderator.posts.restore');
 
 // User Dashboard APIs
 Route::get('/api/user/posts/stats', [\App\Http\Controllers\UserDashboardController::class, 'getStats']);
@@ -1000,6 +1013,16 @@ Route::get('/api/user/posts/history', [\App\Http\Controllers\UserDashboardContro
 Route::get('/api/buildings', [\App\Http\Controllers\BuildingController::class, 'index']);
 Route::post('/api/buildings', [\App\Http\Controllers\BuildingController::class, 'store']);
 Route::get('/quan-ly-toa-nha/{id}', [\App\Http\Controllers\BuildingController::class, 'show']);
+
+// APIs for Sub-Accounts (Quản lý tài khoản con của Doanh nghiệp RentHome)
+Route::get('/api/sub-accounts', [\App\Http\Controllers\SubAccountController::class, 'index'])->middleware('auth')->name('sub_accounts.index');
+Route::post('/api/sub-accounts', [\App\Http\Controllers\SubAccountController::class, 'store'])->middleware('auth')->name('sub_accounts.store');
+Route::put('/api/sub-accounts/{id}', [\App\Http\Controllers\SubAccountController::class, 'update'])->middleware('auth')->name('sub_accounts.update');
+Route::delete('/api/sub-accounts/{id}', [\App\Http\Controllers\SubAccountController::class, 'destroy'])->middleware('auth')->name('sub_accounts.destroy');
+Route::post('/api/sub-accounts/{id}/toggle-lock', [\App\Http\Controllers\SubAccountController::class, 'toggleLock'])->middleware('auth')->name('sub_accounts.toggle_lock');
+
+// APIs for Moderator / Complaints
+Route::get('/api/moderator/complaints', [\App\Http\Controllers\ModeratorController::class, 'getComplaints'])->middleware('auth')->name('moderator.complaints.index');
 
 // ========================================================
 // RentHome AI Assistant Routes

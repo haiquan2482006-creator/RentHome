@@ -30,6 +30,11 @@ class Building extends Model
         return $this->belongsTo(Image::class, 'image');
     }
 
+    public function posts()
+    {
+        return $this->hasMany(Post::class, 'building_id', '_id');
+    }
+
     // BỔ SUNG TỪ ĐÂY XUỐNG DƯỚI:
 
     // Yêu cầu Laravel luôn đính kèm thuộc tính 'display_image' khi trả về JSON

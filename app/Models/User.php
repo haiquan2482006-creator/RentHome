@@ -58,6 +58,10 @@ class User extends Authenticatable
         'website',
         'hotline',
         'company_description',
+
+        // Tài khoản con & phân quyền tòa nhà
+        'parent_id',
+        'assigned_buildings',
     ];
 
 
@@ -81,7 +85,49 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'assigned_buildings' => 'array',
         ];
+    }
+
+    public function isEnterprise(): bool
+    {
+        return ($this->account_type === 'doanhnghiep');
+    }
+
+    public function isSubAccount(): bool
+    {
+        return ($this->account_type === 'sub_account');
+    }
+
+    public function isIndividual(): bool
+    {
+        return ($this->account_type === 'canhan' || empty($this->account_type));
+    }
+
+    public function canManageBuilding($buildingId): bool
+    {
+        if ($this->account_type === 'admin' || $this->role === 'admin') {
+            return true;
+        }
+        if ($this->isEnterprise()) {
+            return true;
+        }
+        if ($this->isSubAccount()) {
+            $assigned = (array) ($this->assigned_buildings ?? []);
+            return in_array((string)$buildingId, array_map('strval', $assigned), true);
+        }
+        return false;
+    }
+
+    public function getDisplayNameAttribute()
+    {
+        if ($this->isEnterprise()) {
+            return $this->company_name ?: 'RentHome';
+        }
+        if ($this->isSubAccount()) {
+            return ($this->account_name ?: $this->username ?: 'Quản lý') . ' (RentHome)';
+        }
+        return $this->account_name ?: ($this->username ?: 'Người dùng');
     }
 
     /**
@@ -101,23 +147,11 @@ class User extends Authenticatable
                 return asset('storage/' . $this->avatar);
             }
         }
-        $name = ($this->account_type === 'doanhnghiep')
-            ? ($this->representative ?? $this->account_name ?? $this->company_name ?? $this->username ?? 'Doanh nghiệp')
-            : ($this->account_name ?? $this->username ?? 'User');
+        $name = $this->display_name;
         $initial = mb_strtoupper(mb_substr($name, 0, 1, 'UTF-8'), 'UTF-8');
-        $svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 150"><rect width="150" height="150" fill="#16a34a"/><text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="#ffffff" font-family="sans-serif" font-size="75" font-weight="bold">'.$initial.'</text></svg>';
+        $color = $this->isEnterprise() ? '#7c3aed' : ($this->isSubAccount() ? '#2563eb' : '#16a34a');
+        $svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 150"><rect width="150" height="150" fill="'.$color.'"/><text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="#ffffff" font-family="sans-serif" font-size="75" font-weight="bold">'.$initial.'</text></svg>';
         return 'data:image/svg+xml;base64,' . base64_encode($svg);
-    }
-
-    /**
-     * Tên hiển thị của tài khoản
-     */
-    public function getDisplayNameAttribute()
-    {
-        if ($this->account_type === 'doanhnghiep') {
-            return $this->representative ?? $this->account_name ?? $this->company_name ?? $this->username ?? 'Doanh nghiệp';
-        }
-        return $this->account_name ?? $this->username ?? 'Thành viên';
     }
 
     private function getDocumentUrl($fieldValue)

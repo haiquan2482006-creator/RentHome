@@ -206,14 +206,12 @@
                                 <p class="text-[11px] text-slate-400 truncate">{{ Auth::user()->email ?? '' }}</p>
                             </div>
                             <div class="shrink-0">
-                                @if ((Auth::user()->account_type ?? '') === 'doanhnghiep')
-                                    <span
-                                        class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-bold text-[10px]">Doanh
-                                        nghiệp</span>
+                                @if (Auth::user()->isEnterprise())
+                                    <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-bold text-[10px]">RentHome Doanh nghiệp</span>
+                                @elseif (Auth::user()->isSubAccount())
+                                    <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold text-[10px]">Quản lý tòa nhà</span>
                                 @else
-                                    <span
-                                        class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 font-bold text-[10px]">Cá
-                                        nhân</span>
+                                    <span class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 font-bold text-[10px]">Khách thuê</span>
                                 @endif
                             </div>
                         </div>
@@ -221,41 +219,41 @@
                         <a href="{{ route('user.dashboard') }}"
                             class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
                             <i class="fa-solid fa-circle-user text-brand-600 w-4 text-center"></i>
-                            <span>Tài khoản</span>
+                            <span>Hồ sơ cá nhân</span>
                         </a>
 
-                        @if ((Auth::user()->account_type ?? 'canhan') !== 'doanhnghiep')
+                        @if (Auth::user()->isIndividual())
                             <a href="{{ route('nha-dang-thue') }}"
                                 class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
                                 <i class="fa-solid fa-house-user text-brand-600 w-4 text-center"></i>
                                 <span>Nhà đang thuê</span>
                             </a>
+
+                            <a href="{{ route('contact.my_requests') }}"
+                                class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
+                                <i class="fa-solid fa-clock-rotate-left text-brand-600 w-4 text-center"></i>
+                                <span>Lịch sử liên hệ thuê</span>
+                            </a>
                         @endif
 
-                        <a href="{{ url('Overview') }}"
-                            class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
-                            <i class="fa-solid fa-newspaper text-brand-600 w-4 text-center"></i>
-                            <span>Quản lý bài đăng</span>
-                        </a>
+                        @if (Auth::user()->isEnterprise() || Auth::user()->isSubAccount() || Auth::user()->role === 'admin' || Auth::user()->account_type === 'admin')
+                            <a href="{{ url('Overview') }}"
+                                class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
+                                <i class="fa-solid fa-newspaper text-brand-600 w-4 text-center"></i>
+                                <span>{{ Auth::user()->isEnterprise() ? 'Trung tâm Quản lý RentHome' : 'Tòa nhà được giao' }}</span>
+                            </a>
 
-                        <a href="{{ url('quan-ly-van-hanh') }}"
-                            class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
-                            <i class="fa-solid fa-gears text-brand-600 w-4 text-center"></i>
-                            <span>Quản lý vận hành</span>
-                        </a>
+                            <a href="{{ url('quan-ly-van-hanh') }}"
+                                class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
+                                <i class="fa-solid fa-gears text-brand-600 w-4 text-center"></i>
+                                <span>Quản lý vận hành</span>
+                            </a>
 
-                        <a href="{{ route('contact.index') }}"
-                            class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
-                            <i class="fa-solid fa-envelope-open-text text-brand-600 w-4 text-center"></i>
-                            <span>Khách hàng liên hệ</span>
-                        </a>
-
-                        @if((Auth::user()->account_type ?? '') !== 'doanhnghiep')
-                        <a href="{{ route('contact.my_requests') }}"
-                            class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
-                            <i class="fa-solid fa-clock-rotate-left text-brand-600 w-4 text-center"></i>
-                            <span>Lịch sử liên hệ</span>
-                        </a>
+                            <a href="{{ route('contact.index') }}"
+                                class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
+                                <i class="fa-solid fa-envelope-open-text text-brand-600 w-4 text-center"></i>
+                                <span>Khách hàng liên hệ</span>
+                            </a>
                         @endif
 
                         <a href="{{ route('user.change_password') }}"

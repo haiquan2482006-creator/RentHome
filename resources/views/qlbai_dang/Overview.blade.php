@@ -120,38 +120,29 @@
 
     @php
         $currentUser = Auth::user();
-        $reqType = request()->query('account_type', request()->query('type', ''));
-        if (!empty($reqType) && in_array($reqType, ['canhan', 'doanhnghiep'])) {
-            $accountType = $reqType;
+        $accountType = $currentUser->account_type ?? 'canhan';
+        $isEnterprise = $currentUser && ($currentUser->isEnterprise() || $accountType === 'doanhnghiep');
+        $isSubAccount = $currentUser && ($currentUser->isSubAccount() || $accountType === 'sub_account');
+        $isAdmin = $currentUser && ($currentUser->role === 'admin' || $accountType === 'admin');
+
+        if ($isEnterprise || $isAdmin) {
+            $displayName = !empty($currentUser->company_name) ? $currentUser->company_name : 'RentHome Doanh Nghiệp';
+            $subTitle = 'Tổng Doanh Nghiệp RentHome';
+            $badgeText = 'RentHome Doanh Nghiệp';
+        } elseif ($isSubAccount) {
+            $displayName = $currentUser->account_name ?? ($currentUser->username ?? 'Quản lý tòa nhà');
+            $subTitle = 'Nhân viên quản lý tòa nhà';
+            $badgeText = 'Nhân Viên Vận Hành';
         } else {
-            $accountType = $currentUser->account_type ?? 'canhan';
+            $displayName = $currentUser->account_name ?? ($currentUser->username ?? ($currentUser->name ?? 'Người dùng'));
+            $subTitle = 'Tài khoản Cá nhân';
+            $badgeText = 'Cá Nhân';
         }
 
-        $isEnterprise = $accountType === 'doanhnghiep';
-
-        if ($currentUser) {
-            if ($isEnterprise) {
-                $displayName = !empty($currentUser->company_name)
-                    ? $currentUser->company_name
-                    : $currentUser->account_name ?? ($currentUser->username ?? 'Tập Đoàn BĐS Đạt Phát');
-                $subTitle = 'Đối tác Doanh Nghiệp';
-                $badgeText = 'Doanh Nghiệp';
-            } else {
-                $displayName =
-                    $currentUser->account_name ?? ($currentUser->username ?? ($currentUser->name ?? 'Nguyễn Văn Tuấn'));
-                $subTitle = 'Tài khoản Cá nhân';
-                $badgeText = 'Cá Nhân';
-            }
-        } else {
-            if ($isEnterprise) {
-                $displayName = 'Tập Đoàn BĐS Đạt Phát';
-                $subTitle = 'Đối tác Doanh Nghiệp';
-                $badgeText = 'Doanh Nghiệp';
-            } else {
-                $displayName = 'Tài khoản Cá nhân';
-                $subTitle = 'Cá nhân';
-                $badgeText = 'Cá Nhân';
-            }
+        // Đếm số lượng bài đăng chờ duyệt (chỉ dành cho Doanh nghiệp RentHome hoặc Admin)
+        $globalPendingModerationCount = 0;
+        if ($isEnterprise || $isAdmin) {
+            $globalPendingModerationCount = \App\Models\Post::where('status', 'pending')->count();
         }
 
         // Đếm số lượng thông báo liên hệ chưa xử lý (pending)
@@ -301,11 +292,30 @@
                         @endif
                     </a>
 
-                    @if($isEnterprise)
+                    @if($isEnterprise || $isSubAccount || $isAdmin)
                     <button onclick="switchTab('buildings')" id="tab-buildings"
                         class="tab-btn flex items-center gap-3 px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
                         <i class="fa-solid fa-city text-purple-500 w-5 text-center text-sm"></i>
-                        <span> Quản lý Tòa Nhà</span>
+                        <span> {{ $isSubAccount ? 'Tòa nhà được giao' : 'Quản lý Tòa Nhà' }}</span>
+                    </button>
+                    @endif
+
+                    @if($isEnterprise || $isAdmin)
+                    <button onclick="switchTab('moderation')" id="tab-moderation"
+                        class="tab-btn flex items-center justify-between px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
+                        <div class="flex items-center gap-3">
+                            <i class="fa-solid fa-shield-halved text-indigo-600 w-5 text-center text-sm"></i>
+                            <span> Kiểm duyệt tin đăng</span>
+                        </div>
+                        <span id="sidebar-mod-pending-badge" class="ml-auto bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full {{ $globalPendingModerationCount > 0 ? '' : 'hidden' }}">
+                            {{ $globalPendingModerationCount }}
+                        </span>
+                    </button>
+
+                    <button onclick="switchTab('sub-accounts')" id="tab-sub-accounts"
+                        class="tab-btn flex items-center gap-3 px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
+                        <i class="fa-solid fa-users-gear text-teal-600 w-5 text-center text-sm"></i>
+                        <span> Tài khoản con & Phân quyền</span>
                     </button>
                     @endif
                 </nav>
@@ -626,21 +636,22 @@
                 </div>
             </section>
 
-            <!-- ==================== TAB G: TẠO TÒA NHÀ & QUẢN LÝ TÒA NHÀ ==================== -->
-            @if($isEnterprise)
+            <!-- ==================== TAB G: TÒA NHÀ ĐƯỢC GIAO & QUẢN LÝ TÒA NHÀ ==================== -->
+            @if($isEnterprise || $isSubAccount || $isAdmin)
             <section id="content-buildings" class="tab-content hidden space-y-6">
                 <!-- Action Header -->
                 <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div>
-                        <h3 class="font-extrabold text-lg text-slate-900">Danh Sách Tòa Nhà & Khu Đô Thị</h3>
-                        <p class="text-xs text-slate-500">Quản lý các cụm chung cư, tòa nhà chứa danh sách phòng cho
-                            thuê</p>
+                        <h3 class="font-extrabold text-lg text-slate-900">{{ $isSubAccount ? 'Danh Sách Tòa Nhà Được Giao Phụ Trách' : 'Danh Sách Tòa Nhà & Khu Đô Thị (RentHome)' }}</h3>
+                        <p class="text-xs text-slate-500">{{ $isSubAccount ? 'Bạn chỉ có quyền quản lý danh sách phòng và tin đăng thuộc các tòa nhà được giao.' : 'Quản lý toàn bộ cụm chung cư, tòa nhà và phân quyền nhân viên phụ trách' }}</p>
                     </div>
-                    <!-- Nút mở form tạo tòa nhà -->
+                    @if(!$isSubAccount)
+                    <!-- Nút mở form tạo tòa nhà (chỉ Doanh nghiệp RentHome hoặc Admin) -->
                     <button onclick="openCreateBuildingModal()"
                         class="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-md transition-all flex items-center gap-2">
                         <i class="fa-solid fa-plus"></i> Tạo Tòa Nhà Mới
                     </button>
+                    @endif
                 </div>
 
                 <!-- Danh sách Tòa nhà đã tạo (Grid) -->
@@ -649,7 +660,419 @@
             </section>
             @endif
 
+            <!-- ==================== TAB: KIỂM DUYỆT TIN ĐĂNG (CHỈ RENTHOME DOANH NGHIỆP) ==================== -->
+            @if($isEnterprise || $isAdmin)
+            <section id="content-moderation" class="tab-content hidden space-y-6">
+                <!-- Action Header -->
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/60">
+                    <div>
+                        <h3 class="font-extrabold text-lg text-slate-900 flex items-center gap-2">
+                            <i class="fa-solid fa-shield-halved text-indigo-600"></i> Trung Tâm Kiểm Duyệt Tin Đăng RentHome
+                        </h3>
+                        <p class="text-xs text-slate-500 mt-0.5">Trực tiếp xem xét, phê duyệt hoặc từ chối tin đăng và xử lý báo cáo khiếu nại</p>
+                    </div>
+                    
+                    <button onclick="fetchModeratorPendingPosts()" class="px-3.5 py-1.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold text-xs shadow-xs transition-colors flex items-center gap-1.5">
+                        <i class="fa-solid fa-arrows-rotate text-indigo-600"></i> Làm mới
+                    </button>
+                </div>
+
+                <!-- Sub-tabs: Chờ duyệt | Lịch sử | Khiếu nại -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="switchModSubTab('pending')" id="mod-subtab-pending"
+                        class="mod-subtab-btn px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs transition-all flex items-center gap-2 shadow-xs">
+                        <i class="fa-solid fa-hourglass-half text-xs"></i>
+                        <span>Chờ phê duyệt</span>
+                        <span id="mod-pending-subtab-count" class="px-2 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-extrabold">0</span>
+                    </button>
+
+                    <button onclick="switchModSubTab('history')" id="mod-subtab-history"
+                        class="mod-subtab-btn px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-clock-rotate-left text-xs text-sky-500"></i>
+                        <span>Lịch sử kiểm duyệt</span>
+                    </button>
+
+                    <button onclick="switchModSubTab('complaints')" id="mod-subtab-complaints"
+                        class="mod-subtab-btn px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-triangle-exclamation text-xs text-amber-500"></i>
+                        <span>Khiếu nại & Báo cáo</span>
+                    </button>
+                </div>
+
+                <!-- SUB-SECTION 1: BÀI ĐĂNG CHỜ PHÊ DUYỆT -->
+                <div id="mod-subcontent-pending" class="space-y-4">
+                    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
+                                <thead>
+                                    <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider">
+                                        <th class="p-4">Hình ảnh</th>
+                                        <th class="p-4">Tiêu đề bài đăng</th>
+                                        <th class="p-4">Tòa nhà / Dự án</th>
+                                        <th class="p-4">Giá thuê</th>
+                                        <th class="p-4">Người đăng</th>
+                                        <th class="p-4">Thời gian gửi</th>
+                                        <th class="p-4 text-right">Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="mod-pending-table-tbody" class="divide-y divide-slate-100 text-slate-700 font-medium">
+                                    <!-- Rendered dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-SECTION 2: LỊCH SỬ KIỂM DUYỆT -->
+                <div id="mod-subcontent-history" class="space-y-4 hidden">
+                    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
+                                <thead>
+                                    <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider">
+                                        <th class="p-4">Mã tin</th>
+                                        <th class="p-4">Tiêu đề bài đăng</th>
+                                        <th class="p-4">Tòa nhà</th>
+                                        <th class="p-4">Người đăng</th>
+                                        <th class="p-4">Kết quả kiểm duyệt</th>
+                                        <th class="p-4">Lý do từ chối</th>
+                                        <th class="p-4 text-right">Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="mod-history-table-tbody" class="divide-y divide-slate-100 text-slate-700 font-medium">
+                                    <!-- Rendered dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-SECTION 3: KHIẾU NẠI & BÁO CÁO -->
+                <div id="mod-subcontent-complaints" class="space-y-4 hidden">
+                    <div id="mod-complaints-container" class="space-y-3">
+                        <!-- Rendered dynamically -->
+                    </div>
+                </div>
+            </section>
+            @endif
+
+            <!-- ==================== TAB: QUẢN LÝ TÀI KHOẢN CON & PHÂN QUYỀN (RENTHOME ENTERPRISE) ==================== -->
+            @if($isEnterprise || $isAdmin)
+            <section id="content-sub-accounts" class="tab-content hidden space-y-6">
+                <!-- Action Header -->
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/60">
+                    <div>
+                        <h3 class="font-extrabold text-lg text-slate-900 flex items-center gap-2">
+                            <i class="fa-solid fa-users-gear text-teal-600"></i> Quản Lý Tài Khoản Con & Phân Quyền Tòa Nhà
+                        </h3>
+                        <p class="text-xs text-slate-500 mt-0.5">Tạo tài khoản nhân viên vận hành và phân công tòa nhà phụ trách. Nhân viên chỉ quản lý đúng các tòa nhà được chỉ định.</p>
+                    </div>
+                    
+                    <button onclick="openCreateSubAccountModal()"
+                        class="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-md transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-user-plus"></i> Thêm Nhân Viên Mới
+                    </button>
+                </div>
+
+                <!-- Stats summary for sub-accounts -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Tổng nhân viên vận hành</p>
+                            <p id="sub-total-count" class="text-xl font-black text-slate-900 mt-1">0</p>
+                        </div>
+                        <div class="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center text-lg">
+                            <i class="fa-solid fa-users"></i>
+                        </div>
+                    </div>
+
+                    <div class="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Tài khoản đang hoạt động</p>
+                            <p id="sub-active-count" class="text-xl font-black text-emerald-600 mt-1">0</p>
+                        </div>
+                        <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg">
+                            <i class="fa-solid fa-user-check"></i>
+                        </div>
+                    </div>
+
+                    <div class="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Tài khoản tạm khóa</p>
+                            <p id="sub-locked-count" class="text-xl font-black text-rose-600 mt-1">0</p>
+                        </div>
+                        <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-lg">
+                            <i class="fa-solid fa-user-lock"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sub-account Table -->
+                <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                        <h4 class="font-bold text-slate-900 text-sm">Danh Sách Nhân Viên & Tòa Nhà Phụ Trách</h4>
+                        <input type="text" id="sub-search-input" onkeyup="filterSubAccountsTable(this.value)" placeholder="Tìm kiếm tên, email, tòa nhà..."
+                            class="px-3.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider">
+                                    <th class="p-4">Nhân viên</th>
+                                    <th class="p-4">Email đăng nhập</th>
+                                    <th class="p-4">Số điện thoại</th>
+                                    <th class="p-4">Tòa nhà được phân quyền</th>
+                                    <th class="p-4">Trạng thái</th>
+                                    <th class="p-4 text-right">Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sub-accounts-table-tbody" class="divide-y divide-slate-100 text-slate-700 font-medium">
+                                <!-- Rendered dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+            @endif
+
         </main>
+    </div>
+
+    <!-- ==================== MODAL: TỪ CHỐI DUYỆT BÀI ĐĂNG ==================== -->
+    <div id="modRejectModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                <h3 class="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-xmark text-rose-500"></i> Từ Chối Phê Duyệt Bài Đăng
+                </h3>
+                <button onclick="closeModRejectModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-sm">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            
+            <form id="formModReject" onsubmit="modSubmitRejectPost(event)" class="space-y-4">
+                <input type="hidden" id="mod_reject_post_id" value="">
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-2">Chọn nhanh lý do từ chối:</label>
+                    <div class="flex flex-wrap gap-1.5 mb-3">
+                        <button type="button" onclick="setRejectReason('Thông tin bài đăng không chính xác hoặc thiếu số phòng')" class="px-2.5 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 rounded-lg text-[11px] font-semibold text-slate-600 transition-colors">
+                            Thiếu số phòng / sai địa chỉ
+                        </button>
+                        <button type="button" onclick="setRejectReason('Hình ảnh mờ, không đúng thực tế hoặc vi phạm tiêu chuẩn')" class="px-2.5 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 rounded-lg text-[11px] font-semibold text-slate-600 transition-colors">
+                            Hình ảnh không rõ ràng
+                        </button>
+                        <button type="button" onclick="setRejectReason('Mức giá niêm yết không phù hợp với quy định tòa nhà RentHome')" class="px-2.5 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 rounded-lg text-[11px] font-semibold text-slate-600 transition-colors">
+                            Giá thuê không hợp lý
+                        </button>
+                        <button type="button" onclick="setRejectReason('Nội dung mô tả chứa thông tin liên hệ không đúng quy định')" class="px-2.5 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 rounded-lg text-[11px] font-semibold text-slate-600 transition-colors">
+                            Vi phạm quy chuẩn
+                        </button>
+                    </div>
+
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5">Chi tiết lý do từ chối gửi tới người đăng <span class="text-rose-500">*</span></label>
+                    <textarea id="mod_reject_reason" required rows="3" placeholder="Nhập lý do cụ thể để người đăng chỉnh sửa..."
+                        class="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-rose-500 focus:outline-none"></textarea>
+                </div>
+
+                <div class="flex justify-end gap-2.5 pt-2 border-t border-slate-100">
+                    <button type="button" onclick="closeModRejectModal()" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors">
+                        Hủy
+                    </button>
+                    <button type="submit" id="btn-confirm-reject" class="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all shadow-md">
+                        Xác nhận từ chối
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: XEM CHI TIẾT BÀI ĐĂNG TRƯỚC KHI DUYỆT ==================== -->
+    <div id="modDetailPreviewModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4">
+        <div class="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl border border-slate-100">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                <h3 class="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-eye text-indigo-600"></i> Xem Chi Tiết Tin Đăng Trước Khi Phê Duyệt
+                </h3>
+                <button onclick="closeModDetailPreviewModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-sm">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-4 text-xs">
+                <div class="rounded-2xl overflow-hidden bg-slate-100 border border-slate-200">
+                    <img id="preview-cover-img" src="" alt="Ảnh bài đăng" class="w-full h-64 object-cover">
+                </div>
+
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <span id="preview-building-badge" class="px-3 py-1 rounded-full bg-purple-100 text-purple-700 font-bold text-xs"></span>
+                    <span id="preview-price" class="text-base font-extrabold text-brand-600"></span>
+                </div>
+
+                <div>
+                    <h4 id="preview-title" class="text-base font-extrabold text-slate-900"></h4>
+                    <p id="preview-address" class="text-slate-500 mt-1 flex items-center gap-1">
+                        <i class="fa-solid fa-location-dot text-slate-400"></i> <span id="preview-address-text"></span>
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-3 gap-3 p-3 rounded-2xl bg-slate-50 border border-slate-100">
+                    <div>
+                        <span class="text-slate-400 text-[11px] block">Diện tích</span>
+                        <span id="preview-area" class="font-bold text-slate-800"></span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 text-[11px] block">Số phòng</span>
+                        <span id="preview-room" class="font-bold text-slate-800"></span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 text-[11px] block">Người đăng</span>
+                        <span id="preview-author" class="font-bold text-slate-800"></span>
+                    </div>
+                </div>
+
+                <div>
+                    <h5 class="font-bold text-slate-800 mb-1">Mô tả bài đăng:</h5>
+                    <p id="preview-description" class="text-slate-600 whitespace-pre-line bg-slate-50 p-3 rounded-xl border border-slate-100 max-h-36 overflow-y-auto"></p>
+                </div>
+
+                <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                    <button type="button" onclick="closeModDetailPreviewModal()" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-colors">
+                        Đóng
+                    </button>
+                    <button type="button" id="preview-btn-reject-action" class="px-4 py-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 font-bold transition-colors">
+                        <i class="fa-solid fa-xmark mr-1"></i> Từ chối
+                    </button>
+                    <button type="button" id="preview-btn-approve-action" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition-all shadow-md">
+                        <i class="fa-solid fa-check mr-1"></i> Phê duyệt ngay
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: TẠO TÀI KHOẢN CON & PHÂN QUYỀN ==================== -->
+    <div id="createSubAccountModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4">
+        <div class="bg-white rounded-3xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 shadow-2xl border border-slate-100">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
+                <div>
+                    <h3 class="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-user-plus text-teal-600"></i> Thêm Tài Khoản Con (Nhân Viên Vận Hành)
+                    </h3>
+                    <p class="text-xs text-slate-400 mt-0.5">Tạo tài khoản và phân quyền chỉ định các tòa nhà nhân viên được phép quản lý</p>
+                </div>
+                <button onclick="closeCreateSubAccountModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-sm">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <form id="formCreateSubAccount" onsubmit="submitCreateSubAccount(event)" class="space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">Họ và tên nhân viên <span class="text-rose-500">*</span></label>
+                        <input type="text" id="sub_name" name="name" required placeholder="VD: Nguyễn Văn Anh"
+                            class="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">Số điện thoại <span class="text-rose-500">*</span></label>
+                        <input type="text" id="sub_phone" name="phone" required placeholder="VD: 0912345678"
+                            class="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">Email đăng nhập <span class="text-rose-500">*</span></label>
+                        <input type="email" id="sub_email" name="email" required placeholder="nhanvien@gmail.com"
+                            class="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">Mật khẩu khởi tạo <span class="text-rose-500">*</span></label>
+                        <input type="password" id="sub_password" name="password" required minlength="6" placeholder="Tối thiểu 6 ký tự"
+                            class="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="block text-xs font-bold text-slate-700">Phân quyền tòa nhà phụ trách <span class="text-rose-500">*</span></label>
+                        <span class="text-[11px] text-teal-600 font-semibold cursor-pointer hover:underline" onclick="selectAllSubBuildings('create')">Chọn tất cả</span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 mb-2">Nhân viên này CHỈ có quyền xem, tạo phòng và quản lý tin đăng thuộc các tòa nhà được tích chọn dưới đây:</p>
+                    <div id="sub-create-buildings-checklist" class="max-h-48 overflow-y-auto space-y-2 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs custom-scrollbar">
+                        <!-- Rendered by JS -->
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
+                    <button type="button" onclick="closeCreateSubAccountModal()" class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors">
+                        Hủy
+                    </button>
+                    <button type="submit" id="btn-submit-create-sub" class="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold transition-all shadow-md flex items-center gap-2">
+                        <i class="fa-solid fa-check"></i> Tạo tài khoản & Phân quyền
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: SỬA PHÂN QUYỀN TÒA NHÀ & TÀI KHOẢN CON ==================== -->
+    <div id="editSubAccountModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4">
+        <div class="bg-white rounded-3xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 shadow-2xl border border-slate-100">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
+                <div>
+                    <h3 class="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-pen-to-square text-teal-600"></i> Cập Nhật Phân Quyền Tòa Nhà
+                    </h3>
+                    <p class="text-xs text-slate-400 mt-0.5" id="edit_sub_subtitle">Chỉnh sửa tòa nhà phân công và thông tin nhân viên</p>
+                </div>
+                <button onclick="closeEditSubAccountModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-sm">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <form id="formEditSubAccount" onsubmit="submitEditSubAccount(event)" class="space-y-4">
+                <input type="hidden" id="edit_sub_id" value="">
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">Họ và tên nhân viên <span class="text-rose-500">*</span></label>
+                        <input type="text" id="edit_sub_name" name="name" required
+                            class="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">Số điện thoại <span class="text-rose-500">*</span></label>
+                        <input type="text" id="edit_sub_phone" name="phone" required
+                            class="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5">Mật khẩu mới (để trống nếu không muốn đổi)</label>
+                    <input type="password" id="edit_sub_password" name="password" minlength="6" placeholder="Để trống nếu giữ nguyên mật khẩu cũ"
+                        class="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="block text-xs font-bold text-slate-700">Tòa nhà được giao quản lý <span class="text-rose-500">*</span></label>
+                        <span class="text-[11px] text-teal-600 font-semibold cursor-pointer hover:underline" onclick="selectAllSubBuildings('edit')">Chọn tất cả</span>
+                    </div>
+                    <div id="sub-edit-buildings-checklist" class="max-h-48 overflow-y-auto space-y-2 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs custom-scrollbar">
+                        <!-- Rendered by JS -->
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
+                    <button type="button" onclick="closeEditSubAccountModal()" class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors">
+                        Hủy
+                    </button>
+                    <button type="submit" id="btn-submit-edit-sub" class="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold transition-all shadow-md flex items-center gap-2">
+                        <i class="fa-solid fa-floppy-disk"></i> Lưu thay đổi phân quyền
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <!-- ==================== MODAL 1: FORM TẠO TÒA NHÀ ==================== -->
@@ -1660,7 +2083,9 @@
                 'pending-posts': 'Bài Đăng Chờ Phê Duyệt',
                 'history-posts': 'Lịch Sử Đăng Tin',
                 'notifications': 'Thông Báo Hệ Thống',
-                'buildings': 'Quản Lý Tòa Nhà & Khu Đô Thị'
+                'buildings': '{{ $isSubAccount ? "Danh Sách Tòa Nhà Được Giao Phụ Trách" : "Quản Lý Tòa Nhà & Khu Đô Thị" }}',
+                'moderation': 'Trung Tâm Kiểm Duyệt Tin Đăng RentHome',
+                'sub-accounts': 'Quản Lý Tài Khoản Con & Phân Quyền Tòa Nhà'
             };
             const pageHeading = document.getElementById('page-heading');
             if (pageHeading && headingMap[tabId]) {
@@ -1686,6 +2111,19 @@
             }
             if (tabId === 'buildings') {
                 fetchBuildings();
+            }
+            if (tabId === 'moderation') {
+                fetchModeratorPendingPosts();
+            }
+            if (tabId === 'sub-accounts') {
+                fetchSubAccounts();
+            }
+
+            // Đồng bộ tab vào URL để khi reload không bị mất tab hiện tại
+            if (window.history && window.history.replaceState) {
+                const currentUrl = new URL(window.location.href);
+                currentUrl.searchParams.set('tab', tabId);
+                window.history.replaceState(null, '', currentUrl.toString());
             }
 
             // Tu dong dong menu mobile khi click tab
@@ -2153,6 +2591,686 @@ function fetchHistoryPosts() {
                 });
             });
         });
+
+        // ==================== JAVASCRIPT: KIỂM DUYỆT TIN ĐĂNG (RENTHOME) ====================
+        let modPendingPostsList = [];
+        let currentModSubTab = 'pending';
+
+        function switchModSubTab(subTab) {
+            currentModSubTab = subTab;
+            const subTabs = ['pending', 'history', 'complaints'];
+            subTabs.forEach(t => {
+                const content = document.getElementById('mod-subcontent-' + t);
+                const btn = document.getElementById('mod-subtab-' + t);
+                if (content) content.classList.toggle('hidden', t !== subTab);
+                if (btn) {
+                    if (t === subTab) {
+                        btn.className = 'mod-subtab-btn px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs transition-all flex items-center gap-2 shadow-xs';
+                    } else {
+                        btn.className = 'mod-subtab-btn px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs transition-all flex items-center gap-2';
+                    }
+                }
+            });
+
+            if (subTab === 'pending') fetchModeratorPendingPosts();
+            if (subTab === 'history') fetchModeratorHistory();
+            if (subTab === 'complaints') fetchModeratorComplaints();
+        }
+
+        async function fetchModeratorPendingPosts() {
+            const tbody = document.getElementById('mod-pending-table-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-400 font-medium"><i class="fa-solid fa-spinner fa-spin text-xl text-indigo-500 mr-2"></i> Đang tải danh sách bài đăng chờ duyệt...</td></tr>';
+
+            try {
+                const res = await fetch('/api/moderator/posts/pending');
+                const data = await res.json();
+                modPendingPostsList = data.posts || [];
+
+                const countBadge = document.getElementById('mod-pending-subtab-count');
+                if (countBadge) countBadge.innerText = modPendingPostsList.length;
+
+                const sidebarBadge = document.getElementById('sidebar-mod-pending-badge');
+                if (sidebarBadge) {
+                    sidebarBadge.innerText = modPendingPostsList.length;
+                    sidebarBadge.classList.toggle('hidden', modPendingPostsList.length === 0);
+                }
+
+                if (modPendingPostsList.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-400 font-medium"><i class="fa-solid fa-circle-check text-3xl text-emerald-400 mb-2 block"></i>Tuyệt vời! Hiện không còn bài đăng nào cần kiểm duyệt.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = modPendingPostsList.map(post => {
+                    const postId = post.id || post._id;
+                    const imgUrl = post.display_image || 'https://placehold.co/100x80?text=RentHome';
+                    const title = post.title || 'Bài đăng không tên';
+                    const price = new Intl.NumberFormat('vi-VN').format(post.price || 0) + ' đ';
+                    const buildingName = post.building ? post.building.name : (post.building_id ? ('Tòa #' + String(post.building_id).substring(0, 6)) : 'Đăng lẻ');
+                    const authorName = post.user ? (post.user.account_name || post.user.name || post.user.username || 'Người dùng') : 'Người dùng';
+                    const dateStr = post.created_at ? new Date(post.created_at).toLocaleDateString('vi-VN') : 'Mới';
+
+                    return `
+                        <tr class="hover:bg-slate-50 transition-colors">
+                            <td class="p-4">
+                                <img src="${imgUrl}" alt="${title}" class="w-14 h-11 object-cover rounded-xl border border-slate-200 shadow-2xs">
+                            </td>
+                            <td class="p-4 max-w-xs">
+                                <p class="font-bold text-slate-900 truncate" title="${title}">${title}</p>
+                                <p class="text-[10px] text-slate-400 truncate mt-0.5"><i class="fa-solid fa-location-dot"></i> ${post.address || post.street || 'Chưa có địa chỉ'}</p>
+                            </td>
+                            <td class="p-4">
+                                <span class="px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 font-bold text-[10px] inline-flex items-center gap-1 border border-purple-100">
+                                    <i class="fa-solid fa-building text-purple-500"></i> ${buildingName}
+                                </span>
+                            </td>
+                            <td class="p-4 font-bold text-brand-600">${price}</td>
+                            <td class="p-4">
+                                <p class="font-bold text-slate-800">${authorName}</p>
+                                <p class="text-[10px] text-slate-400">${post.user?.email || ''}</p>
+                            </td>
+                            <td class="p-4 text-slate-500 font-medium">${dateStr}</td>
+                            <td class="p-4 text-right">
+                                <div class="inline-flex items-center gap-1.5">
+                                    <button onclick="modOpenPreview('${postId}')" class="px-2.5 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold text-[11px] transition-colors flex items-center gap-1" title="Xem chi tiết">
+                                        <i class="fa-solid fa-eye"></i> Xem
+                                    </button>
+                                    <button onclick="modApprovePost('${postId}')" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition-colors shadow-xs" title="Phê duyệt">
+                                        <i class="fa-solid fa-check mr-1"></i> Duyệt
+                                    </button>
+                                    <button onclick="modOpenRejectModal('${postId}')" class="px-2.5 py-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 font-bold text-[11px] transition-colors" title="Từ chối">
+                                        <i class="fa-solid fa-xmark mr-1"></i> Từ chối
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (err) {
+                console.error(err);
+                tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-rose-500 font-medium">Lỗi tải danh sách kiểm duyệt!</td></tr>';
+            }
+        }
+
+        async function modApprovePost(postId) {
+            if (!confirm('Bạn có chắc chắn muốn phê duyệt bài đăng này để hiển thị công khai trên hệ thống?')) return;
+            try {
+                const res = await fetch(`/api/moderator/posts/${postId}/approve`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(data.message || 'Phê duyệt bài đăng thành công!');
+                    closeModDetailPreviewModal();
+                    fetchModeratorPendingPosts();
+                } else {
+                    alert(data.error || 'Có lỗi xảy ra!');
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Lỗi kết nối máy chủ!');
+            }
+        }
+
+        function modOpenRejectModal(postId) {
+            document.getElementById('mod_reject_post_id').value = postId;
+            document.getElementById('mod_reject_reason').value = '';
+            document.getElementById('modRejectModal').classList.remove('hidden');
+            document.getElementById('modRejectModal').classList.add('flex');
+        }
+
+        function closeModRejectModal() {
+            document.getElementById('modRejectModal').classList.add('hidden');
+            document.getElementById('modRejectModal').classList.remove('flex');
+        }
+
+        function setRejectReason(reason) {
+            document.getElementById('mod_reject_reason').value = reason;
+        }
+
+        async function modSubmitRejectPost(e) {
+            e.preventDefault();
+            const postId = document.getElementById('mod_reject_post_id').value;
+            const reason = document.getElementById('mod_reject_reason').value;
+            const btn = document.getElementById('btn-confirm-reject');
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang xử lý...';
+
+            try {
+                const res = await fetch(`/api/moderator/posts/${postId}/reject`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ reason: reason })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert('Đã từ chối bài đăng!');
+                    closeModRejectModal();
+                    closeModDetailPreviewModal();
+                    fetchModeratorPendingPosts();
+                } else {
+                    alert(data.error || 'Có lỗi xảy ra!');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Lỗi kết nối máy chủ!');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Xác nhận từ chối';
+            }
+        }
+
+        function modOpenPreview(postId) {
+            const post = modPendingPostsList.find(p => (p.id || p._id) == postId);
+            if (!post) return;
+
+            document.getElementById('preview-cover-img').src = post.display_image || 'https://placehold.co/600x300?text=RentHome';
+            document.getElementById('preview-title').innerText = post.title || 'Không có tiêu đề';
+            document.getElementById('preview-price').innerText = new Intl.NumberFormat('vi-VN').format(Number(post.price) || 0) + ' đ/tháng';
+            
+            const bName = post.building ? post.building.name : (post.building_id ? ('Tòa #' + String(post.building_id).substring(0, 6)) : 'Tin đăng');
+            document.getElementById('preview-building-badge').innerText = bName;
+
+            const addrParts = [];
+            if (post.address) addrParts.push(post.address);
+            else if (post.street) addrParts.push(post.street);
+            if (post.ward) addrParts.push(post.ward);
+            if (post.district) addrParts.push(post.district);
+            if (post.province) addrParts.push(post.province);
+            document.getElementById('preview-address-text').innerText = addrParts.join(', ') || 'Chưa có địa chỉ';
+
+            document.getElementById('preview-area').innerText = (post.area || '0') + ' m²';
+            document.getElementById('preview-room').innerText = post.room_number || post.bedroom || '1 phòng';
+            document.getElementById('preview-author').innerText = post.user ? (post.user.account_name || post.user.name || post.user.username || 'Người dùng') : 'N/A';
+            document.getElementById('preview-description').innerText = post.description || 'Không có mô tả chi tiết';
+
+            document.getElementById('preview-btn-approve-action').onclick = () => modApprovePost(postId);
+            document.getElementById('preview-btn-reject-action').onclick = () => {
+                closeModDetailPreviewModal();
+                modOpenRejectModal(postId);
+            };
+
+            document.getElementById('modDetailPreviewModal').classList.remove('hidden');
+            document.getElementById('modDetailPreviewModal').classList.add('flex');
+        }
+
+        function closeModDetailPreviewModal() {
+            document.getElementById('modDetailPreviewModal').classList.add('hidden');
+            document.getElementById('modDetailPreviewModal').classList.remove('flex');
+        }
+
+        async function fetchModeratorHistory() {
+            const tbody = document.getElementById('mod-history-table-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-400 font-medium"><i class="fa-solid fa-spinner fa-spin text-xl text-sky-500 mr-2"></i> Đang tải lịch sử kiểm duyệt...</td></tr>';
+
+            try {
+                const res = await fetch('/api/moderator/posts/history');
+                const data = await res.json();
+                const posts = data.posts || [];
+
+                if (posts.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-400 font-medium">Chưa có lịch sử kiểm duyệt nào.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = posts.map(post => {
+                    const postId = String(post.id || post._id);
+                    const isApproved = post.status === 'approved' || post.status === 'active';
+                    const badge = isApproved
+                        ? '<span class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[10px]"><i class="fa-solid fa-circle-check"></i> Đã phê duyệt</span>'
+                        : '<span class="px-2.5 py-1 rounded-full bg-rose-100 text-rose-700 font-bold text-[10px]"><i class="fa-solid fa-circle-xmark"></i> Bị từ chối</span>';
+                    
+                    const buildingName = post.building ? post.building.name : 'Đăng lẻ';
+                    const authorName = post.user ? (post.user.account_name || post.user.username || 'Người dùng') : 'Người dùng';
+                    const rejectReason = post.reject_reason || '-';
+
+                    return `
+                        <tr class="hover:bg-slate-50 transition-colors">
+                            <td class="p-4 font-bold text-slate-900">${postId.substring(0, 8)}...</td>
+                            <td class="p-4 font-bold text-slate-800 max-w-xs truncate">${post.title || ''}</td>
+                            <td class="p-4 text-slate-600">${buildingName}</td>
+                            <td class="p-4 text-slate-600">${authorName}</td>
+                            <td class="p-4">${badge}</td>
+                            <td class="p-4 text-slate-500 max-w-xs truncate text-[11px]" title="${rejectReason}">${rejectReason}</td>
+                            <td class="p-4 text-right">
+                                <button onclick="modRestorePost('${postId}')" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] transition-colors">
+                                    <i class="fa-solid fa-rotate-left mr-1"></i> Khôi phục duyệt lại
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (err) {
+                console.error(err);
+                tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-rose-500 font-medium">Lỗi tải lịch sử!</td></tr>';
+            }
+        }
+
+        async function modRestorePost(postId) {
+            if (!confirm('Khôi phục bài đăng này về trạng thái chờ duyệt?')) return;
+            try {
+                const res = await fetch(`/api/moderator/posts/${postId}/restore`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert('Đã khôi phục bài đăng về danh sách chờ duyệt!');
+                    fetchModeratorHistory();
+                    fetchModeratorPendingPosts();
+                } else {
+                    alert(data.error || 'Có lỗi xảy ra!');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Lỗi kết nối máy chủ!');
+            }
+        }
+
+        async function fetchModeratorComplaints() {
+            const container = document.getElementById('mod-complaints-container');
+            if (!container) return;
+            container.innerHTML = '<div class="text-center py-10 text-slate-400 font-medium"><i class="fa-solid fa-spinner fa-spin text-xl text-amber-500 mr-2"></i> Đang tải khiếu nại...</div>';
+
+            try {
+                const res = await fetch('/api/moderator/complaints');
+                const data = await res.json();
+                const complaints = data.complaints || [];
+
+                if (complaints.length === 0) {
+                    container.innerHTML = '<div class="text-center py-12 bg-white rounded-2xl border border-slate-200"><i class="fa-solid fa-check-double text-3xl text-emerald-400 mb-2 block"></i><p class="font-bold text-slate-700 text-sm">Không có khiếu nại hoặc báo cáo nào chưa xử lý.</p></div>';
+                    return;
+                }
+
+                container.innerHTML = complaints.map(c => {
+                    const cId = String(c.id || c._id);
+                    const userName = c.user ? (c.user.account_name || c.user.username || 'Người dùng') : 'Ẩn danh';
+                    const dateStr = c.created_at ? new Date(c.created_at).toLocaleString('vi-VN') : '';
+                    const postTitle = c.post ? c.post.title : 'Bài đăng không xác định';
+                    const statusBadge = c.status === 'resolved'
+                        ? '<span class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[10px]">Đã giải quyết</span>'
+                        : '<span class="px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 font-bold text-[10px]">Chờ xử lý</span>';
+
+                    return `
+                        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs hover:border-indigo-200 transition-all">
+                            <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-9 h-9 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-sm">
+                                        <i class="fa-solid fa-user"></i>
+                                    </div>
+                                    <div>
+                                        <h5 class="font-bold text-slate-900 text-xs">${userName} <span class="text-slate-400 font-normal ml-1">#KN-${cId.substring(0, 6)}</span></h5>
+                                        <p class="text-[10px] text-slate-400"><i class="fa-regular fa-clock"></i> ${dateStr}</p>
+                                    </div>
+                                </div>
+                                ${statusBadge}
+                            </div>
+                            <div class="text-xs space-y-2">
+                                <p class="text-slate-500"><strong class="text-slate-800">Bài đăng liên quan:</strong> ${postTitle}</p>
+                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-100 text-slate-700">
+                                    <p class="font-semibold text-slate-900 mb-0.5">Nội dung khiếu nại:</p>
+                                    <p class="whitespace-pre-line">${c.content || c.message || 'Không có chi tiết'}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = '<div class="text-center py-10 text-rose-500 font-medium">Lỗi tải khiếu nại!</div>';
+            }
+        }
+
+        // ==================== JAVASCRIPT: QUẢN LÝ TÀI KHOẢN CON & PHÂN QUYỀN ====================
+        let allSubAccountsList = [];
+        let allBuildingsForSubAccounts = [];
+
+        async function fetchSubAccounts() {
+            const tbody = document.getElementById('sub-accounts-table-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-400 font-medium"><i class="fa-solid fa-spinner fa-spin text-xl text-teal-500 mr-2"></i> Đang tải danh sách nhân viên...</td></tr>';
+
+            try {
+                const res = await fetch('/api/sub-accounts');
+                const data = await res.json();
+                allSubAccountsList = data.sub_accounts || [];
+                allBuildingsForSubAccounts = data.all_buildings || [];
+
+                // Cập nhật stats
+                if (document.getElementById('sub-total-count')) document.getElementById('sub-total-count').innerText = allSubAccountsList.length;
+                if (document.getElementById('sub-active-count')) document.getElementById('sub-active-count').innerText = allSubAccountsList.filter(s => !s.is_locked).length;
+                if (document.getElementById('sub-locked-count')) document.getElementById('sub-locked-count').innerText = allSubAccountsList.filter(s => s.is_locked).length;
+
+                renderSubAccountsTable(allSubAccountsList);
+            } catch (err) {
+                console.error(err);
+                tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-rose-500 font-medium">Lỗi tải danh sách tài khoản con!</td></tr>';
+            }
+        }
+
+        function renderSubAccountsTable(accounts) {
+            const tbody = document.getElementById('sub-accounts-table-tbody');
+            if (!tbody) return;
+
+            if (accounts.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-400 font-medium"><i class="fa-solid fa-users text-3xl text-slate-300 mb-2 block"></i>Chưa có tài khoản nhân viên nào. Bấm "+ Thêm Nhân Viên Mới" để tạo.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = accounts.map(acc => {
+                const accId = String(acc.id || acc._id);
+                const name = acc.account_name || acc.name || acc.username || 'Nhân viên';
+                const email = acc.email || '';
+                const phone = acc.phone || 'Chưa có SĐT';
+                const isLocked = acc.is_locked;
+                const assignedBuildings = acc.assigned_buildings_details || [];
+                
+                let buildingBadges = '';
+                if (assignedBuildings.length > 0) {
+                    buildingBadges = assignedBuildings.map(b => 
+                        `<span class="px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 font-bold text-[10px] border border-purple-100 mr-1 mb-1 inline-block"><i class="fa-solid fa-building text-[9px] mr-1"></i>${b.name}</span>`
+                    ).join('');
+                } else {
+                    buildingBadges = '<span class="text-slate-400 text-[11px] italic">Chưa được giao tòa nhà nào</span>';
+                }
+
+                const statusBadge = isLocked
+                    ? '<span class="px-2.5 py-1 rounded-full bg-rose-100 text-rose-700 font-bold text-[10px] inline-flex items-center gap-1"><i class="fa-solid fa-lock text-rose-500"></i> Đang tạm khóa</span>'
+                    : '<span class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[10px] inline-flex items-center gap-1"><i class="fa-solid fa-circle-check text-emerald-500"></i> Hoạt động</span>';
+
+                const lockBtnIcon = isLocked ? 'fa-lock-open' : 'fa-lock';
+                const lockBtnText = isLocked ? 'Mở khóa' : 'Khóa';
+                const lockBtnClass = isLocked ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'bg-rose-50 text-rose-700 hover:bg-rose-100';
+
+                return `
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="p-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center font-bold text-sm shrink-0">
+                                    <i class="fa-solid fa-user-tie"></i>
+                                </div>
+                                <div>
+                                    <p class="font-bold text-slate-900">${name}</p>
+                                    <p class="text-[10px] text-teal-600 font-semibold">Nhân viên quản lý tòa nhà</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="p-4 font-medium text-slate-700">${email}</td>
+                        <td class="p-4 font-medium text-slate-700">${phone}</td>
+                        <td class="p-4 max-w-xs">${buildingBadges}</td>
+                        <td class="p-4">${statusBadge}</td>
+                        <td class="p-4 text-right">
+                            <div class="inline-flex items-center gap-1.5">
+                                <button onclick="openEditSubAccountModal('${accId}')" class="px-2.5 py-1.5 rounded-lg bg-teal-50 text-teal-700 hover:bg-teal-100 font-bold text-[11px] transition-colors" title="Phân quyền tòa nhà & sửa thông tin">
+                                    <i class="fa-solid fa-pen-to-square mr-1"></i> Phân quyền
+                                </button>
+                                <button onclick="toggleLockSubAccount('${accId}')" class="px-2.5 py-1.5 rounded-lg ${lockBtnClass} font-bold text-[11px] transition-colors" title="${lockBtnText}">
+                                    <i class="fa-solid ${lockBtnIcon} mr-1"></i> ${lockBtnText}
+                                </button>
+                                <button onclick="deleteSubAccount('${accId}')" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors" title="Xóa tài khoản">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function filterSubAccountsTable(query) {
+            const q = (query || '').toLowerCase().trim();
+            if (!q) {
+                renderSubAccountsTable(allSubAccountsList);
+                return;
+            }
+            const filtered = allSubAccountsList.filter(acc => {
+                const name = (acc.account_name || acc.name || '').toLowerCase();
+                const email = (acc.email || '').toLowerCase();
+                const phone = (acc.phone || '').toLowerCase();
+                const bNames = (acc.assigned_buildings_details || []).map(b => (b.name || '').toLowerCase()).join(' ');
+                return name.includes(q) || email.includes(q) || phone.includes(q) || bNames.includes(q);
+            });
+            renderSubAccountsTable(filtered);
+        }
+
+        function openCreateSubAccountModal() {
+            document.getElementById('formCreateSubAccount').reset();
+            const container = document.getElementById('sub-create-buildings-checklist');
+            
+            if (allBuildingsForSubAccounts.length === 0) {
+                container.innerHTML = '<p class="text-slate-400 italic text-center py-4">Hệ thống chưa có tòa nhà nào để phân quyền. Vui lòng tạo tòa nhà trước.</p>';
+            } else {
+                container.innerHTML = allBuildingsForSubAccounts.map(b => {
+                    const bId = String(b.id || b._id);
+                    return `
+                        <label class="flex items-start gap-2.5 p-2 rounded-lg hover:bg-white transition-colors cursor-pointer border border-transparent hover:border-slate-200">
+                            <input type="checkbox" name="assigned_buildings[]" value="${bId}" class="mt-0.5 rounded border-slate-300 text-teal-600 focus:ring-teal-500">
+                            <div class="flex-1 min-w-0">
+                                <p class="font-bold text-slate-900">${b.name}</p>
+                                <p class="text-[10px] text-slate-400 truncate">${b.address_detail ? (b.address_detail + ', ') : ''}${b.province || ''}</p>
+                            </div>
+                        </label>
+                    `;
+                }).join('');
+            }
+
+            document.getElementById('createSubAccountModal').classList.remove('hidden');
+            document.getElementById('createSubAccountModal').classList.add('flex');
+        }
+
+        function closeCreateSubAccountModal() {
+            document.getElementById('createSubAccountModal').classList.add('hidden');
+            document.getElementById('createSubAccountModal').classList.remove('flex');
+        }
+
+        function selectAllSubBuildings(type) {
+            const selector = type === 'create' ? '#sub-create-buildings-checklist input[type="checkbox"]' : '#sub-edit-buildings-checklist input[type="checkbox"]';
+            const checkboxes = document.querySelectorAll(selector);
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            checkboxes.forEach(cb => cb.checked = !allChecked);
+        }
+
+        async function submitCreateSubAccount(e) {
+            e.preventDefault();
+            const form = document.getElementById('formCreateSubAccount');
+            const checkboxes = form.querySelectorAll('input[name="assigned_buildings[]"]:checked');
+            
+            if (checkboxes.length === 0) {
+                alert('Vui lòng chọn ít nhất 1 tòa nhà để phân quyền cho nhân viên này!');
+                return;
+            }
+
+            const assigned = Array.from(checkboxes).map(cb => cb.value);
+            const payload = {
+                name: document.getElementById('sub_name').value.trim(),
+                phone: document.getElementById('sub_phone').value.trim(),
+                email: document.getElementById('sub_email').value.trim(),
+                password: document.getElementById('sub_password').value,
+                assigned_buildings: assigned
+            };
+
+            const btn = document.getElementById('btn-submit-create-sub');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang tạo...';
+
+            try {
+                const res = await fetch('/api/sub-accounts', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(data.message || 'Tạo tài khoản nhân viên thành công!');
+                    closeCreateSubAccountModal();
+                    fetchSubAccounts();
+                } else {
+                    let errMsg = data.error || data.message || 'Đã có lỗi xảy ra!';
+                    if (data.errors && typeof data.errors === 'object') {
+                        errMsg = Object.values(data.errors).flat().join('\n');
+                    }
+                    alert(errMsg);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Lỗi kết nối máy chủ!');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> Tạo tài khoản & Phân quyền';
+            }
+        }
+
+        function openEditSubAccountModal(accId) {
+            const acc = allSubAccountsList.find(a => (a.id || a._id) == accId);
+            if (!acc) return;
+
+            document.getElementById('edit_sub_id').value = accId;
+            document.getElementById('edit_sub_name').value = acc.account_name || acc.name || '';
+            document.getElementById('edit_sub_phone').value = acc.phone || '';
+            document.getElementById('edit_sub_password').value = '';
+            document.getElementById('edit_sub_subtitle').innerText = `Email: ${acc.email} - Phân quyền tòa nhà phụ trách`;
+
+            const assignedIds = (acc.assigned_buildings || []).map(String);
+            const container = document.getElementById('sub-edit-buildings-checklist');
+
+            container.innerHTML = allBuildingsForSubAccounts.map(b => {
+                const bId = String(b.id || b._id);
+                const isChecked = assignedIds.includes(bId) ? 'checked' : '';
+                return `
+                    <label class="flex items-start gap-2.5 p-2 rounded-lg hover:bg-white transition-colors cursor-pointer border border-transparent hover:border-slate-200">
+                        <input type="checkbox" name="edit_assigned_buildings[]" value="${bId}" ${isChecked} class="mt-0.5 rounded border-slate-300 text-teal-600 focus:ring-teal-500">
+                        <div class="flex-1 min-w-0">
+                            <p class="font-bold text-slate-900">${b.name}</p>
+                            <p class="text-[10px] text-slate-400 truncate">${b.address_detail ? (b.address_detail + ', ') : ''}${b.province || ''}</p>
+                        </div>
+                    </label>
+                `;
+            }).join('');
+
+            document.getElementById('editSubAccountModal').classList.remove('hidden');
+            document.getElementById('editSubAccountModal').classList.add('flex');
+        }
+
+        function closeEditSubAccountModal() {
+            document.getElementById('editSubAccountModal').classList.add('hidden');
+            document.getElementById('editSubAccountModal').classList.remove('flex');
+        }
+
+        async function submitEditSubAccount(e) {
+            e.preventDefault();
+            const accId = document.getElementById('edit_sub_id').value;
+            const checkboxes = document.querySelectorAll('input[name="edit_assigned_buildings[]"]:checked');
+            
+            if (checkboxes.length === 0) {
+                alert('Vui lòng chọn ít nhất 1 tòa nhà để phân quyền cho nhân viên này!');
+                return;
+            }
+
+            const assigned = Array.from(checkboxes).map(cb => cb.value);
+            const payload = {
+                name: document.getElementById('edit_sub_name').value.trim(),
+                phone: document.getElementById('edit_sub_phone').value.trim(),
+                password: document.getElementById('edit_sub_password').value || null,
+                assigned_buildings: assigned
+            };
+
+            const btn = document.getElementById('btn-submit-edit-sub');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang lưu...';
+
+            try {
+                const res = await fetch(`/api/sub-accounts/${accId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(data.message || 'Cập nhật phân quyền thành công!');
+                    closeEditSubAccountModal();
+                    fetchSubAccounts();
+                } else {
+                    let errMsg = data.error || data.message || 'Đã có lỗi xảy ra!';
+                    if (data.errors && typeof data.errors === 'object') {
+                        errMsg = Object.values(data.errors).flat().join('\n');
+                    }
+                    alert(errMsg);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Lỗi kết nối máy chủ!');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Lưu thay đổi phân quyền';
+            }
+        }
+
+        async function toggleLockSubAccount(accId) {
+            if (!confirm('Bạn có chắc chắn muốn thay đổi trạng thái khóa/mở khóa tài khoản này?')) return;
+            try {
+                const res = await fetch(`/api/sub-accounts/${accId}/toggle-lock`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(data.message);
+                    fetchSubAccounts();
+                } else {
+                    alert(data.error || 'Có lỗi xảy ra!');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Lỗi kết nối máy chủ!');
+            }
+        }
+
+        async function deleteSubAccount(accId) {
+            if (!confirm('Bạn có chắc chắn muốn xóa tài khoản nhân viên này khỏi hệ thống? Hành động này không thể hoàn tác.')) return;
+            try {
+                const res = await fetch(`/api/sub-accounts/${accId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(data.message || 'Đã xóa tài khoản!');
+                    fetchSubAccounts();
+                } else {
+                    alert(data.error || 'Có lỗi xảy ra!');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Lỗi kết nối máy chủ!');
+            }
+        }
     </script>
 
     <!-- Complaint Modal -->

@@ -12,23 +12,38 @@ class UserDashboardController extends Controller
 {
     public function getStats()
     {
-        $userId = Auth::id();
-        
-        $activePostsCount = Post::where('user_id', $userId)
-            ->where(function ($q) {
-                $q->whereIn('status', ['active', 'approved', 'đã cho thuê', 'rented', 'dang_thue'])
-                  ->orWhere('is_rented', true);
-            })
-            ->count();
-            
-        // Calculate total views for this user's posts
-        $totalViews = Post::where('user_id', $userId)->sum('views') ?? 0;
-        
-        // Calculate total likes if exists, otherwise dummy
-        $totalLikes = Post::where('user_id', $userId)->sum('likes') ?? 0; 
-        
-        // Count buildings (dummy for now unless you have a Building model)
-        $totalBuildingsCount = \App\Models\Building::where('user_id', $userId)->count() ?? 0; 
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['success' => false], 401);
+        }
+
+        if ($user->isSubAccount()) {
+            $assignedIds = (array) ($user->assigned_buildings ?? []);
+            $activePostsCount = Post::whereIn('building_id', $assignedIds)
+                ->where(function ($q) {
+                    $q->whereIn('status', ['active', 'approved', 'đã cho thuê', 'rented', 'dang_thue'])
+                      ->orWhere('is_rented', true);
+                })
+                ->count();
+            $totalViews = Post::whereIn('building_id', $assignedIds)->sum('views') ?? 0;
+            $totalLikes = Post::whereIn('building_id', $assignedIds)->sum('likes') ?? 0;
+            $totalBuildingsCount = count($assignedIds);
+        } elseif ($user->isEnterprise() || $user->role === 'admin' || $user->account_type === 'admin') {
+            $activePostsCount = Post::where(function ($q) {
+                    $q->whereIn('status', ['active', 'approved', 'đã cho thuê', 'rented', 'dang_thue'])
+                      ->orWhere('is_rented', true);
+                })
+                ->count();
+            $totalViews = Post::sum('views') ?? 0;
+            $totalLikes = Post::sum('likes') ?? 0;
+            $totalBuildingsCount = \App\Models\Building::count();
+        } else {
+            $userId = $user->_id ?? $user->id;
+            $activePostsCount = Post::where('user_id', $userId)->count();
+            $totalViews = Post::where('user_id', $userId)->sum('views') ?? 0;
+            $totalLikes = Post::where('user_id', $userId)->sum('likes') ?? 0;
+            $totalBuildingsCount = 0;
+        }
 
         return response()->json([
             'success' => true,
@@ -43,10 +58,20 @@ class UserDashboardController extends Controller
 
     public function getPosts(Request $request)
     {
-        $userId = Auth::id();
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['success' => false], 401);
+        }
         $status = $request->query('status', 'active');
         
-        $query = Post::where('user_id', $userId)->with('imageModels');
+        $query = Post::with('imageModels');
+
+        if ($user->isSubAccount()) {
+            $assignedIds = (array) ($user->assigned_buildings ?? []);
+            $query->whereIn('building_id', $assignedIds);
+        } elseif (!$user->isEnterprise() && $user->role !== 'admin' && $user->account_type !== 'admin') {
+            $query->where('user_id', $user->_id ?? $user->id);
+        }
 
         $activeContractPostIds = Contract::where('status', '!=', 'cancelled')
             ->pluck('post_id')
@@ -81,12 +106,21 @@ class UserDashboardController extends Controller
 
     public function getHistory()
     {
-        $userId = Auth::id();
-        
-        $posts = Post::where('user_id', $userId)
-            ->whereIn('status', ['approved', 'active', 'rejected', 'hidden', 'deleted', 'pending', 'đã cho thuê', 'rented', 'dang_thue'])
-            ->orderBy('updated_at', 'desc')
-            ->get();
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['success' => false], 401);
+        }
+
+        $query = Post::whereIn('status', ['approved', 'active', 'rejected', 'hidden', 'deleted', 'pending', 'đã cho thuê', 'rented', 'dang_thue']);
+
+        if ($user->isSubAccount()) {
+            $assignedIds = (array) ($user->assigned_buildings ?? []);
+            $query->whereIn('building_id', $assignedIds);
+        } elseif (!$user->isEnterprise() && $user->role !== 'admin' && $user->account_type !== 'admin') {
+            $query->where('user_id', $user->_id ?? $user->id);
+        }
+
+        $posts = $query->orderBy('updated_at', 'desc')->get();
             
         return response()->json(['success' => true, 'posts' => $posts]);
     }

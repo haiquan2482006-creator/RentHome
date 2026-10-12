@@ -8,9 +8,21 @@ use Illuminate\Http\Request;
 
 class ModeratorController extends Controller
 {
+    private function checkModerationPermission()
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if (!$user) {
+            return false;
+        }
+        return ($user->isEnterprise() || $user->role === 'admin' || $user->account_type === 'admin' || $user->account_type === 'doanhnghiep');
+    }
+
     public function getPending()
     {
-        // THÊM 'imageModels' VÀO TRONG MẢNG WITH
+        if (!$this->checkModerationPermission()) {
+            return response()->json(['error' => 'Chỉ tài khoản Doanh nghiệp RentHome mới có quyền kiểm duyệt tin đăng.'], 403);
+        }
+
         $posts = Post::with(['user', 'building', 'imageModels'])
             ->where('status', 'pending')
             ->orderBy('created_at', 'desc')
@@ -21,6 +33,10 @@ class ModeratorController extends Controller
 
     public function approve($id)
     {
+        if (!$this->checkModerationPermission()) {
+            return response()->json(['error' => 'Chỉ tài khoản Doanh nghiệp RentHome mới có quyền kiểm duyệt tin đăng.'], 403);
+        }
+
         $post = Post::find($id);
         if (!$post) {
             return response()->json(['error' => 'Không tìm thấy bài đăng!'], 404);
@@ -36,7 +52,7 @@ class ModeratorController extends Controller
                 'user_id' => $post->user_id,
                 'post_id' => $post->_id,
                 'title' => 'Bài đăng đã được kiểm duyệt',
-                'message' => 'Bài viết "' . $post->title . '" của bạn đã được phê duyệt và đang hiển thị trên hệ thống.',
+                'message' => 'Bài viết "' . $post->title . '" của bạn đã được Doanh nghiệp RentHome phê duyệt và đang hiển thị trên hệ thống.',
                 'type' => 'success',
                 'is_read' => false,
                 'category' => $category
@@ -48,12 +64,16 @@ class ModeratorController extends Controller
 
     public function reject(Request $request, $id)
     {
+        if (!$this->checkModerationPermission()) {
+            return response()->json(['error' => 'Chỉ tài khoản Doanh nghiệp RentHome mới có quyền kiểm duyệt tin đăng.'], 403);
+        }
+
         $post = Post::find($id);
         if (!$post) {
             return response()->json(['error' => 'Không tìm thấy bài đăng!'], 404);
         }
         
-        $reason = $request->input('reason', 'Không hợp lệ');
+        $reason = $request->input('reason', 'Không đạt tiêu chuẩn kiểm duyệt của RentHome');
         $post->status = 'rejected';
         $post->reject_reason = $reason;
         $post->save();
@@ -65,8 +85,8 @@ class ModeratorController extends Controller
             Notification::create([
                 'user_id' => $post->user_id,
                 'post_id' => $post->_id,
-                'title' => 'Bài đăng bị từ chối',
-                'message' => 'Bài viết "' . $post->title . '" của bạn không được phê duyệt. Lý do: ' . $reason,
+                'title' => 'Bài đăng bị từ chối kiểm duyệt',
+                'message' => 'Bài viết "' . $post->title . '" không được phê duyệt. Lý do: ' . $reason,
                 'type' => 'error',
                 'is_read' => false,
                 'category' => $category
@@ -78,8 +98,11 @@ class ModeratorController extends Controller
 
     public function getHistory()
     {
-        // THÊM 'imageModels' VÀO TRONG MẢNG WITH
-        $posts = Post::with(['user', 'imageModels'])
+        if (!$this->checkModerationPermission()) {
+            return response()->json(['error' => 'Chỉ tài khoản Doanh nghiệp RentHome mới có quyền truy cập.'], 403);
+        }
+
+        $posts = Post::with(['user', 'building', 'imageModels'])
             ->whereIn('status', ['approved', 'rejected'])
             ->orderBy('updated_at', 'desc')
             ->get();
@@ -89,6 +112,10 @@ class ModeratorController extends Controller
 
     public function restore($id)
     {
+        if (!$this->checkModerationPermission()) {
+            return response()->json(['error' => 'Chỉ tài khoản Doanh nghiệp RentHome mới có quyền truy cập.'], 403);
+        }
+
         $post = Post::find($id);
         if (!$post) {
             return response()->json(['error' => 'Không tìm thấy bài đăng!'], 404);
@@ -98,5 +125,15 @@ class ModeratorController extends Controller
         $post->save();
 
         return response()->json(['success' => true, 'message' => 'Đã khôi phục bài đăng về trạng thái chờ duyệt!']);
+    }
+
+    public function getComplaints()
+    {
+        if (!$this->checkModerationPermission()) {
+            return response()->json(['error' => 'Chỉ tài khoản Doanh nghiệp RentHome mới có quyền truy cập.'], 403);
+        }
+
+        $complaints = \App\Models\Complaint::with(['user', 'post'])->orderBy('created_at', 'desc')->get();
+        return response()->json(['success' => true, 'complaints' => $complaints]);
     }
 }

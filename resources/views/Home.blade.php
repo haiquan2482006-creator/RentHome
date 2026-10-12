@@ -637,40 +637,69 @@
         <div
             class="relative rounded-3xl bg-gradient-to-r from-slate-900 via-brand-900 to-slate-950 p-8 sm:p-14 overflow-hidden shadow-2xl text-white">
             <div class="relative z-10 max-w-2xl">
-                <span
-                    class="px-3.5 py-1 rounded-full bg-brand-500/20 text-brand-300 border border-brand-400/30 text-xs font-bold uppercase tracking-wider">Dành
-                    cho chủ nhà</span>
-                <h2 class="text-3xl sm:text-4xl font-black mt-4 leading-tight">
-                    Bạn Có Phòng Cho Thuê? <br> Đăng Tin Ngay Hôm Nay!
-                </h2>
-                <p class="mt-3 text-slate-300 text-sm sm:text-base">
-                    Tiếp cận hàng triệu người thuê nhà tiềm năng mỗi tháng. Đăng tin miễn phí, duyệt nhanh trong 15
-                    phút.
-                </p>
-                <div class="mt-8 flex flex-wrap items-center gap-4">
-                    @auth
-                        <a href="{{ route('dangbai') }}"
-                            class="px-8 py-3.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-sm shadow-glow transition-all inline-flex items-center">
-                            <i class="fa-solid fa-paper-plane mr-2"></i> Đăng tin cho thuê miễn phí
-                        </a>
+                @auth
+                    @if(Auth::user()->isIndividual())
+                        <span class="px-3.5 py-1 rounded-full bg-brand-500/20 text-brand-300 border border-brand-400/30 text-xs font-bold uppercase tracking-wider">
+                            Dành cho người thuê
+                        </span>
+                        <h2 class="text-3xl sm:text-4xl font-black mt-4 leading-tight">
+                            Tìm Căn Phòng Mơ Ước <br> Nhanh Chóng Cùng RentHome!
+                        </h2>
+                        <p class="mt-3 text-slate-300 text-sm sm:text-base">
+                            Hệ thống căn hộ, phòng trọ được xác thực và bảo chứng chất lượng bởi RentHome. Hợp đồng minh bạch, hỗ trợ xem phòng tức thì.
+                        </p>
+                        <div class="mt-8 flex flex-wrap items-center gap-4">
+                            <a href="{{ url('/baidang') }}"
+                                class="px-8 py-3.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-sm shadow-glow transition-all inline-flex items-center">
+                                <i class="fa-solid fa-magnifying-glass mr-2"></i> Khám phá phòng trống ngay
+                            </a>
+                            <a href="{{ route('nha-dang-thue') }}"
+                                class="px-6 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-sm transition-colors inline-flex items-center">
+                                <i class="fa-solid fa-house-user mr-2"></i> Phòng của bạn
+                            </a>
+                        </div>
                     @else
-                        <a href="{{ route('login') }}"
+                        <span class="px-3.5 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-400/30 text-xs font-bold uppercase tracking-wider">
+                            Quản trị & Vận hành RentHome
+                        </span>
+                        <h2 class="text-3xl sm:text-4xl font-black mt-4 leading-tight">
+                            Trung Tâm Vận Hành & <br> Quản Lý Tòa Nhà RentHome
+                        </h2>
+                        <p class="mt-3 text-slate-300 text-sm sm:text-base">
+                            Quản lý tập trung các tòa nhà, phân quyền cho nhân viên phụ trách và thực hiện kiểm duyệt tin đăng nhanh chóng.
+                        </p>
+                        <div class="mt-8 flex flex-wrap items-center gap-4">
+                            <a href="{{ url('Overview') }}"
+                                class="px-8 py-3.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-sm shadow-glow transition-all inline-flex items-center">
+                                <i class="fa-solid fa-gauge-high mr-2"></i> Vào bảng điều khiển quản lý
+                            </a>
+                            <a href="{{ route('dangbai') }}"
+                                class="px-6 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-sm transition-colors inline-flex items-center">
+                                <i class="fa-solid fa-plus mr-2"></i> Thêm phòng mới
+                            </a>
+                        </div>
+                    @endif
+                @else
+                    <span class="px-3.5 py-1 rounded-full bg-brand-500/20 text-brand-300 border border-brand-400/30 text-xs font-bold uppercase tracking-wider">
+                        Trải nghiệm tốt nhất
+                    </span>
+                    <h2 class="text-3xl sm:text-4xl font-black mt-4 leading-tight">
+                        Thuê Phòng Dễ Dàng <br> Cùng Hệ Thống RentHome
+                    </h2>
+                    <p class="mt-3 text-slate-300 text-sm sm:text-base">
+                        Khám phá hàng ngàn phòng trọ và căn hộ dịch vụ cao cấp, đầy đủ tiện ích và giá thuê minh bạch.
+                    </p>
+                    <div class="mt-8 flex flex-wrap items-center gap-4">
+                        <a href="{{ url('/baidang') }}"
                             class="px-8 py-3.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-sm shadow-glow transition-all inline-flex items-center">
-                            <i class="fa-solid fa-paper-plane mr-2"></i> Đăng tin cho thuê miễn phí
+                            <i class="fa-solid fa-magnifying-glass mr-2"></i> Tìm phòng ngay
                         </a>
-                    @endauth
-                    @auth
-                        <a href="{{ url('Overview') }}"
-                            class="px-6 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-sm transition-colors inline-flex items-center">
-                            Tìm hiểu thêm
-                        </a>
-                    @else
                         <a href="{{ route('login') }}"
                             class="px-6 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-sm transition-colors inline-flex items-center">
-                            Tìm hiểu thêm
+                            Đăng nhập
                         </a>
-                    @endauth
-                </div>
+                    </div>
+                @endauth
             </div>
             <!-- Decorative Icon -->
             <i

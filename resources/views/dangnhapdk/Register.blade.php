@@ -380,20 +380,24 @@
                 </div>
             @endif
 
-            <form action="/register" method="POST" enctype="multipart/form-data">
+            <form action="/register" method="POST">
                 @csrf
                 
-                <div class="account-type-selector">
-                    <div class="input-label">Chọn đối tượng sử dụng</div>
-                    <div class="account-type-grid">
-                        <label class="account-type-card {{ old('account_type', 'canhan') == 'canhan' ? 'active' : '' }}" id="label_canhan">
-                            <input type="radio" id="ca_nhan" name="account_type" value="canhan" {{ old('account_type', 'canhan') == 'canhan' ? 'checked' : '' }} onchange="toggleForm()">
-                            <i class="fa-solid fa-user"></i> Cá nhân
-                        </label>
-                        <label class="account-type-card {{ old('account_type') == 'doanhnghiep' ? 'active' : '' }}" id="label_doanhnghiep">
-                            <input type="radio" id="doanh_nghiep" name="account_type" value="doanhnghiep" {{ old('account_type') == 'doanhnghiep' ? 'checked' : '' }} onchange="toggleForm()">
-                            <i class="fa-solid fa-building"></i> Doanh nghiệp
-                        </label>
+                <div style="background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.35); border-radius: 14px; padding: 12px 16px; margin-bottom: 22px; display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(34, 197, 94, 0.25); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #4ade80; font-size: 18px;">
+                        <i class="fa-solid fa-house-user"></i>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.88rem; font-weight: 800; color: #ffffff;">Tài Khoản Cá Nhân (Người Thuê Nhà)</div>
+                        <div style="font-size: 0.75rem; color: #cbd5e1; margin-top: 2px;">Tài khoản Doanh nghiệp được quản lý và cấp trực tiếp dưới tên <b>RentHome</b>.</div>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label class="input-label">Họ và tên / Tên hiển thị <span class="required-star">*</span></label>
+                    <div class="input-box">
+                        <i class="fa-solid fa-id-card icon-left"></i>
+                        <input type="text" name="account_name" value="{{ old('account_name') }}" placeholder="Nhập họ và tên đầy đủ của bạn *" required>
                     </div>
                 </div>
 
@@ -401,18 +405,7 @@
                     <label class="input-label">Địa chỉ Email <span class="required-star">*</span></label>
                     <div class="input-box">
                         <i class="fa-solid fa-envelope icon-left"></i>
-                        <input type="email" id="email_input" name="email" value="{{ old('email') }}" placeholder="Nhập địa chỉ Gmail của bạn *" required>
-                    </div>
-                </div>
-
-                <!-- Phần dành riêng cho Cá nhân -->
-                <div id="form_canhan">
-                    <div class="input-group">
-                        <label class="input-label">Tên tài khoản / Họ tên</label>
-                        <div class="input-box">
-                            <i class="fa-solid fa-id-card icon-left"></i>
-                            <input type="text" name="account_name" value="{{ old('account_name') }}" placeholder="Nhập họ và tên của bạn *">
-                        </div>
+                        <input type="email" id="email_input" name="email" value="{{ old('email') }}" placeholder="Nhập địa chỉ Email của bạn *" required>
                     </div>
                 </div>
 
@@ -428,7 +421,7 @@
                     <label class="input-label">Mật khẩu <span class="required-star">*</span></label>
                     <div class="input-box">
                         <i class="fa-solid fa-lock icon-left"></i>
-                        <input type="password" id="register_password" name="password" placeholder="Tạo mật khẩu *" required>
+                        <input type="password" id="register_password" name="password" placeholder="Tạo mật khẩu (từ 6 ký tự) *" required>
                         <i class="fa-solid fa-eye toggle-password" id="toggle_reg_pass" onclick="togglePasswordVisibility('register_password', 'toggle_reg_pass')" title="Ẩn/Hiện mật khẩu"></i>
                     </div>
                 </div>
@@ -439,46 +432,6 @@
                         <i class="fa-solid fa-shield-halved icon-left"></i>
                         <input type="password" id="register_password_confirm" name="password_confirmation" placeholder="Nhập lại mật khẩu *" required>
                         <i class="fa-solid fa-eye toggle-password" id="toggle_reg_pass_confirm" onclick="togglePasswordVisibility('register_password_confirm', 'toggle_reg_pass_confirm')" title="Ẩn/Hiện mật khẩu"></i>
-                    </div>
-                </div>
-
-                <!-- Phần dành riêng cho Doanh nghiệp (Mặc định ẩn) -->
-                <div id="form_doanhnghiep" style="display: none;">
-                    <div class="input-group">
-                        <label class="input-label">Tên doanh nghiệp <span class="required-star">*</span></label>
-                        <div class="input-box">
-                            <i class="fa-solid fa-building icon-left"></i>
-                            <input type="text" name="company_name" value="{{ old('company_name') }}" placeholder="Nhập tên công ty / doanh nghiệp *">
-                        </div>
-                    </div>
-                    
-                    <div class="input-group">
-                        <label class="input-label">Người đại diện <span class="required-star">*</span></label>
-                        <div class="input-box">
-                            <i class="fa-solid fa-user-tie icon-left"></i>
-                            <input type="text" name="representative" value="{{ old('representative') }}" placeholder="Nhập tên người đại diện *">
-                        </div>
-                    </div>
-                    
-                    <div class="input-group">
-                        <label class="input-label">Địa chỉ doanh nghiệp <span class="required-star">*</span></label>
-                        <div class="input-box">
-                            <i class="fa-solid fa-location-dot icon-left"></i>
-                            <input type="text" name="company_address" value="{{ old('company_address') }}" placeholder="Nhập địa chỉ đăng ký kinh doanh *">
-                        </div>
-                    </div>
-                    
-                    <div class="input-group">
-                        <label class="input-label">Mã số thuế <span class="required-star">*</span></label>
-                        <div class="input-box">
-                            <i class="fa-solid fa-file-invoice-dollar icon-left"></i>
-                            <input type="text" name="tax_code" value="{{ old('tax_code') }}" placeholder="Nhập mã số thuế doanh nghiệp *">
-                        </div>
-                    </div>
-                    
-                    <div class="file-box">
-                        <label><i class="fa-solid fa-file-contract" style="color: #38bdf8;"></i> Giấy phép kinh doanh (nếu có)</label>
-                        <input type="file" name="business_license" accept="image/*,.pdf">
                     </div>
                 </div>
 
@@ -496,34 +449,6 @@
     </div>
 
     <script>
-        function toggleForm() {
-            const isEnterprise = document.getElementById('doanh_nghiep').checked;
-            const formCaNhan = document.getElementById('form_canhan');
-            const formDoanhNghiep = document.getElementById('form_doanhnghiep');
-            const emailInput = document.getElementById('email_input');
-
-            const labelCaNhan = document.getElementById('label_canhan');
-            const labelDoanhNghiep = document.getElementById('label_doanhnghiep');
-
-            if (isEnterprise) {
-                formCaNhan.style.display = 'none';
-                formDoanhNghiep.style.display = 'block';
-                labelCaNhan.classList.remove('active');
-                labelDoanhNghiep.classList.add('active');
-                if (emailInput) {
-                    emailInput.placeholder = 'Nhập email doanh nghiệp *';
-                }
-            } else {
-                formCaNhan.style.display = 'block';
-                formDoanhNghiep.style.display = 'none';
-                labelCaNhan.classList.add('active');
-                labelDoanhNghiep.classList.remove('active');
-                if (emailInput) {
-                    emailInput.placeholder = 'Nhập địa chỉ Gmail của bạn *';
-                }
-            }
-        }
-
         function togglePasswordVisibility(inputId, iconId) {
             const input = document.getElementById(inputId);
             const icon = document.getElementById(iconId);
@@ -538,10 +463,6 @@
                 icon.classList.add('fa-eye');
             }
         }
-
-        document.addEventListener("DOMContentLoaded", function() {
-            toggleForm();
-        });
     </script>
 </body>
 </html>
