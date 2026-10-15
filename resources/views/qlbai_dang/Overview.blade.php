@@ -257,15 +257,6 @@
                         <span> Tin đang hiển thị</span>
                     </button>
 
-                    <button onclick="switchTab('pending-posts')" id="tab-pending-posts"
-                        class="tab-btn flex items-center gap-3 px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
-                        <div class="flex items-center gap-3">
-                            <i class="fa-solid fa-hourglass-half text-amber-500 w-5 text-center text-sm"></i>
-                            <span> Chờ phê duyệt</span>
-                        </div>
-                        <span id="sidebar-pending-count" class="ml-auto bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full hidden">0</span>
-                    </button>
-
                     <button onclick="switchTab('history-posts')" id="tab-history-posts"
                         class="tab-btn flex items-center gap-3 px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
                         <i class="fa-solid fa-clock-rotate-left text-sky-500 w-5 text-center text-sm"></i>
