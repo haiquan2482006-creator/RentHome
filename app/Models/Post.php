@@ -10,7 +10,7 @@ class Post extends Model
     protected $collection = 'posts';
 
     protected $fillable = [
-        'user_id', 'title', 'description', 'price', 'price_unit', 'area', 
+        'user_id', 'parent_id', 'staff_id', 'title', 'description', 'price', 'price_unit', 'area', 
         'province', 'district', 'ward', 'address', 'building_id','display_image',
         'property_type', 'account_role', 'amenities', 'images', 'status'
     ];
@@ -31,15 +31,7 @@ class Post extends Model
         return $this->belongsTo(Building::class, 'building_id');
     }
 
-    // Mối quan hệ tới bảng Image (Sử dụng array of IDs trong MongoDB)
-    public function imageModels()
-    {
-        // Trong Laravel MongoDB, khi một model lưu mảng các ID của model khác, ta có thể dùng belongsToMany
-        // Cột lưu trữ mảng ID trong bảng posts là 'images'
-        return $this->belongsToMany(Image::class, null, 'post_ids', 'images');
-    }
-
-    // Accessor trả về URL ảnh hiển thị duy nhất (Base64 hoặc URL cũ)
+    // Accessor trả về URL ảnh hiển thị duy nhất
     protected $appends = ['display_image', 'all_images'];
 
    public function getDisplayImageAttribute()

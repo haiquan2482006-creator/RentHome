@@ -12,11 +12,14 @@ class Notification extends Model
     protected $fillable = [
         'user_id',
         'post_id',
+        'building_id',
+        'action_url',
         'title',
         'message',
-        'type', // success, error, warning, info
+        'type', // success, error, warning, info, building
         'is_read',
-        'category'
+        'category',
+        'changes'
     ];
 
     protected $casts = [
@@ -26,5 +29,11 @@ class Notification extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function markAsRead()
+    {
+        $this->is_read = true;
+        $this->save();
     }
 }

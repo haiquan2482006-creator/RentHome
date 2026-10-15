@@ -15,7 +15,7 @@ class FavoriteController extends Controller
      */
     public function getFavorites(Request $request)
     {
-        if (!Auth::check() || (Auth::user()->account_type ?? 'canhan') === 'doanhnghiep') {
+        if (!Auth::check() || Auth::user()->isEnterprise() || Auth::user()->role === 'doanhnghiep') {
             return response()->json([
                 'success' => true,
                 'favorites' => [],
@@ -90,7 +90,7 @@ class FavoriteController extends Controller
         $user = Auth::user();
 
         // 1. Tài khoản Doanh nghiệp không thể thích bài đăng
-        if (($user->account_type ?? 'canhan') === 'doanhnghiep') {
+        if ($user->isEnterprise() || $user->role === 'doanhnghiep') {
             return response()->json([
                 'success' => false,
                 'message' => 'Tài khoản Doanh nghiệp không thể thực hiện chức năng yêu thích bài đăng.'
@@ -160,7 +160,7 @@ class FavoriteController extends Controller
             $likerName = $liker->account_name ?: ($liker->username ?: 'Khách hàng');
             $likerPhone = $liker->phone ?: 'Chưa cập nhật SĐT';
             $likerEmail = $liker->email ?: 'Chưa cập nhật Email';
-            $likerType = ($liker->account_type === 'doanhnghiep') ? 'Tài khoản Doanh nghiệp' : 'Tài khoản Cá nhân';
+            $likerType = ($liker->isEnterprise() || $liker->role === 'doanhnghiep') ? 'Tài khoản Doanh nghiệp' : 'Tài khoản Cá nhân';
             $postTitle = $post->title;
 
             $notificationMessage = "Người dùng {$likerName} ({$likerType}) vừa nhấn yêu thích bài viết \"{$postTitle}\" của bạn.\n"

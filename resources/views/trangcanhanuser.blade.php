@@ -61,7 +61,7 @@
 
     @php
         $user = \Illuminate\Support\Facades\Auth::user();
-        $isEnterprise = $user && $user->account_type === 'doanhnghiep';
+        $isEnterprise = $user && ($user->isEnterprise() || $user->isStaff() || in_array($user->role ?? '', ['doanhnghiep', 'sub_account', 'staff']));
         $userName = $user ? ($isEnterprise ? ($user->representative ?? $user->account_name ?? $user->company_name ?? $user->username ?? 'Doanh nghiệp') : ($user->account_name ?? $user->username ?? 'Người dùng')) : 'Người dùng';
     @endphp
 

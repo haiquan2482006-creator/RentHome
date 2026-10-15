@@ -297,7 +297,7 @@
 
             <!-- Action controls & Admin Add Button -->
             <div class="flex flex-wrap items-center justify-between sm:justify-end gap-3">
-                @if(Auth::check() && ((Auth::user()->account_type ?? '') === 'admin' || (Auth::user()->role ?? '') === 'admin'))
+                @if(Auth::check() && (Auth::user()->role === 'admin' || Auth::user()->isAdmin()))
                 <!-- Admin Add Featured Post Button -->
                 <button onclick="openAddFeaturedModal()"
                     class="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs shadow-md hover:shadow-lg transition-all flex items-center gap-2 group cursor-pointer">
@@ -1123,10 +1123,10 @@
             
             postsToShow.forEach(post => {
                                                 const userName = post.user ? (post.user.account_name || post.user.username) : 'Người dùng';
-                        const userType = post.user ? (post.user.account_type === 'doanhnghiep' ? 'Doanh nghiệp' : 'Cá nhân') : 'Cá nhân';
-                        const userBadgeClass = (post.user && post.user.account_type === 'doanhnghiep') ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-slate-50 text-slate-500 border border-slate-200';
-                        const userIconColor = (post.user && post.user.account_type === 'doanhnghiep') ? 'text-blue-500 bg-blue-50' : 'text-slate-500 bg-slate-100';
-                        const userIcon = (post.user && post.user.account_type === 'doanhnghiep') ? 'fa-building' : 'fa-user';
+                        const userType = post.user ? ((post.user.role === 'doanhnghiep' || post.user.role === 'enterprise') ? 'Doanh nghiệp' : 'Cá nhân') : 'Cá nhân';
+                        const userBadgeClass = (post.user && (post.user.role === 'doanhnghiep' || post.user.role === 'enterprise')) ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-slate-50 text-slate-500 border border-slate-200';
+                        const userIconColor = (post.user && (post.user.role === 'doanhnghiep' || post.user.role === 'enterprise')) ? 'text-blue-500 bg-blue-50' : 'text-slate-500 bg-slate-100';
+                        const userIcon = (post.user && (post.user.role === 'doanhnghiep' || post.user.role === 'enterprise')) ? 'fa-building' : 'fa-user';
                         // ĐOẠN CODE MỚI
                         let imgUrl = post.display_image || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80';
                         let unitText = 'đ/tháng';
@@ -1226,7 +1226,7 @@
             }
         }
 
-        const IS_ADMIN_USER = @json(Auth::check() && ((Auth::user()->account_type ?? '') === 'admin' || (Auth::user()->role ?? '') === 'admin'));
+        const IS_ADMIN_USER = @json(Auth::check() && (Auth::user()->role === 'admin' || Auth::user()->isAdmin()));
         let featuredAutoPlayTimer = null;
         let isFeaturedScrolling = false;
 

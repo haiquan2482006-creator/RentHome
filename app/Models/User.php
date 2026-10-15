@@ -26,7 +26,6 @@ class User extends Authenticatable
         'email',
         'phone',
         'password',
-        'account_type',
         'account_name',
         'company_name',
         'representative',
@@ -59,9 +58,13 @@ class User extends Authenticatable
         'hotline',
         'company_description',
 
-        // Tài khoản con & phân quyền tòa nhà
+        // Tài khoản con & phân quyền tòa nhà & quyền hạn chi tiết
         'parent_id',
         'assigned_buildings',
+        'building_ids',
+        'staff_role',
+        'permissions',
+        'plain_password',
     ];
 
 
@@ -85,47 +88,125 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            'assigned_buildings' => 'array',
         ];
+    }
+
+    public function isAdmin(): bool
+    {
+        return ($this->role === 'admin');
+    }
+
+    public function hasPermission(string $permission): bool
+    {
+        if ($this->isAdmin() || $this->isEnterprise()) {
+            return true;
+        }
+        $perms = (array) ($this->permissions ?? []);
+        if (empty($perms)) {
+            return true; // Mặc định không giới hạn nếu chưa cấu hình
+        }
+        return in_array($permission, $perms, true) || in_array('*', $perms, true) || in_array('all', $perms, true);
+    }
+
+    public function canManagePosts(): bool
+    {
+        return $this->hasPermission('manage_posts');
+    }
+
+    public function canManageContacts(): bool
+    {
+        return $this->hasPermission('manage_contacts');
+    }
+
+    public function canManageContracts(): bool
+    {
+        return $this->hasPermission('manage_contracts');
+    }
+
+    public function canManageInvoices(): bool
+    {
+        return $this->hasPermission('manage_invoices');
+    }
+
+    public function isModerator(): bool
+    {
+        return false;
     }
 
     public function isEnterprise(): bool
     {
-        return ($this->account_type === 'doanhnghiep');
+        return ($this->role === 'doanhnghiep' || $this->role === 'enterprise');
     }
 
     public function isSubAccount(): bool
     {
-        return ($this->account_type === 'sub_account');
+        return ($this->role === 'sub_account' || $this->role === 'staff' || !empty($this->parent_id));
+    }
+
+    public function isStaff(): bool
+    {
+        return $this->isSubAccount();
     }
 
     public function isIndividual(): bool
     {
-        return ($this->account_type === 'canhan' || empty($this->account_type));
+        return ($this->role === 'user' || $this->role === 'canhan' || (!$this->isAdmin() && !$this->isEnterprise() && !$this->isSubAccount()));
     }
 
-    public function canManageBuilding($buildingId): bool
+    public function canManageBuilding($buildingId = null): bool
     {
-        if ($this->account_type === 'admin' || $this->role === 'admin') {
-            return true;
-        }
-        if ($this->isEnterprise()) {
+        if ($this->isAdmin() || $this->isEnterprise()) {
             return true;
         }
         if ($this->isSubAccount()) {
             $assigned = (array) ($this->assigned_buildings ?? []);
+            // Nếu chưa chỉ định danh sách hoặc chứa 'all' / '*' thì nhân viên được quản lý tất cả tòa nhà
+            if (empty($assigned) || in_array('all', $assigned, true) || in_array('*', $assigned, true)) {
+                return true;
+            }
+            if ($buildingId === null || $buildingId === 'all') {
+                return true;
+            }
             return in_array((string)$buildingId, array_map('strval', $assigned), true);
         }
         return false;
     }
 
+    public function parent()
+    {
+        return $this->belongsTo(User::class, 'parent_id');
+    }
+
+    public function subAccounts()
+    {
+        return $this->hasMany(User::class, 'parent_id');
+    }
+
+    /**
+     * Quan hệ Nhiều - Nhiều (Many-to-Many) với Building
+     */
+    public function buildings()
+    {
+        return $this->belongsToMany(Building::class, null, 'user_ids', 'building_ids');
+    }
+
+    public static function getEnterpriseUser()
+    {
+        return self::where('role', 'admin')
+            ->orWhere('role', 'doanhnghiep')
+            ->first();
+    }
+
     public function getDisplayNameAttribute()
     {
+        if ($this->isAdmin()) {
+            return $this->account_name ?: ($this->username ?: 'Ban Quản Trị Admin');
+        }
         if ($this->isEnterprise()) {
-            return $this->company_name ?: 'RentHome';
+            return $this->company_name ?: ($this->account_name ?: 'RentHome');
         }
         if ($this->isSubAccount()) {
-            return ($this->account_name ?: $this->username ?: 'Quản lý') . ' (RentHome)';
+            return ($this->account_name ?: $this->username ?: 'Nhân viên') . ' (RentHome)';
         }
         return $this->account_name ?: ($this->username ?: 'Người dùng');
     }
@@ -175,7 +256,7 @@ class User extends Authenticatable
      */
     public function notifications()
     {
-        return $this->morphMany(\App\Models\DatabaseNotification::class, 'notifiable')->latest();
+        return $this->hasMany(\App\Models\Notification::class, 'user_id')->latest();
     }
 
     /**
@@ -183,8 +264,8 @@ class User extends Authenticatable
      */
     public function unreadNotifications()
     {
-        return $this->morphMany(\App\Models\DatabaseNotification::class, 'notifiable')
-                    ->whereNull('read_at')
+        return $this->hasMany(\App\Models\Notification::class, 'user_id')
+                    ->where('is_read', false)
                     ->latest();
     }
 }

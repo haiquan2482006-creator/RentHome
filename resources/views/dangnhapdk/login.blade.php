@@ -356,13 +356,13 @@
                 </div>
                 
                 <div style="overflow: hidden; margin-bottom: 22px;">
-                    <a href="/quen-mat-khau" class="forgot-password">Quên mật khẩu?</a>
+                    <a href="javascript:void(0)" onclick="alert('Vui lòng liên hệ Quản trị viên doanh nghiệp (admin2006@gmail.com) để được cấp lại mật khẩu.')" class="forgot-password">Quên mật khẩu?</a>
                 </div>
                 
                 <button type="submit" class="btn-submit">ĐĂNG NHẬP</button>
                 
-                <div class="register-link">
-                    Bạn chưa có tài khoản? <a href="/Register">Đăng ký ngay</a>
+                <div class="register-link" style="color: #64748b; font-size: 13px;">
+                    Cổng thông tin quản trị nội bộ RentHome
                 </div>
 
                 <div class="home-link-footer">

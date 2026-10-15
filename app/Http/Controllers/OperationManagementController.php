@@ -18,28 +18,29 @@ class OperationManagementController extends Controller
     public function index()
     {
         $user = Auth::user();
-        $userId = Auth::id();
+        if (!$user) {
+            return redirect()->route('login')->with('error', 'Vui lòng đăng nhập để truy cập trang quản lý vận hành.');
+        }
 
-        // 1. Truy xuất danh sách các hợp đồng đang active
-        $contractsQuery = Contract::query();
-        if ($userId) {
-            $userPostIds = Post::where('user_id', (string)$userId)
-                ->pluck('_id')
-                ->map(fn($id) => (string)$id)
-                ->toArray();
+        if ($user->isIndividual()) {
+            return redirect()->route('nha-dang-thue')->with('info', 'Trang Quản lý vận hành dành cho Ban Quản Trị và Quản lý tòa nhà.');
+        }
 
-            $contractsQuery->where(function ($q) use ($userId, $userPostIds) {
-                $q->where('owner_id', (string)$userId)
-                  ->orWhereIn('post_id', $userPostIds);
+        // 1. Truy xuất danh sách các hợp đồng đang active của doanh nghiệp chung
+        $contractsQuery = Contract::where('status', '!=', 'cancelled');
+
+        // Nếu là tài khoản con và có phân quyền theo tòa nhà chỉ định
+        if ($user->isSubAccount() && !empty($user->assigned_buildings) && !in_array('all', $user->assigned_buildings, true)) {
+            $assignedIds = array_map('strval', (array)$user->assigned_buildings);
+            $postIds = Post::whereIn('building_id', $assignedIds)->pluck('_id')->map(fn($id) => (string)$id)->toArray();
+            $contractsQuery->where(function ($q) use ($postIds, $user) {
+                $q->whereIn('post_id', $postIds)
+                  ->orWhere('owner_id', (string)$user->id)
+                  ->orWhere('created_by', (string)$user->id);
             });
         }
 
-        $contracts = $contractsQuery->where('status', '!=', 'cancelled')->latest()->get();
-
-        // Fallback nếu đang test/admin hoặc hợp đồng chưa gán owner_id
-        if ($contracts->isEmpty() && (!$userId || ($user && in_array($user->role ?? '', ['admin'])))) {
-            $contracts = Contract::where('status', '!=', 'cancelled')->latest()->get();
-        }
+        $contracts = $contractsQuery->latest()->get();
 
         $now = Carbon::now();
         $today = $now->day;
@@ -47,8 +48,9 @@ class OperationManagementController extends Controller
         $currentMonth = $now->month;
         $currentYear = $now->year;
 
-        // Lấy thông tin tài khoản ngân hàng của chủ nhà để tạo mã VietQR
-        $bankUser = Auth::user();
+        // Lấy thông tin tài khoản ngân hàng của Công ty / Doanh nghiệp RentHome để tạo mã VietQR
+        $enterpriseUser = \App\Models\User::getEnterpriseUser();
+        $bankUser = ($enterpriseUser && !empty($enterpriseUser->bank_account)) ? $enterpriseUser : Auth::user();
         if (!$bankUser || empty($bankUser->bank_account)) {
             $fallbackBankUser = \App\Models\User::whereNotNull('bank_account')->where('bank_account', '!=', '')->first();
             if ($fallbackBankUser) {
@@ -299,9 +301,18 @@ class OperationManagementController extends Controller
         $unpaidCount = $rooms->where('status', 'unpaid')->count();
         $dueRooms = $rooms->where('status', 'unpaid')->values();
 
-        $availableRooms = Post::where(function ($q) {
+        $roomsQuery = Post::where(function ($q) {
             $q->whereNull('is_deleted')->orWhere('is_deleted', false);
-        })->where('status', '!=', 'đã cho thuê')->get();
+        })->where('status', '!=', 'đã cho thuê')->where(function($q) {
+            $q->whereNull('is_rented')->orWhere('is_rented', false);
+        });
+
+        if ($user->isSubAccount() && !empty($user->assigned_buildings) && !in_array('all', $user->assigned_buildings, true)) {
+            $assignedIds = array_map('strval', (array)$user->assigned_buildings);
+            $roomsQuery->whereIn('building_id', $assignedIds);
+        }
+
+        $availableRooms = $roomsQuery->get();
 
         return view('qlvan_hanh.Room_list', compact('rooms', 'paidCount', 'unpaidCount', 'availableRooms', 'dueRooms'));
     }
@@ -311,14 +322,20 @@ class OperationManagementController extends Controller
      */
     public function checkRealtimeDue(Request $request)
     {
-        $userId = Auth::id();
+        $user = Auth::user();
         $now = Carbon::now();
         $today = $now->day;
         $currentMonthStr = $now->format('m/Y');
 
         $contractsQuery = Contract::where('status', '!=', 'cancelled');
-        if ($userId) {
-            $contractsQuery->where('owner_id', (string)$userId);
+        if ($user && $user->isSubAccount() && !empty($user->assigned_buildings) && !in_array('all', $user->assigned_buildings, true)) {
+            $assignedIds = array_map('strval', (array)$user->assigned_buildings);
+            $postIds = Post::whereIn('building_id', $assignedIds)->pluck('_id')->map(fn($id) => (string)$id)->toArray();
+            $contractsQuery->where(function($q) use ($postIds, $user) {
+                $q->whereIn('post_id', $postIds)
+                  ->orWhere('owner_id', (string)$user->id)
+                  ->orWhere('created_by', (string)$user->id);
+            });
         }
         $contracts = $contractsQuery->get();
 
@@ -422,28 +439,26 @@ class OperationManagementController extends Controller
     public function createInvoice(Request $request)
     {
         $user = Auth::user();
-        $userId = Auth::id();
+        if (!$user) {
+            return redirect()->route('login')->with('error', 'Vui lòng đăng nhập.');
+        }
+        if ($user->isIndividual()) {
+            return redirect()->route('nha-dang-thue');
+        }
 
-        // 1. Lấy danh sách hợp đồng hoạt động (ưu tiên của chủ nhà hiện tại)
-        $contractsQuery = Contract::query();
-        if ($userId) {
-            $userPostIds = Post::where('user_id', (string)$userId)
-                ->pluck('_id')
-                ->map(fn($id) => (string)$id)
-                ->toArray();
-
-            $contractsQuery->where(function ($q) use ($userId, $userPostIds) {
-                $q->where('owner_id', (string)$userId)
-                  ->orWhereIn('post_id', $userPostIds);
+        // 1. Lấy danh sách hợp đồng hoạt động của doanh nghiệp
+        $contractsQuery = Contract::where('status', '!=', 'cancelled');
+        if ($user->isSubAccount() && !empty($user->assigned_buildings) && !in_array('all', $user->assigned_buildings, true)) {
+            $assignedIds = array_map('strval', (array)$user->assigned_buildings);
+            $postIds = Post::whereIn('building_id', $assignedIds)->pluck('_id')->map(fn($id) => (string)$id)->toArray();
+            $contractsQuery->where(function ($q) use ($postIds, $user) {
+                $q->whereIn('post_id', $postIds)
+                  ->orWhere('owner_id', (string)$user->id)
+                  ->orWhere('created_by', (string)$user->id);
             });
         }
 
-        $contracts = $contractsQuery->where('status', '!=', 'cancelled')->latest()->get();
-
-        // Fallback nếu chủ nhà chưa có hợp đồng hoặc admin/test
-        if ($contracts->isEmpty()) {
-            $contracts = Contract::where('status', '!=', 'cancelled')->latest()->get();
-        }
+        $contracts = $contractsQuery->latest()->get();
 
         $now = Carbon::now();
         $currentMonthStr = 'Tháng ' . $now->format('m/Y');
@@ -506,8 +521,11 @@ class OperationManagementController extends Controller
             }
             $dueDate = $now->copy()->day(min($billDateNum, $now->daysInMonth))->format('Y-m-d');
 
-            // Thông tin ngân hàng của chủ nhà từ hồ sơ người dùng
-            $bankUser = $owner ?: $user;
+            // Thông tin ngân hàng của Doanh nghiệp RentHome cố định cho mã VietQR
+            $enterpriseUser = \App\Models\User::getEnterpriseUser();
+            $bankUser = ($enterpriseUser && !empty($enterpriseUser->bank_account)) 
+                ? $enterpriseUser 
+                : (($owner && !empty($owner->bank_account)) ? $owner : Auth::user());
             if (!$bankUser || empty($bankUser->bank_account)) {
                 $fallbackBankUser = \App\Models\User::whereNotNull('bank_account')->where('bank_account', '!=', '')->first();
                 if ($fallbackBankUser) {
@@ -665,11 +683,16 @@ class OperationManagementController extends Controller
         // Tạo mã hóa đơn INV-YYYYMM-XXXX
         $invoiceCode = 'INV-' . $now->format('Ym') . '-' . strtoupper(substr(md5(uniqid()), 0, 4));
 
+        $enterpriseUser = \App\Models\User::getEnterpriseUser();
+        $ownerId = $contract->owner_id ?: ($enterpriseUser ? (string)($enterpriseUser->_id ?? $enterpriseUser->id) : (string)Auth::id());
+
         $invoice = Invoice::create([
             'contract_id'        => $contractIdStr,
             'room_id'            => (string)($contract->room_id ?? $contract->post_id ?? ''),
             'post_id'            => (string)($contract->post_id ?? ''),
-            'owner_id'           => (string)($contract->owner_id ?? Auth::id() ?? ''),
+            'owner_id'           => (string)$ownerId,
+            'created_by'         => (string)Auth::id(),
+            'staff_id'           => (string)Auth::id(),
             'tenant_id'          => (string)($contract->tenant_id ?? ''),
             'tenant_name'        => $contract->tenant_name ?? $request->input('tenant_name', 'Khách thuê'),
             'invoice_code'       => $invoiceCode,

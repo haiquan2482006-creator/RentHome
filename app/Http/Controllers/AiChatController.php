@@ -34,13 +34,10 @@ class AiChatController extends Controller
         if ($request->hasFile('images')) {
             foreach ($request->file('images') as $file) {
                 try {
-                    $base64 = base64_encode(file_get_contents($file->getRealPath()));
-                    $mime = $file->getMimeType();
-                    $img = \App\Models\Image::create([
-                        'base64_data' => $base64,
-                        'mime_type' => $mime,
-                    ]);
-                    $uploadedImageIds[] = (string) $img->_id;
+                    if ($file && $file->isValid()) {
+                        $path = $file->store('ai_uploads', 'public');
+                        $uploadedImageIds[] = '/storage/' . $path;
+                    }
                 } catch (\Exception $e) {
                     \Illuminate\Support\Facades\Log::error("AI Chat image upload error: " . $e->getMessage());
                 }

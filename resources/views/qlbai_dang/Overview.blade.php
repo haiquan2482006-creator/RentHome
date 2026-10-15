@@ -120,19 +120,19 @@
 
     @php
         $currentUser = Auth::user();
-        $accountType = $currentUser->account_type ?? 'canhan';
+        $accountType = $currentUser->role ?? 'user';
         $isEnterprise = $currentUser && ($currentUser->isEnterprise() || $accountType === 'doanhnghiep');
-        $isSubAccount = $currentUser && ($currentUser->isSubAccount() || $accountType === 'sub_account');
-        $isAdmin = $currentUser && ($currentUser->role === 'admin' || $accountType === 'admin');
+        $isSubAccount = $currentUser && ($currentUser->isSubAccount() || $currentUser->isStaff() || $accountType === 'sub_account' || ($currentUser->role ?? '') === 'staff');
+        $isAdmin = $currentUser && ($currentUser->role === 'admin' || $currentUser->isAdmin());
 
-        if ($isEnterprise || $isAdmin) {
-            $displayName = !empty($currentUser->company_name) ? $currentUser->company_name : 'RentHome Doanh Nghiệp';
-            $subTitle = 'Tổng Doanh Nghiệp RentHome';
-            $badgeText = 'RentHome Doanh Nghiệp';
-        } elseif ($isSubAccount) {
+        if ($isSubAccount) {
             $displayName = $currentUser->account_name ?? ($currentUser->username ?? 'Quản lý tòa nhà');
             $subTitle = 'Nhân viên quản lý tòa nhà';
             $badgeText = 'Nhân Viên Vận Hành';
+        } elseif ($isEnterprise || $isAdmin) {
+            $displayName = !empty($currentUser->company_name) ? $currentUser->company_name : ($currentUser->account_name ?? 'RentHome Doanh Nghiệp');
+            $subTitle = 'Tổng Doanh Nghiệp RentHome';
+            $badgeText = 'RentHome Doanh Nghiệp';
         } else {
             $displayName = $currentUser->account_name ?? ($currentUser->username ?? ($currentUser->name ?? 'Người dùng'));
             $subTitle = 'Tài khoản Cá nhân';
@@ -212,15 +212,15 @@
                 <!-- User Account Information Card -->
                 <!-- User Account Information Card -->
                 <div class="relative group w-full user-card-wrapper z-50">
-                    <a href="{{ route('user.dashboard') }}" class="user-card block w-full text-left p-3.5 rounded-2xl {{ $isEnterprise ? 'bg-gradient-to-br from-purple-50 to-indigo-50/50 border border-purple-100' : 'bg-gradient-to-br from-emerald-50 to-teal-50/50 border border-emerald-100' }} flex items-center gap-3 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer">
-                        <div class="w-10 h-10 rounded-xl {{ $isEnterprise ? 'bg-purple-600 text-white' : 'bg-brand-600 text-white' }} flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
-                            <i class="fa-solid {{ $isEnterprise ? 'fa-briefcase' : 'fa-user' }}"></i>
+                    <a href="{{ route('user.dashboard') }}" class="user-card block w-full text-left p-3.5 rounded-2xl {{ ($isEnterprise && !$isSubAccount) ? 'bg-gradient-to-br from-purple-50 to-indigo-50/50 border border-purple-100' : 'bg-gradient-to-br from-emerald-50 to-teal-50/50 border border-emerald-100' }} flex items-center gap-3 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer">
+                        <div class="w-10 h-10 rounded-xl {{ ($isEnterprise && !$isSubAccount) ? 'bg-purple-600 text-white' : 'bg-brand-600 text-white' }} flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
+                            <i class="fa-solid {{ ($isEnterprise && !$isSubAccount) ? 'fa-briefcase' : 'fa-user' }}"></i>
                         </div>
                         <div class="flex-1 min-w-0 user-info">
                             <p class="text-xs font-bold text-slate-900 truncate" title="{{ $displayName }}">{{ $displayName }}</p>
                             <div class="flex items-center gap-1.5 mt-0.5">
-                                <span class="inline-block w-2 h-2 rounded-full {{ $isEnterprise ? 'bg-purple-500' : 'bg-emerald-500' }}"></span>
-                                <span class="text-[11px] font-semibold {{ $isEnterprise ? 'text-purple-700' : 'text-emerald-700' }}">{{ $subTitle }}</span>
+                                <span class="inline-block w-2 h-2 rounded-full {{ ($isEnterprise && !$isSubAccount) ? 'bg-purple-500' : 'bg-emerald-500' }}"></span>
+                                <span class="text-[11px] font-semibold {{ ($isEnterprise && !$isSubAccount) ? 'text-purple-700' : 'text-emerald-700' }}">{{ $subTitle }}</span>
                             </div>
                         </div>
                     </a>
@@ -257,15 +257,6 @@
                         <span> Tin đang hiển thị</span>
                     </button>
 
-                    <button onclick="switchTab('pending-posts')" id="tab-pending-posts"
-                        class="tab-btn flex items-center gap-3 px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
-                        <div class="flex items-center gap-3">
-                            <i class="fa-solid fa-hourglass-half text-amber-500 w-5 text-center text-sm"></i>
-                            <span> Chờ phê duyệt</span>
-                        </div>
-                        <span id="sidebar-pending-count" class="ml-auto bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full hidden">0</span>
-                    </button>
-
                     <button onclick="switchTab('history-posts')" id="tab-history-posts"
                         class="tab-btn flex items-center gap-3 px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
                         <i class="fa-solid fa-clock-rotate-left text-sky-500 w-5 text-center text-sm"></i>
@@ -278,7 +269,7 @@
                             <i class="fa-solid fa-bell text-rose-500 w-5 text-center text-sm"></i>
                             <span> Thông báo</span>
                         </div>
-                        <span id="sidebar-notif-badge" class="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-bold shadow-xs">4</span>
+                        <span id="sidebar-notif-badge" class="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-bold shadow-xs">0</span>
                     </button>
 
                     <a href="{{ route('contact.index') }}" id="tab-contact-notif"
@@ -300,22 +291,11 @@
                     </button>
                     @endif
 
-                    @if($isEnterprise || $isAdmin)
-                    <button onclick="switchTab('moderation')" id="tab-moderation"
-                        class="tab-btn flex items-center justify-between px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
-                        <div class="flex items-center gap-3">
-                            <i class="fa-solid fa-shield-halved text-indigo-600 w-5 text-center text-sm"></i>
-                            <span> Kiểm duyệt tin đăng</span>
-                        </div>
-                        <span id="sidebar-mod-pending-badge" class="ml-auto bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full {{ $globalPendingModerationCount > 0 ? '' : 'hidden' }}">
-                            {{ $globalPendingModerationCount }}
-                        </span>
-                    </button>
-
+                    @if(($isEnterprise || $isAdmin) && !$isSubAccount)
                     <button onclick="switchTab('sub-accounts')" id="tab-sub-accounts"
                         class="tab-btn flex items-center gap-3 px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
                         <i class="fa-solid fa-users-gear text-teal-600 w-5 text-center text-sm"></i>
-                        <span> Tài khoản con & Phân quyền</span>
+                        <span> Nhân viên & Phân quyền</span>
                     </button>
                     @endif
                 </nav>
@@ -516,31 +496,7 @@
                 </div>
             </section>
 
-            <!-- ==================== TAB C: CHỜ PHÊ DUYỆT ==================== -->
-            <section id="content-pending-posts" class="tab-content hidden space-y-4">
-                <h3 class="font-bold text-base text-slate-900" id="pending-count-heading">Danh sách bài đăng đang chờ
-                    ban quản trị duyệt (3)</h3>
 
-                <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
-                            <thead>
-                                <tr
-                                    class="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider">
-                                    <th class="p-4">Mã Tin</th>
-                                    <th class="p-4">Tiêu Đề</th>
-                                    <th class="p-4">Giá Bán / Thuê</th>
-                                    <th class="p-4">Trạng Thái</th>
-                                    <th class="p-4 text-right">Thao Tác</th>
-                                </tr>
-                            </thead>
-                            <tbody id="pending-posts-tbody"
-                                class="divide-y divide-slate-100 text-slate-700 font-medium">
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
 
             <!-- ==================== TAB D: LỊCH SỬ ĐĂNG TIN ==================== -->
             <section id="content-history-posts" class="tab-content hidden space-y-4">
@@ -660,101 +616,7 @@
             </section>
             @endif
 
-            <!-- ==================== TAB: KIỂM DUYỆT TIN ĐĂNG (CHỈ RENTHOME DOANH NGHIỆP) ==================== -->
-            @if($isEnterprise || $isAdmin)
-            <section id="content-moderation" class="tab-content hidden space-y-6">
-                <!-- Action Header -->
-                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/60">
-                    <div>
-                        <h3 class="font-extrabold text-lg text-slate-900 flex items-center gap-2">
-                            <i class="fa-solid fa-shield-halved text-indigo-600"></i> Trung Tâm Kiểm Duyệt Tin Đăng RentHome
-                        </h3>
-                        <p class="text-xs text-slate-500 mt-0.5">Trực tiếp xem xét, phê duyệt hoặc từ chối tin đăng và xử lý báo cáo khiếu nại</p>
-                    </div>
-                    
-                    <button onclick="fetchModeratorPendingPosts()" class="px-3.5 py-1.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold text-xs shadow-xs transition-colors flex items-center gap-1.5">
-                        <i class="fa-solid fa-arrows-rotate text-indigo-600"></i> Làm mới
-                    </button>
-                </div>
 
-                <!-- Sub-tabs: Chờ duyệt | Lịch sử | Khiếu nại -->
-                <div class="flex flex-wrap items-center gap-2">
-                    <button onclick="switchModSubTab('pending')" id="mod-subtab-pending"
-                        class="mod-subtab-btn px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs transition-all flex items-center gap-2 shadow-xs">
-                        <i class="fa-solid fa-hourglass-half text-xs"></i>
-                        <span>Chờ phê duyệt</span>
-                        <span id="mod-pending-subtab-count" class="px-2 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-extrabold">0</span>
-                    </button>
-
-                    <button onclick="switchModSubTab('history')" id="mod-subtab-history"
-                        class="mod-subtab-btn px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs transition-all flex items-center gap-2">
-                        <i class="fa-solid fa-clock-rotate-left text-xs text-sky-500"></i>
-                        <span>Lịch sử kiểm duyệt</span>
-                    </button>
-
-                    <button onclick="switchModSubTab('complaints')" id="mod-subtab-complaints"
-                        class="mod-subtab-btn px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs transition-all flex items-center gap-2">
-                        <i class="fa-solid fa-triangle-exclamation text-xs text-amber-500"></i>
-                        <span>Khiếu nại & Báo cáo</span>
-                    </button>
-                </div>
-
-                <!-- SUB-SECTION 1: BÀI ĐĂNG CHỜ PHÊ DUYỆT -->
-                <div id="mod-subcontent-pending" class="space-y-4">
-                    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
-                                <thead>
-                                    <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider">
-                                        <th class="p-4">Hình ảnh</th>
-                                        <th class="p-4">Tiêu đề bài đăng</th>
-                                        <th class="p-4">Tòa nhà / Dự án</th>
-                                        <th class="p-4">Giá thuê</th>
-                                        <th class="p-4">Người đăng</th>
-                                        <th class="p-4">Thời gian gửi</th>
-                                        <th class="p-4 text-right">Thao tác</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="mod-pending-table-tbody" class="divide-y divide-slate-100 text-slate-700 font-medium">
-                                    <!-- Rendered dynamically -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- SUB-SECTION 2: LỊCH SỬ KIỂM DUYỆT -->
-                <div id="mod-subcontent-history" class="space-y-4 hidden">
-                    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
-                                <thead>
-                                    <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider">
-                                        <th class="p-4">Mã tin</th>
-                                        <th class="p-4">Tiêu đề bài đăng</th>
-                                        <th class="p-4">Tòa nhà</th>
-                                        <th class="p-4">Người đăng</th>
-                                        <th class="p-4">Kết quả kiểm duyệt</th>
-                                        <th class="p-4">Lý do từ chối</th>
-                                        <th class="p-4 text-right">Thao tác</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="mod-history-table-tbody" class="divide-y divide-slate-100 text-slate-700 font-medium">
-                                    <!-- Rendered dynamically -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- SUB-SECTION 3: KHIẾU NẠI & BÁO CÁO -->
-                <div id="mod-subcontent-complaints" class="space-y-4 hidden">
-                    <div id="mod-complaints-container" class="space-y-3">
-                        <!-- Rendered dynamically -->
-                    </div>
-                </div>
-            </section>
-            @endif
 
             <!-- ==================== TAB: QUẢN LÝ TÀI KHOẢN CON & PHÂN QUYỀN (RENTHOME ENTERPRISE) ==================== -->
             @if($isEnterprise || $isAdmin)
@@ -1358,19 +1220,26 @@
                                 icon = 'fa-heart';
                                 badgeBg = 'bg-rose-50 text-rose-600 border-rose-100';
                                 categoryName = 'Yêu thích';
+                            } else if (n.type === 'building' || n.category === 'toanha') {
+                                iconBg = 'bg-sky-100 text-sky-600 border-sky-200';
+                                icon = 'fa-building-circle-check';
+                                badgeBg = 'bg-sky-50 text-sky-700 border-sky-200';
+                                categoryName = 'Cập nhật tòa nhà';
                             }
 
                             return {
                                 id: n._id || n.id,
                                 title: n.title,
                                 content: n.message,
+                                changes: Array.isArray(n.changes) ? n.changes : [],
                                 time: new Date(n.created_at).toLocaleString('vi-VN'),
                                 type: n.type,
                                 isRead: n.is_read,
                                 iconBg: iconBg,
                                 icon: icon,
                                 badgeBg: badgeBg,
-                                categoryName: categoryName
+                                categoryName: categoryName,
+                                actionUrl: n.action_url || (n.building_id ? `/quan-ly-toa-nha/${n.building_id}` : null)
                             };
                         });
                         renderNotifications();
@@ -1459,7 +1328,7 @@
                                         <span class="text-[10px] text-slate-400">${n.time}</span>
                                     </div>
                                     <h4 class="font-bold text-slate-900 text-xs mt-1 truncate">${n.title}</h4>
-                                    <p class="text-[11px] text-slate-500 line-clamp-1 mt-0.5">${n.content}</p>
+                                    <p class="text-[11px] text-slate-500 line-clamp-1 mt-0.5">${(n.changes && n.changes.length > 0) ? ('Thay đổi: ' + n.changes.join(' • ')) : n.content}</p>
                                 </div>
                             </div>
                         `;
@@ -1491,7 +1360,7 @@
                                         <span class="text-[10px] text-slate-400">${n.time}</span>
                                     </div>
                                     <p class="font-bold text-slate-900 text-xs truncate mt-0.5 ${!n.isRead ? 'text-slate-900 font-extrabold' : 'text-slate-700'}">${n.title}</p>
-                                    <p class="text-[11px] text-slate-500 line-clamp-1 mt-0.5">${n.content}</p>
+                                    <p class="text-[11px] text-slate-500 line-clamp-1 mt-0.5">${(n.changes && n.changes.length > 0) ? ('Thay đổi: ' + n.changes.join(' • ')) : n.content}</p>
                                 </div>
                             </div>
                         `;
@@ -1529,6 +1398,28 @@
                         badgeHtml = `<span class="px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 font-bold text-[10px] shadow-2xs"><i class="fa-solid fa-comment-dots mr-1"></i>Tin nhắn mới</span>`;
                     }
 
+                    let contentBodyHtml = `<p class="text-xs text-slate-600 mt-1.5 leading-relaxed whitespace-pre-line">${n.content}</p>`;
+                    if (n.changes && n.changes.length > 0) {
+                        const introText = n.content.includes('\n\n📋') ? n.content.split('\n\n📋')[0] : n.content;
+                        contentBodyHtml = `
+                            <p class="text-xs text-slate-600 mt-1.5 leading-relaxed">${introText}</p>
+                            <div class="mt-2.5 p-3 rounded-xl bg-amber-50/80 border border-amber-200/90 text-slate-800">
+                                <div class="text-[11px] font-extrabold text-amber-900 mb-2 flex items-center gap-1.5 uppercase tracking-wide">
+                                    <i class="fa-solid fa-pen-to-square text-amber-600"></i> Các nội dung đã thay đổi (${n.changes.length}):
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                                    ${n.changes.map(c => `
+                                        <div class="flex items-start gap-2 bg-white/95 px-3 py-2 rounded-lg border border-amber-200/70 shadow-2xs">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0"></span>
+                                            <span class="text-slate-800 font-semibold leading-relaxed">${c}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                                <p class="text-[11px] text-amber-800/80 italic mt-2">Vui lòng kiểm tra lại thông tin chi tiết trên hệ thống.</p>
+                            </div>
+                        `;
+                    }
+
                     return `
                         <div class="p-4 rounded-2xl ${n.isRead ? 'bg-white border-slate-200' : 'bg-gradient-to-r from-slate-50 to-rose-50/30 border-rose-200 shadow-xs'} border shadow-sm flex items-start gap-4 hover:border-slate-300 transition-all">
                             <div class="w-10 h-10 rounded-xl ${n.iconBg} flex items-center justify-center shrink-0 text-lg shadow-xs mt-0.5">
@@ -1544,9 +1435,14 @@
                                         <i class="fa-regular fa-clock"></i> ${n.time}
                                     </span>
                                 </div>
-                                <p class="text-xs text-slate-600 mt-1.5 leading-relaxed whitespace-pre-line">${n.content}</p>
+                                ${contentBodyHtml}
                                 <div class="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
                                     <div class="flex items-center gap-2">
+                                        ${n.actionUrl ? `
+                                            <a href="${n.actionUrl}" class="px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 font-bold text-[11px] transition-colors inline-flex items-center gap-1">
+                                                <i class="fa-solid fa-arrow-up-right-from-square"></i> Xem tòa nhà
+                                            </a>
+                                        ` : ''}
                                         ${!n.isRead ? `
                                             <button onclick="markNotifAsRead('${n.id}')" class="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-[11px] transition-colors">
                                                 <i class="fa-solid fa-check mr-1"></i> Đánh dấu đã đọc
@@ -1580,12 +1476,25 @@
             renderNotifications();
         }
 
-        function markNotifAsRead(id) {
+        async function markNotifAsRead(id) {
             const list = getNotificationsData();
             const target = list.find(n => n.id === id);
             if (target) {
                 target.isRead = true;
                 saveNotificationsData(list);
+
+                try {
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+                    await fetch(`/api/notifications/${id}/mark-read`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': csrfToken,
+                            'Accept': 'application/json'
+                        }
+                    });
+                } catch (e) {
+                    console.error('Lỗi đánh dấu đã đọc:', e);
+                }
             }
         }
 
@@ -1595,25 +1504,82 @@
             saveNotificationsData(list);
 
             try {
-                const csrfToken = document.querySelector('meta[name="csrf-token"]');
-                const token = csrfToken ? csrfToken.content : '';
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
                 await fetch('/api/notifications/read', { 
                     method: 'POST', 
-                    headers: { 'X-CSRF-TOKEN': token } 
+                    headers: { 
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Accept': 'application/json'
+                    } 
                 });
             } catch (e) { console.error(e); }
         }
 
-        function deleteNotif(id) {
+        async function deleteNotif(id) {
+            if (!confirm('Bạn có chắc chắn muốn xóa vĩnh viễn thông báo này khỏi hệ thống?')) {
+                return;
+            }
+
+            // Cập nhật giao diện ngay lập tức (Optimistic UI)
             let list = getNotificationsData();
             list = list.filter(n => n.id !== id);
             saveNotificationsData(list);
+
+            // Gửi request xóa trực tiếp trong MongoDB database
+            try {
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+                const res = await fetch(`/api/notifications/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Accept': 'application/json'
+                    }
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    console.error('Lỗi xóa thông báo:', data.message);
+                    fetchNotifications();
+                }
+            } catch (e) {
+                console.error('Lỗi kết nối khi xóa thông báo:', e);
+                fetchNotifications();
+            }
         }
 
-        function clearReadNotifs() {
-            let list = getNotificationsData();
-            list = list.filter(n => !n.isRead);
-            saveNotificationsData(list);
+        async function clearReadNotifs() {
+            const list = getNotificationsData();
+            const readNotifs = list.filter(n => n.isRead);
+            if (readNotifs.length === 0) {
+                alert('Không có thông báo đã đọc nào để xóa.');
+                return;
+            }
+
+            if (!confirm(`Bạn có chắc chắn muốn xóa toàn bộ ${readNotifs.length} thông báo đã đọc khỏi hệ thống?`)) {
+                return;
+            }
+
+            // Cập nhật giao diện ngay lập tức
+            saveNotificationsData(list.filter(n => !n.isRead));
+
+            // Gửi request xóa các thông báo đã đọc trong MongoDB database
+            try {
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+                const res = await fetch('/api/notifications/clear-read', {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Accept': 'application/json'
+                    }
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    console.error('Lỗi khi xóa thông báo đã đọc:', data.message);
+                    fetchNotifications();
+                }
+            } catch (e) {
+                console.error('Lỗi khi xóa thông báo đã đọc:', e);
+                fetchNotifications();
+            }
         }
 
         function toggleNotificationDropdown(e) {
@@ -2112,9 +2078,6 @@
             if (tabId === 'buildings') {
                 fetchBuildings();
             }
-            if (tabId === 'moderation') {
-                fetchModeratorPendingPosts();
-            }
             if (tabId === 'sub-accounts') {
                 fetchSubAccounts();
             }
@@ -2592,348 +2555,6 @@ function fetchHistoryPosts() {
             });
         });
 
-        // ==================== JAVASCRIPT: KIỂM DUYỆT TIN ĐĂNG (RENTHOME) ====================
-        let modPendingPostsList = [];
-        let currentModSubTab = 'pending';
-
-        function switchModSubTab(subTab) {
-            currentModSubTab = subTab;
-            const subTabs = ['pending', 'history', 'complaints'];
-            subTabs.forEach(t => {
-                const content = document.getElementById('mod-subcontent-' + t);
-                const btn = document.getElementById('mod-subtab-' + t);
-                if (content) content.classList.toggle('hidden', t !== subTab);
-                if (btn) {
-                    if (t === subTab) {
-                        btn.className = 'mod-subtab-btn px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs transition-all flex items-center gap-2 shadow-xs';
-                    } else {
-                        btn.className = 'mod-subtab-btn px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs transition-all flex items-center gap-2';
-                    }
-                }
-            });
-
-            if (subTab === 'pending') fetchModeratorPendingPosts();
-            if (subTab === 'history') fetchModeratorHistory();
-            if (subTab === 'complaints') fetchModeratorComplaints();
-        }
-
-        async function fetchModeratorPendingPosts() {
-            const tbody = document.getElementById('mod-pending-table-tbody');
-            if (!tbody) return;
-            tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-400 font-medium"><i class="fa-solid fa-spinner fa-spin text-xl text-indigo-500 mr-2"></i> Đang tải danh sách bài đăng chờ duyệt...</td></tr>';
-
-            try {
-                const res = await fetch('/api/moderator/posts/pending');
-                const data = await res.json();
-                modPendingPostsList = data.posts || [];
-
-                const countBadge = document.getElementById('mod-pending-subtab-count');
-                if (countBadge) countBadge.innerText = modPendingPostsList.length;
-
-                const sidebarBadge = document.getElementById('sidebar-mod-pending-badge');
-                if (sidebarBadge) {
-                    sidebarBadge.innerText = modPendingPostsList.length;
-                    sidebarBadge.classList.toggle('hidden', modPendingPostsList.length === 0);
-                }
-
-                if (modPendingPostsList.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-400 font-medium"><i class="fa-solid fa-circle-check text-3xl text-emerald-400 mb-2 block"></i>Tuyệt vời! Hiện không còn bài đăng nào cần kiểm duyệt.</td></tr>';
-                    return;
-                }
-
-                tbody.innerHTML = modPendingPostsList.map(post => {
-                    const postId = post.id || post._id;
-                    const imgUrl = post.display_image || 'https://placehold.co/100x80?text=RentHome';
-                    const title = post.title || 'Bài đăng không tên';
-                    const price = new Intl.NumberFormat('vi-VN').format(post.price || 0) + ' đ';
-                    const buildingName = post.building ? post.building.name : (post.building_id ? ('Tòa #' + String(post.building_id).substring(0, 6)) : 'Đăng lẻ');
-                    const authorName = post.user ? (post.user.account_name || post.user.name || post.user.username || 'Người dùng') : 'Người dùng';
-                    const dateStr = post.created_at ? new Date(post.created_at).toLocaleDateString('vi-VN') : 'Mới';
-
-                    return `
-                        <tr class="hover:bg-slate-50 transition-colors">
-                            <td class="p-4">
-                                <img src="${imgUrl}" alt="${title}" class="w-14 h-11 object-cover rounded-xl border border-slate-200 shadow-2xs">
-                            </td>
-                            <td class="p-4 max-w-xs">
-                                <p class="font-bold text-slate-900 truncate" title="${title}">${title}</p>
-                                <p class="text-[10px] text-slate-400 truncate mt-0.5"><i class="fa-solid fa-location-dot"></i> ${post.address || post.street || 'Chưa có địa chỉ'}</p>
-                            </td>
-                            <td class="p-4">
-                                <span class="px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 font-bold text-[10px] inline-flex items-center gap-1 border border-purple-100">
-                                    <i class="fa-solid fa-building text-purple-500"></i> ${buildingName}
-                                </span>
-                            </td>
-                            <td class="p-4 font-bold text-brand-600">${price}</td>
-                            <td class="p-4">
-                                <p class="font-bold text-slate-800">${authorName}</p>
-                                <p class="text-[10px] text-slate-400">${post.user?.email || ''}</p>
-                            </td>
-                            <td class="p-4 text-slate-500 font-medium">${dateStr}</td>
-                            <td class="p-4 text-right">
-                                <div class="inline-flex items-center gap-1.5">
-                                    <button onclick="modOpenPreview('${postId}')" class="px-2.5 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold text-[11px] transition-colors flex items-center gap-1" title="Xem chi tiết">
-                                        <i class="fa-solid fa-eye"></i> Xem
-                                    </button>
-                                    <button onclick="modApprovePost('${postId}')" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition-colors shadow-xs" title="Phê duyệt">
-                                        <i class="fa-solid fa-check mr-1"></i> Duyệt
-                                    </button>
-                                    <button onclick="modOpenRejectModal('${postId}')" class="px-2.5 py-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 font-bold text-[11px] transition-colors" title="Từ chối">
-                                        <i class="fa-solid fa-xmark mr-1"></i> Từ chối
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    `;
-                }).join('');
-            } catch (err) {
-                console.error(err);
-                tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-rose-500 font-medium">Lỗi tải danh sách kiểm duyệt!</td></tr>';
-            }
-        }
-
-        async function modApprovePost(postId) {
-            if (!confirm('Bạn có chắc chắn muốn phê duyệt bài đăng này để hiển thị công khai trên hệ thống?')) return;
-            try {
-                const res = await fetch(`/api/moderator/posts/${postId}/approve`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                        'Accept': 'application/json'
-                    }
-                });
-                const data = await res.json();
-                if (data.success) {
-                    alert(data.message || 'Phê duyệt bài đăng thành công!');
-                    closeModDetailPreviewModal();
-                    fetchModeratorPendingPosts();
-                } else {
-                    alert(data.error || 'Có lỗi xảy ra!');
-                }
-            } catch (e) {
-                console.error(e);
-                alert('Lỗi kết nối máy chủ!');
-            }
-        }
-
-        function modOpenRejectModal(postId) {
-            document.getElementById('mod_reject_post_id').value = postId;
-            document.getElementById('mod_reject_reason').value = '';
-            document.getElementById('modRejectModal').classList.remove('hidden');
-            document.getElementById('modRejectModal').classList.add('flex');
-        }
-
-        function closeModRejectModal() {
-            document.getElementById('modRejectModal').classList.add('hidden');
-            document.getElementById('modRejectModal').classList.remove('flex');
-        }
-
-        function setRejectReason(reason) {
-            document.getElementById('mod_reject_reason').value = reason;
-        }
-
-        async function modSubmitRejectPost(e) {
-            e.preventDefault();
-            const postId = document.getElementById('mod_reject_post_id').value;
-            const reason = document.getElementById('mod_reject_reason').value;
-            const btn = document.getElementById('btn-confirm-reject');
-
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang xử lý...';
-
-            try {
-                const res = await fetch(`/api/moderator/posts/${postId}/reject`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify({ reason: reason })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    alert('Đã từ chối bài đăng!');
-                    closeModRejectModal();
-                    closeModDetailPreviewModal();
-                    fetchModeratorPendingPosts();
-                } else {
-                    alert(data.error || 'Có lỗi xảy ra!');
-                }
-            } catch (err) {
-                console.error(err);
-                alert('Lỗi kết nối máy chủ!');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = 'Xác nhận từ chối';
-            }
-        }
-
-        function modOpenPreview(postId) {
-            const post = modPendingPostsList.find(p => (p.id || p._id) == postId);
-            if (!post) return;
-
-            document.getElementById('preview-cover-img').src = post.display_image || 'https://placehold.co/600x300?text=RentHome';
-            document.getElementById('preview-title').innerText = post.title || 'Không có tiêu đề';
-            document.getElementById('preview-price').innerText = new Intl.NumberFormat('vi-VN').format(Number(post.price) || 0) + ' đ/tháng';
-            
-            const bName = post.building ? post.building.name : (post.building_id ? ('Tòa #' + String(post.building_id).substring(0, 6)) : 'Tin đăng');
-            document.getElementById('preview-building-badge').innerText = bName;
-
-            const addrParts = [];
-            if (post.address) addrParts.push(post.address);
-            else if (post.street) addrParts.push(post.street);
-            if (post.ward) addrParts.push(post.ward);
-            if (post.district) addrParts.push(post.district);
-            if (post.province) addrParts.push(post.province);
-            document.getElementById('preview-address-text').innerText = addrParts.join(', ') || 'Chưa có địa chỉ';
-
-            document.getElementById('preview-area').innerText = (post.area || '0') + ' m²';
-            document.getElementById('preview-room').innerText = post.room_number || post.bedroom || '1 phòng';
-            document.getElementById('preview-author').innerText = post.user ? (post.user.account_name || post.user.name || post.user.username || 'Người dùng') : 'N/A';
-            document.getElementById('preview-description').innerText = post.description || 'Không có mô tả chi tiết';
-
-            document.getElementById('preview-btn-approve-action').onclick = () => modApprovePost(postId);
-            document.getElementById('preview-btn-reject-action').onclick = () => {
-                closeModDetailPreviewModal();
-                modOpenRejectModal(postId);
-            };
-
-            document.getElementById('modDetailPreviewModal').classList.remove('hidden');
-            document.getElementById('modDetailPreviewModal').classList.add('flex');
-        }
-
-        function closeModDetailPreviewModal() {
-            document.getElementById('modDetailPreviewModal').classList.add('hidden');
-            document.getElementById('modDetailPreviewModal').classList.remove('flex');
-        }
-
-        async function fetchModeratorHistory() {
-            const tbody = document.getElementById('mod-history-table-tbody');
-            if (!tbody) return;
-            tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-400 font-medium"><i class="fa-solid fa-spinner fa-spin text-xl text-sky-500 mr-2"></i> Đang tải lịch sử kiểm duyệt...</td></tr>';
-
-            try {
-                const res = await fetch('/api/moderator/posts/history');
-                const data = await res.json();
-                const posts = data.posts || [];
-
-                if (posts.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-400 font-medium">Chưa có lịch sử kiểm duyệt nào.</td></tr>';
-                    return;
-                }
-
-                tbody.innerHTML = posts.map(post => {
-                    const postId = String(post.id || post._id);
-                    const isApproved = post.status === 'approved' || post.status === 'active';
-                    const badge = isApproved
-                        ? '<span class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[10px]"><i class="fa-solid fa-circle-check"></i> Đã phê duyệt</span>'
-                        : '<span class="px-2.5 py-1 rounded-full bg-rose-100 text-rose-700 font-bold text-[10px]"><i class="fa-solid fa-circle-xmark"></i> Bị từ chối</span>';
-                    
-                    const buildingName = post.building ? post.building.name : 'Đăng lẻ';
-                    const authorName = post.user ? (post.user.account_name || post.user.username || 'Người dùng') : 'Người dùng';
-                    const rejectReason = post.reject_reason || '-';
-
-                    return `
-                        <tr class="hover:bg-slate-50 transition-colors">
-                            <td class="p-4 font-bold text-slate-900">${postId.substring(0, 8)}...</td>
-                            <td class="p-4 font-bold text-slate-800 max-w-xs truncate">${post.title || ''}</td>
-                            <td class="p-4 text-slate-600">${buildingName}</td>
-                            <td class="p-4 text-slate-600">${authorName}</td>
-                            <td class="p-4">${badge}</td>
-                            <td class="p-4 text-slate-500 max-w-xs truncate text-[11px]" title="${rejectReason}">${rejectReason}</td>
-                            <td class="p-4 text-right">
-                                <button onclick="modRestorePost('${postId}')" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] transition-colors">
-                                    <i class="fa-solid fa-rotate-left mr-1"></i> Khôi phục duyệt lại
-                                </button>
-                            </td>
-                        </tr>
-                    `;
-                }).join('');
-            } catch (err) {
-                console.error(err);
-                tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-rose-500 font-medium">Lỗi tải lịch sử!</td></tr>';
-            }
-        }
-
-        async function modRestorePost(postId) {
-            if (!confirm('Khôi phục bài đăng này về trạng thái chờ duyệt?')) return;
-            try {
-                const res = await fetch(`/api/moderator/posts/${postId}/restore`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                        'Accept': 'application/json'
-                    }
-                });
-                const data = await res.json();
-                if (data.success) {
-                    alert('Đã khôi phục bài đăng về danh sách chờ duyệt!');
-                    fetchModeratorHistory();
-                    fetchModeratorPendingPosts();
-                } else {
-                    alert(data.error || 'Có lỗi xảy ra!');
-                }
-            } catch (err) {
-                console.error(err);
-                alert('Lỗi kết nối máy chủ!');
-            }
-        }
-
-        async function fetchModeratorComplaints() {
-            const container = document.getElementById('mod-complaints-container');
-            if (!container) return;
-            container.innerHTML = '<div class="text-center py-10 text-slate-400 font-medium"><i class="fa-solid fa-spinner fa-spin text-xl text-amber-500 mr-2"></i> Đang tải khiếu nại...</div>';
-
-            try {
-                const res = await fetch('/api/moderator/complaints');
-                const data = await res.json();
-                const complaints = data.complaints || [];
-
-                if (complaints.length === 0) {
-                    container.innerHTML = '<div class="text-center py-12 bg-white rounded-2xl border border-slate-200"><i class="fa-solid fa-check-double text-3xl text-emerald-400 mb-2 block"></i><p class="font-bold text-slate-700 text-sm">Không có khiếu nại hoặc báo cáo nào chưa xử lý.</p></div>';
-                    return;
-                }
-
-                container.innerHTML = complaints.map(c => {
-                    const cId = String(c.id || c._id);
-                    const userName = c.user ? (c.user.account_name || c.user.username || 'Người dùng') : 'Ẩn danh';
-                    const dateStr = c.created_at ? new Date(c.created_at).toLocaleString('vi-VN') : '';
-                    const postTitle = c.post ? c.post.title : 'Bài đăng không xác định';
-                    const statusBadge = c.status === 'resolved'
-                        ? '<span class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[10px]">Đã giải quyết</span>'
-                        : '<span class="px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 font-bold text-[10px]">Chờ xử lý</span>';
-
-                    return `
-                        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs hover:border-indigo-200 transition-all">
-                            <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-9 h-9 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-sm">
-                                        <i class="fa-solid fa-user"></i>
-                                    </div>
-                                    <div>
-                                        <h5 class="font-bold text-slate-900 text-xs">${userName} <span class="text-slate-400 font-normal ml-1">#KN-${cId.substring(0, 6)}</span></h5>
-                                        <p class="text-[10px] text-slate-400"><i class="fa-regular fa-clock"></i> ${dateStr}</p>
-                                    </div>
-                                </div>
-                                ${statusBadge}
-                            </div>
-                            <div class="text-xs space-y-2">
-                                <p class="text-slate-500"><strong class="text-slate-800">Bài đăng liên quan:</strong> ${postTitle}</p>
-                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-100 text-slate-700">
-                                    <p class="font-semibold text-slate-900 mb-0.5">Nội dung khiếu nại:</p>
-                                    <p class="whitespace-pre-line">${c.content || c.message || 'Không có chi tiết'}</p>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-            } catch (err) {
-                console.error(err);
-                container.innerHTML = '<div class="text-center py-10 text-rose-500 font-medium">Lỗi tải khiếu nại!</div>';
-            }
-        }
-
         // ==================== JAVASCRIPT: QUẢN LÝ TÀI KHOẢN CON & PHÂN QUYỀN ====================
         let allSubAccountsList = [];
         let allBuildingsForSubAccounts = [];
@@ -2979,7 +2600,9 @@ function fetchHistoryPosts() {
                 const assignedBuildings = acc.assigned_buildings_details || [];
                 
                 let buildingBadges = '';
-                if (assignedBuildings.length > 0) {
+                if (acc.is_all_buildings || !acc.assigned_buildings || acc.assigned_buildings.length === 0 || acc.assigned_buildings.includes('all')) {
+                    buildingBadges = `<span class="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold text-[10px] border border-emerald-200 inline-flex items-center gap-1"><i class="fa-solid fa-globe text-[9px]"></i> Tất cả tòa nhà (${allBuildingsForSubAccounts.length})</span>`;
+                } else if (assignedBuildings.length > 0) {
                     buildingBadges = assignedBuildings.map(b => 
                         `<span class="px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 font-bold text-[10px] border border-purple-100 mr-1 mb-1 inline-block"><i class="fa-solid fa-building text-[9px] mr-1"></i>${b.name}</span>`
                     ).join('');
@@ -3088,12 +2711,7 @@ function fetchHistoryPosts() {
             const form = document.getElementById('formCreateSubAccount');
             const checkboxes = form.querySelectorAll('input[name="assigned_buildings[]"]:checked');
             
-            if (checkboxes.length === 0) {
-                alert('Vui lòng chọn ít nhất 1 tòa nhà để phân quyền cho nhân viên này!');
-                return;
-            }
-
-            const assigned = Array.from(checkboxes).map(cb => cb.value);
+            const assigned = (checkboxes.length > 0) ? Array.from(checkboxes).map(cb => cb.value) : ['all'];
             const payload = {
                 name: document.getElementById('sub_name').value.trim(),
                 phone: document.getElementById('sub_phone').value.trim(),
@@ -3273,38 +2891,6 @@ function fetchHistoryPosts() {
         }
     </script>
 
-    <!-- Complaint Modal -->
-    <div id="complaint-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity">
-        <div class="bg-white rounded-3xl w-full max-w-lg p-6 shadow-2xl scale-95 transition-transform duration-300" id="complaint-modal-content">
-            <div class="flex justify-between items-center mb-5">
-                <h3 class="text-xl font-bold text-slate-900"><i class="fa-solid fa-reply text-indigo-500 mr-2"></i>Gửi Phản Hồi Khiếu Nại</h3>
-                <button onclick="closeComplaintModal()" class="text-slate-400 hover:text-rose-500 transition-colors">
-                    <i class="fa-solid fa-xmark text-xl"></i>
-                </button>
-            </div>
-            
-            <form id="complaint-form" onsubmit="submitComplaint(event)">
-                <input type="hidden" id="complaint-post-id" name="post_id">
-                
-                <div class="mb-4">
-                    <label class="block text-sm font-bold text-slate-700 mb-2">Nội dung phản hồi <span class="text-rose-500">*</span></label>
-                    <textarea id="complaint-content" name="content" rows="4" class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Nhập chi tiết vấn đề bạn cần phản hồi..." required></textarea>
-                </div>
-                
-                <div class="mb-5">
-                    <label class="block text-sm font-bold text-slate-700 mb-2">Hình ảnh đính kèm (nếu có)</label>
-                    <input type="file" id="complaint-image" name="image" accept="image/*" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
-                </div>
-                
-                <div class="flex justify-end gap-3">
-                    <button type="button" onclick="closeComplaintModal()" class="px-5 py-2.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">Hủy</button>
-                    <button type="submit" id="btn-submit-complaint" class="px-5 py-2.5 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-500/30 transition-all flex items-center gap-2">
-                        <i class="fa-solid fa-paper-plane"></i> Gửi phản hồi
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
 </body>
 
 </html>

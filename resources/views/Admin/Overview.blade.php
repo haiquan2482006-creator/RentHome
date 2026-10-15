@@ -653,9 +653,9 @@
                     </thead>
                     <tbody>
                         @forelse($recentUsers ?? [] as $user)
-                            @if(($user->role ?? '') !== 'admin' && ($user->account_type ?? '') !== 'admin' && ($user->role ?? '') !== 'moderator' && ($user->account_type ?? '') !== 'moderator')
+                            @if(($user->role ?? '') !== 'admin' && ($user->role ?? '') !== 'moderator')
                                 @php
-                                    $displayName = $user->account_type === 'doanhnghiep' 
+                                    $displayName = ($user->isEnterprise() || ($user->role ?? '') === 'doanhnghiep') 
                                         ? ($user->company_name ?? $user->username) 
                                         : ($user->account_name ?? $user->username);
                                     $initials = mb_substr($displayName, 0, 2, 'UTF-8');
@@ -675,7 +675,7 @@
                                     <td>{{ $user->email }}</td>
                                     <td>{{ $user->phone ?? '---' }}</td>
                                     <td>
-                                        @if($user->account_type === 'doanhnghiep')
+                                        @if($user->isEnterprise() || ($user->role ?? '') === 'doanhnghiep')
                                             <span class="badge badge-business">Doanh nghiệp</span>
                                         @else
                                             <span class="badge badge-personal">Cá nhân</span>

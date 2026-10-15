@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Complaint;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -164,23 +163,6 @@ class SupportNotificationService
             }
         } catch (\Exception $e) {
             Log::error("Failed to send Telegram notification: " . $e->getMessage());
-        }
-
-        // 3. LƯU BẢN GHI VÀO MONGODB (Collection complaints) NẾU CHƯA ĐƯỢC TẠO
-        if (!$skipDbCreate) {
-            try {
-                Complaint::create([
-                    'user_id' => auth()->id() ?? null,
-                    'post_id' => null,
-                    'complaint_code' => $data['complaint_code'] ?? null,
-                    'content' => "[Hỗ trợ / Báo cáo sự cố] Người gửi: {$name} | SĐT/Email: {$contact}\nNội dung: {$issue}",
-                    'image' => $imageItem,
-                    'status' => 'pending',
-                    'type' => 'support_report',
-                ]);
-            } catch (\Exception $e) {
-                Log::warning("Failed to store complaint to MongoDB: " . $e->getMessage());
-            }
         }
 
         return [
@@ -515,7 +497,7 @@ class SupportNotificationService
         $imgStr = (string)$imgItem;
 
         // 1. Nếu là MongoDB ID của Model Image (24 ký tự hex)
-        if (strlen($imgStr) === 24 && ctype_xdigit($imgStr)) {
+        if (strlen($imgStr) === 24 && ctype_xdigit($imgStr) && class_exists(\App\Models\Image::class)) {
             try {
                 $imgDoc = \App\Models\Image::find($imgStr);
                 if ($imgDoc && !empty($imgDoc->base64_data)) {

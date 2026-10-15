@@ -67,7 +67,7 @@
 
     @php
         $user = \Illuminate\Support\Facades\Auth::user();
-        $isEnterprise = $user && $user->account_type === 'doanhnghiep';
+        $isEnterprise = $user && ($user->isEnterprise() || $user->isStaff() || in_array($user->role ?? '', ['doanhnghiep', 'sub_account', 'staff']));
         $userName = $user ? ($isEnterprise ? ($user->representative ?? $user->account_name ?? $user->company_name ?? $user->username ?? 'Doanh nghiệp') : ($user->account_name ?? $user->username ?? 'Người dùng')) : 'Người dùng';
     @endphp
 
@@ -162,7 +162,7 @@
                                     <label for="current_password" class="block text-xs font-bold uppercase tracking-wider text-slate-600">
                                         Mật khẩu hiện tại <span class="text-rose-500">*</span>
                                     </label>
-                                    <a href="{{ url('/quen-mat-khau') }}" class="text-xs font-semibold text-brand-600 hover:text-brand-700 transition-colors hover:underline">
+                                    <a href="javascript:void(0)" onclick="alert('Vui lòng liên hệ Quản trị viên doanh nghiệp (admin2006@gmail.com) để được cấp lại mật khẩu.')" class="text-xs font-semibold text-brand-600 hover:text-brand-700 transition-colors hover:underline">
                                         Quên mật khẩu?
                                     </a>
                                 </div>

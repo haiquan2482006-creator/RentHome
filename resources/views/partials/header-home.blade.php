@@ -87,7 +87,7 @@
 
         <!-- Action Buttons -->
         <div class="flex items-center gap-2 sm:gap-3">
-            @if (!Auth::check() || (Auth::user()->account_type ?? 'canhan') !== 'doanhnghiep')
+            @if (!Auth::check() || (!Auth::user()->isEnterprise() && Auth::user()->role !== 'doanhnghiep'))
             <!-- Favorites Dropdown Container (Dành riêng cho khách vãng lai và Tài khoản Cá nhân) -->
             <div class="relative inline-block text-left" id="favorite-dropdown-container">
                 <button type="button" id="favorite-menu-button" onclick="toggleFavoriteDropdown(event)"
@@ -141,7 +141,7 @@
             @endif
 
             @auth
-                @if ((Auth::user()->account_type ?? '') === 'admin' || (Auth::user()->role ?? '') === 'admin')
+                @if (Auth::user()->role === 'admin' || Auth::user()->isAdmin())
                     <a href="/Admin"
                         class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-200">
                         <i class="fa-solid fa-user-gear"></i>Vào trang quản trị
@@ -161,7 +161,7 @@
                             <h4 class="font-bold text-xs text-slate-900 flex items-center gap-2">
                                 <i class="fa-solid fa-bell text-rose-500"></i> Thông báo mới nhất
                             </h4>
-                            <span class="text-[10px] font-semibold text-slate-500">{{ (Auth::user()->account_type ?? '') === 'doanhnghiep' ? 'Đối tác Doanh Nghiệp' : 'Tài khoản Cá Nhân' }}</span>
+                            <span class="text-[10px] font-semibold text-slate-500">{{ (Auth::user()->isAdmin() || Auth::user()->isEnterprise() || Auth::user()->isStaff() || in_array(Auth::user()->role ?? '', ['doanhnghiep', 'sub_account', 'staff', 'admin'])) ? 'Đối tác Doanh Nghiệp' : 'Tài khoản Cá Nhân' }}</span>
                         </div>
                         <div id="home-topbar-notif-list" class="max-h-72 overflow-y-auto divide-y divide-slate-100 text-xs">
                             <!-- Populated dynamically by JS -->
@@ -185,7 +185,7 @@
                                 <i class="fa-solid fa-chevron-down text-xs text-slate-400"></i>
                             </span>
                             <span class="text-[10px] font-semibold">
-                                @if ((Auth::user()->account_type ?? '') === 'doanhnghiep')
+                                @if (Auth::user()->isAdmin() || Auth::user()->isEnterprise() || Auth::user()->isStaff() || in_array(Auth::user()->role ?? '', ['doanhnghiep', 'sub_account', 'staff', 'admin']))
                                     <span class="text-purple-600 font-bold">• Doanh nghiệp</span>
                                 @else
                                     <span class="text-sky-600 font-bold">• Cá nhân</span>
@@ -206,10 +206,12 @@
                                 <p class="text-[11px] text-slate-400 truncate">{{ Auth::user()->email ?? '' }}</p>
                             </div>
                             <div class="shrink-0">
-                                @if (Auth::user()->isEnterprise())
+                                @if (Auth::user()->isAdmin())
+                                    <span class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-bold text-[10px]">Ban Quản Trị</span>
+                                @elseif (Auth::user()->isSubAccount() || Auth::user()->isStaff() || (Auth::user()->role ?? '') === 'staff')
+                                    <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold text-[10px]">Nhân viên Doanh nghiệp</span>
+                                @elseif (Auth::user()->isEnterprise() || (Auth::user()->role ?? '') === 'doanhnghiep')
                                     <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-bold text-[10px]">RentHome Doanh nghiệp</span>
-                                @elseif (Auth::user()->isSubAccount())
-                                    <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold text-[10px]">Quản lý tòa nhà</span>
                                 @else
                                     <span class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 font-bold text-[10px]">Khách thuê</span>
                                 @endif
@@ -222,25 +224,19 @@
                             <span>Hồ sơ cá nhân</span>
                         </a>
 
-                        @if (Auth::user()->isIndividual())
-                            <a href="{{ route('nha-dang-thue') }}"
-                                class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
-                                <i class="fa-solid fa-house-user text-brand-600 w-4 text-center"></i>
-                                <span>Nhà đang thuê</span>
-                            </a>
 
-                            <a href="{{ route('contact.my_requests') }}"
-                                class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
-                                <i class="fa-solid fa-clock-rotate-left text-brand-600 w-4 text-center"></i>
-                                <span>Lịch sử liên hệ thuê</span>
-                            </a>
-                        @endif
 
-                        @if (Auth::user()->isEnterprise() || Auth::user()->isSubAccount() || Auth::user()->role === 'admin' || Auth::user()->account_type === 'admin')
+                        @if (Auth::user()->isEnterprise() || Auth::user()->isSubAccount() || Auth::user()->role === 'admin')
                             <a href="{{ url('Overview') }}"
                                 class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
                                 <i class="fa-solid fa-newspaper text-brand-600 w-4 text-center"></i>
-                                <span>{{ Auth::user()->isEnterprise() ? 'Trung tâm Quản lý RentHome' : 'Tòa nhà được giao' }}</span>
+                                <span>Quản lý bài đăng</span>
+                            </a>
+
+                            <a href="{{ url('Overview?tab=buildings') }}"
+                                class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
+                                <i class="fa-solid fa-city text-brand-600 w-4 text-center"></i>
+                                <span>{{ Auth::user()->isSubAccount() ? 'Tòa nhà được giao' : 'Quản lý Tòa Nhà' }}</span>
                             </a>
 
                             <a href="{{ url('quan-ly-van-hanh') }}"
@@ -304,7 +300,7 @@
                 </a>
             @endforeach
             
-            @if (!Auth::check() || (Auth::user()->account_type ?? 'canhan') !== 'doanhnghiep')
+            @if (!Auth::check() || (!Auth::user()->isEnterprise() && Auth::user()->role !== 'doanhnghiep'))
             <button type="button" onclick="toggleFavoriteDropdown(event); toggleMobileNav();" class="flex items-center justify-between px-4 py-2.5 rounded-xl text-base font-semibold text-rose-600 hover:bg-rose-50 w-full text-left">
                 <span class="flex items-center gap-2.5"><i class="fa-solid fa-heart text-rose-500"></i> Bài đăng yêu thích</span>
                 <span id="mobile-favorite-count" class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-bold text-xs">0</span>
@@ -435,7 +431,7 @@
     // ==========================================
     window.isUserLoggedIn = {{ Auth::check() ? 'true' : 'false' }};
     window.currentUserId = "{{ Auth::check() ? (string)Auth::id() : '' }}";
-    window.currentUserType = "{{ Auth::check() ? (Auth::user()->account_type ?? 'canhan') : '' }}";
+    window.currentUserType = "{{ Auth::check() ? (Auth::user()->role ?? 'user') : '' }}";
     window.csrfToken = "{{ csrf_token() }}";
 
     window.RentHomeFavorites = {

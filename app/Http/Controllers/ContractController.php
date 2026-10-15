@@ -74,8 +74,17 @@ class ContractController extends Controller
 
             // 1. Tạo bản ghi Hợp đồng mới (cho phép contact_id nullable)
             $contractCode = 'HD-' . date('Ym') . '-' . strtoupper(substr(uniqid(), -4));
-            $ownerUser = Auth::user();
-            $ownerId = Auth::id() ? (string)Auth::id() : ($post->user_id ?? null);
+            $currentUser = Auth::user();
+            $enterpriseUser = User::getEnterpriseUser();
+
+            // Nếu người tạo là tài khoản con (nhân viên), gán owner_id về Doanh nghiệp/Admin để dùng chung toàn công ty
+            $ownerId = ($currentUser && !empty($currentUser->parent_id))
+                ? (string)$currentUser->parent_id
+                : ($enterpriseUser ? (string)($enterpriseUser->_id ?? $enterpriseUser->id) : (string)Auth::id());
+
+            $ownerPhone = $enterpriseUser && !empty($enterpriseUser->phone) 
+                ? $enterpriseUser->phone 
+                : ($currentUser ? $currentUser->phone : null);
 
             $contractData = [
                 'contract_code'          => $contractCode,
@@ -83,7 +92,9 @@ class ContractController extends Controller
                 'post_id'                => (string)$roomId,
                 'room_id'                => (string)$roomId,
                 'owner_id'               => (string)$ownerId,
-                'owner_phone'            => $ownerUser ? $ownerUser->phone : null,
+                'created_by'             => (string)Auth::id(),
+                'staff_id'               => (string)Auth::id(),
+                'owner_phone'            => $ownerPhone,
                 'tenant_id'              => $tenantUser ? (string)($tenantUser->id ?? $tenantUser->_id) : ($contact ? (string)$contact->sender_id : null),
                 'tenant_name'            => $request->input('tenant_name'),
                 'tenant_phone'           => $request->input('tenant_phone'),
@@ -130,6 +141,7 @@ class ContractController extends Controller
                 'room_id'            => (string)$roomId,
                 'post_id'            => (string)$roomId,
                 'owner_id'           => (string)$ownerId,
+                'created_by'         => (string)Auth::id(),
                 'tenant_id'          => $contract->tenant_id,
                 'tenant_name'        => $contract->tenant_name,
                 'invoice_code'       => $firstInvoiceCode,

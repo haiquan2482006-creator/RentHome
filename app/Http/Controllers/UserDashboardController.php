@@ -19,16 +19,29 @@ class UserDashboardController extends Controller
 
         if ($user->isSubAccount()) {
             $assignedIds = (array) ($user->assigned_buildings ?? []);
-            $activePostsCount = Post::whereIn('building_id', $assignedIds)
-                ->where(function ($q) {
-                    $q->whereIn('status', ['active', 'approved', 'đã cho thuê', 'rented', 'dang_thue'])
-                      ->orWhere('is_rented', true);
-                })
-                ->count();
-            $totalViews = Post::whereIn('building_id', $assignedIds)->sum('views') ?? 0;
-            $totalLikes = Post::whereIn('building_id', $assignedIds)->sum('likes') ?? 0;
-            $totalBuildingsCount = count($assignedIds);
-        } elseif ($user->isEnterprise() || $user->role === 'admin' || $user->account_type === 'admin') {
+            $isAll = empty($assignedIds) || in_array('all', $assignedIds, true) || in_array('*', $assignedIds, true);
+
+            if ($isAll) {
+                $activePostsCount = Post::where(function ($q) {
+                        $q->whereIn('status', ['active', 'approved', 'đã cho thuê', 'rented', 'dang_thue'])
+                          ->orWhere('is_rented', true);
+                    })
+                    ->count();
+                $totalViews = Post::sum('views') ?? 0;
+                $totalLikes = Post::sum('likes') ?? 0;
+                $totalBuildingsCount = \App\Models\Building::count();
+            } else {
+                $activePostsCount = Post::whereIn('building_id', $assignedIds)
+                    ->where(function ($q) {
+                        $q->whereIn('status', ['active', 'approved', 'đã cho thuê', 'rented', 'dang_thue'])
+                          ->orWhere('is_rented', true);
+                    })
+                    ->count();
+                $totalViews = Post::whereIn('building_id', $assignedIds)->sum('views') ?? 0;
+                $totalLikes = Post::whereIn('building_id', $assignedIds)->sum('likes') ?? 0;
+                $totalBuildingsCount = count($assignedIds);
+            }
+        } elseif ($user->isEnterprise() || $user->isAdmin()) {
             $activePostsCount = Post::where(function ($q) {
                     $q->whereIn('status', ['active', 'approved', 'đã cho thuê', 'rented', 'dang_thue'])
                       ->orWhere('is_rented', true);
@@ -64,12 +77,14 @@ class UserDashboardController extends Controller
         }
         $status = $request->query('status', 'active');
         
-        $query = Post::with('imageModels');
+        $query = Post::query();
 
         if ($user->isSubAccount()) {
             $assignedIds = (array) ($user->assigned_buildings ?? []);
-            $query->whereIn('building_id', $assignedIds);
-        } elseif (!$user->isEnterprise() && $user->role !== 'admin' && $user->account_type !== 'admin') {
+            if (!empty($assignedIds) && !in_array('all', $assignedIds, true) && !in_array('*', $assignedIds, true)) {
+                $query->whereIn('building_id', $assignedIds);
+            }
+        } elseif (!$user->isEnterprise() && !$user->isAdmin()) {
             $query->where('user_id', $user->_id ?? $user->id);
         }
 
@@ -116,7 +131,7 @@ class UserDashboardController extends Controller
         if ($user->isSubAccount()) {
             $assignedIds = (array) ($user->assigned_buildings ?? []);
             $query->whereIn('building_id', $assignedIds);
-        } elseif (!$user->isEnterprise() && $user->role !== 'admin' && $user->account_type !== 'admin') {
+        } elseif (!$user->isEnterprise() && !$user->isAdmin()) {
             $query->where('user_id', $user->_id ?? $user->id);
         }
 
@@ -141,9 +156,84 @@ class UserDashboardController extends Controller
 
     public function markNotificationsRead()
     {
-        $userId = Auth::id();
+        $userId = (string)Auth::id();
         Notification::where('user_id', $userId)->where('is_read', false)->update(['is_read' => true]);
         
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * Xóa 1 thông báo cụ thể khỏi MongoDB Database
+     */
+    public function deleteNotification($id)
+    {
+        $userId = (string)Auth::id();
+        if (!$userId) {
+            return response()->json(['success' => false, 'message' => 'Chưa đăng nhập!'], 401);
+        }
+
+        $notification = Notification::where(function($q) use ($id) {
+            $q->where('_id', $id)->orWhere('id', $id);
+        })->first();
+
+        if (!$notification) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy thông báo!'], 404);
+        }
+
+        // Kiểm tra quyền sở hữu
+        $user = Auth::user();
+        if ((string)$notification->user_id !== $userId && !$user->isAdmin()) {
+            return response()->json(['success' => false, 'message' => 'Bạn không có quyền xóa thông báo này!'], 403);
+        }
+
+        $notification->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã xóa thông báo thành công khỏi database!'
+        ]);
+    }
+
+    /**
+     * Xóa toàn bộ thông báo đã đọc của user khỏi MongoDB Database
+     */
+    public function clearReadNotifications()
+    {
+        $userId = (string)Auth::id();
+        if (!$userId) {
+            return response()->json(['success' => false, 'message' => 'Chưa đăng nhập!'], 401);
+        }
+
+        Notification::where('user_id', $userId)
+            ->where('is_read', true)
+            ->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã xóa toàn bộ thông báo đã đọc khỏi database!'
+        ]);
+    }
+
+    /**
+     * Đánh dấu 1 thông báo đã đọc trong MongoDB Database
+     */
+    public function markNotificationAsRead($id)
+    {
+        $userId = (string)Auth::id();
+        if (!$userId) {
+            return response()->json(['success' => false], 401);
+        }
+
+        $notification = Notification::where(function($q) use ($id) {
+            $q->where('_id', $id)->orWhere('id', $id);
+        })->first();
+
+        if ($notification && ((string)$notification->user_id === $userId || Auth::user()->isAdmin())) {
+            $notification->is_read = true;
+            $notification->save();
+            return response()->json(['success' => true]);
+        }
+
+        return response()->json(['success' => false], 404);
     }
 }

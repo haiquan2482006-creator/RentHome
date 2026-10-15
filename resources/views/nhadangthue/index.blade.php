@@ -131,9 +131,9 @@
 
 @php
     $currentUser = Auth::user();
-    $reqType = request()->query('account_type', request()->query('type', ''));
-    $accountType = (!empty($reqType) && in_array($reqType, ['canhan', 'doanhnghiep'])) ? $reqType : ($currentUser->account_type ?? 'canhan');
-    $isEnterprise = ($accountType === 'doanhnghiep');
+    $reqType = request()->query('role', request()->query('type', ''));
+    $accountType = (!empty($reqType) && in_array($reqType, ['canhan', 'doanhnghiep'])) ? $reqType : ($currentUser->role ?? 'canhan');
+    $isEnterprise = ($accountType === 'doanhnghiep' || ($currentUser && $currentUser->isEnterprise()));
     $displayName = $currentUser 
         ? ($isEnterprise ? ($currentUser->company_name ?? $currentUser->account_name ?? 'Tập Đoàn BĐS Đạt Phát') : ($currentUser->account_name ?? $currentUser->username ?? 'Nguyễn Văn Tuấn'))
         : ($isEnterprise ? 'Tập Đoàn BĐS Đạt Phát' : 'Nguyễn Văn Tuấn');

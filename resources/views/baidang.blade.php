@@ -146,10 +146,10 @@
                     let html = '';
                     posts.forEach(post => {
                         const userName = post.user ? (post.user.account_name || post.user.username) : 'Người dùng';
-                        const userType = post.user ? (post.user.account_type === 'doanhnghiep' ? 'Doanh nghiệp' : 'Cá nhân') : 'Cá nhân';
-                        const userBadgeClass = (post.user && post.user.account_type === 'doanhnghiep') ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-slate-50 text-slate-500 border border-slate-200';
-                        const userIconColor = (post.user && post.user.account_type === 'doanhnghiep') ? 'text-blue-500 bg-blue-50' : 'text-slate-500 bg-slate-100';
-                        const userIcon = (post.user && post.user.account_type === 'doanhnghiep') ? 'fa-building' : 'fa-user';
+                        const userType = post.user ? ((post.user.role === 'doanhnghiep' || post.user.role === 'enterprise') ? 'Doanh nghiệp' : 'Cá nhân') : 'Cá nhân';
+                        const userBadgeClass = (post.user && (post.user.role === 'doanhnghiep' || post.user.role === 'enterprise')) ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-slate-50 text-slate-500 border border-slate-200';
+                        const userIconColor = (post.user && (post.user.role === 'doanhnghiep' || post.user.role === 'enterprise')) ? 'text-blue-500 bg-blue-50' : 'text-slate-500 bg-slate-100';
+                        const userIcon = (post.user && (post.user.role === 'doanhnghiep' || post.user.role === 'enterprise')) ? 'fa-building' : 'fa-user';
                         
                         let imgUrl = post.display_image || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80';
                         let unitText = 'đ/tháng';
