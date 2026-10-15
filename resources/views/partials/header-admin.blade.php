@@ -429,49 +429,42 @@
 
         <!-- Danh sách Menu -->
         <nav class="sidebar-menu">
-            <div class="menu-title">Danh mục quản lý</div>
+            <div class="menu-title">Quản lý Doanh nghiệp</div>
 
-            <!-- 1. Tổng quan -->
-            <a href="{{ url('Admin') }}" class="nav-link {{ request()->is('Admin') ? 'active' : '' }}" title="Tổng quan">
+            <!-- 1. Tổng quan hệ thống Admin -->
+            <a href="{{ url('Admin') }}" class="nav-link {{ request()->is('Admin*') || request()->is('admin*') ? 'active' : '' }}" title="Tổng quan hệ thống">
                 <i class="fa-solid fa-chart-pie"></i>
                 <span>Tổng quan</span>
             </a>
 
-            <!-- 2. Quản lý người dùng -->
-            <a href="{{ url('qlnguoi_dung') }}" class="nav-link {{ request()->is('qlnguoi_dung') ? 'active' : '' }}" title="Quản lý người dùng">
-                <i class="fa-solid fa-users"></i>
-                <span>Quản lý người dùng</span>
+            <!-- 2. Quản lý Bất Động Sản & Tòa Nhà -->
+            <a href="{{ url('qltoa_nha') }}" class="nav-link {{ request()->is('qltoa_nha*') || request()->is('Admin/toa-nha*') || request()->is('quan-ly-toa-nha*') ? 'active' : '' }}" title="Quản lý BĐS & Tòa Nhà">
+                <i class="fa-solid fa-city" style="color: #38bdf8;"></i>
+                <span>Quản lý Tòa nhà</span>
             </a>
 
-            <!-- 3. Chỉnh sửa giao diện -->
+            <!-- 3. Quản lý tài khoản con / Nhân viên -->
+            <a href="{{ url('qltai_khoan_con') }}" class="nav-link {{ request()->is('qltai_khoan_con*') || request()->is('Admin/tai-khoan-con*') ? 'active' : '' }}" title="Tài khoản con & Phân quyền">
+                <i class="fa-solid fa-users-gear" style="color: #2dd4bf;"></i>
+                <span>Nhân viên & Phân quyền</span>
+            </a>
+
+            <!-- 4. Chỉnh sửa giao diện website -->
             <a href="{{ url('sua_giao_dien') }}" class="nav-link {{ request()->is('sua_giao_dien') ? 'active' : '' }}" title="Quản lý giao diện">
-                <i class="fa-solid fa-palette"></i>
-                <span>Quản lý giao diện</span>
+                <i class="fa-solid fa-palette" style="color: #ec4899;"></i>
+                <span>Cấu hình giao diện</span>
             </a>
 
-            <!-- 4. Quản lý tin tức -->
-            <a href="{{ url('qltin_tuc') }}" class="nav-link {{ request()->is('qltin_tuc') ? 'active' : '' }}" title="Quản lý tin tức">
-                <i class="fa-solid fa-newspaper"></i>
-                <span>Quản lý tin tức</span>
-            </a>
-
-            <!-- 5. Yêu cầu kỷ luật -->
-            <a href="{{ url('yeu_cau_ki_luat') }}" class="nav-link {{ request()->is('yeu_cau_ki_luat') ? 'active' : '' }}" title="Yêu cầu kỷ luật">
-                <i class="fa-solid fa-gavel"></i>
-                <span>Yêu cầu kỷ luật</span>
-            </a>
-
-            <!-- 6. Lịch sử -->
-            <a href="{{ url('lich_su') }}" class="nav-link {{ request()->is('lich_su') ? 'active' : '' }}" title="Lịch sử">
-                <i class="fa-solid fa-clock-rotate-left"></i>
+            <!-- 5. Lịch sử tài khoản -->
+            <a href="{{ url('lich_su') }}" class="nav-link {{ request()->is('lich_su*') || request()->is('Admin/lich-su*') ? 'active' : '' }}" title="Lịch sử">
+                <i class="fa-solid fa-clock-rotate-left" style="color: #8b5cf6;"></i>
                 <span>Lịch sử</span>
             </a>
 
-            <div class="menu-title" style="margin-top: 14px;">Lối tắt Website</div>
-            <!-- Xem giao diện -->
-            <a href="{{ url('/') }}" class="nav-link btn-view-website" title="Xem giao diện người dùng Website">
-                <i class="fa-solid fa-globe"></i>
-                <span>Xem giao diện</span>
+            <!-- 6. Quản lý Thông báo -->
+            <a href="{{ url('thong_bao') }}" class="nav-link {{ request()->is('thong_bao*') || request()->is('Admin/thong-bao*') ? 'active' : '' }}" title="Thông báo">
+                <i class="fa-solid fa-bell" style="color: #f59e0b;"></i>
+                <span>Thông báo</span>
             </a>
         </nav>
     </div>
@@ -482,7 +475,7 @@
             @php
                 $adminUser = Auth::user();
                 $adminName = $adminUser ? ($adminUser->account_name ?? $adminUser->username ?? 'Admin') : 'Admin';
-                $adminEmail = $adminUser->email ?? 'admin@renthome.vn';
+                $adminEmail = $adminUser->email ?? 'admin2006@gmail.com';
                 $adminInitials = strtoupper(mb_substr($adminName, 0, 2, 'UTF-8'));
             @endphp
             <div class="avatar">{{ $adminInitials }}</div>
@@ -533,4 +526,12 @@
         const isCollapsed = document.body.classList.contains('sidebar-collapsed');
         updateToggleIcon(isCollapsed);
     });
+
+    // Toàn cục: Ngăn chặn cuộn chuột (wheel) làm thay đổi giá trị trong các thẻ input type="number"
+    document.addEventListener('wheel', function(e) {
+        if (e.target && e.target.matches && e.target.matches('input[type="number"]')) {
+            e.preventDefault();
+            e.target.blur();
+        }
+    }, { passive: false });
 </script>

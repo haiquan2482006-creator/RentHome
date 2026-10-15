@@ -68,38 +68,26 @@
 
     @php
         $currentUser = Auth::user();
-        $reqType = request()->query('account_type', request()->query('type', ''));
-        if (!empty($reqType) && in_array($reqType, ['canhan', 'doanhnghiep'])) {
-            $accountType = $reqType;
-        } else {
-            $accountType = $currentUser->account_type ?? 'canhan';
-        }
+        $accountType = $currentUser->role ?? 'canhan';
+        $isSubAccount = $currentUser && ($currentUser->isSubAccount() || $currentUser->isStaff() || in_array($currentUser->role ?? '', ['sub_account', 'staff']));
+        $isAdmin = $currentUser && ($currentUser->isAdmin() || ($currentUser->role ?? '') === 'admin');
+        $isEnterprise = $currentUser && ($currentUser->isEnterprise() || ($currentUser->role ?? '') === 'doanhnghiep');
 
-        $isEnterprise = $accountType === 'doanhnghiep';
-
-        if ($currentUser) {
-            if ($isEnterprise) {
-                $displayName = !empty($currentUser->company_name)
-                    ? $currentUser->company_name
-                    : $currentUser->account_name ?? ($currentUser->username ?? 'Tập Đoàn BĐS Đạt Phát');
-                $subTitle = 'Đối tác Doanh Nghiệp';
-                $badgeText = 'Doanh Nghiệp';
-            } else {
-                $displayName =
-                    $currentUser->account_name ?? ($currentUser->username ?? ($currentUser->name ?? 'Nguyễn Văn Tuấn'));
-                $subTitle = 'Tài khoản Cá nhân';
-                $badgeText = 'Cá Nhân';
-            }
+        if ($isSubAccount) {
+            $displayName = $currentUser->account_name ?? ($currentUser->username ?? 'Quản lý tòa nhà');
+            $subTitle = 'Nhân viên quản lý tòa nhà';
+            $badgeText = 'Nhân Viên Vận Hành';
+        } elseif ($isEnterprise || $isAdmin) {
+            $displayName = !empty($currentUser->company_name)
+                ? $currentUser->company_name
+                : ($currentUser->account_name ?? ($currentUser->username ?? 'RentHome Doanh Nghiệp'));
+            $subTitle = 'Tổng Doanh Nghiệp RentHome';
+            $badgeText = 'RentHome Doanh Nghiệp';
         } else {
-            if ($isEnterprise) {
-                $displayName = 'Tập Đoàn BĐS Đạt Phát';
-                $subTitle = 'Đối tác Doanh Nghiệp';
-                $badgeText = 'Doanh Nghiệp';
-            } else {
-                $displayName = 'Tài khoản Cá nhân';
-                $subTitle = 'Cá nhân';
-                $badgeText = 'Cá Nhân';
-            }
+            $displayName =
+                $currentUser->account_name ?? ($currentUser->username ?? ($currentUser->name ?? 'Người dùng'));
+            $subTitle = 'Tài khoản Cá nhân';
+            $badgeText = 'Cá Nhân';
         }
 
         // Đếm số lượng thông báo liên hệ chưa xử lý (pending)
@@ -119,7 +107,7 @@
             <span class="text-base font-extrabold text-slate-900 tracking-tight">Rent<span class="text-brand-600">Home</span></span>
         </a>
         <div class="flex items-center gap-2">
-            <span class="text-xs font-bold px-2.5 py-0.5 rounded-full {{ $isEnterprise ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700' }}">
+            <span class="text-xs font-bold px-2.5 py-0.5 rounded-full {{ ($isEnterprise && !$isSubAccount) ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700' }}">
                 {{ $badgeText }}
             </span>
             <button onclick="toggleSidebar()" class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 focus:outline-none">
@@ -159,15 +147,15 @@
 
                 <!-- User Account Information Card -->
                 <div class="relative group w-full user-card-wrapper z-50">
-                    <a href="{{ route('user.dashboard') }}" class="user-card block w-full text-left p-3.5 rounded-2xl {{ $isEnterprise ? 'bg-gradient-to-br from-purple-50 to-indigo-50/50 border border-purple-100' : 'bg-gradient-to-br from-emerald-50 to-teal-50/50 border border-emerald-100' }} flex items-center gap-3 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer">
-                        <div class="w-10 h-10 rounded-xl {{ $isEnterprise ? 'bg-purple-600 text-white' : 'bg-brand-600 text-white' }} flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
-                            <i class="fa-solid {{ $isEnterprise ? 'fa-briefcase' : 'fa-user' }}"></i>
+                    <a href="{{ route('user.dashboard') }}" class="user-card block w-full text-left p-3.5 rounded-2xl {{ ($isEnterprise && !$isSubAccount) ? 'bg-gradient-to-br from-purple-50 to-indigo-50/50 border border-purple-100' : 'bg-gradient-to-br from-emerald-50 to-teal-50/50 border border-emerald-100' }} flex items-center gap-3 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer">
+                        <div class="w-10 h-10 rounded-xl {{ ($isEnterprise && !$isSubAccount) ? 'bg-purple-600 text-white' : 'bg-brand-600 text-white' }} flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
+                            <i class="fa-solid {{ ($isEnterprise && !$isSubAccount) ? 'fa-briefcase' : 'fa-user' }}"></i>
                         </div>
                         <div class="flex-1 min-w-0 user-info">
                             <p class="text-xs font-bold text-slate-900 truncate" title="{{ $displayName }}">{{ $displayName }}</p>
                             <div class="flex items-center gap-1.5 mt-0.5">
-                                <span class="inline-block w-2 h-2 rounded-full {{ $isEnterprise ? 'bg-purple-500' : 'bg-emerald-500' }}"></span>
-                                <span class="text-[11px] font-semibold {{ $isEnterprise ? 'text-purple-700' : 'text-emerald-700' }}">{{ $subTitle }}</span>
+                                <span class="inline-block w-2 h-2 rounded-full {{ ($isEnterprise && !$isSubAccount) ? 'bg-purple-500' : 'bg-emerald-500' }}"></span>
+                                <span class="text-[11px] font-semibold {{ ($isEnterprise && !$isSubAccount) ? 'text-purple-700' : 'text-emerald-700' }}">{{ $subTitle }}</span>
                             </div>
                         </div>
                     </a>
@@ -191,29 +179,29 @@
                 <nav class="space-y-1.5">
                     <p class="px-3 text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-2 menu-title">Danh mục quản lý</p>
 
-                    <a href="{{ url('/Overview') }}" class="tab-btn flex items-center gap-3 px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
+                    <a href="{{ url('/Overview?tab=overview') }}" class="tab-btn flex items-center gap-3 px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
                         <i class="fa-solid fa-chart-pie w-5 text-center text-sm"></i>
                         <span> Tổng quan</span>
                     </a>
 
-                    <a href="{{ url('/Overview') }}" class="tab-btn flex items-center gap-3 px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
+                    <a href="{{ url('/Overview?tab=active-posts') }}" class="tab-btn flex items-center gap-3 px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
                         <i class="fa-solid fa-circle-check text-emerald-500 w-5 text-center text-sm"></i>
                         <span> Tin đang hiển thị</span>
                     </a>
 
-                    <a href="{{ url('/Overview') }}" class="tab-btn flex items-center gap-3 px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
+                    <a href="{{ url('/Overview?tab=pending-posts') }}" class="tab-btn flex items-center gap-3 px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
                         <div class="flex items-center gap-3">
                             <i class="fa-solid fa-hourglass-half text-amber-500 w-5 text-center text-sm"></i>
                             <span> Chờ phê duyệt</span>
                         </div>
                     </a>
 
-                    <a href="{{ url('/Overview') }}" class="tab-btn flex items-center gap-3 px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
+                    <a href="{{ url('/Overview?tab=history-posts') }}" class="tab-btn flex items-center gap-3 px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
                         <i class="fa-solid fa-clock-rotate-left text-sky-500 w-5 text-center text-sm"></i>
                         <span> Lịch sử đăng tin</span>
                     </a>
 
-                    <a href="{{ url('/Overview') }}" class="tab-btn flex items-center justify-between px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
+                    <a href="{{ url('/Overview?tab=notifications') }}" class="tab-btn flex items-center justify-between px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
                         <div class="flex items-center gap-3">
                             <i class="fa-solid fa-bell text-rose-500 w-5 text-center text-sm"></i>
                             <span> Thông báo</span>
@@ -230,10 +218,24 @@
                         @endif
                     </a>
 
-                    @if($isEnterprise)
-                    <a href="{{ url('/Overview') }}" class="tab-btn flex items-center gap-3 px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
+                    @if($isEnterprise || $isSubAccount || $isAdmin)
+                    <a href="{{ url('/Overview?tab=buildings') }}" class="tab-btn flex items-center gap-3 px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
                         <i class="fa-solid fa-city text-purple-500 w-5 text-center text-sm"></i>
-                        <span> Quản lý Tòa Nhà</span>
+                        <span> {{ $isSubAccount ? 'Tòa nhà được giao' : 'Quản lý Tòa Nhà' }}</span>
+                    </a>
+                    @endif
+
+                    @if(($isEnterprise || $isAdmin) && !$isSubAccount)
+                    <a href="{{ url('/Overview?tab=moderation') }}" class="tab-btn flex items-center justify-between px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
+                        <div class="flex items-center gap-3">
+                            <i class="fa-solid fa-shield-halved text-indigo-600 w-5 text-center text-sm"></i>
+                            <span> Kiểm duyệt tin đăng</span>
+                        </div>
+                    </a>
+
+                    <a href="{{ url('/Overview?tab=sub-accounts') }}" class="tab-btn flex items-center gap-3 px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
+                        <i class="fa-solid fa-users-gear text-teal-600 w-5 text-center text-sm"></i>
+                        <span> Tài khoản con & Phân quyền</span>
                     </a>
                     @endif
                 </nav>

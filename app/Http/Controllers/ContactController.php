@@ -160,14 +160,25 @@ class ContactController extends Controller
             return redirect()->route('login')->with('error', 'Vui lòng đăng nhập để xem thông báo khách hàng liên hệ.');
         }
 
+        $user = Auth::user();
         $userId = Auth::id();
 
-        // Lấy danh sách các bài đăng (Post) của user đang đăng nhập (Auth::id()) mà có liên hệ
-        $posts = Post::with(['contacts' => function($query) {
-                $query->latest();
-            }])
-            ->where('user_id', $userId)
-            ->get();
+        // Truy xuất các bài đăng có liên hệ dựa trên phân quyền doanh nghiệp & tài khoản con
+        $postsQuery = Post::with(['contacts' => function($query) {
+            $query->latest();
+        }]);
+
+        if ($user->isSubAccount() && !empty($user->assigned_buildings) && !in_array('all', $user->assigned_buildings, true)) {
+            $assignedIds = array_map('strval', (array)$user->assigned_buildings);
+            $postsQuery->where(function($q) use ($assignedIds, $userId) {
+                $q->whereIn('building_id', $assignedIds)
+                  ->orWhere('user_id', (string)$userId);
+            });
+        } elseif (!$user->isAdmin() && !$user->isEnterprise() && !$user->isSubAccount()) {
+            $postsQuery->where('user_id', (string)$userId);
+        }
+
+        $posts = $postsQuery->get();
 
         // Tự động quét và từ chối các yêu cầu khác nếu bài đăng đã có hợp đồng
         foreach ($posts as $post) {
@@ -211,17 +222,7 @@ class ContactController extends Controller
 
     public function myRequests()
     {
-        if (!Auth::check()) {
-            return redirect()->route('login')->with('error', 'Vui lòng đăng nhập để xem lịch sử liên hệ.');
-        }
-
-        // Lấy danh sách các liên hệ do user hiện tại gửi
-        $myContacts = Contact::with('post')
-            ->where('sender_id', Auth::id())
-            ->latest()
-            ->get();
-
-        return view('lich-su-lien-he', compact('myContacts'));
+        return redirect()->route('contact.index');
     }
     public function revoke($id)
     {
@@ -243,8 +244,22 @@ class ContactController extends Controller
     public function updateStatus(Request $request, $id)
     {
         $contact = Contact::with('post')->findOrFail($id);
+        $user = Auth::user();
 
-        if (!$contact->post || ($contact->post->user_id ?? $contact->owner_id) != Auth::id()) {
+        $canUpdate = false;
+        if ($user->isAdmin() || $user->isEnterprise()) {
+            $canUpdate = true;
+        } elseif ($user->isSubAccount()) {
+            if ($contact->post && (!empty($contact->post->building_id) ? $user->canManageBuilding($contact->post->building_id) : true)) {
+                $canUpdate = true;
+            } elseif ($contact->post && $contact->post->user_id == $user->id) {
+                $canUpdate = true;
+            }
+        } elseif (($contact->post->user_id ?? $contact->owner_id) == Auth::id()) {
+            $canUpdate = true;
+        }
+
+        if (!$canUpdate) {
             return response()->json(['success' => false, 'message' => 'Bạn không có quyền thực hiện hành động này.'], 403);
         }
 

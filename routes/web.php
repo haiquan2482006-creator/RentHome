@@ -10,20 +10,13 @@ Route::get('/', function () {
 Route::get('/baidang', function (\Illuminate\Http\Request $request) {
     $postId = $request->query('id');
     if ($postId) {
-        $post = \App\Models\Post::with(['user', 'building', 'imageModels'])->where('_id', $postId)->orWhere('id', $postId)->first();
-        if ($post) {
-            return view('chitiet_phong', compact('post'));
-        }
+        return redirect()->to('/chitietbaidang/' . $postId);
     }
     return view('baidang');
 })->name('baidang');
 
 Route::get('/baidang/{id}', function ($id) {
-    $post = \App\Models\Post::with(['user', 'building', 'imageModels'])->where('_id', $id)->orWhere('id', $id)->first();
-    if ($post) {
-        return view('chitiet_phong', compact('post'));
-    }
-    return redirect('/baidang');
+    return redirect()->to('/chitietbaidang/' . $id);
 })->name('baidang.detail');
 
 Route::get('/image/{id}', function ($id) {
@@ -43,28 +36,30 @@ Route::get('/image/{id}', function ($id) {
         ]);
     }
 
-    $img = \App\Models\Image::find($id);
-    if ($img && !empty($img->base64_data)) {
-        $binary = base64_decode($img->base64_data);
-        $mime = $img->mime_type ?: 'image/jpeg';
+    if (class_exists(\App\Models\Image::class)) {
+        $img = \App\Models\Image::find($id);
+        if ($img && !empty($img->base64_data)) {
+            $binary = base64_decode($img->base64_data);
+            $mime = $img->mime_type ?: 'image/jpeg';
 
-        if (!is_dir($cacheDir)) {
-            @mkdir($cacheDir, 0755, true);
+            if (!is_dir($cacheDir)) {
+                @mkdir($cacheDir, 0755, true);
+            }
+            @file_put_contents($cacheFile, $binary);
+            @file_put_contents($cacheFile . '.mime', $mime);
+
+            return response($binary, 200, [
+                'Content-Type' => $mime,
+                'Cache-Control' => 'public, max-age=31536000, immutable',
+            ]);
         }
-        @file_put_contents($cacheFile, $binary);
-        @file_put_contents($cacheFile . '.mime', $mime);
-
-        return response($binary, 200, [
-            'Content-Type' => $mime,
-            'Cache-Control' => 'public, max-age=31536000, immutable',
-        ]);
     }
 
     return redirect('https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80');
 })->name('image.serve');
 
 Route::get('/chi-tiet-phong/{id}', function ($id) {
-    return redirect()->to('/baidang?id=' . $id);
+    return redirect()->to('/chitietbaidang/' . $id);
 });
 
 Route::get('/chitietbaidang/{id}', function ($id) {
@@ -94,7 +89,9 @@ Route::get('/chitietbaidang/{id}', function ($id) {
 
 Route::post('/bai-dang/{id}/lien-he', [\App\Http\Controllers\ContactController::class, 'store'])->name('contact.store');
 Route::get('/thong-bao-lien-he', [\App\Http\Controllers\ContactController::class, 'index'])->middleware('auth')->name('contact.index');
-Route::get('/lich-su-lien-he', [\App\Http\Controllers\ContactController::class, 'myRequests'])->middleware('auth')->name('contact.my_requests');
+Route::get('/lich-su-lien-he', function () {
+    return redirect()->route('contact.index');
+})->middleware('auth')->name('contact.my_requests');
 Route::delete('/contact/{id}/revoke', [\App\Http\Controllers\ContactController::class, 'revoke'])->middleware('auth')->name('contact.revoke');
 Route::patch('/contact/{id}/status', [\App\Http\Controllers\ContactController::class, 'updateStatus'])->middleware('auth')->name('contact.updateStatus');
 
@@ -155,7 +152,7 @@ Route::post('/trangcanhanuser', function (\Illuminate\Http\Request $request) {
     
     $user = \Illuminate\Support\Facades\Auth::user();
     
-    if ($user->account_type === 'doanhnghiep') {
+    if ($user->isEnterprise() || $user->role === 'doanhnghiep') {
         if ($request->has('representative')) {
             $rep = $request->input('representative');
             $user->representative = $rep;
@@ -205,24 +202,20 @@ Route::post('/trangcanhanuser', function (\Illuminate\Http\Request $request) {
     }
 
     if ($request->hasFile('avatar')) {
-        $file = $request->file('avatar');
-        $img = \App\Models\Image::create(['base64_data' => base64_encode(file_get_contents($file->getRealPath())), 'mime_type' => $file->getMimeType()]);
-        $user->avatar = $img->_id;
+        $path = $request->file('avatar')->store('avatars', 'public');
+        $user->avatar = '/storage/' . $path;
     }
     if ($request->hasFile('id_front')) {
-        $file = $request->file('id_front');
-        $img = \App\Models\Image::create(['base64_data' => base64_encode(file_get_contents($file->getRealPath())), 'mime_type' => $file->getMimeType()]);
-        $user->id_front = $img->_id;
+        $path = $request->file('id_front')->store('documents', 'public');
+        $user->id_front = '/storage/' . $path;
     }
     if ($request->hasFile('id_back')) {
-        $file = $request->file('id_back');
-        $img = \App\Models\Image::create(['base64_data' => base64_encode(file_get_contents($file->getRealPath())), 'mime_type' => $file->getMimeType()]);
-        $user->id_back = $img->_id;
+        $path = $request->file('id_back')->store('documents', 'public');
+        $user->id_back = '/storage/' . $path;
     }
     if ($request->hasFile('business_license')) {
-        $file = $request->file('business_license');
-        $img = \App\Models\Image::create(['base64_data' => base64_encode(file_get_contents($file->getRealPath())), 'mime_type' => $file->getMimeType()]);
-        $user->business_license = $img->_id;
+        $path = $request->file('business_license')->store('documents', 'public');
+        $user->business_license = '/storage/' . $path;
     }
 
     if ($request->has('tax_code')) {
@@ -231,7 +224,7 @@ Route::post('/trangcanhanuser', function (\Illuminate\Http\Request $request) {
     
     if ($request->has('address')) {
         $user->address = $request->input('address');
-        if ($user->account_type === 'doanhnghiep') {
+        if ($user->isEnterprise() || $user->role === 'doanhnghiep') {
             $user->company_address = $request->input('address');
         }
     }
@@ -241,42 +234,33 @@ Route::post('/trangcanhanuser', function (\Illuminate\Http\Request $request) {
     return redirect()->back()->with('success', 'Cập nhật hồ sơ thành công!');
 });
 
-Route::get('/Admin', function (){
-    $recentUsers = \App\Models\User::where(function ($q) {
-            $q->whereNull('role')->orWhere('role', '!=', 'admin');
-        })
-        ->where(function ($q) {
-            $q->whereNull('account_type')->orWhere('account_type', '!=', 'admin');
-        })
-        ->where(function ($q) {
-            $q->whereNull('role')->orWhere('role', '!=', 'moderator');
-        })
-        ->where(function ($q) {
-            $q->whereNull('account_type')->orWhere('account_type', '!=', 'moderator');
-        })
+Route::get('/Admin', function () {
+    if (!Auth::check()) {
+        return redirect()->guest(route('login'));
+    }
+    $user = Auth::user();
+    if ($user->role !== 'admin') {
+        if ($user->role === 'doanhnghiep' || $user->isEnterprise() || $user->isSubAccount()) {
+            return redirect('/Overview');
+        }
+        return redirect('/')->with('error', 'Bạn không có quyền truy cập trang Quản trị Admin!');
+    }
+
+    $recentUsers = \App\Models\User::where('role', '!=', 'admin')
         ->orderBy('created_at', 'desc')
         ->take(10)
         ->get();
 
-    $totalUsers = \App\Models\User::where(function ($q) {
-            $q->whereNull('role')->orWhere('role', '!=', 'admin');
-        })
-        ->where(function ($q) {
-            $q->whereNull('account_type')->orWhere('account_type', '!=', 'admin');
-        })
-        ->where(function ($q) {
-            $q->whereNull('role')->orWhere('role', '!=', 'moderator');
-        })
-        ->where(function ($q) {
-            $q->whereNull('account_type')->orWhere('account_type', '!=', 'moderator');
-        })
-        ->count();
-
+    $totalUsers = \App\Models\User::where('role', '!=', 'admin')->count();
     $totalPosts = \App\Models\Post::count();
     $totalViolations = \App\Models\User::where('is_locked', true)->orWhere('status', 'locked')->count();
     $totalViews = \App\Models\Post::sum('views') ?? 0;
 
     return view('Admin.Overview', compact('recentUsers', 'totalUsers', 'totalPosts', 'totalViolations', 'totalViews'));
+})->name('admin.overview');
+
+Route::get('/admin', function () {
+    return redirect('/Admin');
 });
 
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
@@ -286,14 +270,6 @@ Route::get('/Register', [AuthController::class, 'showRegisterForm'])->name('regi
 Route::post('/register', [AuthController::class, 'register']);
 Route::get('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::post('/logout', [AuthController::class, 'logout']);
-
-Route::get('/quen-mat-khau', function () {
-    return view('dangnhapdk.quyen_mat_khau_otp'); 
-});
-
-Route::get('/dat-lai-mat-khau', function () {
-    return view('dangnhapdk.quen_mat_khau_xac_nhan'); 
-});
 
 Route::get('/nha_dang_thue', function () {
     return redirect('/nha-dang-thue');
@@ -475,24 +451,33 @@ Route::post('/qlvan_hanh/update_payment_status', [\App\Http\Controllers\Operatio
 Route::get('/tao-hoa-don', [\App\Http\Controllers\OperationManagementController::class, 'createInvoice'])->name('tao-hoa-don');
 Route::post('/tao-hoa-don', [\App\Http\Controllers\OperationManagementController::class, 'storeInvoice']);
 
-Route::get('/qlvan_hanh/tao_hop_dong', function (\Illuminate\Http\Request $request) {
-    $userId = \Illuminate\Support\Facades\Auth::id();
+$handleTaoHopDong = function (\Illuminate\Http\Request $request) {
+    $user = \Illuminate\Support\Facades\Auth::user();
     $activeStatuses = ['active', 'approved'];
 
     $postsQuery = \App\Models\Post::whereIn('status', $activeStatuses)
         ->where(function ($q) {
             $q->whereNull('is_deleted')->orWhere('is_deleted', false);
         })
+        ->where(function ($q) {
+            $q->whereNull('is_rented')->orWhere('is_rented', false);
+        })
+        ->where('status', '!=', 'đã cho thuê')
         ->whereNull('deleted_at');
 
-    if ($userId) {
-        $userPosts = (clone $postsQuery)->where('user_id', $userId)->get();
-        $posts = $userPosts->isNotEmpty() ? $userPosts : $postsQuery->get();
-    } else {
-        $posts = $postsQuery->get();
+    if ($user && $user->isSubAccount() && !empty($user->assigned_buildings) && !in_array('all', $user->assigned_buildings, true)) {
+        $assignedIds = array_map('strval', (array)$user->assigned_buildings);
+        $postsQuery->whereIn('building_id', $assignedIds);
     }
 
-    $contacts = $userId ? \App\Models\Contact::where('owner_id', $userId)->latest()->get() : collect();
+    $posts = $postsQuery->get();
+
+    $contactsQuery = \App\Models\Contact::where('status', '!=', 'đã ký hợp đồng');
+    if ($posts->isNotEmpty()) {
+        $postIds = $posts->pluck('_id')->map(fn($id) => (string)$id)->toArray();
+        $contactsQuery->whereIn('post_id', $postIds);
+    }
+    $contacts = $contactsQuery->latest()->get();
     if ($contacts->isEmpty()) {
         $contacts = \App\Models\Contact::latest()->get();
     }
@@ -530,168 +515,13 @@ Route::get('/qlvan_hanh/tao_hop_dong', function (\Illuminate\Http\Request $reque
         'selectedRoom' => $selectedRoom,
         'room' => $selectedRoom,
     ]);
-});
+};
 
-Route::get('/tao-hop-dong', function (\Illuminate\Http\Request $request) {
-    $userId = \Illuminate\Support\Facades\Auth::id();
-    $activeStatuses = ['active', 'approved'];
-
-    $postsQuery = \App\Models\Post::whereIn('status', $activeStatuses)
-        ->where(function ($q) {
-            $q->whereNull('is_deleted')->orWhere('is_deleted', false);
-        })
-        ->whereNull('deleted_at');
-
-    if ($userId) {
-        $userPosts = (clone $postsQuery)->where('user_id', $userId)->get();
-        $posts = $userPosts->isNotEmpty() ? $userPosts : $postsQuery->get();
-    } else {
-        $posts = $postsQuery->get();
-    }
-
-    $contacts = $userId ? \App\Models\Contact::where('owner_id', $userId)->latest()->get() : collect();
-    if ($contacts->isEmpty()) {
-        $contacts = \App\Models\Contact::latest()->get();
-    }
-
-    $contactId = $request->query('contact_id');
-    $roomId = $request->query('room_id') ?? $request->query('post_id') ?? $request->query('room');
-
-    $selectedContact = null;
-    if ($contactId) {
-        $selectedContact = \App\Models\Contact::find($contactId);
-        if ($selectedContact && !$contacts->contains(fn($c) => (string)($c->_id ?? $c->id) === (string)$contactId)) {
-            $contacts->prepend($selectedContact);
-        }
-        if (!$roomId && $selectedContact && !empty($selectedContact->post_id)) {
-            $roomId = $selectedContact->post_id;
-        }
-    }
-
-    $selectedRoom = null;
-    if ($roomId) {
-        $selectedRoom = \App\Models\Post::find($roomId);
-        if ($selectedRoom && !$posts->contains(fn($p) => (string)($p->_id ?? $p->id) === (string)$roomId)) {
-            $posts->prepend($selectedRoom);
-        }
-    }
-
-    return view('qlvan_hanh.tao_hop_dong', [
-        'availableRooms' => $posts,
-        'posts' => $posts,
-        'contacts' => $contacts,
-        'selectedContactId' => $contactId,
-        'contact_id' => $contactId,
-        'selectedContact' => $selectedContact,
-        'selectedRoomId' => $roomId,
-        'selectedRoom' => $selectedRoom,
-        'room' => $selectedRoom,
-    ]);
-})->name('tao-hop-dong');
+Route::get('/qlvan_hanh/tao_hop_dong', $handleTaoHopDong)->name('qlvan_hanh.tao_hop_dong');
+Route::get('/tao-hop-dong', $handleTaoHopDong)->name('tao-hop-dong');
 
 
-// Các route POST xử lý logic gửi email và xác nhận
-Route::post('/send-reset-code', [\App\Http\Controllers\PasswordResetController::class, 'sendCode']);
-Route::post('/verify-reset-code', [\App\Http\Controllers\PasswordResetController::class, 'verifyCode']);
-Route::post('/dat-lai-mat-khau', [\App\Http\Controllers\PasswordResetController::class, 'resetPassword']);
 
-Route::get('/qlnguoi_dung', function (\Illuminate\Http\Request $request) {
-    $search = trim($request->query('search', ''));
-    $accountType = $request->query('account_type', '');
-
-    $query = \App\Models\User::where(function ($q) {
-            $q->whereNull('role')->orWhere('role', '!=', 'admin');
-        })
-        ->where(function ($q) {
-            $q->whereNull('account_type')->orWhere('account_type', '!=', 'admin');
-        })
-        ->where(function ($q) {
-            $q->whereNull('role')->orWhere('role', '!=', 'moderator');
-        })
-        ->where(function ($q) {
-            $q->whereNull('account_type')->orWhere('account_type', '!=', 'moderator');
-        })
-        ->where(function ($q) {
-            $q->whereNull('is_deleted')->orWhere('is_deleted', '!=', true);
-        })
-        ->where(function ($q) {
-            $q->whereNull('status')->orWhere('status', '!=', 'deleted');
-        });
-
-    if (!empty($search)) {
-        $query->where(function ($q) use ($search) {
-            $q->where('id', 'like', "%{$search}%")
-              ->orWhere('username', 'like', "%{$search}%")
-              ->orWhere('email', 'like', "%{$search}%")
-              ->orWhere('account_name', 'like', "%{$search}%")
-              ->orWhere('phone', 'like', "%{$search}%")
-              ->orWhere('company_name', 'like', "%{$search}%")
-              ->orWhere('representative', 'like', "%{$search}%");
-        });
-    }
-
-    if (!empty($accountType) && in_array($accountType, ['canhan', 'doanhnghiep'])) {
-        $query->where('account_type', $accountType);
-    }
-
-    $users = $query->orderBy('created_at', 'desc')->paginate(15);
-    $totalUsers = \App\Models\User::where(function ($q) {
-            $q->whereNull('role')->orWhere('role', '!=', 'admin');
-        })
-        ->where(function ($q) {
-            $q->whereNull('account_type')->orWhere('account_type', '!=', 'admin');
-        })
-        ->where(function ($q) {
-            $q->whereNull('role')->orWhere('role', '!=', 'moderator');
-        })
-        ->where(function ($q) {
-            $q->whereNull('account_type')->orWhere('account_type', '!=', 'moderator');
-        })
-        ->where(function ($q) {
-            $q->whereNull('is_deleted')->orWhere('is_deleted', '!=', true);
-        })
-        ->where(function ($q) {
-            $q->whereNull('status')->orWhere('status', '!=', 'deleted');
-        })
-        ->count();
-
-    return view('Admin.qlnguoi_dung', compact('users', 'search', 'accountType', 'totalUsers'));
-});
-
-Route::delete('/qlnguoi_dung/{id}', function ($id) {
-    $user = \App\Models\User::find($id);
-
-    if (!$user) {
-        return redirect()->back()->with('error', 'Không tìm thấy người dùng cần xóa!');
-    }
-
-    if ($user->role === 'admin' || $user->account_type === 'admin') {
-        return redirect()->back()->with('error', 'Không thể xóa tài khoản Quản trị viên!');
-    }
-
-    $user->is_deleted = true;
-    $user->status = 'deleted';
-    $user->deleted_at = now()->format('d/m/Y H:i');
-    $user->deleted_by = 'Admin';
-    $user->save();
-
-    return redirect()->back()->with('success', 'Đã chuyển tài khoản người dùng vào phần Lịch sử!');
-});
-
-Route::post('/qlnguoi_dung/lock/{id}', function ($id) {
-    $user = \App\Models\User::find($id);
-
-    if (!$user) {
-        return redirect()->back()->with('error', 'Không tìm thấy người dùng!');
-    }
-
-    $user->is_locked = true;
-    $user->status = 'locked';
-    $user->locked_at = now()->format('d/m/Y H:i');
-    $user->save();
-
-    return redirect()->back()->with('success', 'Đã khóa tài khoản thành công!');
-});
 
 Route::get('/sua_giao_dien', function () {
     return view('Admin.sua_giao_dien');
@@ -727,273 +557,147 @@ Route::post('/sua_giao_dien', function (\Illuminate\Http\Request $request) {
     ]);
 });
 
-Route::get('/qltin_tuc', function () {
-    return view('Admin.qltin_tuc');
-});
-
-Route::get('/yeu_cau_ki_luat', function () {
-    return view('Admin.yeu_cau_ki_luat');
-});
-
+// Quản lý Lịch sử tài khoản (Admin)
 Route::get('/lich_su', function () {
-    $lockedUsers = \App\Models\User::where('is_locked', true)
-        ->orWhere('status', 'locked')
+    if (!Auth::check() || Auth::user()->role !== 'admin') {
+        return redirect('/login')->with('error', 'Chỉ tài khoản Quản trị viên mới có quyền truy cập trang Lịch sử.');
+    }
+    $lockedUsers = \App\Models\User::where(function ($q) {
+            $q->where('is_locked', true)
+              ->orWhere('status', 'locked')
+              ->orWhere('status', 'khoa');
+        })
         ->orderBy('updated_at', 'desc')
         ->get();
 
-    $deletedUsers = \App\Models\User::where('is_deleted', true)
-        ->orWhere('status', 'deleted')
+    $deletedUsers = \App\Models\User::where(function ($q) {
+            $q->where('is_deleted', true)
+              ->orWhere('status', 'deleted')
+              ->orWhere('status', 'da_xoa');
+        })
         ->orderBy('updated_at', 'desc')
         ->get();
 
     return view('Admin.lich_su', compact('lockedUsers', 'deletedUsers'));
+})->name('admin.history');
+
+Route::get('/Admin/lich-su', function () {
+    return redirect('/lich_su');
+});
+
+// Quản lý Thông báo hệ thống (Admin)
+Route::get('/thong_bao', function () {
+    if (!Auth::check() || Auth::user()->role !== 'admin') {
+        return redirect('/login')->with('error', 'Chỉ tài khoản Quản trị viên mới có quyền truy cập trang Thông báo.');
+    }
+    return view('Admin.thong_bao');
+})->name('admin.notifications');
+
+Route::get('/Admin/thong-bao', function () {
+    return redirect('/thong_bao');
+});
+
+Route::post('/Admin/thong-bao/send', function (\Illuminate\Http\Request $request) {
+    if (!Auth::check() || Auth::user()->role !== 'admin') {
+        return redirect('/login');
+    }
+    return redirect()->back()->with('success', 'Đã phát thông báo thành công đến các tài khoản!');
 });
 
 Route::post('/qlnguoi_dung/unlock/{id}', function ($id) {
-    $user = \App\Models\User::find($id);
+    if (!Auth::check() || Auth::user()->role !== 'admin') {
+        return redirect('/login');
+    }
+    $user = \App\Models\User::where('_id', $id)->orWhere('id', $id)->first();
     if ($user) {
         $user->is_locked = false;
         $user->status = 'active';
         $user->locked_at = null;
+        $user->lock_reason = null;
         $user->save();
-        return redirect()->back()->with('success', "Đã mở khóa thành công cho tài khoản ID: #{$id}!");
+        return redirect()->back()->with('success', "Đã mở khóa thành công cho tài khoản!");
     }
     return redirect()->back()->with('error', "Không tìm thấy tài khoản!");
 });
 
 Route::post('/qlnguoi_dung/restore/{id}', function ($id) {
-    $user = \App\Models\User::find($id);
+    if (!Auth::check() || Auth::user()->role !== 'admin') {
+        return redirect('/login');
+    }
+    $user = \App\Models\User::where('_id', $id)->orWhere('id', $id)->first();
     if ($user) {
         $user->is_deleted = false;
         $user->status = 'active';
         $user->deleted_at = null;
         $user->deleted_by = null;
         $user->save();
-        return redirect()->back()->with('success', "Đã khôi phục thành công tài khoản ID: #{$id} về danh sách Quản lý Người dùng!");
+        return redirect()->back()->with('success', "Đã khôi phục thành công tài khoản!");
     }
     return redirect()->back()->with('error', "Không tìm thấy tài khoản!");
 });
 
 Route::delete('/qlnguoi_dung/force-delete/{id}', function ($id) {
-    $user = \App\Models\User::find($id);
+    if (!Auth::check() || Auth::user()->role !== 'admin') {
+        return redirect('/login');
+    }
+    $user = \App\Models\User::where('_id', $id)->orWhere('id', $id)->first();
     if ($user) {
         $user->delete();
-        return redirect()->back()->with('success', "Đã xóa vĩnh viễn tài khoản ID: #{$id} khỏi hệ thống!");
+        return redirect()->back()->with('success', "Đã xóa vĩnh viễn tài khoản khỏi hệ thống!");
     }
     return redirect()->back()->with('error', "Không tìm thấy tài khoản!");
 });
 
-Route::get('/Overview', function(){
+// Quản lý Tài khoản con (NV) của Doanh nghiệp
+Route::get('/qltai_khoan_con', [\App\Http\Controllers\SubAccountController::class, 'viewPage'])->name('admin.sub_accounts');
+Route::get('/Admin/tai-khoan-con', [\App\Http\Controllers\SubAccountController::class, 'viewPage']);
+
+// Quản lý Bất Động Sản & Tòa Nhà của Doanh Nghiệp (Admin)
+Route::get('/qltoa_nha', [\App\Http\Controllers\BuildingController::class, 'adminView'])->name('admin.buildings');
+Route::get('/Admin/toa-nha', [\App\Http\Controllers\BuildingController::class, 'adminView']);
+
+// APIs Quản lý Tài khoản con
+Route::get('/api/sub-accounts', [\App\Http\Controllers\SubAccountController::class, 'index'])->name('api.sub_accounts.index');
+Route::post('/api/sub-accounts', [\App\Http\Controllers\SubAccountController::class, 'store'])->name('api.sub_accounts.store');
+Route::put('/api/sub-accounts/{id}', [\App\Http\Controllers\SubAccountController::class, 'update'])->name('api.sub_accounts.update');
+Route::post('/api/sub-accounts/{id}/toggle-lock', [\App\Http\Controllers\SubAccountController::class, 'toggleLock'])->name('api.sub_accounts.toggle_lock');
+Route::delete('/api/sub-accounts/{id}', [\App\Http\Controllers\SubAccountController::class, 'destroy'])->name('api.sub_accounts.destroy');
+
+// APIs Quản lý Tài khoản Khách hàng Cá nhân
+Route::post('/api/customer-accounts/{id}/toggle-lock', [\App\Http\Controllers\SubAccountController::class, 'toggleLockCustomer'])->name('api.customer_accounts.toggle_lock');
+Route::delete('/api/customer-accounts/{id}', [\App\Http\Controllers\SubAccountController::class, 'destroyCustomer'])->name('api.customer_accounts.destroy');
+
+Route::get('/Overview', function (\Illuminate\Http\Request $request) {
     if (!Auth::check()) {
         return redirect()->guest(route('login'));
     }
-    $user = Auth::user();
-    if ($user->isIndividual()) {
-        return redirect()->route('user.dashboard')->with('info', 'Tài khoản cá nhân chỉ dành cho người tìm thuê nhà. Quản lý bài đăng và tòa nhà thuộc quyền Doanh nghiệp RentHome.');
+    // Nếu là tài khoản Admin và không yêu cầu tab cụ thể, chuyển đến trang Tổng quan Admin (/Admin)
+    if (Auth::user()->role === 'admin' && !$request->has('tab')) {
+        return redirect('/Admin');
     }
     return view('qlbai_dang.Overview');
-});
+})->name('overview');
 
 Route::get('/dangbai', function(){
     if (!Auth::check()) {
         return redirect()->guest(route('login'));
     }
-    $user = Auth::user();
-    if ($user->isIndividual()) {
-        return redirect()->route('user.dashboard')->with('error', 'Tài khoản cá nhân chỉ có thể thuê nhà, không thể đăng bài cho thuê!');
-    }
-    if ($user->isSubAccount()) {
-        $assigned = (array) ($user->assigned_buildings ?? []);
-        $buildings = \App\Models\Building::whereIn('_id', $assigned)->orderBy('created_at', 'desc')->get();
-    } else {
-        $buildings = \App\Models\Building::orderBy('created_at', 'desc')->get();
-    }
+    $buildings = \App\Models\Building::orderBy('created_at', 'desc')->get();
     return view('qlbai_dang.dangbai', compact('buildings'));
 })->name('dangbai');
-
-// Chức năng Kiểm duyệt đã được tích hợp trực tiếp vào Doanh nghiệp RentHome
-Route::get('/Moderator', function () {
-    return redirect('/Overview?tab=moderation');
-})->name('moderator.overview');
-
-Route::get('/moderator', function () {
-    return redirect('/Overview?tab=moderation');
-});
-
-Route::get('/moderator/qlpheduyet', function () {
-    return redirect('/Overview?tab=moderation');
-});
-
-Route::get('/moderator/qlnguoidung', function () {
-    $search = trim(request('search', ''));
-    $query = \App\Models\User::where(function($q) {
-        $q->whereNull('role')->orWhere('role', '!=', 'admin');
-    })->where(function($q) {
-        $q->whereNull('role')->orWhere('role', '!=', 'moderator');
-    });
-
-    if (!empty($search)) {
-        $query->where(function($q) use ($search) {
-            $q->where('username', 'like', "%{$search}%")
-              ->orWhere('email', 'like', "%{$search}%")
-              ->orWhere('account_name', 'like', "%{$search}%");
-        });
-    }
-
-    $users = $query->orderBy('created_at', 'desc')->paginate(15);
-    return view('Moderator.qlnguoidung', compact('users', 'search'));
-});
-
-Route::get('/moderator/qlkhieunai', function () {
-    $complaints = \App\Models\Complaint::with(['user', 'post'])->orderBy('created_at', 'desc')->get();
-    return view('Moderator.qlkhieunai', compact('complaints'));
-});
-
-Route::get('/moderator/lichsu', function () {
-    return view('Moderator.lichsu');
-});
-
-Route::get('/moderator/chitiet-nguoidung/{id}', function ($id) {
-    // 1. Tìm thông tin User THỰC TẾ trong Database
-    $targetUser = \App\Models\User::find($id);
-    
-    if (!$targetUser) {
-        return redirect()->back()->with('error', 'Không tìm thấy tài khoản người dùng!');
-    }
-
-    // 2. GIỮ LẠI THÔNG TIN ẢO CHỜ PHÁT TRIỂN (Dùng toán tử ?? để nếu DB chưa có thì lấy dữ liệu ảo)
-    $targetUser->phone_verified = $targetUser->phone_verified ?? true;
-    $targetUser->cccd_verified = $targetUser->cccd_verified ?? true;
-    $targetUser->cccd_number = $targetUser->cccd_number ?? '079201089921';
-    $targetUser->cccd_front = $targetUser->cccd_front ?? 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80';
-    $targetUser->cccd_back = $targetUser->cccd_back ?? 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=600&q=80';
-
-    $targetUser->is_business = true; 
-    $targetUser->company_name = $targetUser->company_name ?? 'Công ty TNHH Bất Động Sản TakiManh Việt Nam';
-    $targetUser->tax_code = $targetUser->tax_code ?? '0316988231';
-    $targetUser->license_image = $targetUser->license_image ?? 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80';
-    $targetUser->bank_name = $targetUser->bank_name ?? 'Ngân hàng TMCP Quân Đội (MB Bank)';
-    $targetUser->bank_account_no = $targetUser->bank_account_no ?? '999988886666';
-    $targetUser->bank_account_holder = $targetUser->bank_account_holder ?? 'CONG TY TNHH BDS TAKIMANH VIET NAM';
-
-    $targetUser->complaints_count = $targetUser->complaints_count ?? 0;
-    $targetUser->warnings_count = $targetUser->warnings_count ?? 0;
-    $targetUser->reputation_score = $targetUser->reputation_score ?? 98;
-    
-    // 3. LẤY DỮ LIỆU TÒA NHÀ THẬT TỪ DATABASE
-    // Móc những tòa nhà do chính user ($id) này tạo ra
-    $buildings = \App\Models\Building::where('user_id', $id)
-                                    ->orderBy('created_at', 'desc')
-                                    ->get();
-
-    // 4. LẤY DỮ LIỆU BÀI ĐĂNG THẬT TỪ DATABASE
-    // Móc những bài đăng do chính user ($id) này tạo ra
-    $posts = \App\Models\Post::where('user_id', $id)
-                             ->with('imageModels')
-                             ->orderBy('created_at', 'desc')
-                             ->get();
-
-    // Truyền tất cả ra giao diện
-    return view('Moderator.chitiet_nguoidung', compact('targetUser', 'posts', 'buildings'));
-})->name('moderator.user_detail');
-
-Route::post('/moderator/approve-post/{id}', function ($id) {
-    return redirect()->back()->with('success', "Đã phê duyệt thành công bài đăng ID: #{$id}!");
-});
-
-Route::post('/moderator/reject-post/{id}', function (\Illuminate\Http\Request $request, $id) {
-    $reason = $request->input('reason', 'Bài đăng không đạt yêu cầu tiêu chuẩn.');
-    return redirect()->back()->with('success', "Đã từ chối bài đăng ID: #{$id}. Lý do: {$reason}");
-});
-
-Route::post('/moderator/remove-post/{id}', function (\Illuminate\Http\Request $request, $id) {
-    $reason = $request->input('reason', 'Vi phạm quy định tin đăng.');
-    return redirect()->back()->with('success', "Đã gỡ bài đăng ID: #{$id} thành công! (Lý do: {$reason})");
-});
-
-Route::post('/moderator/respond-complaint/{id}', function (\Illuminate\Http\Request $request, $id) {
-    $response = $request->input('response_content', 'Đã ghi nhận và xử lý khiếu nại.');
-    $action = $request->input('action', 'reply');
-    
-    $complaint = \App\Models\Complaint::find($id);
-    if ($complaint) {
-        $complaint->status = 'resolved';
-        $complaint->admin_response = $response;
-        $complaint->save();
-
-        if ($action === 'accept' && $complaint->post_id) {
-            $post = \App\Models\Post::find($complaint->post_id);
-            if ($post) {
-                $post->status = 'approved';
-                $post->save();
-            }
-        }
-
-        if ($complaint->user_id) {
-            \App\Models\Notification::create([
-                'user_id' => $complaint->user_id,
-                'post_id' => $complaint->post_id,
-                'title' => 'Phản hồi khiếu nại',
-                'message' => 'Quản trị viên đã phản hồi khiếu nại của bạn về bài đăng #' . substr($complaint->post_id, -4) . '. Nội dung: ' . $response,
-                'type' => 'info',
-                'category' => 'system',
-                'is_read' => false
-            ]);
-        }
-    }
-    
-    if ($request->wantsJson() || $request->ajax()) {
-        return response()->json(['success' => true, 'message' => "Đã xử lý khiếu nại thành công!"]);
-    }
-    return redirect()->back()->with('success', "Đã gửi phản hồi cho khiếu nại ID: #{$id} thành công!");
-});
-
-Route::post('/moderator/user-warn/{id}', function (\Illuminate\Http\Request $request, $id) {
-    $warningMsg = $request->input('warning_message', 'Nhắc nhở tuân thủ quy định đăng tin trên RentHome.');
-    return redirect()->back()->with('success', "Đã gửi thông báo cảnh báo vi phạm tới tài khoản ID: #{$id}! (Nội dung: {$warningMsg})");
-});
-
-Route::post('/moderator/user-request-verify/{id}', function (\Illuminate\Http\Request $request, $id) {
-    $note = $request->input('verify_note', 'Yêu cầu cập nhật hình ảnh CCCD/Giấy phép kinh doanh chính chủ.');
-    return redirect()->back()->with('success', "Đã gửi yêu cầu bắt buộc cập nhật thông tin xác thực tới tài khoản ID: #{$id}!");
-});
-
-Route::post('/moderator/user-ban/{id}', function (\Illuminate\Http\Request $request, $id) {
-    $banReason = $request->input('ban_reason', 'Khóa tài khoản do vi phạm tiêu chuẩn cộng đồng.');
-    return redirect()->back()->with('success', "ĐÃ KHÓA TÀI KHOẢN ID: #{$id} THÀNH CÔNG! Lý do lưu hệ thống: {$banReason}");
-});
-
-Route::get('/moderator/toa-nha/{id}', function ($id) {
-    $building = \App\Models\Building::find($id);
-    
-    if (!$building) {
-        abort(404, 'Không tìm thấy tòa nhà.');
-    }
-
-    // Truy vấn danh sách các bài đăng (phòng) thuộc Tòa nhà đó
-    $posts = \App\Models\Post::where('building_id', $id)->paginate(10);
-
-    return view('qlbai_dang.BuildingDetail', compact('building', 'posts'));
-})->name('moderator.building_detail');
 
 // APIs for Posts
 Route::post('/api/posts', [\App\Http\Controllers\PostController::class, 'store'])->name('posts.store');
 Route::get('/api/posts/approved', [\App\Http\Controllers\PostController::class, 'getApproved'])->name('posts.approved');
 Route::get('/api/posts/featured', [\App\Http\Controllers\PostController::class, 'getFeatured'])->name('posts.featured');
+Route::post('/api/posts/{id}/unlink', [\App\Http\Controllers\PostController::class, 'unlink'])->middleware('auth')->name('posts.unlink');
+Route::delete('/api/posts/{id}/delete', [\App\Http\Controllers\PostController::class, 'destroy'])->middleware('auth')->name('posts.delete');
+Route::delete('/api/posts/{id}', [\App\Http\Controllers\PostController::class, 'destroy'])->middleware('auth');
+Route::post('/api/posts/{id}/cancel', [\App\Http\Controllers\PostController::class, 'cancel'])->middleware('auth')->name('posts.cancel');
 
 // APIs for Favorites
 Route::get('/api/favorites', [\App\Http\Controllers\FavoriteController::class, 'getFavorites'])->name('favorites.list');
 Route::post('/api/favorites/toggle', [\App\Http\Controllers\FavoriteController::class, 'toggleFavorite'])->name('favorites.toggle');
-
-// APIs for Complaints
-Route::post('/api/complaints', [\App\Http\Controllers\ComplaintController::class, 'store'])->name('complaints.store');
-
-// APIs for Moderator
-Route::get('/api/moderator/posts/pending', [\App\Http\Controllers\ModeratorController::class, 'getPending'])->middleware('auth')->name('moderator.posts.pending');
-Route::post('/api/moderator/posts/{id}/approve', [\App\Http\Controllers\ModeratorController::class, 'approve'])->middleware('auth')->name('moderator.posts.approve');
-Route::post('/api/moderator/posts/{id}/reject', [\App\Http\Controllers\ModeratorController::class, 'reject'])->middleware('auth')->name('moderator.posts.reject');
-Route::get('/api/moderator/posts/history', [\App\Http\Controllers\ModeratorController::class, 'getHistory'])->middleware('auth')->name('moderator.posts.history');
-Route::post('/api/moderator/posts/{id}/restore', [\App\Http\Controllers\ModeratorController::class, 'restore'])->middleware('auth')->name('moderator.posts.restore');
 
 // User Dashboard APIs
 Route::get('/api/user/posts/stats', [\App\Http\Controllers\UserDashboardController::class, 'getStats']);
@@ -1005,13 +709,21 @@ Route::get('/thong-bao', [\App\Http\Controllers\NotificationController::class, '
 
 Route::get('/api/notifications', [\App\Http\Controllers\UserDashboardController::class, 'getNotifications']);
 Route::post('/api/notifications/read', [\App\Http\Controllers\UserDashboardController::class, 'markNotificationsRead']);
+Route::delete('/api/notifications/clear-read', [\App\Http\Controllers\UserDashboardController::class, 'clearReadNotifications'])->middleware('auth');
+Route::delete('/api/notifications/{id}', [\App\Http\Controllers\UserDashboardController::class, 'deleteNotification'])->middleware('auth');
+Route::post('/api/notifications/{id}/mark-read', [\App\Http\Controllers\UserDashboardController::class, 'markNotificationAsRead'])->middleware('auth');
 Route::get('/api/user/posts', [\App\Http\Controllers\UserDashboardController::class, 'getPosts']);
 Route::get('/api/user/posts/history', [\App\Http\Controllers\UserDashboardController::class, 'getHistory']);
+
 // ========================================================
 // APIs for Buildings (Quản lý Tòa nhà - Dành cho Doanh Nghiệp)
 // ========================================================
-Route::get('/api/buildings', [\App\Http\Controllers\BuildingController::class, 'index']);
-Route::post('/api/buildings', [\App\Http\Controllers\BuildingController::class, 'store']);
+Route::get('/api/buildings', [\App\Http\Controllers\BuildingController::class, 'index'])->name('api.buildings.index');
+Route::post('/api/buildings', [\App\Http\Controllers\BuildingController::class, 'store'])->name('api.buildings.store');
+Route::get('/api/buildings/{id}', [\App\Http\Controllers\BuildingController::class, 'getDetail'])->name('api.buildings.detail');
+Route::put('/api/buildings/{id}', [\App\Http\Controllers\BuildingController::class, 'update'])->name('api.buildings.update');
+Route::post('/api/buildings/{id}', [\App\Http\Controllers\BuildingController::class, 'update']);
+Route::delete('/api/buildings/{id}', [\App\Http\Controllers\BuildingController::class, 'destroy'])->name('api.buildings.destroy');
 Route::get('/quan-ly-toa-nha/{id}', [\App\Http\Controllers\BuildingController::class, 'show']);
 
 // APIs for Sub-Accounts (Quản lý tài khoản con của Doanh nghiệp RentHome)
@@ -1020,9 +732,6 @@ Route::post('/api/sub-accounts', [\App\Http\Controllers\SubAccountController::cl
 Route::put('/api/sub-accounts/{id}', [\App\Http\Controllers\SubAccountController::class, 'update'])->middleware('auth')->name('sub_accounts.update');
 Route::delete('/api/sub-accounts/{id}', [\App\Http\Controllers\SubAccountController::class, 'destroy'])->middleware('auth')->name('sub_accounts.destroy');
 Route::post('/api/sub-accounts/{id}/toggle-lock', [\App\Http\Controllers\SubAccountController::class, 'toggleLock'])->middleware('auth')->name('sub_accounts.toggle_lock');
-
-// APIs for Moderator / Complaints
-Route::get('/api/moderator/complaints', [\App\Http\Controllers\ModeratorController::class, 'getComplaints'])->middleware('auth')->name('moderator.complaints.index');
 
 // ========================================================
 // RentHome AI Assistant Routes

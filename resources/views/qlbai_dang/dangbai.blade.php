@@ -60,11 +60,12 @@
         header('Location: ' . url('/'));
         exit;
     }
+    $accountType = $currentUser->role ?? 'canhan';
     $isEnterprise = $currentUser && $currentUser->isEnterprise();
     $isSubAccount = $currentUser && $currentUser->isSubAccount();
     $displayName = $currentUser ? $currentUser->display_name : 'Quản lý';
-    $badgeText = $isEnterprise ? 'Doanh Nghiệp RentHome' : 'Quản Lý Tòa Nhà';
-    $subTitle = $isEnterprise ? 'RentHome Quản Trị' : 'Tài Khoản Phân Quyền';
+    $badgeText = ($isEnterprise && !$isSubAccount) ? 'Doanh Nghiệp RentHome' : 'Quản Lý Tòa Nhà';
+    $subTitle = ($isEnterprise && !$isSubAccount) ? 'RentHome Quản Trị' : 'Tài Khoản Phân Quyền';
     $preselectedBuildingId = request()->query('building_id', '');
 @endphp
 
@@ -90,186 +91,89 @@
 
             <!-- Modal Body -->
             <div class="p-6 space-y-4 flex-1 min-h-0 overflow-visible">
-                <!-- Chọn tòa nhà được phân quyền quản lý -->
-                <div class="p-4 rounded-2xl bg-purple-50/70 border border-purple-200/80 mb-4">
+                <!-- Chọn Tòa Nhà Trực Thuộc -->
+                <div class="p-4 rounded-2xl bg-purple-50/70 border border-purple-200/80 mb-2">
                     <label class="block text-xs font-bold text-purple-900 mb-1.5 flex items-center justify-between">
-                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-city text-purple-600"></i> Chọn Tòa Nhà Đăng Tin <span class="text-rose-500">*</span></span>
+                        <span class="flex items-center gap-1.5">
+                            <i class="fa-solid fa-city text-purple-600"></i> Chọn Tòa Nhà Trực Thuộc
+                            @if($isSubAccount)
+                                <span class="text-rose-500">*</span>
+                            @else
+                                <span class="text-slate-400 font-normal">(Tùy chọn)</span>
+                            @endif
+                        </span>
                         @if($isSubAccount)
-                            <span class="text-[10px] font-bold text-purple-700 bg-purple-100 px-2.5 py-0.5 rounded-full border border-purple-200"><i class="fa-solid fa-lock mr-1"></i>Chỉ tòa nhà được phân công</span>
+                            <span class="text-[10px] font-bold text-purple-700 bg-purple-100 px-2.5 py-0.5 rounded-full border border-purple-200">
+                                <i class="fa-solid fa-lock mr-1"></i>Chỉ tòa nhà được phân công
+                            </span>
                         @else
-                            <span class="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200"><i class="fa-solid fa-crown mr-1"></i>Doanh nghiệp RentHome</span>
+                            <span class="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                                <i class="fa-solid fa-crown mr-1"></i>Doanh nghiệp RentHome
+                            </span>
                         @endif
                     </label>
-                    <select id="select-building-id" name="building_id" class="w-full px-4 py-3 rounded-xl bg-white border border-purple-200 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-purple-400 focus:outline-none" onchange="onBuildingSelected(this)">
-                        <option value="">-- Chọn tòa nhà --</option>
-                        @foreach($buildings as $b)
-                            <option value="{{ $b->_id ?? $b->id }}" 
-                                data-province="{{ $b->province }}"
-                                data-district="{{ $b->district }}"
-                                data-ward="{{ $b->ward }}"
-                                data-address="{{ $b->address_detail }}"
-                                {{ ($preselectedBuildingId == ($b->_id ?? $b->id)) ? 'selected' : '' }}>
-                                🏢 {{ $b->name }} ({{ $b->province }} - {{ $b->total_rooms ?? 0 }} phòng)
-                            </option>
-                        @endforeach
-                    </select>
+
+                    <div class="relative">
+                        <select id="select-building-id" name="building_id" class="w-full px-4 py-3 rounded-xl bg-white border border-purple-200 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-purple-400 focus:outline-none appearance-none cursor-pointer" onchange="onBuildingSelected(this)">
+                            @if($isSubAccount)
+                                <option value="" data-address="" data-type="">-- Chọn tòa nhà bạn được giao quản lý --</option>
+                            @else
+                                <option value="" data-address="" data-type="nha_o">-- Không thuộc tòa nhà nào (Đăng nhà riêng lẻ) --</option>
+                            @endif
+                            @foreach($buildings as $b)
+                                @php
+                                    $bFullAddr = implode(', ', array_filter([$b->address_detail, $b->ward, $b->district, $b->province]));
+                                    $bAmenities = is_array($b->amenities) ? $b->amenities : (is_string($b->amenities) ? json_decode($b->amenities, true) : []);
+                                    $bAmenities = is_array($bAmenities) ? array_values(array_filter($bAmenities)) : [];
+                                    if (empty($bAmenities)) {
+                                        $bAmenities = ['Thang máy', 'Bảo vệ 24/7', 'Hầm để xe', 'Camera an ninh'];
+                                    }
+                                @endphp
+                                <option value="{{ $b->_id ?? $b->id }}" 
+                                    data-address="{{ $bFullAddr ?: ($b->address_detail ?? '') }}"
+                                    data-name="{{ $b->name }}"
+                                    data-type="{{ $b->type ?? $b->business_type ?? $b->property_group ?? 'nha_o' }}"
+                                    data-amenities="{{ json_encode($bAmenities, JSON_UNESCAPED_UNICODE) }}"
+                                    {{ ($preselectedBuildingId == ($b->_id ?? $b->id)) ? 'selected' : '' }}>
+                                    🏢 {{ $b->name }} ({{ $b->province }} - {{ $b->total_rooms ?? 0 }} phòng)
+                                </option>
+                            @endforeach
+                        </select>
+                        <i class="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+                    </div>
+
+                    <!-- Preview Card địa chỉ tòa nhà -->
+                    <div id="building-address-preview" class="d-none hidden mt-3.5 p-4 rounded-2xl bg-white border border-purple-200/90 text-slate-800 shadow-xs transition-all">
+                        <div class="flex items-start gap-3">
+                            <div class="w-9 h-9 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0 mt-0.5 shadow-xs text-base">
+                                📍
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between gap-2 mb-1">
+                                    <h4 class="font-extrabold text-slate-900 text-xs truncate" id="preview-building-name"></h4>
+                                    <span id="preview-building-type-badge" class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-bold text-[10px] shrink-0 whitespace-nowrap"></span>
+                                </div>
+                                <div class="text-xs text-slate-700 font-medium leading-relaxed flex items-center gap-1.5">
+                                    <span class="text-rose-500 font-bold shrink-0 text-sm">📍</span>
+                                    <span id="preview-building-address" class="break-words font-semibold text-slate-800"></span>
+                                </div>
+                                <div class="mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-100 inline-flex">
+                                    <i class="fa-solid fa-circle-check"></i>
+                                    <span>Hệ thống tự động kế thừa 100% địa chỉ từ tòa nhà đã chọn</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     @if($isSubAccount)
-                        <p class="text-[11px] text-purple-700 font-medium mt-1.5 flex items-center gap-1">
+                        <p class="text-[11px] text-purple-700 font-medium mt-3 flex items-center gap-1">
                             <i class="fa-solid fa-shield-halved"></i> Bạn chỉ có thể quản lý và đăng bài cho các tòa nhà do Doanh nghiệp RentHome phân quyền.
                         </p>
+                    @else
+                        <p class="text-[11px] text-purple-700 font-medium mt-3 flex items-center gap-1">
+                            <i class="fa-solid fa-circle-info"></i> Vị trí bài đăng sẽ tự động lấy theo địa chỉ hồ sơ của tòa nhà đã chọn.
+                        </p>
                     @endif
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <div class="flex items-center justify-between mb-1.5">
-                            <label class="block text-xs font-bold text-slate-700">Tỉnh / Thành Phố <span
-                                    class="text-rose-500">*</span></label>
-                            <button type="button" id="btn-toggle-custom-province" onclick="toggleCustomProvinceMode()" class="text-[11px] font-semibold text-amber-600 hover:text-amber-700 flex items-center gap-1 transition-colors">
-                                <i class="fa-solid fa-pen-to-square"></i> <span id="toggle-custom-text">Tự nhập khác</span>
-                            </button>
-                        </div>
-
-                        <!-- Mode 1: Searchable Dropdown Box -->
-                        <div id="province-select-wrapper" class="relative">
-                            <input type="hidden" id="select-province" name="province" value="">
-                            
-                            <!-- Dropdown Trigger Button -->
-                            <button type="button" id="province-dropdown-btn" onclick="toggleFormProvinceDropdown(event)"
-                                class="w-full px-4 py-3 rounded-2xl bg-slate-50/70 border border-slate-200 text-xs font-semibold text-slate-800 text-left flex items-center justify-between focus:bg-white focus:ring-2 focus:ring-amber-400 focus:outline-none cursor-pointer">
-                                <span id="form-province-text" class="truncate font-bold text-slate-800">Đang tải danh sách...</span>
-                                <i class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform duration-200" id="form-province-arrow"></i>
-                            </button>
-
-                            <!-- Floating Dropdown Panel -->
-                            <div id="form-province-panel" class="hidden absolute top-full left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden text-xs animate-fadeIn">
-                                <!-- Search Input Bar -->
-                                <div class="p-2 border-b border-slate-100 bg-slate-50 sticky top-0 z-10">
-                                    <div class="relative">
-                                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-                                        <input type="text" id="form-province-search" oninput="filterFormProvinces()" placeholder="Tìm tỉnh / thành phố..."
-                                            class="w-full pl-8 pr-7 py-2 text-xs rounded-xl bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 font-medium text-slate-800">
-                                        <button type="button" id="form-clear-search-btn" onclick="clearFormProvinceSearch()" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs">
-                                            <i class="fa-solid fa-xmark"></i>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <!-- List of Provinces -->
-                                <div class="max-h-56 overflow-y-auto custom-scrollbar" id="form-provinces-list">
-                                    <!-- Populated via JS API -->
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Mode 2: Custom Text Input -->
-                        <div id="province-custom-wrapper" class="hidden relative">
-                            <input type="text" id="custom-province-input" oninput="onCustomProvinceInput()" placeholder="Nhập tên tỉnh / thành phố của bạn..."
-                                class="w-full px-4 py-3 rounded-2xl bg-amber-50/40 border border-amber-300 text-xs font-semibold text-slate-900 focus:bg-white focus:ring-2 focus:ring-amber-400 focus:outline-none transition-all">
-                        </div>
-                    </div>
-
-                    <div>
-                        <div class="flex items-center justify-between mb-1.5">
-                            <label class="block text-xs font-bold text-slate-700">Quận / Huyện <span
-                                    class="text-rose-500">*</span></label>
-                            <button type="button" id="btn-toggle-custom-district" onclick="toggleCustomDistrictMode()" class="text-[11px] font-semibold text-amber-600 hover:text-amber-700 flex items-center gap-1 transition-colors">
-                                <i class="fa-solid fa-pen-to-square"></i> <span id="toggle-custom-district-text">Tự nhập khác</span>
-                            </button>
-                        </div>
-
-                        <!-- Mode 1: Searchable Dropdown Box for District -->
-                        <div id="district-select-wrapper" class="relative">
-                            <input type="hidden" id="select-district" name="district" value="">
-                            
-                            <!-- Dropdown Trigger Button -->
-                            <button type="button" id="district-dropdown-btn" onclick="toggleFormDistrictDropdown(event)"
-                                class="w-full px-4 py-3 rounded-2xl bg-slate-50/70 border border-slate-200 text-xs font-semibold text-slate-800 text-left flex items-center justify-between focus:bg-white focus:ring-2 focus:ring-amber-400 focus:outline-none cursor-pointer">
-                                <span id="form-district-text" class="truncate font-bold text-slate-800">Chọn Quận / Huyện</span>
-                                <i class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform duration-200" id="form-district-arrow"></i>
-                            </button>
-
-                            <!-- Floating Dropdown Panel -->
-                            <div id="form-district-panel" class="hidden absolute top-full left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden text-xs animate-fadeIn">
-                                <!-- Search Input Bar -->
-                                <div class="p-2 border-b border-slate-100 bg-slate-50 sticky top-0 z-10">
-                                    <div class="relative">
-                                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-                                        <input type="text" id="form-district-search" oninput="filterFormDistricts()" placeholder="Tìm quận / huyện..."
-                                            class="w-full pl-8 pr-7 py-2 text-xs rounded-xl bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 font-medium text-slate-800">
-                                        <button type="button" id="form-clear-district-search-btn" onclick="clearFormDistrictSearch()" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs">
-                                            <i class="fa-solid fa-xmark"></i>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <!-- List of Districts -->
-                                <div class="max-h-56 overflow-y-auto custom-scrollbar" id="form-districts-list">
-                                    <!-- Populated via JS API -->
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Mode 2: Custom Text Input for District -->
-                        <div id="district-custom-wrapper" class="hidden relative">
-                            <input type="text" id="custom-district-input" oninput="onCustomDistrictInput()" placeholder="Nhập tên quận / huyện của bạn..."
-                                class="w-full px-4 py-3 rounded-2xl bg-amber-50/40 border border-amber-300 text-xs font-semibold text-slate-900 focus:bg-white focus:ring-2 focus:ring-amber-400 focus:outline-none transition-all">
-                        </div>
-                    </div>
-                </div>
-
-                <div>
-                    <div class="flex items-center justify-between mb-1.5">
-                        <label class="block text-xs font-bold text-slate-700">Phường / Xã <span
-                                class="text-rose-500">*</span></label>
-                        <button type="button" id="btn-toggle-custom-ward" onclick="toggleCustomWardMode()" class="text-[11px] font-semibold text-amber-600 hover:text-amber-700 flex items-center gap-1 transition-colors">
-                            <i class="fa-solid fa-pen-to-square"></i> <span id="toggle-custom-ward-text">Tự nhập khác</span>
-                        </button>
-                    </div>
-
-                    <!-- Mode 1: Searchable Dropdown Box for Ward -->
-                    <div id="ward-select-wrapper" class="relative">
-                        <input type="hidden" id="select-ward" name="ward" value="">
-                        
-                        <!-- Dropdown Trigger Button -->
-                        <button type="button" id="ward-dropdown-btn" onclick="toggleFormWardDropdown(event)"
-                            class="w-full px-4 py-3 rounded-2xl bg-slate-50/70 border border-slate-200 text-xs font-semibold text-slate-800 text-left flex items-center justify-between focus:bg-white focus:ring-2 focus:ring-amber-400 focus:outline-none cursor-pointer">
-                            <span id="form-ward-text" class="truncate font-bold text-slate-800">Chọn Phường / Xã</span>
-                            <i class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform duration-200" id="form-ward-arrow"></i>
-                        </button>
-
-                        <!-- Floating Dropdown Panel -->
-                        <div id="form-ward-panel" class="hidden absolute top-full left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden text-xs animate-fadeIn">
-                            <!-- Search Input Bar -->
-                            <div class="p-2 border-b border-slate-100 bg-slate-50 sticky top-0 z-10">
-                                <div class="relative">
-                                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-                                    <input type="text" id="form-ward-search" oninput="filterFormWards()" placeholder="Tìm phường / xã..."
-                                        class="w-full pl-8 pr-7 py-2 text-xs rounded-xl bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-400 font-medium text-slate-800">
-                                    <button type="button" id="form-clear-ward-search-btn" onclick="clearFormWardSearch()" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs">
-                                        <i class="fa-solid fa-xmark"></i>
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- List of Wards -->
-                            <div class="max-h-56 overflow-y-auto custom-scrollbar" id="form-wards-list">
-                                <!-- Populated via JS API -->
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Mode 2: Custom Text Input for Ward -->
-                    <div id="ward-custom-wrapper" class="hidden relative">
-                        <input type="text" id="custom-ward-input" oninput="onCustomWardInput()" placeholder="Nhập tên phường / xã của bạn..."
-                            class="w-full px-4 py-3 rounded-2xl bg-amber-50/40 border border-amber-300 text-xs font-semibold text-slate-900 focus:bg-white focus:ring-2 focus:ring-amber-400 focus:outline-none transition-all">
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1.5">Địa chỉ chi tiết (Tên đường, số nhà)</label>
-                    <input type="text" id="input-address" placeholder="Ví dụ: Số 12, Ngõ 45"
-                        class="w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-amber-400 focus:outline-none transition-all">
                 </div>
             </div>
 
@@ -314,58 +218,41 @@
                 <!-- Thông tin Loại tài khoản đăng tin -->
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1.5">Tài khoản đăng tin</label>
-                    <div class="p-3.5 rounded-2xl border {{ $isEnterprise ? 'border-purple-200 bg-purple-50/40' : 'border-emerald-200 bg-emerald-50/40' }} flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-9 h-9 rounded-xl {{ $isEnterprise ? 'bg-purple-600 text-white' : 'bg-emerald-600 text-white' }} flex items-center justify-center text-sm font-bold shadow-xs">
-                                <i class="{{ $isEnterprise ? 'fa-solid fa-building-user' : 'fa-solid fa-user-check' }}"></i>
+                    <div class="p-3.5 rounded-2xl border {{ ($isEnterprise && !$isSubAccount) ? 'border-purple-200 bg-purple-50/40' : 'border-emerald-200 bg-emerald-50/40' }} flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-9 h-9 rounded-xl {{ ($isEnterprise && !$isSubAccount) ? 'bg-purple-600 text-white' : 'bg-emerald-600 text-white' }} flex items-center justify-center text-sm font-bold shadow-xs shrink-0">
+                                <i class="{{ ($isEnterprise && !$isSubAccount) ? 'fa-solid fa-building-user' : 'fa-solid fa-user-check' }}"></i>
                             </div>
-                            <div>
-                                <h4 class="text-xs font-extrabold text-slate-900">{{ $displayName }}</h4>
-                                <p class="text-[11px] font-medium text-slate-500">{{ $subTitle }}</p>
+                            <div class="min-w-0">
+                                <h4 class="text-xs font-extrabold text-slate-900 truncate">{{ $displayName }}</h4>
+                                <p class="text-[11px] font-medium text-slate-500 truncate">{{ $subTitle }}</p>
                             </div>
                         </div>
-                        <span class="px-2.5 py-1 rounded-full text-[11px] font-bold {{ $isEnterprise ? 'bg-purple-100 text-purple-700 border border-purple-200' : 'bg-emerald-100 text-emerald-700 border border-emerald-200' }}">
+                        <span class="px-2.5 py-1 rounded-full text-[11px] font-bold shrink-0 whitespace-nowrap {{ ($isEnterprise && !$isSubAccount) ? 'bg-purple-100 text-purple-700 border border-purple-200' : 'bg-emerald-100 text-emerald-700 border border-emerald-200' }}">
                             {{ $badgeText }}
                         </span>
                     </div>
                     <input type="hidden" name="account_role" value="{{ $accountType }}">
                 </div>
 
-                <!-- Loại hình BĐS -->
-                <div class="space-y-3">
-                    <div id="building-select-box" class="{{ $isEnterprise ? '' : 'hidden' }}">
-                        <label class="block text-xs font-bold text-slate-700 mb-1.5">Chọn tòa nhà đã tạo <span class="text-purple-600">(Doanh nghiệp)</span></label>
-                        <div class="relative">
-                            <select id="select-building-id" name="building_id" class="w-full px-4 py-3 rounded-2xl bg-purple-50/40 border border-purple-200 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none appearance-none cursor-pointer">
-                                <option value="">-- Không thuộc tòa nhà nào (Đăng lẻ) --</option>
-                                @forelse($buildings as $building)
-                                    <option value="{{ $building->id ?? $building->_id }}">{{ $building->name }}</option>
-                                @empty
-                                    <option value="">Bạn chưa tạo tòa nhà nào</option>
-                                @endforelse
-                            </select>
-                            <i class="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+                <!-- Tòa nhà trực thuộc đã chọn (Hiển thị tóm tắt ở Bước 2) -->
+                <div id="step2-building-summary" class="hidden p-3.5 rounded-2xl bg-purple-50/70 border border-purple-200/90 text-xs shadow-xs">
+                    <div class="flex items-start gap-3">
+                        <div class="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                            <i class="fa-solid fa-building text-xs"></i>
                         </div>
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1.5">Loại hình BĐS <span class="text-rose-500">*</span></label>
-                        <div class="grid grid-cols-3 gap-2">
-                            <label class="flex items-center justify-center p-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 cursor-pointer hover:bg-slate-50 has-[:checked]:border-emerald-600 has-[:checked]:bg-emerald-50 has-[:checked]:text-emerald-700">
-                                <input type="radio" name="property_type" value="nha_o" checked onchange="togglePropertyType('nha_o')" class="hidden">
-                                Nhà ở
-                            </label>
-                            <label class="flex items-center justify-center p-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 cursor-pointer hover:bg-slate-50 has-[:checked]:border-emerald-600 has-[:checked]:bg-emerald-50 has-[:checked]:text-emerald-700">
-                                <input type="radio" name="property_type" value="dat_nen" onchange="togglePropertyType('dat_nen')" class="hidden">
-                                Đất nền
-                            </label>
-                            <label class="flex items-center justify-center p-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 cursor-pointer hover:bg-slate-50 has-[:checked]:border-emerald-600 has-[:checked]:bg-emerald-50 has-[:checked]:text-emerald-700">
-                                <input type="radio" name="property_type" value="phong_tro" onchange="togglePropertyType('phong_tro')" class="hidden">
-                                Phòng trọ
-                            </label>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between gap-2 mb-1">
+                                <p class="font-extrabold text-purple-950 text-xs truncate" id="step2-building-name"></p>
+                                <span id="step2-building-type-badge" class="px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-bold text-[10px] border border-purple-200 shrink-0 whitespace-nowrap"></span>
+                            </div>
+                            <p class="text-[11px] text-purple-800/90 font-medium leading-relaxed break-words" id="step2-building-address"></p>
                         </div>
                     </div>
                 </div>
+
+                <!-- Input Hidden chứa Loại hình BĐS (Được đồng bộ tự động từ Tòa nhà đã chọn) -->
+                <input type="hidden" name="property_type" id="hidden_property_type" value="nha_o">
 
                 <!-- Giá & Diện tích -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -426,33 +313,62 @@
                 <!-- Tiện ích & Đặc điểm nổi bật -->
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
-                        <span>Tiện ích & Đặc điểm nổi bật</span>
-                        <span class="text-[11px] text-slate-400 font-normal">Nhập tùy chỉnh hoặc chọn gợi ý</span>
+                        <span class="flex items-center gap-1.5">
+                            <i class="fa-solid fa-wand-magic-sparkles text-amber-500"></i> Tiện ích & Đặc điểm nổi bật
+                        </span>
+                        <span class="text-[11px] text-slate-400 font-normal">Kế thừa tòa nhà & Tùy chọn riêng</span>
                     </label>
 
-                    <div class="flex flex-wrap gap-1.5 mb-2">
-                        <button type="button" onclick="addAmenityTag('Bãi đỗ xe')" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-emerald-50 hover:border-emerald-500 hover:text-emerald-700 transition-all flex items-center gap-1">
-                            <i class="fa-solid fa-plus text-[10px] text-emerald-600"></i> Bãi đỗ xe
-                        </button>
-                        <button type="button" onclick="addAmenityTag('Mặt tiền đường')" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-emerald-50 hover:border-emerald-500 hover:text-emerald-700 transition-all flex items-center gap-1">
-                            <i class="fa-solid fa-plus text-[10px] text-emerald-600"></i> Mặt tiền đường
-                        </button>
-                        <button type="button" onclick="addAmenityTag('Điện âm nước máy')" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-emerald-50 hover:border-emerald-500 hover:text-emerald-700 transition-all flex items-center gap-1">
-                            <i class="fa-solid fa-plus text-[10px] text-emerald-600"></i> Điện âm nước máy
-                        </button>
-                        <button type="button" onclick="addAmenityTag('Sổ hồng riêng')" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-emerald-50 hover:border-emerald-500 hover:text-emerald-700 transition-all flex items-center gap-1">
-                            <i class="fa-solid fa-plus text-[10px] text-emerald-600"></i> Sổ hồng riêng
-                        </button>
-                        <button type="button" onclick="addAmenityTag('Gần chợ / Siêu thị')" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-emerald-50 hover:border-emerald-500 hover:text-emerald-700 transition-all flex items-center gap-1">
-                            <i class="fa-solid fa-plus text-[10px] text-emerald-600"></i> Gần chợ / Siêu thị
-                        </button>
-                        <button type="button" onclick="addAmenityTag('Bảo vệ 24/7')" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-emerald-50 hover:border-emerald-500 hover:text-emerald-700 transition-all flex items-center gap-1">
-                            <i class="fa-solid fa-plus text-[10px] text-emerald-600"></i> Bảo vệ 24/7
-                        </button>
+                    <!-- Khối 1: Tiện ích dùng chung kế thừa từ Tòa nhà (Read-only) -->
+                    <div id="building-amenities-box" class="hidden mb-3 p-3.5 rounded-2xl bg-blue-50/70 border border-blue-200/90 shadow-2xs transition-all">
+                        <div class="flex items-center justify-between gap-2 mb-1.5">
+                            <span class="text-xs font-bold text-blue-950 flex items-center gap-1.5">
+                                <i class="fa-solid fa-building-circle-check text-blue-600"></i> Tiện ích dùng chung từ Tòa nhà
+                            </span>
+                            <span class="text-[10px] text-blue-700 font-bold bg-blue-100/90 px-2.5 py-0.5 rounded-full border border-blue-200 shrink-0 flex items-center gap-1">
+                                <i class="fa-solid fa-lock text-[9px]"></i> Kế thừa tự động (Cố định)
+                            </span>
+                        </div>
+                        <p class="text-[11px] text-blue-800/80 mb-2 leading-relaxed font-medium">
+                            Các tiện ích này được áp dụng chung cho toàn bộ phòng trong tòa nhà đã chọn:
+                        </p>
+                        <div id="building-amenities-tags" class="flex flex-wrap gap-1.5">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Khối 2: Tiện ích riêng của từng phòng (Room-specific) -->
+                    <div class="mb-2">
+                        <p class="text-[11px] font-bold text-slate-700 mb-1.5 flex items-center gap-1">
+                            <i class="fa-solid fa-bed text-emerald-600"></i> Chọn nhanh tiện ích riêng của phòng:
+                        </p>
+                        <div class="flex flex-wrap gap-1.5">
+                            <button type="button" onclick="addAmenityTag('Có Ban công')" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:border-emerald-500 hover:text-emerald-700 transition-all flex items-center gap-1">
+                                <i class="fa-solid fa-plus text-[10px] text-emerald-600"></i> Có Ban công
+                            </button>
+                            <button type="button" onclick="addAmenityTag('Có Gác xép (Mezzanine)')" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:border-emerald-500 hover:text-emerald-700 transition-all flex items-center gap-1">
+                                <i class="fa-solid fa-plus text-[10px] text-emerald-600"></i> Có Gác xép (Mezzanine)
+                            </button>
+                            <button type="button" onclick="addAmenityTag('Cửa sổ lớn / View thoáng')" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:border-emerald-500 hover:text-emerald-700 transition-all flex items-center gap-1">
+                                <i class="fa-solid fa-plus text-[10px] text-emerald-600"></i> Cửa sổ lớn / View thoáng
+                            </button>
+                            <button type="button" onclick="addAmenityTag('Nội thất đầy đủ')" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:border-emerald-500 hover:text-emerald-700 transition-all flex items-center gap-1">
+                                <i class="fa-solid fa-plus text-[10px] text-emerald-600"></i> Nội thất đầy đủ
+                            </button>
+                            <button type="button" onclick="addAmenityTag('Nội thất cơ bản')" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:border-emerald-500 hover:text-emerald-700 transition-all flex items-center gap-1">
+                                <i class="fa-solid fa-plus text-[10px] text-emerald-600"></i> Nội thất cơ bản
+                            </button>
+                            <button type="button" onclick="addAmenityTag('Cho phép nuôi Pet')" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:border-emerald-500 hover:text-emerald-700 transition-all flex items-center gap-1">
+                                <i class="fa-solid fa-plus text-[10px] text-emerald-600"></i> Cho phép nuôi Pet
+                            </button>
+                            <button type="button" onclick="addAmenityTag('Máy giặt riêng')" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:border-emerald-500 hover:text-emerald-700 transition-all flex items-center gap-1">
+                                <i class="fa-solid fa-plus text-[10px] text-emerald-600"></i> Máy giặt riêng
+                            </button>
+                        </div>
                     </div>
 
                     <textarea id="amenities-input" name="amenities" rows="2.5"
-                        placeholder="Ghi các tiện ích của BĐS (VD: Đường rộng 12m, điện âm nước máy, gần chợ, khu dân cư đông đúc, sổ hồng chính chủ...)"
+                        placeholder="Nhập thêm các tiện ích riêng của phòng (VD: Có Ban công, cửa sổ lớn, máy giặt riêng, cho nuôi pet...)"
                         class="w-full px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all"></textarea>
                 </div>
 
@@ -555,12 +471,10 @@
                     }
 
                     if(post.property_type) {
-                        const radio = document.querySelector(`input[name="property_type"][value="${post.property_type}"]`);
-                        if(radio) {
-                            radio.checked = true;
-                            if(typeof togglePropertyType === 'function') {
-                                togglePropertyType(post.property_type);
-                            }
+                        const hiddenTypeInput = document.getElementById('hidden_property_type');
+                        if (hiddenTypeInput) hiddenTypeInput.value = post.property_type;
+                        if(typeof togglePropertyType === 'function') {
+                            togglePropertyType(post.property_type);
                         }
                     }
 
@@ -599,13 +513,33 @@
 
         // ======================= API FETCHING =======================
         async function fetchProvinces() {
+            if (!document.getElementById('select-province')) return;
             try {
                 const res = await fetch(`${API_BASE}/1/0.htm`);
                 const json = await res.json();
                 if(json.error === 0) {
                     provincesList = json.data.map(p => ({ code: p.id, name: p.full_name || p.name }));
                     
-                    // Mặc định chọn TP. Hồ Chí Minh nếu có
+                    const currentProvVal = document.getElementById('select-province')?.value;
+                    if (currentProvVal) {
+                        const cleanProv = removeVietnameseTones(currentProvVal);
+                        const matchedProv = provincesList.find(p => {
+                            const cleanP = removeVietnameseTones(p.name);
+                            return cleanP.includes(cleanProv) || cleanProv.includes(cleanP);
+                        });
+                        if (matchedProv) {
+                            selectedProvinceCode = matchedProv.code;
+                            const currentDistVal = document.getElementById('select-district')?.value;
+                            const currentWardVal = document.getElementById('select-ward')?.value;
+                            if (currentDistVal || currentWardVal) {
+                                window.autoSelectLocation = { district: currentDistVal, ward: currentWardVal };
+                            }
+                            fetchDistricts(matchedProv.code);
+                            return;
+                        }
+                    }
+
+                    // Mặc định chọn TP. Hồ Chí Minh nếu chưa có tỉnh nào được chọn
                     const defaultProv = provincesList.find(p => p.name.includes('Hồ Chí Minh')) || provincesList[0];
                     if (defaultProv) {
                         selectFormProvince(defaultProv.name, defaultProv.code);
@@ -615,7 +549,10 @@
                 }
             } catch (err) {
                 console.error('Lỗi tải danh sách Tỉnh/Thành:', err);
-                document.getElementById('form-province-text').innerText = 'Không thể tải dữ liệu tỉnh';
+                const provText = document.getElementById('form-province-text');
+                if (provText && (!provText.innerText || provText.innerText === 'Đang tải danh sách...')) {
+                    provText.innerText = 'Chọn Tỉnh / Thành Phố';
+                }
             }
         }
 
@@ -640,7 +577,11 @@
                     renderFormDistricts(); 
                     
                     if (window.autoSelectLocation && window.autoSelectLocation.district) {
-                        const dist = currentDistrictsList.find(d => d.name === window.autoSelectLocation.district);
+                        const targetDist = removeVietnameseTones(window.autoSelectLocation.district);
+                        const dist = currentDistrictsList.find(d => {
+                            const cleanD = removeVietnameseTones(d.name);
+                            return cleanD.includes(targetDist) || targetDist.includes(cleanD);
+                        });
                         if (dist) {
                             selectFormDistrict(dist.name, dist.code);
                         }
@@ -676,7 +617,11 @@
                     renderFormWards(); 
                     
                     if (window.autoSelectLocation && window.autoSelectLocation.ward) {
-                        const ward = currentWardsList.find(w => w.name === window.autoSelectLocation.ward);
+                        const targetWard = removeVietnameseTones(window.autoSelectLocation.ward);
+                        const ward = currentWardsList.find(w => {
+                            const cleanW = removeVietnameseTones(w.name);
+                            return cleanW.includes(targetWard) || targetWard.includes(cleanW);
+                        });
                         if (ward) {
                             selectFormWard(ward.name, ward.code);
                         }
@@ -1074,7 +1019,47 @@
         }
 
         // ======================= CÁC HÀM TIỆN ÍCH FORM =======================
+        function normalizeAddr(str) {
+            if (!str) return '';
+            return removeVietnameseTones(str)
+                .toLowerCase()
+                .replace(/^(thanh pho|tp\.?|tinh|quan|huyen|thi xa|tx\.?|phuong|xa|thi tran|tt\.?)\s+/g, '')
+                .replace(/[\,\.\-\/]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function checkAddressMatch(inputVal, buildingVal) {
+            if (!buildingVal) return true;
+            if (!inputVal) return false;
+            const nInput = normalizeAddr(inputVal);
+            const nBld = normalizeAddr(buildingVal);
+            if (!nBld) return true;
+            if (nInput === nBld) return true;
+            if (nInput.includes(nBld) || nBld.includes(nInput)) return true;
+            return false;
+        }
+
+        function syncAddressFromBuilding() {
+            const bSelect = document.getElementById('select-building-id');
+            if (bSelect) {
+                onBuildingSelected(bSelect);
+                const warnBox = document.getElementById('address-mismatch-warning');
+                if (warnBox) warnBox.classList.add('hidden');
+            }
+        }
+
         function goToStepDetails() {
+            const bSelect = document.getElementById('select-building-id');
+            const buildingId = bSelect ? bSelect.value : '';
+            const isSubAccount = @json($isSubAccount);
+
+            if (isSubAccount && !buildingId) {
+                alert('Vui lòng chọn Tòa nhà được phân công quản lý trước khi tiếp tục!');
+                bSelect?.focus();
+                return;
+            }
+
             document.getElementById('step-location').classList.add('hidden');
             document.getElementById('step-details').classList.remove('hidden');
         }
@@ -1093,8 +1078,9 @@
 
         function togglePropertyType(type) {
             const roomBox = document.getElementById('room-counter-box');
+            const isLand = (type === 'dat_nen' || type === 'dat_phan_lo');
             if (roomBox) {
-                if (type === 'dat_nen') {
+                if (isLand) {
                     roomBox.classList.add('hidden');
                 } else {
                     roomBox.classList.remove('hidden');
@@ -1105,7 +1091,7 @@
             const unitSelect = document.getElementById('post-price-unit');
             const priceLabel = document.getElementById('price-label-text');
             if (unitSelect && priceLabel) {
-                if (type === 'dat_nen') {
+                if (isLand) {
                     unitSelect.value = 'tong';
                     priceLabel.innerHTML = 'Giá bán mong muốn <span class="text-rose-500">*</span>';
                 } else {
@@ -1115,11 +1101,40 @@
             }
         }
 
+        let currentBuildingAmenities = [];
+
+        function renderBuildingAmenities(amenitiesList) {
+            const box = document.getElementById('building-amenities-box');
+            const container = document.getElementById('building-amenities-tags');
+            if (!box || !container) return;
+
+            currentBuildingAmenities = Array.isArray(amenitiesList) ? amenitiesList : [];
+
+            if (currentBuildingAmenities.length === 0) {
+                box.classList.add('hidden');
+                container.innerHTML = '';
+                return;
+            }
+
+            box.classList.remove('hidden');
+            container.innerHTML = currentBuildingAmenities.map(amenity => `
+                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-100/80 text-blue-800 text-xs font-bold border border-blue-200/90 shadow-2xs select-none">
+                    <i class="fa-solid fa-circle-check text-blue-600 text-[11px]"></i>
+                    <span>${amenity}</span>
+                    <i class="fa-solid fa-lock text-blue-400 text-[9px] ml-0.5" title="Kế thừa từ tòa nhà (Mặc định có sẵn)"></i>
+                </span>
+            `).join('');
+        }
+
         function addAmenityTag(text) {
             const input = document.getElementById('amenities-input');
             if (!input) return;
             let currentVal = input.value.trim();
             if (currentVal.includes(text)) return;
+            if (currentBuildingAmenities.includes(text)) {
+                alert(`"${text}" đã có sẵn trong danh sách tiện ích dùng chung kế thừa từ tòa nhà!`);
+                return;
+            }
             if (currentVal.length > 0) {
                 input.value = currentVal + ', ' + text;
             } else {
@@ -1261,13 +1276,16 @@
             
             formData.append('area', areaInput.value.trim());
 
-            formData.append('province', document.getElementById('select-province')?.value || '');
-            formData.append('district', document.getElementById('select-district')?.value || '');
-            formData.append('ward', document.getElementById('select-ward')?.value || '');
-            formData.append('address', document.getElementById('input-address')?.value || '');
+            // Địa chỉ kế thừa trực tiếp từ Tòa nhà đã chọn
+            const bSelectEl = document.getElementById('select-building-id');
+            const selectedOpt = bSelectEl ? bSelectEl.options[bSelectEl.selectedIndex] : null;
+            if (selectedOpt && selectedOpt.value) {
+                const bAddr = selectedOpt.getAttribute('data-address') || '';
+                formData.append('address', bAddr);
+            }
             
-            // Get property type
-            const propertyType = document.querySelector('input[name="property_type"]:checked')?.value || 'nha_o';
+            // Get property type từ hidden input
+            const propertyType = document.getElementById('hidden_property_type')?.value || 'nha_o';
             formData.append('property_type', propertyType);
 
             formData.append('description', document.getElementById('post-description')?.value.trim() || '');
@@ -1282,10 +1300,11 @@
                 formData.append('post_id', editIdInput.value);
             }
 
-            // Amenities
-            const amenitiesStr = document.getElementById('amenities-input')?.value.trim() || '';
-            const amenitiesArr = amenitiesStr.split(',').map(s => s.trim()).filter(Boolean);
-            amenitiesArr.forEach((am, idx) => {
+            // Amenities: Kết hợp Tiện ích Kế thừa từ Tòa nhà VÀ Tiện ích riêng của phòng
+            const roomAmenitiesStr = document.getElementById('amenities-input')?.value.trim() || '';
+            const roomAmenitiesArr = roomAmenitiesStr.split(',').map(s => s.trim()).filter(Boolean);
+            const combinedAmenities = Array.from(new Set([...(currentBuildingAmenities || []), ...roomAmenitiesArr]));
+            combinedAmenities.forEach((am, idx) => {
                 formData.append(`amenities[${idx}]`, am);
             });
 
@@ -1379,44 +1398,116 @@
             formatPriceInput(input);
         }
 
+        function getPropertyTypeLabel(rawType) {
+            const map = {
+                'can_ho': 'Chung cư mini / Căn hộ dịch vụ',
+                'nha_tro': 'Nhà trọ / Khu trọ',
+                'ky_tuc_xa': 'Ký túc xá / Sleepbox',
+                'dat_phan_lo': 'Đất phân lô',
+                'dat_nen': 'Đất nền',
+                'nha_o': 'Nhà ở',
+                'phong_tro': 'Phòng trọ'
+            };
+            return map[rawType] || 'Căn hộ / Nhà ở';
+        }
+
+        function applyPropertyTypeMapping(rawType) {
+            let mappedType = 'nha_o';
+            const isLand = (rawType === 'dat_phan_lo' || rawType === 'dat_nen');
+            if (isLand) {
+                mappedType = 'dat_nen';
+            } else if (rawType === 'nha_tro' || rawType === 'ky_tuc_xa' || rawType === 'phong_tro') {
+                mappedType = 'phong_tro';
+            } else {
+                mappedType = 'nha_o';
+            }
+
+            const hiddenInput = document.getElementById('hidden_property_type');
+            if (hiddenInput) {
+                hiddenInput.value = mappedType;
+            }
+
+            togglePropertyType(mappedType);
+            return mappedType;
+        }
+
         function onBuildingSelected(selectElement) {
             const selectedOption = selectElement.options[selectElement.selectedIndex];
-            if (!selectedOption || !selectedOption.value) return;
-            
-            const prov = selectedOption.getAttribute('data-province');
-            const dist = selectedOption.getAttribute('data-district');
-            const ward = selectedOption.getAttribute('data-ward');
-            const addr = selectedOption.getAttribute('data-address');
+            const previewCard = document.getElementById('building-address-preview');
+            const previewName = document.getElementById('preview-building-name');
+            const previewAddr = document.getElementById('preview-building-address');
+            const previewBadge = document.getElementById('preview-building-type-badge');
 
-            if (prov) {
-                const provInput = document.getElementById('select-province');
-                if (provInput) provInput.value = prov;
-                const provText = document.getElementById('form-province-text');
-                if (provText) provText.innerText = prov;
+            const s2Box = document.getElementById('step2-building-summary');
+            const s2Name = document.getElementById('step2-building-name');
+            const s2Addr = document.getElementById('step2-building-address');
+            const s2Type = document.getElementById('step2-building-type-badge');
+
+            if (!selectedOption || !selectedOption.value) {
+                if (previewCard) {
+                    previewCard.classList.add('d-none');
+                    previewCard.classList.add('hidden');
+                }
+                if (s2Box) s2Box.classList.add('hidden');
+                renderBuildingAmenities([]);
+                const defaultType = selectedOption?.getAttribute('data-type') || 'nha_o';
+                applyPropertyTypeMapping(defaultType);
+                return;
             }
-            if (dist) {
-                const distInput = document.getElementById('select-district');
-                if (distInput) distInput.value = dist;
-                const distText = document.getElementById('form-district-text');
-                if (distText) distText.innerText = dist;
+
+            const addr = (selectedOption.getAttribute('data-address') || '').trim();
+            const bName = selectedOption.getAttribute('data-name') || selectedOption.innerText.trim();
+            const bType = selectedOption.getAttribute('data-type') || 'nha_o';
+            const readableType = getPropertyTypeLabel(bType);
+
+            // 1. Tự động mapping Loại hình BĐS & Ẩn/Hiện Số phòng ngủ, Số phòng tắm
+            applyPropertyTypeMapping(bType);
+
+            // 2. Cập nhật Preview Card ở Bước 1
+            if (previewCard) {
+                if (previewName) previewName.innerText = bName;
+                if (previewAddr) previewAddr.innerText = addr || 'Địa chỉ theo hồ sơ tòa nhà';
+                if (previewBadge) previewBadge.innerText = readableType;
+                previewCard.classList.remove('d-none');
+                previewCard.classList.remove('hidden');
             }
-            if (ward) {
-                const wardInput = document.getElementById('select-ward');
-                if (wardInput) wardInput.value = ward;
-                const wardText = document.getElementById('form-ward-text');
-                if (wardText) wardText.innerText = ward;
+
+            // 3. Cập nhật thẻ tóm tắt ở Bước 2
+            if (s2Box && s2Name && s2Addr) {
+                s2Name.innerText = bName;
+                s2Addr.innerText = addr || 'Địa chỉ theo hồ sơ tòa nhà';
+                if (s2Type) s2Type.innerText = readableType;
+                s2Box.classList.remove('hidden');
             }
-            if (addr) {
-                const addrInput = document.getElementById('input-address');
-                if (addrInput) addrInput.value = addr;
+
+            // 4. Kế thừa tiện ích dùng chung từ Tòa Nhà
+            let bAmenities = [];
+            try {
+                const rawAm = selectedOption.getAttribute('data-amenities');
+                if (rawAm) {
+                    bAmenities = JSON.parse(rawAm);
+                }
+            } catch (e) {
+                console.error('Lỗi parse data-amenities:', e);
             }
+            renderBuildingAmenities(bAmenities);
         }
 
         // ======================= SỰ KIỆN KHỞI TẠO & ĐÓNG MENU =======================
         document.addEventListener('DOMContentLoaded', function () {
             const bSelect = document.getElementById('select-building-id');
-            if (bSelect && bSelect.value) {
-                onBuildingSelected(bSelect);
+            if (bSelect) {
+                bSelect.addEventListener('change', function () {
+                    onBuildingSelected(this);
+                });
+
+                if (bSelect.value) {
+                    onBuildingSelected(bSelect);
+                } else {
+                    const activeOption = bSelect.options[bSelect.selectedIndex];
+                    const initType = activeOption?.getAttribute('data-type') || 'nha_o';
+                    applyPropertyTypeMapping(initType);
+                }
             }
             
             const editDataStr = sessionStorage.getItem('edit_post_data');
@@ -1441,17 +1532,33 @@
                         ward: postData.ward
                     };
                     
-                    document.getElementById('input-address').value = postData.address || '';
-                    document.getElementById('post-description').value = postData.description || '';
+                    if (document.getElementById('input-address')) {
+                        document.getElementById('input-address').value = postData.address || '';
+                    }
+                    if (document.getElementById('post-description')) {
+                        document.getElementById('post-description').value = postData.description || '';
+                    }
+                    
+                    if (postData.building_id) {
+                        const bSelect = document.getElementById('select-building-id');
+                        if (bSelect) {
+                            bSelect.value = postData.building_id;
+                            onBuildingSelected(bSelect);
+                        }
+                    }
                     
                     if (postData.property_type) {
-                        const pRadio = document.querySelector(`input[name="property_type"][value="${postData.property_type}"]`);
-                        if (pRadio) pRadio.checked = true;
+                        const hiddenTypeInput = document.getElementById('hidden_property_type');
+                        if (hiddenTypeInput) hiddenTypeInput.value = postData.property_type;
+                        if (typeof togglePropertyType === 'function') {
+                            togglePropertyType(postData.property_type);
+                        }
                     }
 
                     if (postData.amenities && Array.isArray(postData.amenities)) {
                         const input = document.getElementById('amenities-input');
-                        if (input) input.value = postData.amenities.join(', ');
+                        const roomOnlyAmenities = postData.amenities.filter(am => !currentBuildingAmenities.includes(am));
+                        if (input) input.value = roomOnlyAmenities.join(', ');
                     }
                     
                     if (postData.images && Array.isArray(postData.images)) {

@@ -17,28 +17,40 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $credentials = $request->validate([
-            'email' => 'required|email',
+            'email' => 'required|string',
             'password' => 'required|string',
         ], [
-            'email.required' => 'Vui lòng nhập địa chỉ Email.',
-            'email.email' => 'Địa chỉ Email không hợp lệ.',
+            'email.required' => 'Vui lòng nhập Email hoặc Tên đăng nhập.',
             'password.required' => 'Vui lòng nhập mật khẩu.',
         ]);
 
-        if (Auth::attempt(['email' => $request->email, 'password' => $request->password])) {
+        $loginInput = trim($request->input('email'));
+        $password = $request->input('password');
+
+        $isEmail = filter_var($loginInput, FILTER_VALIDATE_EMAIL);
+        $authFields = $isEmail 
+            ? ['email' => $loginInput, 'password' => $password] 
+            : ['username' => $loginInput, 'password' => $password];
+
+        if (Auth::attempt($authFields)) {
             $request->session()->regenerate();
             $user = Auth::user();
 
-            if ($user->account_type === 'admin' || $user->role === 'admin') {
-                return redirect()->intended('/Admin')->with('success', 'Xin chào Admin! Đăng nhập thành công.');
+            if ($user->is_locked || $user->status === 'locked') {
+                Auth::logout();
+                return back()->withErrors(['login_error' => 'Tài khoản của bạn đã bị khóa! Vui lòng liên hệ Ban Quản Trị.']);
             }
 
-            if ($user->account_type === 'doanhnghiep' || $user->role === 'doanhnghiep') {
-                return redirect()->intended('/Overview')->with('success', 'Xin chào Doanh nghiệp RentHome! Đăng nhập thành công.');
+            if ($user->role === 'admin') {
+                return redirect()->intended('/Admin')->with('success', 'Xin chào Admin! Đăng nhập thành công vào trang quản trị.');
             }
 
-            if ($user->account_type === 'sub_account' || $user->role === 'sub_account') {
-                return redirect()->intended('/Overview')->with('success', 'Xin chào Quản lý tòa nhà! Đăng nhập thành công.');
+            if ($user->role === 'doanhnghiep' || $user->isEnterprise()) {
+                return redirect()->intended('/Overview')->with('success', 'Xin chào Quản trị Doanh nghiệp RentHome! Đăng nhập thành công.');
+            }
+
+            if ($user->isSubAccount() || $user->role === 'staff' || $user->role === 'sub_account') {
+                return redirect()->intended('/Overview')->with('success', 'Xin chào ' . ($user->account_name ?: 'Nhân viên') . '! Đăng nhập thành công.');
             }
 
             return redirect()->intended('/')->with('success', 'Đăng nhập thành công! Chào mừng bạn đến với RentHome.');
@@ -83,7 +95,6 @@ class AuthController extends Controller
             'username' => explode('@', $validated['email'])[0],
             'phone' => $validated['phone'],
             'password' => Hash::make($validated['password']),
-            'account_type' => 'canhan',
             'role' => 'user',
             'status' => 'active',
             'is_locked' => false,

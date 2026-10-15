@@ -93,3 +93,13 @@
         </div>
     </div>
 </footer>
+
+<script>
+    // Toàn cục: Ngăn chặn cuộn chuột (wheel) làm thay đổi giá trị trong các thẻ input type="number"
+    document.addEventListener('wheel', function(e) {
+        if (e.target && e.target.matches && e.target.matches('input[type="number"]')) {
+            e.preventDefault();
+            e.target.blur();
+        }
+    }, { passive: false });
+</script>

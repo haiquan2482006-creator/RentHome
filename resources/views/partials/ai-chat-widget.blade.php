@@ -224,7 +224,7 @@
                         <li><b>Tra cứu phòng trọ:</b> Theo quận, tầm giá, tiện ích.</li>
                         <li><b>✨ Tự động đăng tin:</b> Gửi thông tin & ảnh phòng qua chat để AI tạo bài.</li>
                         <li><b>Hướng dẫn hệ thống:</b> Đăng tin, tạo tòa nhà, quản lý phòng.</li>
-                        <li><b>Tiếp nhận khiếu nại:</b> Báo cáo chủ trọ, tin giả, sự cố.</li>
+                        <li><b>Tư vấn & Hẹn xem:</b> Đặt lịch hẹn xem phòng trực tiếp tại các tòa nhà RentHome.</li>
                     </ul>
                     <div style="margin-top: 10px; font-weight: 500; color: #047857;">{{ $currentUserSalutation }} cần hỗ trợ việc gì lúc này?</div>
                 </div>

@@ -45,10 +45,6 @@ class PostController extends Controller
             'price' => 'required|numeric',
             'price_unit' => 'nullable|string',
             'area' => 'required|numeric',
-            'province' => 'nullable|string',
-            'district' => 'nullable|string',
-            'ward' => 'nullable|string',
-            'address' => 'nullable|string',
             'property_type' => 'nullable|string',
             'description' => 'nullable|string',
             'account_role' => 'nullable|string',
@@ -63,58 +59,65 @@ class PostController extends Controller
         if ($postId) {
             $post = Post::where('_id', $postId)->orWhere('id', $postId)->first();
             if ($post) {
-                if ($user->isSubAccount() && !$user->canManageBuilding($post->building_id)) {
+                if ($user->isSubAccount() && !empty($post->building_id) && !$user->canManageBuilding($post->building_id)) {
                     return response()->json(['error' => 'Bạn không có quyền chỉnh sửa bài đăng của tòa nhà này!'], 403);
                 }
-                if (!$user->isEnterprise() && $user->role !== 'admin' && $post->user_id != $user->id && !$user->canManageBuilding($post->building_id)) {
+                if (!$user->isEnterprise() && !$user->isAdmin() && $post->user_id != $user->id && !$user->canManageBuilding($post->building_id)) {
                     return response()->json(['error' => 'Không có quyền sửa bài đăng này!'], 403);
                 }
             }
         }
 
-        $imagePaths = $post ? $post->images : [];
+        $imagePaths = $post ? ($post->images ?? []) : [];
         if ($request->hasFile('images')) {
             $newPaths = [];
             foreach ($request->file('images') as $image) {
-                $base64Data = base64_encode(file_get_contents($image->getRealPath()));
-                $mimeType = $image->getMimeType();
-                
-                $newImage = \App\Models\Image::create([
-                    'base64_data' => $base64Data,
-                    'mime_type' => $mimeType
-                ]);
-                
-                $newPaths[] = $newImage->_id;
+                if ($image && $image->isValid()) {
+                    $path = $image->store('posts', 'public');
+                    $newPaths[] = '/storage/' . $path;
+                }
             }
-            // Replace images completely if new ones are uploaded for simplicity
             $imagePaths = $newPaths; 
         }
 
+        $buildingId = !empty($validatedData['building_id']) ? (string)$validatedData['building_id'] : null;
+        $building = null;
+        if ($buildingId) {
+            $building = \App\Models\Building::find($buildingId);
+        }
+
+        // Tự động kế thừa tiện ích Tòa nhà VÀ gộp với tiện ích riêng của phòng
+        $buildingAmenities = ($building && is_array($building->amenities)) ? $building->amenities : [];
+        $submittedAmenities = !empty($validatedData['amenities']) ? (array)$validatedData['amenities'] : [];
+        $mergedAmenities = array_values(array_unique(array_merge($buildingAmenities, $submittedAmenities)));
+
         $dataToSave = [
-            'user_id' => Auth::id(),
+            'user_id' => (string)Auth::id(),
+            'parent_id' => (string)($user->parent_id ?: Auth::id()),
+            'staff_id' => (string)Auth::id(),
             'title' => $validatedData['title'],
             'price' => $validatedData['price'],
             'price_unit' => $validatedData['price_unit'] ?? 'thang',
             'area' => $validatedData['area'],
-            'province' => $validatedData['province'],
-            'district' => $validatedData['district'],
-            'ward' => $validatedData['ward'],
-            'address' => $validatedData['address'],
+            'province' => $building ? $building->province : null,
+            'district' => $building ? $building->district : null,
+            'ward' => $building ? $building->ward : null,
+            'address' => $building ? $building->address_detail : null,
             'property_type' => $validatedData['property_type'] ?? 'nha_o',
             'description' => $validatedData['description'],
-            'account_role' => $validatedData['account_role'],
-            'building_id' => $validatedData['building_id'] ?? null,
-            'amenities' => $validatedData['amenities'] ?? [],
+            'account_role' => $validatedData['account_role'] ?? 'doanhnghiep',
+            'building_id' => $buildingId,
+            'amenities' => $mergedAmenities,
             'images' => $imagePaths,
-            'status' => 'pending'
+            'status' => 'approved' // Bài đăng của Doanh nghiệp & Quản lý tòa nhà được duyệt tự động hiển thị
         ];
 
         if ($post) {
             $post->update($dataToSave);
-            $msg = 'Cập nhật bài viết thành công, đang chờ kiểm duyệt!';
+            $msg = 'Cập nhật bài viết thành công!';
         } else {
             $post = clone Post::create($dataToSave);
-            $msg = 'Đăng bài thành công, bài viết đang chờ kiểm duyệt!';
+            $msg = 'Đăng bài thành công! Bài viết đã hiển thị trên hệ thống RentHome.';
         }
 
         return response()->json([
@@ -132,7 +135,7 @@ class PostController extends Controller
             ->toArray();
 
         $query = Post::with(['user'])
-            ->where('status', 'approved')
+            ->whereIn('status', ['approved', 'active'])
             ->where(function ($q) {
                 $q->whereNull('is_rented')
                   ->orWhere('is_rented', false);
@@ -178,7 +181,7 @@ class PostController extends Controller
             ->toArray();
 
         $query = Post::with(['user'])
-            ->where('status', 'approved')
+            ->whereIn('status', ['approved', 'active'])
             ->where(function ($q) {
                 $q->whereNull('is_rented')
                   ->orWhere('is_rented', false);
@@ -190,7 +193,7 @@ class PostController extends Controller
                   ->whereNotIn('id', $activeContractPostIds);
         }
 
-        $posts = $query->orderBy('created_at', 'desc')->take(5)->get();
+        $posts = $query->orderBy('created_at', 'desc')->take(6)->get();
         // The frontend expects the array of featured posts directly, or we can map it to match the expected format
         $mapped = $posts->map(function($post) {
             return [
@@ -201,12 +204,107 @@ class PostController extends Controller
                 'image' => $post->display_image ?? 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80',
                 'tag' => 'NỔI BẬT',
                 'user_id' => (string) ($post->user_id ?? ''),
-                'beds' => '2 PN',
-                'baths' => '2 WC',
+                'beds' => '1-2 PN',
+                'baths' => '1-2 WC',
                 'area' => $post->area . ' m²',
-                'note' => 'Đã kiểm duyệt bởi Ban Quản Lý',
+                'note' => 'Bất động sản chính chủ RentHome',
             ];
         });
         return response()->json($mapped);
+    }
+
+    /**
+     * Gỡ bài đăng khỏi tòa nhà (bỏ liên kết building_id)
+     */
+    public function unlink($id)
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Chưa đăng nhập!'], 401);
+        }
+
+        $post = Post::where('_id', $id)->first() ?: Post::find($id);
+        if (!$post) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy bài đăng!'], 404);
+        }
+
+        if (!$user->isAdmin()) {
+            $userId = (string)($user->_id ?? $user->id);
+            $parentUserId = (string)($user->parent_id ?? '');
+            if ((string)$post->user_id !== $userId && (string)$post->parent_id !== $userId && (string)$post->user_id !== $parentUserId) {
+                return response()->json(['success' => false, 'message' => 'Bạn không có quyền gỡ bài đăng này!'], 403);
+            }
+        }
+
+        $post->building_id = null;
+        $post->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã gỡ bài đăng khỏi tòa nhà thành công!'
+        ]);
+    }
+
+    /**
+     * Xóa vĩnh viễn bài đăng
+     */
+    public function destroy($id)
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Chưa đăng nhập!'], 401);
+        }
+
+        $post = Post::where('_id', $id)->first() ?: Post::find($id);
+        if (!$post) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy bài đăng!'], 404);
+        }
+
+        if (!$user->isAdmin()) {
+            $userId = (string)($user->_id ?? $user->id);
+            $parentUserId = (string)($user->parent_id ?? '');
+            if ((string)$post->user_id !== $userId && (string)$post->parent_id !== $userId && (string)$post->user_id !== $parentUserId) {
+                return response()->json(['success' => false, 'message' => 'Bạn không có quyền xóa bài đăng này!'], 403);
+            }
+        }
+
+        $post->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã xóa bài đăng thành công!'
+        ]);
+    }
+
+    /**
+     * Hủy đăng bài
+     */
+    public function cancel($id)
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Chưa đăng nhập!'], 401);
+        }
+
+        $post = Post::where('_id', $id)->first() ?: Post::find($id);
+        if (!$post) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy bài đăng!'], 404);
+        }
+
+        if (!$user->isAdmin()) {
+            $userId = (string)($user->_id ?? $user->id);
+            $parentUserId = (string)($user->parent_id ?? '');
+            if ((string)$post->user_id !== $userId && (string)$post->parent_id !== $userId && (string)$post->user_id !== $parentUserId) {
+                return response()->json(['success' => false, 'message' => 'Bạn không có quyền thao tác bài đăng này!'], 403);
+            }
+        }
+
+        $post->status = 'cancelled';
+        $post->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã hủy đăng bài thành công!'
+        ]);
     }
 }

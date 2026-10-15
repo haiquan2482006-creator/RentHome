@@ -14,6 +14,8 @@ class Invoice extends Model
         'room_id',
         'post_id',
         'owner_id',
+        'created_by',
+        'staff_id',
         'tenant_id',
         'tenant_name',
         'invoice_code',

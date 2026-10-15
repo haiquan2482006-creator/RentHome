@@ -3,8 +3,6 @@
 namespace App\Services;
 
 use App\Models\Post;
-use App\Models\Complaint;
-use App\Models\Image;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -819,7 +817,7 @@ class RentHomeAiService
         } elseif (preg_match('/\b(nhà nguyên căn|nguyên căn|nha nguyen can|nhà riêng|nha rieng|nhà phố|nha pho)\b/ui', $q)) {
             $draft['property_type'] = 'nnc';
             $draft['property_type_name'] = 'Nhà nguyên căn';
-        } elseif (preg_match('/\b(mặt bằng|mat bang|đất nền|dat nen|đất|dat|cửa hàng|kiot|văn phòng|van phong)\b/ui', $q)) {
+        } elseif (preg_match('/\b(mặt bằng|mat bang|đất nền|dat nen|đất phân lô|dat phan lo|đất|dat|cửa hàng|kiot|văn phòng|van phong)\b/ui', $q)) {
             $draft['property_type'] = 'dat_nen';
             $draft['property_type_name'] = 'Mặt bằng / Đất nền';
         } elseif (preg_match('/\b(phòng trọ|phong tro|nhà trọ|nha tro|phòng khép kín|phong khep kin|phòng cho thuê|phong cho thue)\b/ui', $q)) {
@@ -1645,7 +1643,7 @@ class RentHomeAiService
             foreach ($imageIds as $imgId) {
                 try {
                     $imgStr = (string)$imgId;
-                    if (strlen($imgStr) === 24 && ctype_xdigit($imgStr)) {
+                    if (strlen($imgStr) === 24 && ctype_xdigit($imgStr) && class_exists(\App\Models\Image::class)) {
                         $imgDoc = \App\Models\Image::find($imgStr);
                         if ($imgDoc && !empty($imgDoc->base64_data)) {
                             $mime = $imgDoc->mime_type ?: 'image/jpeg';
