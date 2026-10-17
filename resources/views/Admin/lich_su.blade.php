@@ -4,20 +4,54 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Lịch Sử Tài Khoản - RentHome Admin</title>
+    <title>Lịch Sử Hoạt Động - RentHome Admin</title>
 
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
     <style>
+        :root {
+            --bg-main: #f8fafc;
+            --bg-card: #ffffff;
+            --border-color: #e2e8f0;
+            --shadow-subtle: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #94a3b8;
+            --brand-primary: #0284c7;
+            --brand-bg: #e0f2fe;
+            --accent-amber: #d97706;
+            --accent-red: #dc2626;
+            --accent-emerald: #059669;
+            --accent-purple: #7c3aed;
+            --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            --sidebar-width: 260px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            display: flex;
+            min-height: 100vh;
+        }
+
         .admin-main {
             margin-left: var(--sidebar-width);
             flex: 1;
-            padding: 32px;
+            padding: 30px 36px;
             min-height: 100vh;
             background-color: var(--bg-main);
+            width: calc(100% - var(--sidebar-width));
         }
 
+        /* --- Header --- */
         .page-header {
             margin-bottom: 24px;
             display: flex;
@@ -28,10 +62,18 @@
         }
 
         .page-title {
-            font-size: 1.5rem;
+            font-size: 1.55rem;
             font-weight: 800;
             color: var(--text-primary);
             letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .page-title i {
+            color: var(--brand-primary);
+            font-size: 1.45rem;
         }
 
         .page-subtitle {
@@ -40,468 +82,269 @@
             margin-top: 4px;
         }
 
-        /* --- Thẻ Thống Kê Tổng Quan --- */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 20px;
-            margin-bottom: 24px;
-        }
-
-        .stat-card {
-            background-color: var(--bg-card);
-            border-radius: 16px;
-            border: 1px solid var(--border-color);
-            box-shadow: var(--shadow-subtle);
-            padding: 20px 24px;
+        .header-actions {
             display: flex;
             align-items: center;
-            gap: 16px;
+            gap: 10px;
+        }
+
+        .btn-header {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 16px;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
             transition: var(--transition);
-        }
-
-        .stat-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.08);
-        }
-
-        .stat-icon {
-            width: 52px;
-            height: 52px;
-            border-radius: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.35rem;
-            flex-shrink: 0;
-        }
-
-        .stat-icon-locked {
-            background-color: rgba(217, 119, 6, 0.12);
-            color: var(--accent-amber);
-        }
-
-        .stat-icon-deleted {
-            background-color: rgba(220, 38, 38, 0.12);
-            color: var(--accent-red);
-        }
-
-        .stat-icon-total {
-            background-color: var(--brand-bg);
-            color: var(--brand-primary);
-        }
-
-        .stat-info {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .stat-value {
-            font-size: 1.6rem;
-            font-weight: 800;
-            color: var(--text-primary);
-            line-height: 1.2;
-        }
-
-        .stat-label {
-            font-size: 0.825rem;
-            font-weight: 600;
+            border: 1px solid var(--border-color);
+            background: #ffffff;
             color: var(--text-secondary);
-            margin-top: 2px;
+            box-shadow: var(--shadow-subtle);
         }
 
-        /* --- Thanh Tab Chuyển Đổi & Tìm Kiếm --- */
-        .filter-card {
+        .btn-header:hover {
+            color: var(--brand-primary);
+            border-color: var(--brand-primary);
+            background-color: #f0f9ff;
+            transform: translateY(-1px);
+        }
+
+        /* --- Card Chứa Bảng Lịch Sử --- */
+        .content-card {
             background-color: var(--bg-card);
             border-radius: 16px;
             border: 1px solid var(--border-color);
             box-shadow: var(--shadow-subtle);
-            padding: 16px 20px;
-            margin-bottom: 24px;
+            overflow: hidden;
+        }
+
+        .card-header-bar {
+            padding: 18px 24px;
+            border-bottom: 1px solid var(--border-color);
             display: flex;
             align-items: center;
             justify-content: space-between;
             flex-wrap: wrap;
-            gap: 16px;
+            gap: 14px;
+            background-color: #ffffff;
         }
 
-        .history-tabs {
+        .card-title {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: var(--text-primary);
             display: flex;
             align-items: center;
             gap: 8px;
-            background-color: #f1f5f9;
-            padding: 4px;
-            border-radius: 12px;
         }
 
-        .tab-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 10px 18px;
-            border-radius: 8px;
-            font-family: inherit;
-            font-size: 0.875rem;
-            font-weight: 700;
-            color: var(--text-secondary);
-            background: transparent;
-            border: none;
-            cursor: pointer;
-            transition: var(--transition);
-        }
-
-        .tab-btn:hover {
-            color: var(--text-primary);
-        }
-
-        .tab-btn.active {
-            background-color: #ffffff;
-            color: var(--brand-primary);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-        }
-
-        .tab-btn.active-locked {
-            color: var(--accent-amber);
-        }
-
-        .tab-btn.active-deleted {
-            color: var(--accent-red);
-        }
-
-        .tab-badge {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 2px 7px;
-            border-radius: 10px;
-            font-size: 0.725rem;
-            font-weight: 800;
-        }
-
-        .tab-badge-locked {
-            background-color: rgba(217, 119, 6, 0.15);
-            color: var(--accent-amber);
-        }
-
-        .tab-badge-deleted {
-            background-color: rgba(220, 38, 38, 0.15);
-            color: var(--accent-red);
-        }
-
-        .search-box {
+        .card-search-box {
             position: relative;
-            min-width: 260px;
+            min-width: 280px;
         }
 
-        .search-box i {
+        .card-search-box i {
             position: absolute;
-            left: 14px;
+            left: 12px;
             top: 50%;
             transform: translateY(-50%);
             color: var(--text-muted);
-            font-size: 0.9rem;
+            font-size: 0.85rem;
         }
 
-        .search-box input {
+        .card-search-box input {
             width: 100%;
-            padding: 9px 14px 9px 38px;
+            padding: 8px 12px 8px 34px;
             border: 1px solid var(--border-color);
-            border-radius: 10px;
+            border-radius: 8px;
             font-family: inherit;
-            font-size: 0.875rem;
+            font-size: 0.825rem;
             background-color: #f8fafc;
             outline: none;
             transition: var(--transition);
         }
 
-        .search-box input:focus {
+        .card-search-box input:focus {
             background-color: #ffffff;
             border-color: var(--brand-primary);
-            box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+            box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.12);
         }
 
-        /* --- Section Bảng Dữ Liệu --- */
-        .section-card {
-            background-color: var(--bg-card);
-            border-radius: 16px;
-            border: 1px solid var(--border-color);
-            box-shadow: var(--shadow-subtle);
-            padding: 24px;
-            margin-bottom: 28px;
-        }
-
-        .section-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 20px;
-            padding-bottom: 14px;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .section-title {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 1.1rem;
-            font-weight: 800;
-            color: var(--text-primary);
-        }
-
-        .section-title i {
-            font-size: 1.15rem;
-        }
-
-        .section-title-locked i {
-            color: var(--accent-amber);
-        }
-
-        .section-title-deleted i {
-            color: var(--accent-red);
-        }
-
+        /* --- Table Styling --- */
         .table-responsive {
             width: 100%;
             overflow-x: auto;
         }
 
-        .data-table {
+        .history-table {
             width: 100%;
             border-collapse: collapse;
             text-align: left;
         }
 
-        .data-table th {
-            padding: 12px 16px;
-            font-size: 0.75rem;
+        .history-table th {
+            padding: 14px 18px;
+            font-size: 0.775rem;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.04em;
             color: var(--text-muted);
-            border-bottom: 1px solid var(--border-color);
             background-color: #f8fafc;
+            border-bottom: 1px solid var(--border-color);
+            white-space: nowrap;
         }
 
-        .data-table th:first-child {
-            border-top-left-radius: 8px;
-            border-bottom-left-radius: 8px;
-        }
-
-        .data-table th:last-child {
-            border-top-right-radius: 8px;
-            border-bottom-right-radius: 8px;
-        }
-
-        .data-table td {
-            padding: 16px;
+        .history-table td {
+            padding: 15px 18px;
             font-size: 0.875rem;
             border-bottom: 1px solid #f1f5f9;
             vertical-align: middle;
         }
 
-        .data-table tbody tr {
+        .history-table tbody tr {
             transition: var(--transition);
         }
 
-        .data-table tbody tr:hover {
+        .history-table tbody tr:hover {
             background-color: #f8fafc;
         }
 
-        /* --- User Info Flex --- */
-        .user-info-flex {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .user-avatar-circle {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            font-weight: 800;
-            font-size: 0.9rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-
-        .avatar-locked {
-            background: linear-gradient(135deg, #fef3c7, #fde68a);
-            color: #d97706;
-            border: 1px solid rgba(217, 119, 6, 0.25);
-        }
-
-        .avatar-deleted {
-            background: linear-gradient(135deg, #fee2e2, #fecaca);
-            color: #dc2626;
-            border: 1px solid rgba(220, 38, 38, 0.25);
-        }
-
-        .user-name-text {
-            font-weight: 700;
-            color: var(--text-primary);
-            line-height: 1.3;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            flex-wrap: wrap;
-        }
-
-        .user-id-badge {
+        /* Badges */
+        .act-badge {
             display: inline-flex;
             align-items: center;
-            padding: 2px 6px;
-            font-size: 0.7rem;
-            font-weight: 700;
-            color: var(--brand-primary);
-            background-color: rgba(2, 132, 199, 0.1);
-            border-radius: 4px;
-        }
-
-        .user-subtext {
+            gap: 5px;
+            padding: 4px 10px;
+            border-radius: 6px;
             font-size: 0.75rem;
-            color: var(--text-secondary);
-        }
-
-        /* --- Status Badges --- */
-        .status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.775rem;
             font-weight: 700;
+            white-space: nowrap;
         }
 
-        .status-locked {
-            background-color: rgba(217, 119, 6, 0.1);
+        .badge-create {
+            background-color: #ecfdf5;
+            color: #047857;
+            border: 1px solid #a7f3d0;
+        }
+
+        .badge-update {
+            background-color: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid #bfdbfe;
+        }
+
+        .badge-lock {
+            background-color: #fffbeb;
             color: #b45309;
-            border: 1px solid rgba(217, 119, 6, 0.2);
+            border: 1px solid #fde68a;
         }
 
-        .status-deleted {
-            background-color: rgba(220, 38, 38, 0.1);
-            color: #b91c1c;
-            border: 1px solid rgba(220, 38, 38, 0.2);
-        }
-
-        /* --- Action Buttons --- */
-        .btn-action-group {
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 8px;
-        }
-
-        .btn-action {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 7px 14px;
-            border-radius: 8px;
-            font-family: inherit;
-            font-size: 0.8rem;
-            font-weight: 700;
-            border: 1px solid transparent;
-            cursor: pointer;
-            transition: var(--transition);
-            text-decoration: none;
-        }
-
-        .btn-unlock {
-            background-color: rgba(5, 150, 105, 0.1);
-            color: #059669;
-            border-color: rgba(5, 150, 105, 0.2);
-        }
-
-        .btn-unlock:hover {
-            background-color: #059669;
-            color: #ffffff;
-            box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);
-        }
-
-        .btn-restore {
-            background-color: rgba(2, 132, 199, 0.1);
-            color: var(--brand-primary);
-            border-color: rgba(2, 132, 199, 0.2);
-        }
-
-        .btn-restore:hover {
-            background-color: var(--brand-primary);
-            color: #ffffff;
-            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
-        }
-
-        .btn-perm-delete {
-            background-color: rgba(220, 38, 38, 0.08);
-            color: var(--accent-red);
-            border-color: rgba(220, 38, 38, 0.2);
-        }
-
-        .btn-perm-delete:hover {
-            background-color: var(--accent-red);
-            color: #ffffff;
-            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25);
-        }
-
-        /* --- Custom Alert Banner --- */
-        .alert-banner {
-            padding: 14px 18px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .alert-success {
-            background-color: #dcfce7;
+        .badge-unlock, .badge-restore {
+            background-color: #f0fdf4;
             color: #15803d;
             border: 1px solid #bbf7d0;
         }
 
-        .alert-error {
-            background-color: #fee2e2;
+        .badge-delete, .badge-force_delete {
+            background-color: #fef2f2;
             color: #b91c1c;
             border: 1px solid #fecaca;
         }
 
-        .empty-state {
+        .badge-config, .badge-notify {
+            background-color: #faf5ff;
+            color: #6b21a8;
+            border: 1px solid #e9d5ff;
+        }
+
+        /* Detail Cell */
+        .title-text {
+            font-weight: 700;
+            color: var(--text-primary);
+            font-size: 0.875rem;
+        }
+
+        .desc-text {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 2px;
+            line-height: 1.4;
+        }
+
+        .target-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.725rem;
+            font-weight: 600;
+            background: #f1f5f9;
+            color: #334155;
+            padding: 2px 7px;
+            border-radius: 4px;
+            margin-top: 4px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .time-box {
+            font-size: 0.825rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        /* Action Buttons */
+        .btn-table-action {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.775rem;
+            font-weight: 700;
+            color: var(--brand-primary);
+            background-color: var(--brand-bg);
+            border: 1px solid #bae6fd;
+            text-decoration: none;
+            transition: var(--transition);
+            white-space: nowrap;
+            cursor: pointer;
+        }
+
+        .btn-table-action:hover {
+            background-color: var(--brand-primary);
+            color: #ffffff;
+            border-color: var(--brand-primary);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 6px rgba(2, 132, 199, 0.2);
+        }
+
+        .btn-table-unlock {
+            background-color: #ecfdf5;
+            color: #047857;
+            border-color: #a7f3d0;
+        }
+
+        .btn-table-unlock:hover {
+            background-color: #059669;
+            color: #ffffff;
+            border-color: #059669;
+        }
+
+        /* Empty */
+        .empty-box {
             text-align: center;
-            padding: 48px 20px;
+            padding: 50px 20px;
             color: var(--text-muted);
         }
 
-        .empty-state i {
-            font-size: 2.8rem;
-            margin-bottom: 12px;
+        .empty-box i {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
             color: #cbd5e1;
             display: block;
-        }
-
-        .empty-state-title {
-            font-size: 0.95rem;
-            font-weight: 700;
-            color: var(--text-secondary);
-            display: block;
-        }
-
-        .empty-state-desc {
-            font-size: 0.825rem;
-            margin-top: 4px;
-        }
-
-        /* Tab switching visibility */
-        .tab-content {
-            display: block;
-        }
-
-        .tab-content.hidden {
-            display: none;
         }
     </style>
 </head>
@@ -509,329 +352,224 @@
     @include('partials.header-admin')
 
     <main class="admin-main">
-        <!-- Page Title & Header -->
+        <!-- Page Header -->
         <div class="page-header">
             <div>
-                <h1 class="page-title">Lịch Sử Quản Lý Tài Khoản</h1>
-                <p class="page-subtitle">Theo dõi, kiểm tra danh sách tài khoản người dùng bị khóa và tài khoản đã bị xóa</p>
+                <h1 class="page-title">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <span>Lịch Sử Hoạt Động</span>
+                </h1>
+                <p class="page-subtitle">Nhật ký ghi nhận toàn bộ hoạt động của Quản trị viên trong hệ thống (Tài khoản, Tòa nhà, Bài đăng, Cấu hình...)</p>
             </div>
-            <a href="{{ url('/') }}" class="btn-main-site">
-                <i class="fa-solid fa-globe"></i>
-                <span>Xem giao diện</span>
-            </a>
+            <div class="header-actions">
+                <button type="button" class="btn-header" onclick="location.reload()" title="Tải lại dữ liệu mới nhất">
+                    <i class="fa-solid fa-rotate-right"></i> Làm mới
+                </button>
+            </div>
         </div>
-
-        <!-- Notification Banner -->
-        @if (session('success'))
-            <div class="alert-banner alert-success">
-                <i class="fa-solid fa-circle-check"></i> {{ session('success') }}
-            </div>
-        @endif
-
-        @if (session('error'))
-            <div class="alert-banner alert-error">
-                <i class="fa-solid fa-circle-exclamation"></i> {{ session('error') }}
-            </div>
-        @endif
 
         @php
-            $lockedList = $lockedUsers ?? [];
-            $deletedList = $deletedUsers ?? [];
-
-            $countLocked = is_countable($lockedList) ? count($lockedList) : 0;
-            $countDeleted = is_countable($deletedList) ? count($deletedList) : 0;
-            $countTotal = $countLocked + $countDeleted;
+            $activityList = $activities ?? collect([]);
         @endphp
 
-        <!-- Stat Cards -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-icon stat-icon-locked">
-                    <i class="fa-solid fa-user-lock"></i>
+        <!-- Khung Danh Sách Lịch Sử Đơn Giản -->
+        <div class="content-card">
+            <div class="card-header-bar">
+                <div class="card-title">
+                    <i class="fa-solid fa-list-ul" style="color: var(--brand-primary);"></i>
+                    <span>Danh Sách Hoạt Động Gần Đây</span>
+                    <span style="font-size: 0.775rem; font-weight: 700; color: var(--brand-primary); background: var(--brand-bg); padding: 2px 8px; border-radius: 6px; margin-left: 6px;">
+                        {{ count($activityList) }} hoạt động
+                    </span>
                 </div>
-                <div class="stat-info">
-                    <span class="stat-value" id="stat-locked-count">{{ $countLocked }}</span>
-                    <span class="stat-label">Tài khoản bị khóa</span>
+                <div class="card-search-box">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" id="simpleSearch" placeholder="Tìm kiếm nhanh nội dung, tên đối tượng..." oninput="filterSimpleTable()">
                 </div>
-            </div>
-
-            <div class="stat-card">
-                <div class="stat-icon stat-icon-deleted">
-                    <i class="fa-solid fa-user-slash"></i>
-                </div>
-                <div class="stat-info">
-                    <span class="stat-value" id="stat-deleted-count">{{ $countDeleted }}</span>
-                    <span class="stat-label">Tài khoản đã xóa</span>
-                </div>
-            </div>
-
-            <div class="stat-card">
-                <div class="stat-icon stat-icon-total">
-                    <i class="fa-solid fa-clock-rotate-left"></i>
-                </div>
-                <div class="stat-info">
-                    <span class="stat-value">{{ $countTotal }}</span>
-                    <span class="stat-label">Tổng lịch sử ghi nhận</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Filter & Tab Switcher Bar -->
-        <div class="filter-card">
-            <div class="history-tabs">
-                <button type="button" class="tab-btn active" id="btn-tab-all" onclick="switchTab('all')">
-                    <i class="fa-solid fa-layer-group"></i> Tất cả
-                </button>
-                <button type="button" class="tab-btn" id="btn-tab-locked" onclick="switchTab('locked')">
-                    <i class="fa-solid fa-user-lock"></i> Tài khoản bị khóa 
-                    <span class="tab-badge tab-badge-locked">{{ $countLocked }}</span>
-                </button>
-                <button type="button" class="tab-btn" id="btn-tab-deleted" onclick="switchTab('deleted')">
-                    <i class="fa-solid fa-user-slash"></i> Tài khoản bị xóa 
-                    <span class="tab-badge tab-badge-deleted">{{ $countDeleted }}</span>
-                </button>
-            </div>
-
-            <div class="search-box">
-                <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" id="history-search" placeholder="Tìm theo ID, Tên, Email..." onkeyup="filterHistoryTables()">
-            </div>
-        </div>
-
-        <!-- SECTION 1: PHẦN TÀI KHOẢN BỊ KHÓA -->
-        <div class="section-card tab-content" id="section-locked">
-            <div class="section-header">
-                <div class="section-title section-title-locked">
-                    <i class="fa-solid fa-user-lock"></i>
-                    <span>Danh Sách Tài Khoản Đang Bị Khóa</span>
-                </div>
-                <span class="tab-badge tab-badge-locked" style="font-size: 0.8rem; padding: 4px 10px;">
-                    {{ $countLocked }} tài khoản
-                </span>
             </div>
 
             <div class="table-responsive">
-                <table class="data-table" id="table-locked">
+                <table class="history-table">
                     <thead>
                         <tr>
-                            <th>Tài khoản</th>
-                            <th>Email / SĐT</th>
-                            <th>Lý do khóa</th>
-                            <th>Thời gian khóa</th>
-                            <th>Trạng thái</th>
-                            <th style="text-align: right;">Thao tác</th>
+                            <th style="width: 60px; text-align: center;">#</th>
+                            <th style="width: 170px;">Thời Gian</th>
+                            <th style="width: 150px;">Loại Thao Tác</th>
+                            <th>Nội Dung Hoạt Động</th>
+                            <th style="width: 160px; text-align: right;">Thao Tác</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        @forelse ($lockedList as $user)
+                    <tbody id="historyTableBody">
+                        @forelse ($activityList as $index => $act)
                             @php
-                                $name = $user->account_name ?? $user->username ?? 'Người dùng';
-                                $initials = strtoupper(mb_substr($name, 0, 2, 'UTF-8'));
+                                $cType = $act->category ?? 'system';
+                                $aType = $act->action_type ?? 'create';
+
+                                if ($aType === 'create') {
+                                    $actText = 'Thêm mới';
+                                    $actClass = 'badge-create';
+                                    $actIcon = 'fa-solid fa-plus';
+                                } elseif ($aType === 'update') {
+                                    $actText = 'Cập nhật';
+                                    $actClass = 'badge-update';
+                                    $actIcon = 'fa-solid fa-pen';
+                                } elseif ($aType === 'lock') {
+                                    $actText = 'Khóa tài khoản';
+                                    $actClass = 'badge-lock';
+                                    $actIcon = 'fa-solid fa-lock';
+                                } elseif ($aType === 'unlock' || $aType === 'restore') {
+                                    $actText = ($aType === 'restore') ? 'Khôi phục' : 'Mở khóa';
+                                    $actClass = 'badge-unlock';
+                                    $actIcon = 'fa-solid fa-lock-open';
+                                } elseif ($aType === 'delete' || $aType === 'force_delete') {
+                                    $actText = 'Xóa dữ liệu';
+                                    $actClass = 'badge-delete';
+                                    $actIcon = 'fa-solid fa-trash';
+                                } elseif ($aType === 'config') {
+                                    $actText = 'Cấu hình';
+                                    $actClass = 'badge-config';
+                                    $actIcon = 'fa-solid fa-palette';
+                                } elseif ($aType === 'notify') {
+                                    $actText = 'Thông báo';
+                                    $actClass = 'badge-notify';
+                                    $actIcon = 'fa-solid fa-bullhorn';
+                                } else {
+                                    $actText = 'Thao tác';
+                                    $actClass = 'badge-update';
+                                    $actIcon = 'fa-solid fa-gear';
+                                }
+
+                                $timeObj = $act->created_at ? \Carbon\Carbon::parse($act->created_at) : now();
+                                $searchContent = strtolower(
+                                    ($act->title ?? '') . ' ' . 
+                                    ($act->description ?? '') . ' ' . 
+                                    ($act->target_name ?? '') . ' ' . 
+                                    $actText
+                                );
+
+                                // Xác định URL và nút Thao tác tương ứng
+                                $isLockAction = ($aType === 'lock');
+                                $isRestoreAction = ($aType === 'delete');
+
+                                $actionUrl = url('Admin');
+                                $actionBtnText = 'Xem chi tiết';
+                                $actionBtnIcon = 'fa-solid fa-arrow-up-right-from-square';
+
+                                if ($cType === 'building') {
+                                    $actionUrl = url('qltoa_nha');
+                                    $actionBtnText = 'Xem tòa nhà';
+                                    $actionBtnIcon = 'fa-solid fa-city';
+                                } elseif ($cType === 'post') {
+                                    $actionUrl = url('qlbai_dang/Overview');
+                                    $actionBtnText = 'Xem bài đăng';
+                                    $actionBtnIcon = 'fa-solid fa-newspaper';
+                                } elseif ($cType === 'account') {
+                                    $actionUrl = url('qltai_khoan_con');
+                                    $actionBtnText = 'Xem tài khoản';
+                                    $actionBtnIcon = 'fa-solid fa-users-gear';
+                                } elseif ($cType === 'system') {
+                                    $actionUrl = url('sua_giao_dien');
+                                    $actionBtnText = 'Xem cấu hình';
+                                    $actionBtnIcon = 'fa-solid fa-palette';
+                                }
                             @endphp
-                            <tr class="history-row" data-search="{{ strtolower(($user->id ?? '') . ' ' . $name . ' ' . ($user->email ?? '') . ' ' . ($user->username ?? '')) }}">
+                            <tr class="activity-row" data-search="{{ $searchContent }}">
+                                <td style="text-align: center; font-weight: 700; color: var(--text-muted);">
+                                    {{ $index + 1 }}
+                                </td>
                                 <td>
-                                    <div class="user-info-flex">
-                                        <div class="user-avatar-circle avatar-locked">{{ $initials }}</div>
-                                        <div>
-                                            <div class="user-name-text">
-                                                <span>{{ $name }}</span>
-                                                <span class="user-id-badge">ID: #{{ $user->id }}</span>
-                                            </div>
-                                            <div class="user-subtext">{{ '@' . ($user->username ?? 'user') }}</div>
-                                        </div>
+                                    <div class="time-box">
+                                        <i class="fa-regular fa-clock" style="color: var(--text-muted); margin-right: 4px;"></i>
+                                        {{ $timeObj->format('d/m/Y H:i') }}
                                     </div>
-                                </td>
-                                <td>
-                                    <div style="font-weight: 600; color: var(--text-primary);">{{ $user->email ?? 'Chưa có email' }}</div>
-                                    <div class="user-subtext">{{ $user->phone ?? 'Chưa có SĐT' }}</div>
-                                </td>
-                                <td>
-                                    <span style="color: var(--text-secondary); font-size: 0.85rem; font-style: italic;">
-                                        "{{ $user->lock_reason ?? 'Khóa bởi quản trị viên' }}"
+                                    <span style="font-size: 0.725rem; color: var(--brand-primary); font-weight: 600;">
+                                        {{ $timeObj->diffForHumans() }}
                                     </span>
                                 </td>
                                 <td>
-                                    <div style="font-size: 0.825rem; font-weight: 600; color: var(--text-secondary);">
-                                        <i class="fa-regular fa-clock" style="margin-right: 4px;"></i>
-                                        {{ $user->locked_at ?? 'Gần đây' }}
-                                    </div>
+                                    <span class="act-badge {{ $actClass }}">
+                                        <i class="{{ $actIcon }}"></i> {{ $actText }}
+                                    </span>
                                 </td>
                                 <td>
-                                    <span class="status-badge status-locked">
-                                        <i class="fa-solid fa-lock"></i> Đã bị khóa
-                                    </span>
+                                    <div class="title-text">{{ $act->title }}</div>
+                                    <div class="desc-text">{{ $act->description }}</div>
+                                    @if(!empty($act->target_name))
+                                        <span class="target-tag">
+                                            <i class="fa-solid fa-cube" style="font-size: 10px; color: var(--brand-primary);"></i>
+                                            {{ $act->target_name }}
+                                        </span>
+                                    @endif
                                 </td>
                                 <td style="text-align: right;">
-                                    <div class="btn-action-group">
-                                        <form action="{{ url('qlnguoi_dung/unlock/' . $user->id) }}" method="POST" style="display: inline;" onsubmit="return confirm('Bạn có chắc chắn muốn MỞ KHÓA cho tài khoản {{ $name }} (ID: #{{ $user->id }}) không?');">
+                                    @if($isLockAction && !empty($act->target_id))
+                                        <form action="{{ url('qlnguoi_dung/unlock/' . $act->target_id) }}" method="POST" style="display: inline;" onsubmit="return confirm('Mở khóa cho tài khoản này?');">
                                             @csrf
-                                            <button type="submit" class="btn-action btn-unlock" title="Mở khóa tài khoản">
+                                            <button type="submit" class="btn-table-action btn-table-unlock">
                                                 <i class="fa-solid fa-lock-open"></i> Mở khóa
                                             </button>
                                         </form>
-                                    </div>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="6">
-                                    <div class="empty-state">
-                                        <i class="fa-solid fa-user-lock"></i>
-                                        <span class="empty-state-title">Chưa có tài khoản bị khóa</span>
-                                        <p class="empty-state-desc">Hiện tại hệ thống chưa ghi nhận tài khoản nào bị khóa.</p>
-                                    </div>
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- SECTION 2: PHẦN TÀI KHOẢN ĐÃ XÓA -->
-        <div class="section-card tab-content" id="section-deleted">
-            <div class="section-header">
-                <div class="section-title section-title-deleted">
-                    <i class="fa-solid fa-trash-can"></i>
-                    <span>Danh Sách Tài Khoản Đã Xóa</span>
-                </div>
-                <span class="tab-badge tab-badge-deleted" style="font-size: 0.8rem; padding: 4px 10px;">
-                    {{ $countDeleted }} tài khoản
-                </span>
-            </div>
-
-            <div class="table-responsive">
-                <table class="data-table" id="table-deleted">
-                    <thead>
-                        <tr>
-                            <th>Tài khoản đã xóa</th>
-                            <th>Email / SĐT</th>
-                            <th>Hình thức xóa</th>
-                            <th>Thời gian xóa</th>
-                            <th>Trạng thái</th>
-                            <th style="text-align: right;">Thao tác</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse ($deletedList as $user)
-                            @php
-                                $name = $user->account_name ?? $user->username ?? 'Thành viên đã xóa';
-                                $initials = strtoupper(mb_substr($name, 0, 2, 'UTF-8'));
-                            @endphp
-                            <tr class="history-row" data-search="{{ strtolower(($user->id ?? '') . ' ' . $name . ' ' . ($user->email ?? '') . ' ' . ($user->username ?? '')) }}">
-                                <td>
-                                    <div class="user-info-flex">
-                                        <div class="user-avatar-circle avatar-deleted">{{ $initials }}</div>
-                                        <div>
-                                            <div class="user-name-text">
-                                                <span>{{ $name }}</span>
-                                                <span class="user-id-badge">ID: #{{ $user->id }}</span>
-                                            </div>
-                                            <div class="user-subtext">{{ '@' . ($user->username ?? 'user') }}</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div style="font-weight: 600; color: var(--text-primary);">{{ $user->email ?? 'N/A' }}</div>
-                                    <div class="user-subtext">{{ $user->phone ?? 'N/A' }}</div>
-                                </td>
-                                <td>
-                                    <span style="color: var(--text-secondary); font-size: 0.85rem;">
-                                        {{ $user->deleted_by ?? 'Xóa bởi Quản trị viên' }}
-                                    </span>
-                                </td>
-                                <td>
-                                    <div style="font-size: 0.825rem; font-weight: 600; color: var(--text-secondary);">
-                                        <i class="fa-regular fa-calendar-xmark" style="margin-right: 4px;"></i>
-                                        {{ $user->deleted_at ?? 'Gần đây' }}
-                                    </div>
-                                </td>
-                                <td>
-                                    <span class="status-badge status-deleted">
-                                        <i class="fa-solid fa-trash"></i> Đã xóa
-                                    </span>
-                                </td>
-                                <td style="text-align: right;">
-                                    <div class="btn-action-group">
-                                        <!-- Nút Khôi phục -->
-                                        <form action="{{ url('qlnguoi_dung/restore/' . $user->id) }}" method="POST" style="display: inline;" onsubmit="return confirm('Bạn có muốn KHÔI PHỤC lại tài khoản {{ $name }} (ID: #{{ $user->id }}) không?');">
+                                    @elseif($isRestoreAction && !empty($act->target_id))
+                                        <form action="{{ url('qlnguoi_dung/restore/' . $act->target_id) }}" method="POST" style="display: inline;" onsubmit="return confirm('Khôi phục tài khoản này?');">
                                             @csrf
-                                            <button type="submit" class="btn-action btn-restore" title="Khôi phục tài khoản">
+                                            <button type="submit" class="btn-table-action btn-table-unlock">
                                                 <i class="fa-solid fa-rotate-left"></i> Khôi phục
                                             </button>
                                         </form>
-
-                                        <!-- Nút Xóa vĩnh viễn -->
-                                        <form action="{{ url('qlnguoi_dung/force-delete/' . $user->id) }}" method="POST" style="display: inline;" onsubmit="return confirm('CẢNH BÁO: Bạn có chắc chắn muốn XÓA VĨNH VIỄN tài khoản {{ $name }} (ID: #{{ $user->id }}) khỏi hệ thống? Dữ liệu sẽ không thể phục hồi!');">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="btn-action btn-perm-delete" title="Xóa vĩnh viễn">
-                                                <i class="fa-solid fa-ban"></i> Xóa vĩnh viễn
-                                            </button>
-                                        </form>
-                                    </div>
+                                    @else
+                                        <a href="{{ $actionUrl }}" class="btn-table-action" title="Chuyển đến trang quản lý liên quan">
+                                            <i class="{{ $actionBtnIcon }}"></i> <span>{{ $actionBtnText }}</span>
+                                        </a>
+                                    @endif
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6">
-                                    <div class="empty-state">
-                                        <i class="fa-solid fa-trash-can-arrow-up"></i>
-                                        <span class="empty-state-title">Chưa có tài khoản bị xóa</span>
-                                        <p class="empty-state-desc">Hiện tại hệ thống chưa ghi nhận tài khoản nào bị xóa.</p>
+                                <td colspan="5">
+                                    <div class="empty-box">
+                                        <i class="fa-solid fa-clock-rotate-left"></i>
+                                        <div style="font-weight: 700; color: var(--text-primary); font-size: 0.95rem;">Chưa có hoạt động nào được ghi nhận</div>
+                                        <p style="font-size: 0.8rem; margin-top: 4px;">Mọi hoạt động quản trị của Admin sẽ tự động xuất hiện tại đây.</p>
                                     </div>
                                 </td>
                             </tr>
                         @endforelse
+
+                        <tr id="noResultsRow" style="display: none;">
+                            <td colspan="5">
+                                <div class="empty-box">
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                    <div style="font-weight: 700; color: var(--text-primary); font-size: 0.95rem;">Không tìm thấy hoạt động nào phù hợp</div>
+                                    <p style="font-size: 0.8rem; margin-top: 4px;">Thử nhập từ khóa tìm kiếm khác.</p>
+                                </div>
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
         </div>
     </main>
 
-    <!-- Script chuyển Tab và Tìm kiếm lịch sử -->
     <script>
-        function switchTab(type) {
-            const sectionLocked = document.getElementById('section-locked');
-            const sectionDeleted = document.getElementById('section-deleted');
+        function filterSimpleTable() {
+            const query = document.getElementById('simpleSearch').value.toLowerCase().trim();
+            const rows = document.querySelectorAll('#historyTableBody .activity-row');
+            let matched = 0;
 
-            const btnAll = document.getElementById('btn-tab-all');
-            const btnLocked = document.getElementById('btn-tab-locked');
-            const btnDeleted = document.getElementById('btn-tab-deleted');
-
-            // Reset tab active states
-            btnAll.classList.remove('active', 'active-locked', 'active-deleted');
-            btnLocked.classList.remove('active', 'active-locked', 'active-deleted');
-            btnDeleted.classList.remove('active', 'active-locked', 'active-deleted');
-
-            if (type === 'locked') {
-                sectionLocked.classList.remove('hidden');
-                sectionDeleted.classList.add('hidden');
-                btnLocked.classList.add('active', 'active-locked');
-            } else if (type === 'deleted') {
-                sectionLocked.classList.add('hidden');
-                sectionDeleted.classList.remove('hidden');
-                btnDeleted.classList.add('active', 'active-deleted');
-            } else {
-                // Show all
-                sectionLocked.classList.remove('hidden');
-                sectionDeleted.classList.remove('hidden');
-                btnAll.classList.add('active');
-            }
-        }
-
-        function filterHistoryTables() {
-            const query = document.getElementById('history-search').value.toLowerCase().trim();
-            const rows = document.querySelectorAll('.history-row');
-
-            rows.forEach(row => {
-                const searchData = row.getAttribute('data-search') || '';
-                if (searchData.includes(query)) {
-                    row.style.display = '';
+            rows.forEach(r => {
+                const searchData = r.getAttribute('data-search') || '';
+                if (!query || searchData.includes(query)) {
+                    r.style.display = '';
+                    matched++;
                 } else {
-                    row.style.display = 'none';
+                    r.style.display = 'none';
                 }
             });
+
+            const noRes = document.getElementById('noResultsRow');
+            if (noRes) {
+                noRes.style.display = (rows.length > 0 && matched === 0) ? '' : 'none';
+            }
         }
     </script>
 </body>

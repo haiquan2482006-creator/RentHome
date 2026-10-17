@@ -432,13 +432,13 @@
             <div class="menu-title">Quản lý Doanh nghiệp</div>
 
             <!-- 1. Tổng quan hệ thống Admin -->
-            <a href="{{ url('Admin') }}" class="nav-link {{ request()->is('Admin*') || request()->is('admin*') ? 'active' : '' }}" title="Tổng quan hệ thống">
+            <a href="{{ url('Admin') }}" class="nav-link {{ (request()->is('Admin') || request()->is('admin') || request()->is('Admin/overview*') || request()->is('admin/overview*')) ? 'active' : '' }}" title="Tổng quan hệ thống">
                 <i class="fa-solid fa-chart-pie"></i>
                 <span>Tổng quan</span>
             </a>
 
             <!-- 2. Quản lý Bất Động Sản & Tòa Nhà -->
-            <a href="{{ url('qltoa_nha') }}" class="nav-link {{ request()->is('qltoa_nha*') || request()->is('Admin/toa-nha*') || request()->is('quan-ly-toa-nha*') ? 'active' : '' }}" title="Quản lý BĐS & Tòa Nhà">
+            <a href="{{ url('qltoa_nha') }}" class="nav-link {{ request()->is('qltoa_nha*') || request()->is('Admin/toa-nha*') || request()->is('Admin/chi-tiet-toa-nha*') || request()->is('admin/chi-tiet-toa-nha*') || request()->is('quan-ly-toa-nha*') ? 'active' : '' }}" title="Quản lý BĐS & Tòa Nhà">
                 <i class="fa-solid fa-city" style="color: #38bdf8;"></i>
                 <span>Quản lý Tòa nhà</span>
             </a>

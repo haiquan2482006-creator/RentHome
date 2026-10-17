@@ -34,26 +34,44 @@ class Post extends Model
     // Accessor trả về URL ảnh hiển thị duy nhất
     protected $appends = ['display_image', 'all_images'];
 
-   public function getDisplayImageAttribute()
+    public function getDisplayImageAttribute()
     {
         if (!empty($this->images) && is_array($this->images) && count($this->images) > 0) {
-            $firstImage = (string) $this->images[0];
+            $firstImage = trim((string) $this->images[0]);
 
-            // 1. Nhận diện ID MongoDB: 24 ký tự hex -> Trả về URL route ảnh tĩnh siêu tốc, có cache
+            // 1. Nhận diện ID MongoDB: 24 ký tự hex -> Trả về URL route ảnh tĩnh
             if (strlen($firstImage) === 24 && ctype_xdigit($firstImage)) {
-                return url('/image/' . $firstImage);
+                return url('/images/' . $firstImage);
             }
 
-            // 2. Nhận diện URL web hoặc đã là chuỗi Base64
+            // 2. Nhận diện đường dẫn /images/ hoặc /image/
+            if (\Illuminate\Support\Str::startsWith($firstImage, '/images/') || \Illuminate\Support\Str::startsWith($firstImage, 'images/')) {
+                return url('/' . ltrim($firstImage, '/'));
+            }
+            if (\Illuminate\Support\Str::startsWith($firstImage, '/image/') || \Illuminate\Support\Str::startsWith($firstImage, 'image/')) {
+                return url('/' . ltrim($firstImage, '/'));
+            }
+
+            // 3. Nhận diện URL web hoặc đã là chuỗi Base64
             if (\Illuminate\Support\Str::startsWith($firstImage, 'http') || \Illuminate\Support\Str::startsWith($firstImage, 'data:')) {
                 return $firstImage;
             }
 
-            // 3. Nhận diện tên file cũ trong ổ cứng
+            // 4. Nếu đường dẫn đã chứa /storage/ hoặc storage/
+            if (\Illuminate\Support\Str::startsWith($firstImage, '/storage/') || \Illuminate\Support\Str::startsWith($firstImage, 'storage/')) {
+                return asset(ltrim($firstImage, '/'));
+            }
+
+            // 5. Nếu là đường dẫn bắt đầu bằng '/'
+            if (\Illuminate\Support\Str::startsWith($firstImage, '/')) {
+                return asset(ltrim($firstImage, '/'));
+            }
+
+            // 6. Tên file lưu trong storage
             return asset('storage/' . $firstImage);
         }
 
-        // 4. Ảnh mặc định nếu bài đăng hoàn toàn không có mảng images
+        // Ảnh mặc định nếu bài đăng hoàn toàn không có mảng images
         return 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80';
     }
 
@@ -67,13 +85,31 @@ class Post extends Model
         $urls = [];
         if (!empty($this->images) && is_array($this->images)) {
             foreach ($this->images as $item) {
-                $imgStr = (string)$item;
+                $imgStr = trim((string)$item);
+                if (empty($imgStr)) continue;
+
                 if (strlen($imgStr) === 24 && ctype_xdigit($imgStr)) {
-                    $urls[] = url('/image/' . $imgStr);
+                    $urls[] = url('/images/' . $imgStr);
+                    continue;
+                }
+                if (\Illuminate\Support\Str::startsWith($imgStr, '/images/') || \Illuminate\Support\Str::startsWith($imgStr, 'images/')) {
+                    $urls[] = url('/' . ltrim($imgStr, '/'));
+                    continue;
+                }
+                if (\Illuminate\Support\Str::startsWith($imgStr, '/image/') || \Illuminate\Support\Str::startsWith($imgStr, 'image/')) {
+                    $urls[] = url('/' . ltrim($imgStr, '/'));
                     continue;
                 }
                 if (\Illuminate\Support\Str::startsWith($imgStr, 'http') || \Illuminate\Support\Str::startsWith($imgStr, 'data:')) {
                     $urls[] = $imgStr;
+                    continue;
+                }
+                if (\Illuminate\Support\Str::startsWith($imgStr, '/storage/') || \Illuminate\Support\Str::startsWith($imgStr, 'storage/')) {
+                    $urls[] = asset(ltrim($imgStr, '/'));
+                    continue;
+                }
+                if (\Illuminate\Support\Str::startsWith($imgStr, '/')) {
+                    $urls[] = asset(ltrim($imgStr, '/'));
                     continue;
                 }
                 $urls[] = asset('storage/' . $imgStr);

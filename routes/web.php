@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\DashboardController;
 
 Route::get('/', function () {
     return view('Home');
@@ -19,44 +20,8 @@ Route::get('/baidang/{id}', function ($id) {
     return redirect()->to('/chitietbaidang/' . $id);
 })->name('baidang.detail');
 
-Route::get('/image/{id}', function ($id) {
-    if (strlen($id) !== 24 || !ctype_xdigit($id)) {
-        abort(404);
-    }
-
-    $cacheDir = storage_path('app/public/image_cache');
-    $cacheFile = $cacheDir . '/' . $id;
-
-    if (file_exists($cacheFile)) {
-        $mimeFile = $cacheFile . '.mime';
-        $mime = file_exists($mimeFile) ? trim(file_get_contents($mimeFile)) : 'image/jpeg';
-        return response()->file($cacheFile, [
-            'Content-Type' => $mime,
-            'Cache-Control' => 'public, max-age=31536000, immutable',
-        ]);
-    }
-
-    if (class_exists(\App\Models\Image::class)) {
-        $img = \App\Models\Image::find($id);
-        if ($img && !empty($img->base64_data)) {
-            $binary = base64_decode($img->base64_data);
-            $mime = $img->mime_type ?: 'image/jpeg';
-
-            if (!is_dir($cacheDir)) {
-                @mkdir($cacheDir, 0755, true);
-            }
-            @file_put_contents($cacheFile, $binary);
-            @file_put_contents($cacheFile . '.mime', $mime);
-
-            return response($binary, 200, [
-                'Content-Type' => $mime,
-                'Cache-Control' => 'public, max-age=31536000, immutable',
-            ]);
-        }
-    }
-
-    return redirect('https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80');
-})->name('image.serve');
+Route::get('/images/{id}', [\App\Http\Controllers\ImageController::class, 'show'])->name('images.show');
+Route::get('/image/{id}', [\App\Http\Controllers\ImageController::class, 'show'])->name('image.serve');
 
 Route::get('/chi-tiet-phong/{id}', function ($id) {
     return redirect()->to('/chitietbaidang/' . $id);
@@ -145,119 +110,10 @@ Route::post('/doi-mat-khau', function (\Illuminate\Http\Request $request) {
     return back()->with('success', 'Đổi mật khẩu thành công!');
 })->name('user.update_password');
 
-Route::post('/trangcanhanuser', function (\Illuminate\Http\Request $request) {
-    if (!\Illuminate\Support\Facades\Auth::check()) {
-        return redirect()->route('login')->with('error', 'Vui lòng đăng nhập để thực hiện.');
-    }
-    
-    $user = \Illuminate\Support\Facades\Auth::user();
-    
-    if ($user->isEnterprise() || $user->role === 'doanhnghiep') {
-        if ($request->has('representative')) {
-            $rep = $request->input('representative');
-            $user->representative = $rep;
-            $user->account_name = $rep; // Người đại diện là tên của tài khoản doanh nghiệp
-        }
-        if ($request->has('company_name')) {
-            $user->company_name = $request->input('company_name');
-        }
-        if ($request->has('business_license_date')) {
-            $user->business_license_date = $request->input('business_license_date');
-        }
-        if ($request->has('representative_id_card')) {
-            $user->representative_id_card = $request->input('representative_id_card');
-            $user->cccd_number = $request->input('representative_id_card');
-        }
-        if ($request->has('representative_id_date')) {
-            $user->representative_id_date = $request->input('representative_id_date');
-        }
-        if ($request->has('representative_id_place')) {
-            $user->representative_id_place = $request->input('representative_id_place');
-        }
-        if ($request->has('website')) {
-            $user->website = $request->input('website');
-        }
-        if ($request->has('hotline')) {
-            $user->hotline = $request->input('hotline');
-        }
-        if ($request->has('company_description')) {
-            $user->company_description = $request->input('company_description');
-        }
-    } else {
-        if ($request->has('account_name')) {
-            $user->account_name = $request->input('account_name');
-        }
-    }
-    if ($request->has('phone')) {
-        $user->phone = $request->input('phone');
-    }
-    if ($request->has('bank_name')) {
-        $user->bank_name = $request->input('bank_name');
-    }
-    if ($request->has('bank_account')) {
-        $user->bank_account = $request->input('bank_account');
-    }
-    if ($request->has('bank_owner')) {
-        $user->bank_owner = $request->input('bank_owner');
-    }
+Route::post('/trangcanhanuser', [\App\Http\Controllers\UserController::class, 'updateProfile'])->name('user.profile.update');
+Route::post('/api/user/avatar', [\App\Http\Controllers\UserController::class, 'uploadAvatar'])->name('user.avatar.upload');
 
-    if ($request->hasFile('avatar')) {
-        $path = $request->file('avatar')->store('avatars', 'public');
-        $user->avatar = '/storage/' . $path;
-    }
-    if ($request->hasFile('id_front')) {
-        $path = $request->file('id_front')->store('documents', 'public');
-        $user->id_front = '/storage/' . $path;
-    }
-    if ($request->hasFile('id_back')) {
-        $path = $request->file('id_back')->store('documents', 'public');
-        $user->id_back = '/storage/' . $path;
-    }
-    if ($request->hasFile('business_license')) {
-        $path = $request->file('business_license')->store('documents', 'public');
-        $user->business_license = '/storage/' . $path;
-    }
-
-    if ($request->has('tax_code')) {
-        $user->tax_code = $request->input('tax_code');
-    }
-    
-    if ($request->has('address')) {
-        $user->address = $request->input('address');
-        if ($user->isEnterprise() || $user->role === 'doanhnghiep') {
-            $user->company_address = $request->input('address');
-        }
-    }
-    
-    $user->save();
-    
-    return redirect()->back()->with('success', 'Cập nhật hồ sơ thành công!');
-});
-
-Route::get('/Admin', function () {
-    if (!Auth::check()) {
-        return redirect()->guest(route('login'));
-    }
-    $user = Auth::user();
-    if ($user->role !== 'admin') {
-        if ($user->role === 'doanhnghiep' || $user->isEnterprise() || $user->isSubAccount()) {
-            return redirect('/Overview');
-        }
-        return redirect('/')->with('error', 'Bạn không có quyền truy cập trang Quản trị Admin!');
-    }
-
-    $recentUsers = \App\Models\User::where('role', '!=', 'admin')
-        ->orderBy('created_at', 'desc')
-        ->take(10)
-        ->get();
-
-    $totalUsers = \App\Models\User::where('role', '!=', 'admin')->count();
-    $totalPosts = \App\Models\Post::count();
-    $totalViolations = \App\Models\User::where('is_locked', true)->orWhere('status', 'locked')->count();
-    $totalViews = \App\Models\Post::sum('views') ?? 0;
-
-    return view('Admin.Overview', compact('recentUsers', 'totalUsers', 'totalPosts', 'totalViolations', 'totalViews'));
-})->name('admin.overview');
+Route::get('/Admin', [DashboardController::class, 'index'])->name('admin.overview');
 
 Route::get('/admin', function () {
     return redirect('/Admin');
@@ -551,17 +407,31 @@ Route::post('/sua_giao_dien', function (\Illuminate\Http\Request $request) {
     }
     file_put_contents($settingsPath, json_encode($settings, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
+    // Ghi nhận hoạt động cấu hình giao diện
+    \App\Models\AdminActivity::log(
+        'config',
+        'system',
+        'Cập nhật cấu hình giao diện website',
+        'Admin đã cập nhật lại banner trang chủ, logo, màu sắc thương hiệu và thông tin chân trang của RentHome.',
+        'theme_settings'
+    );
+
     return response()->json([
         'status' => 'success',
         'message' => 'Đã lưu cấu hình giao diện thành công! Giao diện ngoài đã được cập nhật.'
     ]);
 });
 
-// Quản lý Lịch sử tài khoản (Admin)
+// Quản lý Lịch sử hoạt động của Admin
 Route::get('/lich_su', function () {
     if (!Auth::check() || Auth::user()->role !== 'admin') {
         return redirect('/login')->with('error', 'Chỉ tài khoản Quản trị viên mới có quyền truy cập trang Lịch sử.');
     }
+
+    // 1. Toàn bộ hoạt động của Admin (Tài khoản, Tòa nhà, Bài đăng, Hợp đồng, Cấu hình...)
+    $activities = \App\Models\AdminActivity::getCompiledActivities();
+
+    // 2. Danh sách tài khoản bị khóa
     $lockedUsers = \App\Models\User::where(function ($q) {
             $q->where('is_locked', true)
               ->orWhere('status', 'locked')
@@ -570,6 +440,7 @@ Route::get('/lich_su', function () {
         ->orderBy('updated_at', 'desc')
         ->get();
 
+    // 3. Danh sách tài khoản đã xóa
     $deletedUsers = \App\Models\User::where(function ($q) {
             $q->where('is_deleted', true)
               ->orWhere('status', 'deleted')
@@ -578,7 +449,7 @@ Route::get('/lich_su', function () {
         ->orderBy('updated_at', 'desc')
         ->get();
 
-    return view('Admin.lich_su', compact('lockedUsers', 'deletedUsers'));
+    return view('Admin.lich_su', compact('activities', 'lockedUsers', 'deletedUsers'));
 })->name('admin.history');
 
 Route::get('/Admin/lich-su', function () {
@@ -590,7 +461,8 @@ Route::get('/thong_bao', function () {
     if (!Auth::check() || Auth::user()->role !== 'admin') {
         return redirect('/login')->with('error', 'Chỉ tài khoản Quản trị viên mới có quyền truy cập trang Thông báo.');
     }
-    return view('Admin.thong_bao');
+    $notifications = \App\Models\Notification::orderBy('created_at', 'desc')->get();
+    return view('Admin.thong_bao', compact('notifications'));
 })->name('admin.notifications');
 
 Route::get('/Admin/thong-bao', function () {
@@ -601,8 +473,64 @@ Route::post('/Admin/thong-bao/send', function (\Illuminate\Http\Request $request
     if (!Auth::check() || Auth::user()->role !== 'admin') {
         return redirect('/login');
     }
+    $title = $request->input('title', 'Thông báo chung từ Ban Quản Trị');
+    $content = $request->input('content', 'Nội dung thông báo hệ thống');
+
+    // Lưu thông báo thực tế vào hệ thống
+    \App\Models\Notification::create([
+        'title'      => $title,
+        'message'    => $content,
+        'type'       => 'info',
+        'category'   => 'system',
+        'is_read'    => false,
+        'created_at' => now(),
+    ]);
+
+    // Ghi log hoạt động phát thông báo
+    \App\Models\AdminActivity::log(
+        'notify',
+        'system',
+        'Phát thông báo hệ thống toàn sàn',
+        "Đã phát thông báo: \"{$title}\" tới toàn bộ người dùng và doanh nghiệp.",
+        null,
+        ['title' => $title, 'content' => $content]
+    );
+
     return redirect()->back()->with('success', 'Đã phát thông báo thành công đến các tài khoản!');
 });
+
+Route::delete('/api/admin/notifications/{id}', function ($id) {
+    if (!Auth::check() || Auth::user()->role !== 'admin') {
+        return response()->json(['error' => 'Unauthorized'], 403);
+    }
+    $notif = \App\Models\Notification::where('_id', $id)->orWhere('id', $id)->first();
+    if ($notif) {
+        $notif->delete();
+        return response()->json(['success' => true]);
+    }
+    return response()->json(['success' => false, 'message' => 'Không tìm thấy thông báo'], 404);
+})->middleware('auth');
+
+Route::post('/api/admin/notifications/{id}/read', function ($id) {
+    if (!Auth::check() || Auth::user()->role !== 'admin') {
+        return response()->json(['error' => 'Unauthorized'], 403);
+    }
+    $notif = \App\Models\Notification::where('_id', $id)->orWhere('id', $id)->first();
+    if ($notif) {
+        $notif->is_read = true;
+        $notif->save();
+        return response()->json(['success' => true]);
+    }
+    return response()->json(['success' => false, 'message' => 'Không tìm thấy thông báo'], 404);
+})->middleware('auth');
+
+Route::post('/api/admin/notifications/mark-all-read', function () {
+    if (!Auth::check() || Auth::user()->role !== 'admin') {
+        return response()->json(['error' => 'Unauthorized'], 403);
+    }
+    \App\Models\Notification::where('is_read', false)->update(['is_read' => true]);
+    return response()->json(['success' => true]);
+})->middleware('auth');
 
 Route::post('/qlnguoi_dung/unlock/{id}', function ($id) {
     if (!Auth::check() || Auth::user()->role !== 'admin') {
@@ -615,6 +543,17 @@ Route::post('/qlnguoi_dung/unlock/{id}', function ($id) {
         $user->locked_at = null;
         $user->lock_reason = null;
         $user->save();
+
+        // Ghi log hoạt động mở khóa
+        $name = $user->account_name ?? $user->username ?? $user->email;
+        \App\Models\AdminActivity::log(
+            'unlock',
+            'account',
+            'Mở khóa tài khoản người dùng',
+            "Admin đã mở khóa khôi phục quyền truy cập cho tài khoản: {$name} ({$user->email})",
+            $user
+        );
+
         return redirect()->back()->with('success', "Đã mở khóa thành công cho tài khoản!");
     }
     return redirect()->back()->with('error', "Không tìm thấy tài khoản!");
@@ -631,6 +570,17 @@ Route::post('/qlnguoi_dung/restore/{id}', function ($id) {
         $user->deleted_at = null;
         $user->deleted_by = null;
         $user->save();
+
+        // Ghi log hoạt động khôi phục tài khoản
+        $name = $user->account_name ?? $user->username ?? $user->email;
+        \App\Models\AdminActivity::log(
+            'restore',
+            'account',
+            'Khôi phục tài khoản đã xóa',
+            "Admin đã khôi phục lại tài khoản: {$name} ({$user->email}) trở lại trạng thái hoạt động",
+            $user
+        );
+
         return redirect()->back()->with('success', "Đã khôi phục thành công tài khoản!");
     }
     return redirect()->back()->with('error', "Không tìm thấy tài khoản!");
@@ -642,6 +592,18 @@ Route::delete('/qlnguoi_dung/force-delete/{id}', function ($id) {
     }
     $user = \App\Models\User::where('_id', $id)->orWhere('id', $id)->first();
     if ($user) {
+        $name = $user->account_name ?? $user->username ?? $user->email;
+        $email = $user->email;
+
+        // Ghi log hoạt động xóa vĩnh viễn trước khi xóa
+        \App\Models\AdminActivity::log(
+            'force_delete',
+            'account',
+            'Xóa vĩnh viễn tài khoản khỏi hệ thống',
+            "CẢNH BÁO: Admin đã xóa vĩnh viễn tài khoản: {$name} ({$email}) khỏi cơ sở dữ liệu",
+            $user
+        );
+
         $user->delete();
         return redirect()->back()->with('success', "Đã xóa vĩnh viễn tài khoản khỏi hệ thống!");
     }
@@ -675,8 +637,89 @@ Route::get('/Overview', function (\Illuminate\Http\Request $request) {
     if (Auth::user()->role === 'admin' && !$request->has('tab')) {
         return redirect('/Admin');
     }
+    // Nếu là tài khoản Kiểm duyệt viên và không yêu cầu tab cụ thể, chuyển đến trang Tổng quan Kiểm duyệt (/kiem-duyet/tong-quan)
+    if ((Auth::user()->isModerator() || Auth::user()->role === 'kiemduyet' || Auth::user()->role === 'moderator') && !$request->has('tab')) {
+        return redirect('/kiem-duyet/tong-quan');
+    }
     return view('qlbai_dang.Overview');
 })->name('overview');
+
+// ========================================================
+// Routes Kênh Kiểm Duyệt Viên (Moderator)
+// ========================================================
+Route::middleware(['auth'])->group(function () {
+    Route::get('/kiem-duyet', function () {
+        return redirect('/kiem-duyet/tong-quan');
+    })->name('moderator.home');
+
+    Route::get('/kiem-duyet/tong-quan', function () {
+        $user = Auth::user();
+        if (!$user->isModerator() && $user->role !== 'admin') {
+            return redirect('/')->with('error', 'Chỉ tài khoản Kiểm duyệt viên mới có quyền truy cập trang này.');
+        }
+
+        // Thống kê bài đăng thực tế từ DB
+        $pendingCount = \App\Models\Post::where('status', 'pending')->count();
+        $approvedCount = \App\Models\Post::where(function($q) {
+            $q->where('status', 'active')->orWhere('status', 'approved');
+        })->count();
+        $rejectedCount = \App\Models\Post::where(function($q) {
+            $q->where('status', 'rejected')->orWhere('status', 'tuchoi');
+        })->count();
+        $complaintCount = 0;
+
+        $stats = [
+            'pending_posts'      => $pendingCount,
+            'approved_posts'     => $approvedCount,
+            'rejected_posts'     => $rejectedCount,
+            'pending_complaints' => $complaintCount,
+        ];
+
+        $pendingPosts = \App\Models\Post::where('status', 'pending')->with('user', 'building')->orderBy('created_at', 'desc')->take(10)->get();
+
+        return view('kiem_duyet_vien.tong_quan', compact('stats', 'pendingPosts', 'pendingCount'));
+    })->name('moderator.dashboard');
+
+    Route::get('/kiem-duyet/qlbai-dang', function () {
+        $user = Auth::user();
+        if (!$user->isModerator() && $user->role !== 'admin') {
+            return redirect('/')->with('error', 'Chỉ tài khoản Kiểm duyệt viên mới có quyền truy cập.');
+        }
+        return view('kiem_duyet_vien.qlbai_dang');
+    })->name('moderator.posts');
+
+    Route::get('/kiem-duyet/qlkhieu-nai-cap1', function () {
+        $user = Auth::user();
+        if (!$user->isModerator() && $user->role !== 'admin') {
+            return redirect('/')->with('error', 'Chỉ tài khoản Kiểm duyệt viên mới có quyền truy cập.');
+        }
+        return view('kiem_duyet_vien.qlkhieu_nai_cap1');
+    })->name('moderator.complaints');
+
+    Route::get('/kiem-duyet/qltin-tuc', function () {
+        $user = Auth::user();
+        if (!$user->isModerator() && $user->role !== 'admin') {
+            return redirect('/')->with('error', 'Chỉ tài khoản Kiểm duyệt viên mới có quyền truy cập.');
+        }
+        return view('kiem_duyet_vien.qltin_tuc');
+    })->name('moderator.news');
+
+    Route::get('/kiem-duyet/lich-su', function () {
+        $user = Auth::user();
+        if (!$user->isModerator() && $user->role !== 'admin') {
+            return redirect('/')->with('error', 'Chỉ tài khoản Kiểm duyệt viên mới có quyền truy cập.');
+        }
+        return view('kiem_duyet_vien.lich_su');
+    })->name('moderator.history');
+
+    Route::get('/kiem-duyet/thong-bao', function () {
+        $user = Auth::user();
+        if (!$user->isModerator() && $user->role !== 'admin') {
+            return redirect('/')->with('error', 'Chỉ tài khoản Kiểm duyệt viên mới có quyền truy cập.');
+        }
+        return view('kiem_duyet_vien.thong_bao');
+    })->name('moderator.notifications');
+});
 
 Route::get('/dangbai', function(){
     if (!Auth::check()) {
@@ -724,7 +767,14 @@ Route::get('/api/buildings/{id}', [\App\Http\Controllers\BuildingController::cla
 Route::put('/api/buildings/{id}', [\App\Http\Controllers\BuildingController::class, 'update'])->name('api.buildings.update');
 Route::post('/api/buildings/{id}', [\App\Http\Controllers\BuildingController::class, 'update']);
 Route::delete('/api/buildings/{id}', [\App\Http\Controllers\BuildingController::class, 'destroy'])->name('api.buildings.destroy');
-Route::get('/quan-ly-toa-nha/{id}', [\App\Http\Controllers\BuildingController::class, 'show']);
+Route::get('/api/buildings/{id}/rooms-detail', [\App\Http\Controllers\BuildingController::class, 'getRoomsDetail'])->name('api.buildings.rooms_detail');
+
+// Chi tiết Vận hành Tòa nhà dành cho ADMIN (File: Admin/chi_tiet_toa_nha_admin.blade.php)
+Route::get('/Admin/chi-tiet-toa-nha/{id}', [\App\Http\Controllers\BuildingController::class, 'adminDetail'])->name('admin.buildings.operational_detail');
+Route::get('/admin/chi-tiet-toa-nha/{id}', [\App\Http\Controllers\BuildingController::class, 'adminDetail']);
+
+// Quản lý Danh sách Bài đăng & Phòng dành cho ĐỐI TÁC / NHÂN VIÊN (File: qlbai_dang/BuildingDetail.blade.php)
+Route::get('/quan-ly-toa-nha/{id}', [\App\Http\Controllers\BuildingController::class, 'show'])->name('partner.buildings.room_management');
 
 // APIs for Sub-Accounts (Quản lý tài khoản con của Doanh nghiệp RentHome)
 Route::get('/api/sub-accounts', [\App\Http\Controllers\SubAccountController::class, 'index'])->middleware('auth')->name('sub_accounts.index');

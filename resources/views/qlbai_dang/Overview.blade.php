@@ -257,6 +257,15 @@
                         <span> Tin đang hiển thị</span>
                     </button>
 
+                    <button onclick="switchTab('pending-posts')" id="tab-pending-posts"
+                        class="tab-btn flex items-center justify-between px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
+                        <div class="flex items-center gap-3">
+                            <i class="fa-solid fa-hourglass-half text-amber-500 w-5 text-center text-sm"></i>
+                            <span> Chờ phê duyệt</span>
+                        </div>
+                        <span id="sidebar-pending-count" class="hidden px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold shadow-xs">0</span>
+                    </button>
+
                     <button onclick="switchTab('history-posts')" id="tab-history-posts"
                         class="tab-btn flex items-center gap-3 px-3.5 py-3 rounded-xl font-semibold text-xs w-full text-left transition-all text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent">
                         <i class="fa-solid fa-clock-rotate-left text-sky-500 w-5 text-center text-sm"></i>
@@ -496,7 +505,39 @@
                 </div>
             </section>
 
+            <!-- ==================== TAB C: BÀI ĐĂNG CHỜ PHÊ DUYỆT ==================== -->
+            <section id="content-pending-posts" class="tab-content hidden space-y-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 id="pending-count-heading" class="font-bold text-base text-slate-900">Danh sách bài đăng đang chờ ban quản trị duyệt</h3>
+                        <p class="text-xs text-slate-500 mt-0.5">Các tin đăng đang trong quá trình xét duyệt nội dung trước khi hiển thị công khai</p>
+                    </div>
+                </div>
 
+                <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider">
+                                    <th class="p-4">Mã Tin</th>
+                                    <th class="p-4">Tên Bài Đăng</th>
+                                    <th class="p-4">Giá Thuê</th>
+                                    <th class="p-4">Trạng Thái</th>
+                                    <th class="p-4 text-right">Thao Tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pending-posts-tbody" class="divide-y divide-slate-100 text-slate-700">
+                                <tr>
+                                    <td colspan="5" class="p-8 text-center text-slate-400 font-medium">
+                                        <i class="fa-solid fa-spinner fa-spin text-2xl mb-2 block text-brand-500"></i>
+                                        Đang tải danh sách bài đăng chờ duyệt...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
 
             <!-- ==================== TAB D: LỊCH SỬ ĐĂNG TIN ==================== -->
             <section id="content-history-posts" class="tab-content hidden space-y-4">
@@ -1684,10 +1725,25 @@
         }
 
         // Hủy bài đăng chờ duyệt
-        function cancelPendingPost(postId) {
-            if (!confirm(`Bạn có chắc chắn muốn hủy đăng bài ${postId} không?`)) return;
-            // Call API: await fetch(`/api/posts/pending/${postId}`, { method: "DELETE" })
-            alert("Đã gửi yêu cầu hủy bài đăng (Chờ kết nối API).");
+        async function cancelPendingPost(postId) {
+            if (!confirm(`Bạn có chắc chắn muốn hủy đăng bài này không?`)) return;
+            try {
+                const res = await fetch(`/api/posts/${postId}/cancel`, {
+                    method: "POST",
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                        'Accept': 'application/json'
+                    }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(data.message || 'Đã hủy bài đăng thành công!');
+                } else {
+                    alert(data.message || 'Không thể hủy bài đăng!');
+                }
+            } catch (err) {
+                console.error("Lỗi hủy bài:", err);
+            }
             fetchPendingPosts();
             fetchHistoryPosts();
         }
@@ -2198,7 +2254,13 @@
                 if (data && data.buildings && data.buildings.length > 0) {
                     container.innerHTML = '';
                     data.buildings.forEach(building => {
-                        const imgUrl = building.display_image || 'https://placehold.co/600x400?text=Building';
+                        let imgUrl = building.display_image || building.image || '';
+                        if (!imgUrl) {
+                            imgUrl = 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80';
+                        } else {
+                            imgUrl = String(imgUrl).trim();
+                            imgUrl = imgUrl.replace(/\/storage\/\/storage\//g, '/storage/').replace(/\/storage\/storage\//g, '/storage/');
+                        }
                         const addrParts = [];
                         if (building.address_detail) addrParts.push(building.address_detail);
                         if (building.ward) addrParts.push(building.ward);
@@ -2211,7 +2273,7 @@
                         
                         const card = `
                             <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col">
-                                <img src="${imgUrl}" alt="${safeName}" class="w-full h-40 object-cover">
+                                <img src="${imgUrl}" alt="${safeName}" class="w-full h-40 object-cover" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80';">
                                 <div class="p-5 flex-1 flex flex-col">
                                     <h4 class="font-bold text-slate-900 text-sm mb-1 line-clamp-1">${building.name}</h4>
                                     <p class="text-[11px] text-slate-500 flex items-start gap-1.5 mb-3 line-clamp-2">
@@ -2220,7 +2282,7 @@
                                     </p>
                                     <div class="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between">
                                         <span class="text-xs font-bold text-purple-600"><i class="fa-solid fa-door-open mr-1"></i>${building.total_rooms || 0} phòng</span>
-                                        <a href="/quan-ly-toa-nha/${building.id || building._id}" class="px-3 py-1.5 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 font-semibold text-[11px] transition-colors inline-block text-center">
+                                        <a href="/quan-ly-toa-nha/${building.id || building._id}?ref=buildings" class="px-3 py-1.5 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 font-semibold text-[11px] transition-colors inline-block text-center">
                                             Quản lý phòng
                                         </a>
                                     </div>
@@ -2283,7 +2345,7 @@ function fetchActivePosts() {
                 window.allPosts = window.allPosts || {};
                 html = data.posts.map(post => {
                 window.allPosts[post.id || post._id] = post;
-                const imgUrl = post.display_image || 'https://via.placeholder.com/150';
+                const imgUrl = (post.display_image || '').replace(/\/storage\/\/storage\//g, '/storage/').replace(/\/storage\/storage\//g, '/storage/') || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=300&q=80';
                 const price = new Intl.NumberFormat('vi-VN').format(post.price) + ' đ';
                 const isRented = Boolean(post.is_rented === true || post.status === 'đã cho thuê' || post.status === 'rented' || post.status === 'dang_thue');
                 return `
@@ -2291,7 +2353,7 @@ function fetchActivePosts() {
                         <td class="p-4 font-bold text-slate-900">${post.id || post._id}</td>
                         <td class="p-4">
                             <div class="flex items-center gap-3">
-                                <img src="${imgUrl}" class="w-10 h-10 rounded-lg object-cover border border-slate-200 shadow-xs ${isRented ? 'grayscale-[25%]' : ''}">
+                                <img src="${imgUrl}" class="w-10 h-10 rounded-lg object-cover border border-slate-200 shadow-xs ${isRented ? 'grayscale-[25%]' : ''}" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=300&q=80';">
                                 <div>
                                     <p class="font-bold text-slate-900 flex items-center gap-2">
                                         ${post.title}
@@ -2371,14 +2433,14 @@ function fetchPendingPosts() {
 
             tbody.innerHTML = data.posts.map(post => {
                 window.allPosts[post.id || post._id] = post;
-                const imgUrl = post.display_image || 'https://via.placeholder.com/150';
+                const imgUrl = (post.display_image || '').replace(/\/storage\/\/storage\//g, '/storage/').replace(/\/storage\/storage\//g, '/storage/') || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=300&q=80';
                 const price = new Intl.NumberFormat('vi-VN').format(post.price) + ' đ';
                 return `
                     <tr class="hover:bg-slate-50 transition-colors">
                         <td class="p-4 font-bold text-slate-900">${post.id || post._id}</td>
                         <td class="p-4">
                             <div class="flex items-center gap-3">
-                                <img src="${imgUrl}" class="w-10 h-10 rounded-lg object-cover border border-slate-200 shadow-xs">
+                                <img src="${imgUrl}" class="w-10 h-10 rounded-lg object-cover border border-slate-200 shadow-xs" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=300&q=80';">
                                 <div>
                                     <p class="font-bold text-slate-900">${post.title}</p>
                                     <p class="text-[10px] text-slate-400">${post.location || post.address || 'Đang cập nhật'}</p>
@@ -2424,7 +2486,7 @@ function fetchHistoryPosts() {
             }
 
             tbody.innerHTML = allHistory.map(post => {
-                const imgUrl = post.display_image || 'https://via.placeholder.com/150';
+                const imgUrl = (post.display_image || '').replace(/\/storage\/\/storage\//g, '/storage/').replace(/\/storage\/storage\//g, '/storage/') || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=300&q=80';
                 const price = new Intl.NumberFormat('vi-VN').format(post.price) + ' đ';
                 const isApproved = (post.status === 'active' || post.status === 'approved');
                 
@@ -2449,7 +2511,7 @@ function fetchHistoryPosts() {
                         <td class="p-4 font-bold text-slate-900">${post.id || post._id}</td>
                         <td class="p-4">
                             <div class="flex items-center gap-3">
-                                <img src="${imgUrl}" class="w-10 h-10 rounded-lg object-cover border border-slate-200 shadow-xs">
+                                <img src="${imgUrl}" class="w-10 h-10 rounded-lg object-cover border border-slate-200 shadow-xs" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=300&q=80';">
                                 <div>
                                     <p class="font-bold text-slate-900">${post.title}</p>
                                     <p class="text-[10px] text-slate-400">${post.location || post.address || ''}</p>

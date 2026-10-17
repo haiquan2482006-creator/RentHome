@@ -10,6 +10,11 @@ use App\Models\User;
 use App\Models\Post;
 use App\Models\Contract;
 use App\Models\Notification;
+use App\Models\Invoice;
+use App\Models\Contact;
+use App\Models\Favorite;
+use App\Models\AdminActivity;
+use App\Models\Image;
 
 class BuildingController extends Controller
 {
@@ -27,6 +32,11 @@ class BuildingController extends Controller
      */
     public function adminView()
     {
+        $user = Auth::user();
+        if ($user && ($user->isSubAccount() || $user->role === 'sub_account' || $user->role === 'staff' || !empty($user->parent_id))) {
+            return redirect('/Overview?tab=buildings');
+        }
+
         if (!$this->checkPermission()) {
             return redirect('/login')->withErrors(['login_error' => 'Chỉ tài khoản Ban Quản Trị / Doanh nghiệp mới có quyền truy cập trang Quản lý BĐS & Tòa Nhà.']);
         }
@@ -35,17 +45,24 @@ class BuildingController extends Controller
             // Lấy danh sách tất cả các tòa nhà từ MongoDB
             $buildings = Building::orderBy('created_at', 'desc')->get();
 
-            // Lấy danh sách nhân viên nội bộ (role = staff hoặc sub_account)
+            // Lấy danh sách nhân viên nội bộ phụ trách kinh doanh/vận hành (Loại bỏ admin và kiểm duyệt viên)
             $staffList = User::where(function($q) {
                     $q->where('role', 'staff')
                       ->orWhere('role', 'sub_account')
+                      ->orWhere('role', 'doanhnghiep')
+                      ->orWhere('role', 'enterprise')
                       ->orWhereNotNull('parent_id');
                 })
+                ->whereNotIn('role', ['admin', 'kiemduyet', 'moderator', 'kiem_duyet'])
                 ->where(function($q) {
                     $q->whereNull('is_deleted')->orWhere('is_deleted', false);
                 })
                 ->orderBy('account_name', 'asc')
-                ->get();
+                ->get()
+                ->filter(function($u) {
+                    return !method_exists($u, 'isModerator') || !$u->isModerator();
+                })
+                ->values();
 
             // Chuẩn hóa dữ liệu cho từng tòa nhà (gán thông tin nhân viên phụ trách & số phòng thực tế)
             $buildings->transform(function ($b) use ($staffList) {
@@ -321,28 +338,17 @@ class BuildingController extends Controller
                 'parent_id' => $user->parent_id ?: (string)($user->_id ?? $user->id),
             ];
 
-            // Xử lý lưu nhiều File ảnh lên MongoDB (tối đa 5 ảnh vào collection images)
+            // Xử lý tạm thời danh sách file ảnh để lưu vào collection images sau khi tạo Tòa nhà
+            $uploadedFiles = [];
             $savedImageIds = [];
             if ($request->hasFile('images')) {
                 $files = $request->file('images');
                 if (!is_array($files)) {
                     $files = [$files];
                 }
-                // Giới hạn tối đa 5 ảnh
-                $files = array_slice($files, 0, 5);
-                foreach ($files as $file) {
-                    if ($file && $file->isValid()) {
-                        $path = $file->store('buildings', 'public');
-                        $savedImageIds[] = '/storage/' . $path;
-                    }
-                }
+                $uploadedFiles = array_slice($files, 0, 5);
             } elseif ($request->hasFile('image')) {
-                // Fallback nếu gửi 1 ảnh qua trường 'image'
-                $file = $request->file('image');
-                if ($file && $file->isValid()) {
-                    $path = $file->store('buildings', 'public');
-                    $savedImageIds[] = '/storage/' . $path;
-                }
+                $uploadedFiles = [$request->file('image')];
             } elseif ($request->filled('image_url')) {
                 $savedImageIds[] = $request->input('image_url');
             }
@@ -357,14 +363,49 @@ class BuildingController extends Controller
             } elseif (!empty($data['manager_id'])) {
                 $managerIds = [$data['manager_id']];
             }
+
+            // Nghiêm cấm gán kiểm duyệt viên làm quản lý tòa nhà
+            if (!empty($managerIds)) {
+                $validManagerIds = [];
+                foreach ($managerIds as $mId) {
+                    $u = User::find($mId);
+                    if ($u && !((method_exists($u, 'isModerator') && $u->isModerator()) || in_array($u->role, ['kiemduyet', 'moderator', 'kiem_duyet']))) {
+                        $validManagerIds[] = (string)$mId;
+                    }
+                }
+                $managerIds = array_values(array_unique($validManagerIds));
+            }
+
             $data['manager_ids'] = $managerIds;
             $data['user_ids'] = $managerIds;
-            if (empty($data['manager_id']) && count($managerIds) > 0) {
-                $data['manager_id'] = $managerIds[0];
-            }
+            $data['manager_id'] = count($managerIds) > 0 ? $managerIds[0] : null;
 
             $building = Building::create($data);
             $bId = (string)($building->_id ?? $building->id);
+
+            // Lưu các file ảnh trực tiếp vào collection images trong MongoDB
+            if (!empty($uploadedFiles)) {
+                foreach ($uploadedFiles as $idx => $file) {
+                    if ($file && $file->isValid()) {
+                        $imgDoc = Image::create([
+                            'target_type' => 'building',
+                            'target_id'   => $bId,
+                            'filename'    => $file->getClientOriginalName(),
+                            'mime_type'   => $file->getClientMimeType() ?: 'image/jpeg',
+                            'size'        => $file->getSize(),
+                            'data'        => base64_encode(file_get_contents($file->getRealPath())),
+                            'is_cover'    => (count($savedImageIds) === 0),
+                            'uploaded_by' => Auth::id() ? (string)Auth::id() : null,
+                        ]);
+                        $savedImageIds[] = (string)$imgDoc->_id;
+                    }
+                }
+                $building->images = $savedImageIds;
+                $coverId = !empty($savedImageIds) ? $savedImageIds[0] : null;
+                $building->image = $coverId ? (str_starts_with($coverId, 'http') ? $coverId : '/images/' . $coverId) : null;
+                $building->display_image = $building->image;
+                $building->save();
+            }
 
             // Gán quan hệ Nhiều - Nhiều (Many-to-Many) giữa Building và User
             if (!empty($managerIds)) {
@@ -377,7 +418,8 @@ class BuildingController extends Controller
                 // Cập nhật assigned_buildings & building_ids cho các nhân viên
                 User::whereIn('_id', $managerIds)->get()->each(function ($staff) use ($bId) {
                     $assigned = (array)($staff->assigned_buildings ?? []);
-                    if (!in_array('all', $assigned, true) && !in_array($bId, $assigned, true)) {
+                    $assigned = array_values(array_diff($assigned, ['all', '*']));
+                    if (!in_array($bId, $assigned, true)) {
                         $assigned[] = $bId;
                         $staff->assigned_buildings = array_values(array_unique($assigned));
                     }
@@ -551,6 +593,12 @@ class BuildingController extends Controller
 
             $oldManagerId = $building->manager_id;
             $newManagerId = !empty($validated['manager_id']) ? (string)$validated['manager_id'] : null;
+            if ($newManagerId) {
+                $u = User::find($newManagerId);
+                if ($u && ((method_exists($u, 'isModerator') && $u->isModerator()) || in_array($u->role, ['kiemduyet', 'moderator', 'kiem_duyet']))) {
+                    $newManagerId = null;
+                }
+            }
 
             // 1. Lưu lại toàn bộ dữ liệu ban đầu để so sánh và tạo danh sách các mục đã thay đổi
             $oldData = [
@@ -604,6 +652,8 @@ class BuildingController extends Controller
             }
 
             $building->manager_id = $newManagerId;
+            $building->manager_ids = $newManagerId ? [$newManagerId] : [];
+            $building->user_ids = $newManagerId ? [$newManagerId] : [];
 
             // Xử lý ảnh khi cập nhật: giữ lại existing_images và thêm images mới tải lên (tổng tối đa 5)
             $finalImageIds = [];
@@ -617,7 +667,9 @@ class BuildingController extends Controller
                 $finalImageIds = (array)($building->images ?: ($building->image ? [$building->image] : []));
             }
 
-            // Upload các file ảnh mới thêm vào
+            $bId = (string)($building->_id ?? $building->id);
+
+            // Upload các file ảnh mới thêm vào lưu trực tiếp vào collection images trong MongoDB
             $newFiles = [];
             if ($request->hasFile('images')) {
                 $f = $request->file('images');
@@ -631,26 +683,75 @@ class BuildingController extends Controller
 
             foreach ($newFiles as $file) {
                 if ($file && $file->isValid()) {
-                    $path = $file->store('buildings', 'public');
-                    $finalImageIds[] = '/storage/' . $path;
+                    $imgDoc = Image::create([
+                        'target_type' => 'building',
+                        'target_id'   => $bId,
+                        'filename'    => $file->getClientOriginalName(),
+                        'mime_type'   => $file->getClientMimeType() ?: 'image/jpeg',
+                        'size'        => $file->getSize(),
+                        'data'        => base64_encode(file_get_contents($file->getRealPath())),
+                        'is_cover'    => (count($finalImageIds) === 0),
+                        'uploaded_by' => Auth::id() ? (string)Auth::id() : null,
+                    ]);
+                    $finalImageIds[] = (string)$imgDoc->_id;
                 }
             }
 
+            // Dọn dẹp ảnh cũ trong images collection nếu bị gỡ khỏi gallery
+            $currentHexIds = [];
+            foreach ($finalImageIds as $item) {
+                $clean = str_replace(['/images/', '/image/', 'images/', 'image/'], '', (string)$item);
+                if (strlen($clean) === 24 && ctype_xdigit($clean)) {
+                    $currentHexIds[] = $clean;
+                }
+            }
+            if (!empty($currentHexIds)) {
+                Image::where('target_type', 'building')
+                    ->where('target_id', $bId)
+                    ->whereNotIn('_id', $currentHexIds)
+                    ->delete();
+            }
+
             $building->images = array_values(array_slice($finalImageIds, 0, 5));
-            $building->image = !empty($building->images) ? $building->images[0] : null;
+            $coverId = !empty($building->images) ? $building->images[0] : null;
+            if ($coverId) {
+                $building->image = str_starts_with($coverId, 'http') ? $coverId : (str_starts_with($coverId, '/images/') ? $coverId : (str_starts_with($coverId, '/storage/') ? $coverId : '/images/' . $coverId));
+            } else {
+                $building->image = null;
+            }
+            $building->display_image = $building->image;
 
             $building->save();
-            $bId = (string)($building->_id ?? $building->id);
 
             // Đồng bộ phân công nhân viên nếu có thay đổi
-            if ($newManagerId !== $oldManagerId && $newManagerId) {
-                $newStaff = User::find($newManagerId);
-                if ($newStaff) {
-                    $assigned = (array)($newStaff->assigned_buildings ?? []);
-                    if (!in_array('all', $assigned, true) && !in_array($bId, $assigned, true)) {
-                        $assigned[] = $bId;
+            if ($newManagerId !== $oldManagerId) {
+                if ($newManagerId) {
+                    $newStaff = User::find($newManagerId);
+                    if ($newStaff && !((method_exists($newStaff, 'isModerator') && $newStaff->isModerator()) || in_array($newStaff->role, ['kiemduyet', 'moderator', 'kiem_duyet']))) {
+                        $assigned = (array)($newStaff->assigned_buildings ?? []);
+                        $assigned = array_values(array_diff($assigned, ['all', '*']));
+                        if (!in_array($bId, $assigned, true)) {
+                            $assigned[] = $bId;
+                        }
                         $newStaff->assigned_buildings = array_values(array_unique($assigned));
+
+                        $bIds = (array)($newStaff->building_ids ?? []);
+                        if (!in_array($bId, $bIds, true)) {
+                            $bIds[] = $bId;
+                        }
+                        $newStaff->building_ids = array_values(array_unique($bIds));
                         $newStaff->save();
+                    }
+                }
+                if ($oldManagerId) {
+                    $oldStaff = User::find($oldManagerId);
+                    if ($oldStaff) {
+                        $assigned = array_diff((array)($oldStaff->assigned_buildings ?? []), [$bId]);
+                        $oldStaff->assigned_buildings = array_values($assigned);
+
+                        $bIds = array_diff((array)($oldStaff->building_ids ?? []), [$bId]);
+                        $oldStaff->building_ids = array_values($bIds);
+                        $oldStaff->save();
                     }
                 }
             }
@@ -848,19 +949,86 @@ class BuildingController extends Controller
             $bName = $building->name;
             $bId = (string)($building->_id ?? $building->id);
 
-            // Xóa tòa nhà
-            $building->delete();
+            // 1. Tìm toàn bộ các Phòng / Bài đăng (Lớp Ruột) thuộc tòa nhà này
+            // Hỗ trợ cả building_id dạng String và ObjectId trong MongoDB
+            $childPosts = Post::where('building_id', $bId);
+            try {
+                if (strlen($bId) === 24 && ctype_xdigit($bId)) {
+                    $childPosts = $childPosts->orWhere('building_id', new \MongoDB\BSON\ObjectId($bId));
+                }
+            } catch (\Exception $ex) {}
+            $postsList = $childPosts->get();
 
-            // Gỡ bỏ ID tòa nhà này khỏi assigned_buildings của các nhân viên
+            $postIds = [];
+            foreach ($postsList as $p) {
+                $postIds[] = (string)($p->_id ?? $p->id);
+            }
+            $postIds = array_values(array_filter(array_unique($postIds)));
+            $deletedRoomsCount = count($postIds);
+
+            // 2. Cascade Delete: Xóa toàn bộ dữ liệu phụ thuộc (hợp đồng, hóa đơn, liên hệ, yêu thích)
+            if (!empty($postIds)) {
+                // Xóa hợp đồng thuộc các phòng / bài đăng này
+                Contract::whereIn('post_id', $postIds)
+                    ->orWhereIn('room_id', $postIds)
+                    ->delete();
+
+                // Xóa hóa đơn thuộc các phòng / bài đăng này
+                Invoice::whereIn('post_id', $postIds)
+                    ->orWhereIn('room_id', $postIds)
+                    ->delete();
+
+                // Xóa danh sách yêu thích
+                Favorite::whereIn('post_id', $postIds)->delete();
+
+                // Xóa liên hệ / hẹn xem phòng
+                Contact::whereIn('post_id', $postIds)->delete();
+
+                // Xóa toàn bộ Phòng / Bài đăng (Lớp Ruột) thuộc tòa nhà
+                $childPostsQuery = Post::where('building_id', $bId);
+                try {
+                    if (strlen($bId) === 24 && ctype_xdigit($bId)) {
+                        $childPostsQuery = $childPostsQuery->orWhere('building_id', new \MongoDB\BSON\ObjectId($bId));
+                    }
+                } catch (\Exception $ex) {}
+                $childPostsQuery->delete();
+
+                // Xóa toàn bộ ảnh thuộc các bài đăng con trong collection images
+                Image::where('target_type', 'post')->whereIn('target_id', $postIds)->delete();
+            }
+
+            // Xóa toàn bộ ảnh có target_type = 'building' thuộc tòa nhà đó trong collection images
+            Image::where('target_type', 'building')->where('target_id', $bId)->delete();
+
+            // Đồng thời dọn dẹp nếu có hợp đồng/hóa đơn gắn trực tiếp theo building_id (nếu có)
+            try {
+                Contract::where('building_id', $bId)->delete();
+                Invoice::where('building_id', $bId)->delete();
+            } catch (\Exception $ex) {}
+
+            // 3. Gỡ bỏ ID tòa nhà này khỏi assigned_buildings của các nhân viên
             User::where('assigned_buildings', $bId)->get()->each(function($u) use ($bId) {
                 $assigned = array_diff((array)$u->assigned_buildings, [$bId]);
                 $u->assigned_buildings = array_values($assigned);
                 $u->save();
             });
 
+            // 4. Xóa Tòa nhà (Lớp Vỏ)
+            $building->delete();
+
+            // 5. Ghi lại nhật ký quản trị
+            AdminActivity::log(
+                'delete',
+                'building',
+                "Xóa tòa nhà \"{$bName}\"",
+                "Đã xóa vĩnh viễn tòa nhà \"{$bName}\" và đồng bộ xóa sạch {$deletedRoomsCount} phòng/bài đăng liên quan (Cascade Delete).",
+                $building,
+                ['building_id' => $bId, 'deleted_rooms_count' => $deletedRoomsCount]
+            );
+
             return response()->json([
                 'success' => true,
-                'message' => "Đã xóa thành công tòa nhà \"{$bName}\"!"
+                'message' => "Đã xóa thành công tòa nhà \"{$bName}\" và toàn bộ {$deletedRoomsCount} phòng thuộc tòa nhà!"
             ]);
 
         } catch (\Exception $e) {
@@ -949,11 +1117,207 @@ class BuildingController extends Controller
             return view('qlbai_dang.BuildingDetail', compact('building', 'rooms', 'activeContractPostIds', 'activeContractMap'));
 
         } catch (\Exception $e) {
-            Log::error('Lỗi xem chi tiết tòa nhà: ' . $e->getMessage());
+            Log::error('Lỗi xem chi tiết bài đăng tòa nhà: ' . $e->getMessage());
             if ($e instanceof \Symfony\Component\HttpKernel\Exception\HttpException) {
                 throw $e;
             }
             abort(500, 'Lỗi hệ thống: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Xem chi tiết vận hành & quản lý phòng trực thuộc tòa nhà (Dành riêng cho Admin)
+     * URL: /Admin/chi-tiet-toa-nha/{id}
+     */
+    public function adminDetail($id)
+    {
+        try {
+            $user = Auth::user();
+            if (!$user) {
+                return redirect()->route('login')->with('error', 'Vui lòng đăng nhập.');
+            }
+
+            $detailData = $this->getBuildingDetailData($id);
+            if (!$detailData) {
+                abort(404, 'Không tìm thấy thông tin tòa nhà.');
+            }
+
+            return view('Admin.chi_tiet_toa_nha_admin', $detailData);
+
+        } catch (\Exception $e) {
+            Log::error('Lỗi xem chi tiết vận hành tòa nhà Admin: ' . $e->getMessage());
+            if ($e instanceof \Symfony\Component\HttpKernel\Exception\HttpException) {
+                throw $e;
+            }
+            abort(500, 'Lỗi hệ thống: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Lấy dữ liệu chi tiết vận hành & danh sách phòng con của tòa nhà
+     */
+    public function getBuildingDetailData($id)
+    {
+        $building = Building::where('_id', $id)->first() ?: Building::find($id);
+        if (!$building) {
+            return null;
+        }
+
+        $bId = (string)($building->_id ?? $building->id);
+        $totalScale = (int)($building->total_rooms ?: 16);
+
+        $posts = Post::where('building_id', $bId)
+                     ->orWhere('building_id', (string)$id)
+                     ->orderBy('created_at', 'desc')
+                     ->get();
+
+        // Lấy thông tin hợp đồng
+        $postIds = $posts->map(fn($p) => (string)($p->_id ?? $p->id))->filter()->toArray();
+        $contracts = Contract::where('status', '!=', 'cancelled')
+            ->where(function($q) use ($postIds) {
+                $q->whereIn('post_id', $postIds)
+                  ->orWhereIn('room_id', $postIds);
+            })->get();
+
+        $contractMap = [];
+        foreach ($contracts as $c) {
+            if (!empty($c->post_id)) $contractMap[(string)$c->post_id] = $c;
+            if (!empty($c->room_id)) $contractMap[(string)$c->room_id] = $c;
+        }
+
+        // Xây dựng danh sách phòng
+        $rooms = [];
+        foreach ($posts as $idx => $p) {
+            $pId = (string)($p->_id ?? $p->id);
+            $contract = $contractMap[$pId] ?? null;
+
+            $isRented = ($contract !== null || $p->is_rented === true || in_array($p->status, ['rented', 'dang_thue', 'đã cho thuê']));
+            $roomStatus = $isRented ? 'rented' : 'empty';
+
+            // Trạng thái thu tiền thực tế dựa trên hóa đơn
+            $paymentStatus = 'none';
+            if ($isRented) {
+                $hasUnpaid = Invoice::where(function($q) use ($pId) {
+                    $q->where('room_id', $pId)->orWhere('post_id', $pId);
+                })->where(function($q) {
+                    $q->where('status', 'unpaid')->orWhere('payment_status', 'unpaid');
+                })->exists();
+
+                $paymentStatus = $hasUnpaid ? 'unpaid' : 'paid';
+            }
+
+            $postStatus = $p->status ?? 'active';
+            if (!in_array($postStatus, ['active', 'pending', 'rejected'])) {
+                $postStatus = ($p->status === 'approved' || $p->status === 'hien_thi') ? 'active' : 'pending';
+            }
+
+            $priceVal = (float)($p->price ?? 4500000);
+            $areaVal = (int)($p->area ?? $p->acreage ?? 28);
+            $floorVal = !empty($p->floor) ? $p->floor : ('Tầng ' . (intdiv($idx, 4) + 1));
+            $roomCode = !empty($p->room_number) ? $p->room_number : ('P.' . (101 + $idx));
+
+            $rooms[] = (object)[
+                'id'             => $pId,
+                'room_number'    => $roomCode,
+                'title'          => $p->title ?? ($roomCode . ' - Căn hộ Studio'),
+                'thumbnail'      => $p->thumbnail ?? $p->display_image ?? 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400',
+                'created_at'     => $p->created_at ? $p->created_at->format('d/m/Y') : now()->format('d/m/Y'),
+                'area'           => $areaVal,
+                'floor'          => $floorVal,
+                'price'          => $priceVal,
+                'price_formatted'=> number_format($priceVal, 0, ',', '.') . ' đ/tháng',
+                'room_status'    => $roomStatus,
+                'payment_status' => $paymentStatus,
+                'post_status'    => $postStatus,
+                'detail_url'     => url('/chitietbaidang/' . $pId),
+            ];
+        }
+
+        // Tính toán số liệu thống kê Tỷ Lệ Lấp Đầy & Dòng Tiền dựa trên dữ liệu thực tế
+        $totalRoomsCount = count($rooms);
+        $emptyRoomsCount = collect($rooms)->where('room_status', 'empty')->count();
+        $rentedRoomsCount = collect($rooms)->where('room_status', 'rented')->count();
+
+        // Tiến độ nhập liệu
+        $createdRoomsCount = $totalRoomsCount;
+        $missingRoomsCount = max(0, $totalScale - $createdRoomsCount);
+        $progressPercent = $totalScale > 0 ? round(($createdRoomsCount / $totalScale) * 100, 1) : 0;
+
+        // Kiểm duyệt
+        $postsActiveCount = collect($rooms)->where('post_status', 'active')->count();
+        $postsPendingCount = collect($rooms)->where('post_status', 'pending')->count();
+        $postsRejectedCount = collect($rooms)->where('post_status', 'rejected')->count();
+
+        // Dòng tiền thực tế
+        $monthlyRevenue = collect($rooms)
+            ->where('room_status', 'rented')
+            ->sum('price');
+        $paidRoomsCount = collect($rooms)->where('payment_status', 'paid')->count();
+        $unpaidRoomsCount = collect($rooms)->where('payment_status', 'unpaid')->count();
+
+        // Xác định tên loại hình
+        $typeMap = [
+            'can_ho_dich_vu'   => 'Khu căn hộ dịch vụ',
+            'chung_cu_mini'    => 'Khu căn hộ mini',
+            'day_tro'          => 'Dãy phòng trọ',
+            'toa_nha_van_phong'=> 'Tòa nhà văn phòng',
+            'nha_nguyen_can'   => 'Nhà nguyên căn',
+            'cum_nha_lien_ke'  => 'Cụm nhà liền kề',
+            'dat_phan_lo'      => 'Đất phân lô',
+            'dat_nen'          => 'Mặt bằng kinh doanh',
+        ];
+        $typeText = $typeMap[$building->type] ?? ($building->type ?? 'Khu căn hộ mini');
+
+        return [
+            'building'    => $building,
+            'buildingId'  => $bId,
+            'typeText'    => $typeText,
+            'stats'       => (object)[
+                'total_scale'          => $totalScale,
+                'empty_rooms'          => $emptyRoomsCount,
+                'rented_rooms'         => $rentedRoomsCount,
+                'created_rooms'        => $createdRoomsCount,
+                'missing_rooms'        => $missingRoomsCount,
+                'progress_percent'     => $progressPercent,
+                'posts_active'         => $postsActiveCount,
+                'posts_pending'        => $postsPendingCount,
+                'posts_rejected'       => $postsRejectedCount,
+                'monthly_revenue'      => $monthlyRevenue,
+                'monthly_revenue_text' => number_format($monthlyRevenue, 0, ',', '.') . ' VNĐ / tháng',
+                'paid_rooms'           => $paidRoomsCount,
+                'unpaid_rooms'         => $unpaidRoomsCount,
+            ],
+            'rooms'       => $rooms,
+        ];
+    }
+
+    /**
+     * API: Lấy chi tiết vận hành & danh sách phòng con của tòa nhà dành cho AJAX
+     */
+    public function getRoomsDetail($id)
+    {
+        try {
+            $data = $this->getBuildingDetailData($id);
+            if (!$data) {
+                return response()->json(['success' => false, 'message' => 'Không tìm thấy tòa nhà!'], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'building' => [
+                    'id'          => $data['buildingId'],
+                    'name'        => $data['building']->name,
+                    'type_text'   => $data['typeText'],
+                    'total_rooms' => $data['stats']->total_scale,
+                    'total_floors'=> $data['building']->total_floors ?? 1,
+                    'address'     => $data['building']->full_address ?? '',
+                ],
+                'stats' => (array)$data['stats'],
+                'rooms' => $data['rooms'],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Lỗi lấy chi tiết phòng tòa nhà: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
 }

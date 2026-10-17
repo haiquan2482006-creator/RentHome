@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\Building;
 use App\Models\Post;
 use App\Models\Contract;
+use App\Models\AdminActivity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -31,7 +32,7 @@ class SubAccountController extends Controller
             return redirect('/login')->withErrors(['login_error' => 'Chỉ tài khoản Ban Quản Trị / Doanh nghiệp mới có quyền truy cập.']);
         }
 
-        $allBuildings = Building::all(['_id', 'id', 'name', 'project', 'total_rooms', 'province', 'district', 'ward', 'address_detail']);
+        $allBuildings = Building::all(['_id', 'id', 'name', 'project', 'total_rooms', 'province', 'district', 'ward', 'address_detail', 'manager_id', 'manager_ids', 'user_ids']);
         $subAccounts = $this->getSubAccountsWithKPI($allBuildings);
         $customerAccounts = $this->getCustomerAccounts();
 
@@ -65,7 +66,7 @@ class SubAccountController extends Controller
     private function getSubAccountsWithKPI($allBuildings = null)
     {
         if ($allBuildings === null) {
-            $allBuildings = Building::all(['_id', 'id', 'name', 'project', 'total_rooms', 'province', 'district', 'ward', 'address_detail']);
+            $allBuildings = Building::all(['_id', 'id', 'name', 'project', 'total_rooms', 'province', 'district', 'ward', 'address_detail', 'manager_id', 'manager_ids', 'user_ids']);
         }
 
         $currentUserId = (string)(Auth::id() ?? '');
@@ -104,19 +105,74 @@ class SubAccountController extends Controller
                   ->orWhere('staff_id', $staffId);
             })->count();
 
-            // Xử lý danh sách tòa nhà được phân công
-            $assignedIds = (array) ($account->assigned_buildings ?? []);
-            if (empty($assignedIds) || in_array('all', $assignedIds, true) || in_array('*', $assignedIds, true)) {
-                $account->is_all_buildings = true;
-                $account->assigned_buildings_details = $allBuildings;
-            } else {
+            // Kiểm tra xem tài khoản có phải là Kiểm duyệt viên không
+            $isModerator = (method_exists($account, 'isModerator') && $account->isModerator())
+                || in_array(strtolower($account->role ?? ''), ['kiemduyet', 'moderator', 'kiem_duyet'], true)
+                || str_contains(mb_strtolower($account->staff_role ?? ''), 'kiểm duyệt')
+                || str_contains(mb_strtolower($account->staff_role ?? ''), 'kiem duyet');
+
+            if ($isModerator) {
+                // Tự động làm sạch dữ liệu nếu Kiểm duyệt viên bị gán nhầm tòa nhà trong DB
+                if (!empty($account->assigned_buildings) || !empty($account->building_ids)) {
+                    try {
+                        $account->assigned_buildings = [];
+                        $account->building_ids = [];
+                        $account->save();
+                    } catch (\Throwable $e) {}
+                }
+
+                $account->is_moderator = true;
                 $account->is_all_buildings = false;
-                $assignedBuildings = $allBuildings->filter(function ($b) use ($assignedIds) {
+                $account->assigned_buildings = [];
+                $account->assigned_buildings_details = collect([]);
+            } else {
+                $account->is_moderator = false;
+                $account->is_all_buildings = false;
+
+                // Strict Matching: Chỉ lấy tòa nhà nếu ID khớp chính xác với manager_id hoặc nằm trong manager_ids / user_ids, hoặc trong assigned_buildings
+                $userAssigned = (array) ($account->assigned_buildings ?? []);
+                $userBldIds = (array) ($account->building_ids ?? []);
+                $explicitAssignedIds = [];
+
+                foreach (array_merge($userAssigned, $userBldIds) as $item) {
+                    $s = trim((string)$item);
+                    if (!empty($s) && $s !== 'all' && $s !== '*') {
+                        $explicitAssignedIds[] = $s;
+                    }
+                }
+
+                foreach ($allBuildings as $b) {
                     $bId = (string)($b->_id ?? $b->id);
-                    return in_array($bId, array_map('strval', $assignedIds));
+                    $bManagerId = (string)($b->manager_id ?? '');
+                    $bManagerIds = is_array($b->manager_ids) ? array_map('strval', $b->manager_ids) : [];
+                    $bUserIds = is_array($b->user_ids) ? array_map('strval', $b->user_ids) : [];
+
+                    $isManager = ($bManagerId === $staffId)
+                        || in_array($staffId, $bManagerIds, true)
+                        || in_array($staffId, $bUserIds, true);
+
+                    if ($isManager) {
+                        $explicitAssignedIds[] = $bId;
+                    }
+                }
+
+                $explicitAssignedIds = array_values(array_unique(array_filter($explicitAssignedIds)));
+
+                // Lọc danh sách tòa nhà theo ID chặt chẽ - TUYỆT ĐỐI KHÔNG FALLBACK ALL BUILDINGS
+                $matchedBuildings = $allBuildings->filter(function ($b) use ($explicitAssignedIds, $staffId) {
+                    $bId = (string)($b->_id ?? $b->id);
+                    $bManagerId = (string)($b->manager_id ?? '');
+                    $bManagerIds = is_array($b->manager_ids) ? array_map('strval', $b->manager_ids) : [];
+                    $bUserIds = is_array($b->user_ids) ? array_map('strval', $b->user_ids) : [];
+
+                    return in_array($bId, $explicitAssignedIds, true)
+                        || $bManagerId === $staffId
+                        || in_array($staffId, $bManagerIds, true)
+                        || in_array($staffId, $bUserIds, true);
                 })->values();
 
-                $account->assigned_buildings_details = $assignedBuildings;
+                $account->assigned_buildings_details = $matchedBuildings;
+                $account->assigned_buildings = $matchedBuildings->pluck('_id')->map('strval')->values()->toArray();
             }
 
             // Chuẩn hóa quyền hạn (mặc định nếu trống)
@@ -125,13 +181,13 @@ class SubAccountController extends Controller
             }
 
             // Chuẩn hóa chức vụ hiển thị
-            if (empty($account->staff_role)) {
-                $account->staff_role = 'Nhân viên';
+            if (empty($account->staff_role) || $account->staff_role === 'Nhân viên') {
+                $account->staff_role = $isModerator ? 'Kiểm duyệt viên' : 'Doanh nghiệp';
             }
 
-            // Đảm bảo plain_password có giá trị cho tài khoản con
+            // Không gán mật khẩu mẫu nếu chưa có
             if (empty($account->plain_password)) {
-                $account->plain_password = '123456';
+                $account->plain_password = '';
             }
 
             return $account;
@@ -150,7 +206,7 @@ class SubAccountController extends Controller
         }
 
         try {
-            $allBuildings = Building::all(['_id', 'id', 'name', 'project', 'total_rooms', 'province', 'district', 'ward', 'address_detail']);
+            $allBuildings = Building::all(['_id', 'id', 'name', 'project', 'total_rooms', 'province', 'district', 'ward', 'address_detail', 'manager_id', 'manager_ids', 'user_ids']);
             $subAccounts = $this->getSubAccountsWithKPI($allBuildings);
             $customerAccounts = $this->getCustomerAccounts();
 
@@ -211,16 +267,30 @@ class SubAccountController extends Controller
                 $counter++;
             }
 
-            // Tòa nhà phân công
-            $assignedBuildings = !empty($validated['assigned_buildings']) 
-                ? array_values(array_unique($validated['assigned_buildings'])) 
-                : ['all'];
+            $roleInput = $request->input('role', 'doanhnghiep');
+            $staffRole = !empty($validated['staff_role']) ? $validated['staff_role'] : 'Doanh nghiệp';
+
+            $isModerator = in_array(strtolower($roleInput), ['kiemduyet', 'moderator', 'kiem_duyet'], true)
+                || str_contains(mb_strtolower($staffRole), 'kiểm duyệt')
+                || str_contains(mb_strtolower($staffRole), 'kiem duyet');
+
+            // Tòa nhà phân công: Kiểm duyệt viên tuyệt đối là [], nhân viên lọc sạch 'all' / '*'
+            if ($isModerator) {
+                $assignedBuildings = [];
+            } else {
+                $rawAssigned = (array)($request->input('assigned_buildings', []));
+                $cleanAssigned = [];
+                foreach ($rawAssigned as $item) {
+                    $s = trim((string)$item);
+                    if (!empty($s) && $s !== 'all' && $s !== '*') {
+                        $cleanAssigned[] = $s;
+                    }
+                }
+                $assignedBuildings = array_values(array_unique($cleanAssigned));
+            }
 
             // Quyền hạn nghiệp vụ - Cố định toàn quyền 4 nghiệp vụ
             $permissions = ['manage_posts', 'manage_contacts', 'manage_contracts', 'manage_invoices'];
-
-            $roleInput = $request->input('role', 'staff');
-            $staffRole = !empty($validated['staff_role']) ? $validated['staff_role'] : 'Nhân viên';
 
             $subAccount = User::create([
                 'username'           => $username,
@@ -233,15 +303,16 @@ class SubAccountController extends Controller
                 'parent_id'          => (string)($user->_id ?? $user->id),
                 'staff_role'         => $staffRole,
                 'assigned_buildings' => $assignedBuildings,
+                'building_ids'       => $assignedBuildings,
                 'permissions'        => $permissions,
                 'status'             => 'active',
                 'is_locked'          => false,
                 'is_deleted'         => false,
             ]);
 
-            // Đồng bộ sang Building: Gán manager_id nếu tòa nhà chưa có người phụ trách
+            // Đồng bộ sang Building: Gán manager_id nếu tài khoản KHÔNG phải kiểm duyệt viên và có chọn tòa nhà
             $staffId = (string)($subAccount->_id ?? $subAccount->id);
-            if (!empty($assignedBuildings) && !in_array('all', $assignedBuildings, true)) {
+            if (!$isModerator && !empty($assignedBuildings)) {
                 Building::whereIn('_id', $assignedBuildings)->get()->each(function($bld) use ($staffId) {
                     $mIds = is_array($bld->manager_ids) ? $bld->manager_ids : [];
                     if (!in_array($staffId, $mIds, true)) {
@@ -251,9 +322,23 @@ class SubAccountController extends Controller
                     if (empty($bld->manager_id)) {
                         $bld->manager_id = $staffId;
                     }
+                    $uIds = is_array($bld->user_ids) ? $bld->user_ids : [];
+                    if (!in_array($staffId, $uIds, true)) {
+                        $uIds[] = $staffId;
+                        $bld->user_ids = array_values(array_unique($uIds));
+                    }
                     $bld->save();
                 });
             }
+
+            // Ghi log hoạt động tạo tài khoản con
+            AdminActivity::log(
+                'create',
+                'account',
+                'Tạo tài khoản con doanh nghiệp mới',
+                "Đã tạo thành công tài khoản con: {$subAccount->account_name} ({$email}) và cấp quyền quản lý tòa nhà.",
+                $subAccount
+            );
 
             return response()->json([
                 'success' => true,
@@ -300,18 +385,44 @@ class SubAccountController extends Controller
             $subAccount->account_name = $validated['name'];
             $subAccount->phone = $validated['phone'];
 
+            $isModerator = (method_exists($subAccount, 'isModerator') && $subAccount->isModerator())
+                || in_array(strtolower($subAccount->role ?? ''), ['kiemduyet', 'moderator', 'kiem_duyet'], true)
+                || in_array(strtolower($request->input('role') ?? ''), ['kiemduyet', 'moderator', 'kiem_duyet'], true)
+                || str_contains(mb_strtolower($subAccount->staff_role ?? ''), 'kiểm duyệt')
+                || str_contains(mb_strtolower($request->input('staff_role') ?? ''), 'kiểm duyệt');
+
             if ($request->has('role') && !empty($request->input('role'))) {
                 $subAccount->role = $request->input('role');
+            } elseif (empty($subAccount->role)) {
+                $subAccount->role = $isModerator ? 'kiemduyet' : 'doanhnghiep';
             }
 
             if (!empty($validated['staff_role'])) {
                 $subAccount->staff_role = $validated['staff_role'];
+            } elseif (empty($subAccount->staff_role)) {
+                $subAccount->staff_role = $isModerator ? 'Kiểm duyệt viên' : 'Doanh nghiệp';
             }
 
-            if (isset($validated['assigned_buildings'])) {
-                $subAccount->assigned_buildings = !empty($validated['assigned_buildings']) 
-                    ? array_values(array_unique($validated['assigned_buildings'])) 
-                    : ['all'];
+            $cleanAssigned = [];
+            if ($isModerator) {
+                // Kiểm duyệt viên: Tuyệt đối không phân công tòa nhà
+                $subAccount->assigned_buildings = [];
+                $subAccount->building_ids = [];
+            } else {
+                if ($request->has('assigned_buildings')) {
+                    $rawAssigned = (array)($request->input('assigned_buildings', []));
+                    foreach ($rawAssigned as $item) {
+                        $s = trim((string)$item);
+                        if (!empty($s) && $s !== 'all' && $s !== '*') {
+                            $cleanAssigned[] = $s;
+                        }
+                    }
+                    $cleanAssigned = array_values(array_unique($cleanAssigned));
+                    $subAccount->assigned_buildings = $cleanAssigned;
+                    $subAccount->building_ids = $cleanAssigned;
+                } else {
+                    $cleanAssigned = (array)($subAccount->assigned_buildings ?? []);
+                }
             }
 
             // Quyền hạn nghiệp vụ - Cố định toàn quyền 4 nghiệp vụ
@@ -324,24 +435,74 @@ class SubAccountController extends Controller
 
             $subAccount->save();
 
-            // Đồng bộ sang Building: Gán manager_id cho các tòa nhà được phân công
+            // Đồng bộ sang Building: Gán / hủy manager_id chính xác cho đúng nhân viên
             $staffId = (string)($subAccount->_id ?? $subAccount->id);
-            if (isset($validated['assigned_buildings'])) {
-                $assignedList = (array)($subAccount->assigned_buildings ?? []);
-                if (!empty($assignedList) && !in_array('all', $assignedList, true)) {
-                    Building::whereIn('_id', $assignedList)->get()->each(function($bld) use ($staffId) {
-                        $mIds = is_array($bld->manager_ids) ? $bld->manager_ids : [];
-                        if (!in_array($staffId, $mIds, true)) {
-                            $mIds[] = $staffId;
-                            $bld->manager_ids = array_values(array_unique($mIds));
-                        }
-                        if (empty($bld->manager_id)) {
-                            $bld->manager_id = $staffId;
-                        }
+            if ($isModerator) {
+                // Đảm bảo không có tòa nhà nào giữ ID của kiểm duyệt viên
+                Building::where('manager_id', $staffId)->update(['manager_id' => null]);
+                Building::all()->each(function($bld) use ($staffId) {
+                    $modified = false;
+                    if (is_array($bld->manager_ids) && in_array($staffId, array_map('strval', $bld->manager_ids), true)) {
+                        $bld->manager_ids = array_values(array_diff(array_map('strval', $bld->manager_ids), [$staffId]));
+                        $modified = true;
+                    }
+                    if (is_array($bld->user_ids) && in_array($staffId, array_map('strval', $bld->user_ids), true)) {
+                        $bld->user_ids = array_values(array_diff(array_map('strval', $bld->user_ids), [$staffId]));
+                        $modified = true;
+                    }
+                    if ($modified) {
                         $bld->save();
-                    });
+                    }
+                });
+            } else {
+                if ($request->has('assigned_buildings')) {
+                    // Tòa nhà mới được phân công
+                    if (!empty($cleanAssigned)) {
+                        Building::whereIn('_id', $cleanAssigned)->get()->each(function($bld) use ($staffId) {
+                            $mIds = is_array($bld->manager_ids) ? $bld->manager_ids : [];
+                            if (!in_array($staffId, $mIds, true)) {
+                                $mIds[] = $staffId;
+                                $bld->manager_ids = array_values(array_unique($mIds));
+                            }
+                            if (empty($bld->manager_id)) {
+                                $bld->manager_id = $staffId;
+                            }
+                            $uIds = is_array($bld->user_ids) ? $bld->user_ids : [];
+                            if (!in_array($staffId, $uIds, true)) {
+                                $uIds[] = $staffId;
+                                $bld->user_ids = array_values(array_unique($uIds));
+                            }
+                            $bld->save();
+                        });
+                    }
+
+                    // Tòa nhà bị bỏ phân công
+                    Building::where('manager_id', $staffId)
+                        ->when(!empty($cleanAssigned), function($q) use ($cleanAssigned) {
+                            $q->whereNotIn('_id', $cleanAssigned);
+                        })
+                        ->get()
+                        ->each(function($bld) use ($staffId) {
+                            $bld->manager_id = null;
+                            if (is_array($bld->manager_ids)) {
+                                $bld->manager_ids = array_values(array_diff(array_map('strval', $bld->manager_ids), [$staffId]));
+                            }
+                            if (is_array($bld->user_ids)) {
+                                $bld->user_ids = array_values(array_diff(array_map('strval', $bld->user_ids), [$staffId]));
+                            }
+                            $bld->save();
+                        });
                 }
             }
+
+            // Ghi log cập nhật tài khoản con
+            AdminActivity::log(
+                'update',
+                'account',
+                'Cập nhật tài khoản con & phân quyền',
+                "Đã cập nhật thông tin và phân quyền quản lý cho tài khoản {$subAccount->account_name} ({$subAccount->email}).",
+                $subAccount
+            );
 
             return response()->json([
                 'success' => true,
@@ -375,6 +536,16 @@ class SubAccountController extends Controller
         $subAccount->save();
 
         $actionText = $isCurrentlyLocked ? 'Mở khóa' : 'Khóa';
+
+        // Ghi log khóa / mở khóa tài khoản con
+        AdminActivity::log(
+            $isCurrentlyLocked ? 'unlock' : 'lock',
+            'account',
+            "{$actionText} tài khoản con nhân viên",
+            "Admin đã {$actionText} quyền truy cập của tài khoản nhân viên: {$subAccount->account_name} ({$subAccount->email}).",
+            $subAccount
+        );
+
         return response()->json([
             'success' => true,
             'message' => "Đã {$actionText} tài khoản con thành công!",
@@ -408,6 +579,17 @@ class SubAccountController extends Controller
         $customer->save();
 
         $actionText = $isCurrentlyLocked ? 'Mở khóa' : 'Khóa';
+        $custName = $customer->account_name ?? $customer->username ?? $customer->email;
+
+        // Ghi log khóa / mở khóa khách hàng
+        AdminActivity::log(
+            $isCurrentlyLocked ? 'unlock' : 'lock',
+            'account',
+            "{$actionText} tài khoản khách hàng",
+            "Admin đã {$actionText} tài khoản người dùng: {$custName} ({$customer->email}).",
+            $customer
+        );
+
         return response()->json([
             'success' => true,
             'message' => "Đã {$actionText} tài khoản khách hàng thành công!",
@@ -433,6 +615,18 @@ class SubAccountController extends Controller
         if ($customer->isAdmin()) {
             return response()->json(['error' => 'Không thể xóa tài khoản Quản trị viên!'], 403);
         }
+
+        $custName = $customer->account_name ?? $customer->username ?? $customer->email;
+        $custEmail = $customer->email;
+
+        // Ghi log xóa tài khoản khách hàng
+        AdminActivity::log(
+            'delete',
+            'account',
+            'Xóa tài khoản khách hàng',
+            "Admin đã xóa tài khoản khách hàng: {$custName} ({$custEmail}) khỏi danh sách hoạt động.",
+            $customer
+        );
 
         $customer->delete();
 
