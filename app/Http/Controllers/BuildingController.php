@@ -33,7 +33,7 @@ class BuildingController extends Controller
     public function adminView()
     {
         $user = Auth::user();
-        if ($user && ($user->isSubAccount() || $user->role === 'sub_account' || $user->role === 'staff' || !empty($user->parent_id))) {
+        if ($user && ($user->isSubAccount() || in_array($user->role, ['sub_account', 'staff', 'nhansu', 'nhan su', 'nhan_su']) || !empty($user->parent_id))) {
             return redirect('/Overview?tab=buildings');
         }
 
@@ -49,6 +49,9 @@ class BuildingController extends Controller
             $staffList = User::where(function($q) {
                     $q->where('role', 'staff')
                       ->orWhere('role', 'sub_account')
+                      ->orWhere('role', 'nhansu')
+                      ->orWhere('role', 'nhan su')
+                      ->orWhere('role', 'nhan_su')
                       ->orWhere('role', 'doanhnghiep')
                       ->orWhere('role', 'enterprise')
                       ->orWhereNotNull('parent_id');
@@ -183,6 +186,9 @@ class BuildingController extends Controller
                 $assignedStaff = User::where(function($q) {
                         $q->where('role', 'staff')
                           ->orWhere('role', 'sub_account')
+                          ->orWhere('role', 'nhansu')
+                          ->orWhere('role', 'nhan su')
+                          ->orWhere('role', 'nhan_su')
                           ->orWhereNotNull('parent_id');
                     })
                     ->where(function($q) use ($id) {
@@ -252,13 +258,14 @@ class BuildingController extends Controller
                 'ward' => 'nullable|string',
                 'address_detail' => 'required|string',
 
-                // Nhóm 2: Bảng giá dịch vụ mặc định (chỉ bắt buộc nếu không phải BĐS Đơn Lập / Nhà liền kề: nha_rieng, cum_nha_lien_ke, dat_nen, dat_phan_lo)
-                'electricity_price' => 'required_unless:type,cum_nha_lien_ke,nha_rieng,dat_nen,nha_nguyen_can,dat_phan_lo,Đất nền,Nhà ở / Nhà riêng lẻ,Cụm nhà liền kề / Dự án,Mặt bằng kinh doanh,Đất phân lô|nullable|numeric|min:0',
-                'water_price' => 'required_unless:type,cum_nha_lien_ke,nha_rieng,dat_nen,nha_nguyen_can,dat_phan_lo,Đất nền,Nhà ở / Nhà riêng lẻ,Cụm nhà liền kề / Dự án,Mặt bằng kinh doanh,Đất phân lô|nullable|numeric|min:0',
+                // Nhóm 2: Bảng giá dịch vụ mặc định (Không bắt buộc, có thể để trống hoặc theo giá nhà nước)
+                'electricity_price' => 'nullable|numeric|min:0',
+                'water_price' => 'nullable|numeric|min:0',
                 'water_calc_type' => 'nullable|string|in:m3,person',
                 'service_fee' => 'nullable|numeric|min:0',
                 'internet_fee' => 'nullable|numeric|min:0',
                 'parking_fee' => 'nullable|numeric|min:0',
+                'has_service_pricing' => 'nullable',
 
                 // Nhóm 3: Tiện ích & Quy mô
                 'total_floors' => 'nullable|numeric|min:1',
@@ -280,9 +287,7 @@ class BuildingController extends Controller
                 'province.required' => 'Vui lòng chọn Tỉnh / Thành phố.',
                 'district.required' => 'Vui lòng chọn Quận / Huyện.',
                 'address_detail.required' => 'Vui lòng nhập số nhà / tên đường.',
-                'electricity_price.required_unless' => 'Vui lòng nhập đơn giá điện.',
                 'electricity_price.numeric' => 'Đơn giá điện phải là số.',
-                'water_price.required_unless' => 'Vui lòng nhập đơn giá nước.',
                 'water_price.numeric' => 'Đơn giá nước phải là số.',
                 'images.max' => 'Bạn chỉ được chọn tối đa 5 ảnh cho mỗi cơ sở / tòa nhà.',
             ]);
@@ -308,6 +313,10 @@ class BuildingController extends Controller
                 'nha_rieng', 'dat_phan_lo', 'cum_nha_lien_ke', 'nha_nguyen_can', 'nhà ở / nhà riêng lẻ', 'đất phân lô / đất nền', 'đất phân lô', 'cụm nhà liền kề / dự án'
             ]));
 
+            $hasServicePricing = $request->has('has_service_pricing')
+                ? $request->boolean('has_service_pricing')
+                : (!$isSingleProperty && ($request->filled('electricity_price') || $request->filled('water_price')));
+
             // Dữ liệu chuẩn bị lưu vào MongoDB
             $data = [
                 'name' => trim($validated['name']),
@@ -319,12 +328,13 @@ class BuildingController extends Controller
                 'ward' => !empty($validated['ward']) ? trim($validated['ward']) : '',
                 'address_detail' => trim($validated['address_detail']),
 
-                'electricity_price' => (!$isSingleProperty && isset($validated['electricity_price']) && $validated['electricity_price'] !== '') ? (float)$validated['electricity_price'] : 0,
-                'water_price' => (!$isSingleProperty && isset($validated['water_price']) && $validated['water_price'] !== '') ? (float)$validated['water_price'] : 0,
+                'has_service_pricing' => $hasServicePricing,
+                'electricity_price' => ($hasServicePricing && $request->filled('electricity_price')) ? (float)$validated['electricity_price'] : null,
+                'water_price' => ($hasServicePricing && $request->filled('water_price')) ? (float)$validated['water_price'] : null,
                 'water_calc_type' => $validated['water_calc_type'] ?? 'm3',
-                'service_fee' => (!$isSingleProperty && isset($validated['service_fee'])) ? (float)$validated['service_fee'] : 0,
-                'internet_fee' => (!$isSingleProperty && isset($validated['internet_fee'])) ? (float)$validated['internet_fee'] : 0,
-                'parking_fee' => (!$isSingleProperty && isset($validated['parking_fee'])) ? (float)$validated['parking_fee'] : 0,
+                'service_fee' => ($hasServicePricing && $request->filled('service_fee')) ? (float)$validated['service_fee'] : null,
+                'internet_fee' => ($hasServicePricing && $request->filled('internet_fee')) ? (float)$validated['internet_fee'] : null,
+                'parking_fee' => ($hasServicePricing && $request->filled('parking_fee')) ? (float)$validated['parking_fee'] : null,
 
                 'total_floors' => !empty($validated['total_floors']) ? (int)$validated['total_floors'] : 1,
                 'total_rooms' => !empty($validated['total_rooms']) ? (int)$validated['total_rooms'] : 1,
@@ -541,12 +551,13 @@ class BuildingController extends Controller
                 'ward' => 'nullable|string',
                 'address_detail' => 'required|string',
 
-                'electricity_price' => 'required_unless:type,cum_nha_lien_ke,nha_rieng,dat_nen,nha_nguyen_can,dat_phan_lo,Đất nền,Nhà ở / Nhà riêng lẻ,Cụm nhà liền kề / Dự án,Mặt bằng kinh doanh,Đất phân lô|nullable|numeric|min:0',
-                'water_price' => 'required_unless:type,cum_nha_lien_ke,nha_rieng,dat_nen,nha_nguyen_can,dat_phan_lo,Đất nền,Nhà ở / Nhà riêng lẻ,Cụm nhà liền kề / Dự án,Mặt bằng kinh doanh,Đất phân lô|nullable|numeric|min:0',
+                'electricity_price' => 'nullable|numeric|min:0',
+                'water_price' => 'nullable|numeric|min:0',
                 'water_calc_type' => 'nullable|string|in:m3,person',
                 'service_fee' => 'nullable|numeric|min:0',
                 'internet_fee' => 'nullable|numeric|min:0',
                 'parking_fee' => 'nullable|numeric|min:0',
+                'has_service_pricing' => 'nullable',
 
                 'total_floors' => 'nullable|numeric|min:1',
                 'total_rooms' => 'nullable|numeric|min:1',
@@ -565,8 +576,6 @@ class BuildingController extends Controller
                 'province.required' => 'Vui lòng chọn Tỉnh / Thành phố.',
                 'district.required' => 'Vui lòng chọn Quận / Huyện.',
                 'address_detail.required' => 'Vui lòng nhập số nhà / tên đường.',
-                'electricity_price.required_unless' => 'Vui lòng nhập đơn giá điện.',
-                'water_price.required_unless' => 'Vui lòng nhập đơn giá nước.',
                 'images.max' => 'Bạn chỉ được lưu tối đa 5 ảnh cho mỗi cơ sở / tòa nhà.',
             ]);
 
@@ -628,12 +637,17 @@ class BuildingController extends Controller
             $building->ward = !empty($validated['ward']) ? trim($validated['ward']) : '';
             $building->address_detail = trim($validated['address_detail']);
 
-            $building->electricity_price = (!$isSingleProperty && isset($validated['electricity_price']) && $validated['electricity_price'] !== '') ? (float)$validated['electricity_price'] : 0;
-            $building->water_price = (!$isSingleProperty && isset($validated['water_price']) && $validated['water_price'] !== '') ? (float)$validated['water_price'] : 0;
+            $hasServicePricing = $request->has('has_service_pricing')
+                ? $request->boolean('has_service_pricing')
+                : (!$isSingleProperty && ($request->filled('electricity_price') || $request->filled('water_price')));
+
+            $building->has_service_pricing = $hasServicePricing;
+            $building->electricity_price = ($hasServicePricing && $request->filled('electricity_price')) ? (float)$validated['electricity_price'] : null;
+            $building->water_price = ($hasServicePricing && $request->filled('water_price')) ? (float)$validated['water_price'] : null;
             $building->water_calc_type = $validated['water_calc_type'] ?? 'm3';
-            $building->service_fee = (!$isSingleProperty && isset($validated['service_fee'])) ? (float)$validated['service_fee'] : 0;
-            $building->internet_fee = (!$isSingleProperty && isset($validated['internet_fee'])) ? (float)$validated['internet_fee'] : 0;
-            $building->parking_fee = (!$isSingleProperty && isset($validated['parking_fee'])) ? (float)$validated['parking_fee'] : 0;
+            $building->service_fee = ($hasServicePricing && $request->filled('service_fee')) ? (float)$validated['service_fee'] : null;
+            $building->internet_fee = ($hasServicePricing && $request->filled('internet_fee')) ? (float)$validated['internet_fee'] : null;
+            $building->parking_fee = ($hasServicePricing && $request->filled('parking_fee')) ? (float)$validated['parking_fee'] : null;
 
             if (isset($validated['total_floors'])) {
                 $building->total_floors = (int)$validated['total_floors'];
@@ -1080,7 +1094,7 @@ class BuildingController extends Controller
             $activeContractPostIds = [];
             $activeContractMap = [];
             if (!empty($roomIds)) {
-                $contracts = Contract::where('status', '!=', 'cancelled')
+                $contracts = Contract::whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly'])
                     ->where(function($q) use ($roomIds) {
                         $q->whereIn('post_id', $roomIds)
                           ->orWhereIn('room_id', $roomIds);
@@ -1173,7 +1187,7 @@ class BuildingController extends Controller
 
         // Lấy thông tin hợp đồng
         $postIds = $posts->map(fn($p) => (string)($p->_id ?? $p->id))->filter()->toArray();
-        $contracts = Contract::where('status', '!=', 'cancelled')
+        $contracts = Contract::whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly'])
             ->where(function($q) use ($postIds) {
                 $q->whereIn('post_id', $postIds)
                   ->orWhereIn('room_id', $postIds);
@@ -1257,16 +1271,21 @@ class BuildingController extends Controller
 
         // Xác định tên loại hình
         $typeMap = [
-            'can_ho_dich_vu'   => 'Khu căn hộ dịch vụ',
-            'chung_cu_mini'    => 'Khu căn hộ mini',
-            'day_tro'          => 'Dãy phòng trọ',
+            'can_ho'           => 'Chung cư mini / Căn hộ dịch vụ',
+            'can_ho_dich_vu'   => 'Chung cư mini / Căn hộ dịch vụ',
+            'chung_cu_mini'    => 'Chung cư mini / Căn hộ dịch vụ',
+            'nha_tro'          => 'Nhà trọ / Khu trọ',
+            'day_tro'          => 'Nhà trọ / Khu trọ',
+            'ky_tuc_xa'        => 'Ký túc xá / Sleepbox',
+            'nha_rieng'        => 'Nhà ở / Nhà riêng lẻ',
+            'nha_nguyen_can'   => 'Nhà ở / Nhà riêng lẻ',
+            'cum_nha_lien_ke'  => 'Cụm nhà liền kề / Dự án',
+            'dat_phan_lo'      => 'Đất phân lô / Đất nền',
+            'dat_nen'          => 'Mặt bằng kinh doanh / Đất nền',
             'toa_nha_van_phong'=> 'Tòa nhà văn phòng',
-            'nha_nguyen_can'   => 'Nhà nguyên căn',
-            'cum_nha_lien_ke'  => 'Cụm nhà liền kề',
-            'dat_phan_lo'      => 'Đất phân lô',
-            'dat_nen'          => 'Mặt bằng kinh doanh',
         ];
-        $typeText = $typeMap[$building->type] ?? ($building->type ?? 'Khu căn hộ mini');
+        $rawType = $building->type ?? $building->business_type ?? '';
+        $typeText = $typeMap[$rawType] ?? ($rawType ?: 'Chung cư mini / Căn hộ dịch vụ');
 
         return [
             'building'    => $building,

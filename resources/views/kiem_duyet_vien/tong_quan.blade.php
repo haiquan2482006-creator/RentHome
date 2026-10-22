@@ -811,19 +811,19 @@
                 </a>
             </li>
             <li>
-                <a href="{{ url('/kiem-duyet/qlbai-dang') }}" class="nav-link">
+                <a href="{{ url('/kiem-duyet/qlkiem-duyet') }}" class="nav-link">
                     <span class="nav-link-left">
                         <i class="fa-solid fa-file-circle-check"></i>
-                        <span>Quản lý bài đăng</span>
+                        <span>Quản lý kiểm duyệt</span>
                     </span>
                     <span class="nav-badge badge-warning-pill" id="sidebarPendingBadge">{{ $pendingCount }}</span>
                 </a>
             </li>
             <li>
-                <a href="{{ url('/kiem-duyet/qlkhieu-nai-cap1') }}" class="nav-link">
+                <a href="{{ url('/kiem-duyet/khieu-nai') }}" class="nav-link">
                     <span class="nav-link-left">
                         <i class="fa-solid fa-triangle-exclamation"></i>
-                        <span>Khiếu nại cấp 1</span>
+                        <span>Khiếu nại</span>
                     </span>
                     <span class="nav-badge badge-danger-pill">{{ $complaintCount }}</span>
                 </a>
@@ -917,7 +917,7 @@
                 </div>
                 <div class="kpi-footer">
                     <span class="kpi-tag alert">2 đơn mức độ khẩn cấp</span>
-                    <a href="{{ url('/kiem-duyet/qlkhieu-nai-cap1') }}" style="color: var(--danger); text-decoration: none; font-weight: 600;">Xử lý →</a>
+                    <a href="{{ url('/kiem-duyet/khieu-nai') }}" style="color: var(--danger); text-decoration: none; font-weight: 600;">Xử lý →</a>
                 </div>
             </div>
 
@@ -1035,7 +1035,7 @@
                                 <th>Tài sản / Cơ sở (Lớp Vỏ)</th>
                                 <th>Loại hình</th>
                                 <th>Nhân viên đăng</th>
-                                <th>Giá đề xuất</th>
+                                <th>Giá</th>
                                 <th>Thời gian</th>
                                 <th style="text-align: right;">Thao tác duyệt</th>
                             </tr>
@@ -1096,7 +1096,7 @@
                 </div>
 
                 <div style="margin-top: 14px; text-align: center;">
-                    <a href="{{ url('/kiem-duyet/qlbai-dang') }}" style="font-size: 13px; font-weight: 600; color: var(--primary); text-decoration: none;">
+                    <a href="{{ url('/kiem-duyet/qlkiem-duyet') }}" style="font-size: 13px; font-weight: 600; color: var(--primary); text-decoration: none;">
                         Xem toàn bộ danh sách bài đăng chờ duyệt ({{ $pendingCount ?? 0 }} bài) <i class="fa-solid fa-arrow-right"></i>
                     </a>
                 </div>
@@ -1109,7 +1109,7 @@
                         <i class="fa-solid fa-bell-concierge"></i>
                         Khiếu Nại Cấp 1 Cần Xử Lý
                     </div>
-                    <a href="{{ url('/kiem-duyet/qlkhieu-nai-cap1') }}" style="font-size: 12.5px; color: var(--primary); text-decoration: none; font-weight: 600;">Xem tất cả</a>
+                    <a href="{{ url('/kiem-duyet/khieu-nai') }}" style="font-size: 12.5px; color: var(--primary); text-decoration: none; font-weight: 600;">Xem tất cả</a>
                 </div>
 
                 <div class="complaint-list">

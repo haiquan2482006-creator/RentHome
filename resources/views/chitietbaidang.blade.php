@@ -92,23 +92,59 @@
             <div class="lg:col-span-8">
                 <!-- Single Combined Container -->
                 <div class="bg-white rounded-md p-6 sm:p-8 shadow-sm border border-slate-200/60 space-y-8">
-                    
+                    @php
+                        // 1. Chuẩn hóa biến Tòa nhà ($b) lên đầu Main Content để sử dụng toàn diện
+                        $b = $post->building ?? ($post->building_info ?? null);
+                        if (!$b && !empty($post->building_id) && class_exists(\App\Models\Building::class)) {
+                            $b = \App\Models\Building::find($post->building_id);
+                        }
+
+                        // Chuẩn hóa mảng $typeMap hỗ trợ cả chữ hoa và chữ thường
+                        $typeMap = [
+                            'nha_o'               => 'Nhà ở',
+                            'phong_tro'           => 'Phòng trọ',
+                            'nha_tro'             => 'Phòng trọ',
+                            'can_ho'              => 'Căn hộ',
+                            'can_ho_dich_vu'      => 'Căn hộ dịch vụ',
+                            'chung_cu_mini'       => 'Chung cư mini',
+                            'chung_cu'            => 'Chung cư',
+                            'mat_bang'            => 'Mặt bằng',
+                            'mat_bang_kinh_doanh' => 'Mặt bằng kinh doanh',
+                            'van_phong'           => 'Văn phòng',
+                            'ky_tuc_xa'           => 'Ký túc xá / Sleepbox',
+                            'sleepbox'            => 'Ký túc xá / Sleepbox',
+                            'dat_nen'             => 'Đất nền',
+                            'dat_phan_lo'         => 'Đất phân lô',
+                            'nha_rieng'           => 'Nhà riêng',
+                            'nha_nguyen_can'      => 'Nhà nguyên căn',
+                            'cum_nha_lien_ke'     => 'Cụm nhà liền kề',
+                            'biet_thu'            => 'Biệt thự',
+                        ];
+                        // Tự động map thêm các key viết HOA để tương thích hoàn toàn
+                        foreach ($typeMap as $k => $v) {
+                            $typeMap[strtoupper($k)] = $v;
+                        }
+
+                        $rawPType = trim((string)($post->property_type ?? ''));
+                        $lowerPType = strtolower($rawPType);
+                        $typeStr = $typeMap[$lowerPType] ?? ($typeMap[$rawPType] ?? (!empty($rawPType) ? ucwords(str_replace('_', ' ', $rawPType)) : 'Bất động sản'));
+                        $floorVal = $post->floor ?? ($post->floor_number ?? null);
+                        $bTypeRaw = strtolower($b->type ?? ($post->property_type ?? ''));
+                        $bTypeLabel = mb_strtolower($b->business_type ?? ($b->type ?? ($post->property_type ?? '')));
+                        $isLienKe = in_array($bTypeRaw, ['cum_nha_lien_ke']) || str_contains($bTypeLabel, 'liền kề') || str_contains($bTypeLabel, 'dự án');
+                    @endphp
+
                     <!-- Main Header Info -->
                     <div>
-                        <div class="flex flex-wrap items-center gap-3 mb-5">
-                            @php
-                                $typeMap = [
-                                    'NHA_O' => 'Nhà ở',
-                                    'PHONG_TRO' => 'Phòng trọ',
-                                    'MAT_BANG' => 'Mặt bằng',
-                                    'CAN_HO' => 'Căn hộ',
-                                    'VAN_PHONG' => 'Văn phòng',
-                                ];
-                                $typeStr = $typeMap[$post->property_type] ?? $post->property_type ?? 'Bất động sản';
-                            @endphp
+                        <div class="flex flex-wrap items-center gap-3 mb-4">
                             <span class="px-4 py-1.5 bg-gradient-to-r from-brand-500 to-brand-600 text-white text-xs font-bold rounded-full uppercase tracking-wider shadow-sm">
                                 {{ $typeStr }}
                             </span>
+                            @if(!empty($floorVal))
+                            <span class="px-3.5 py-1 bg-sky-50 text-sky-700 text-xs font-bold rounded-full border border-sky-200/80 flex items-center gap-1.5 shadow-2xs">
+                                <i class="fa-solid fa-stairs text-sky-500"></i> {{ $isLienKe ? ($floorVal . ' tầng') : ('Tầng ' . $floorVal) }}
+                            </span>
+                            @endif
                             <span class="text-slate-400 text-sm font-medium flex items-center gap-1.5 bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
                                 <i class="fa-regular fa-clock"></i> {{ $post->created_at->diffForHumans() }}
                             </span>
@@ -120,39 +156,139 @@
                             <i class="fa-solid fa-location-dot text-brand-500 mt-1 sm:mt-0"></i>
                             <span>{{ $post->address ?? ($post->ward . ', ' . $post->district . ', ' . $post->province) }}</span>
                         </div>
+
+                        @if(!empty($b))
+                        <!-- Khung thông tin Tòa nhà / Cơ sở (Lớp Vỏ) -->
+                        <div class="mt-5 p-4 rounded-xl bg-gradient-to-r from-emerald-50/90 via-teal-50/40 to-slate-50 border border-emerald-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div class="flex items-center gap-3.5">
+                                <div class="w-11 h-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-xl shadow-sm shrink-0">
+                                    <i class="fa-solid fa-building"></i>
+                                </div>
+                                <div>
+                                    <div class="text-[11px] font-extrabold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
+                                        <i class="fa-solid fa-layer-group text-[10px]"></i> Thuộc tòa nhà / cơ sở
+                                    </div>
+                                    <div class="text-base sm:text-lg font-black text-slate-900 flex flex-wrap items-center gap-2 mt-0.5">
+                                        <span>{{ $b->name }}</span>
+                                        @php
+                                            $bTypeDisplay = $b->business_type ?: ($typeMap[strtolower($b->type ?? '')] ?? ($b->type ?: 'Chung cư mini / Căn hộ dịch vụ'));
+                                        @endphp
+                                        @if(!empty($bTypeDisplay))
+                                            <span class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300/60 font-sans">
+                                                {{ $bTypeDisplay }}
+                                            </span>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm font-semibold text-slate-600 sm:ml-auto">
+                                @if(!empty($b->total_floors))
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/90 border border-emerald-200/70 text-slate-700 shadow-2xs">
+                                        <i class="fa-solid fa-cubes-stacked text-emerald-600"></i> Quy mô: <strong class="text-slate-900">{{ $b->total_floors }} tầng</strong>
+                                    </span>
+                                @endif
+                                @if(!empty($floorVal))
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-50 border border-sky-200/70 text-sky-800 font-bold shadow-2xs">
+                                        <i class="fa-solid fa-stairs text-sky-600"></i> {{ $isLienKe ? ('Quy mô: ' . $floorVal . ' tầng') : ('Vị trí: Tầng ' . $floorVal) }}
+                                    </span>
+                                @endif
+                            </div>
+                        </div>
+                        @endif
                     </div>
 
                     <!-- Image Gallery -->
                     @php
                         $galleryImages = [];
-                        if (!empty($post->images) && is_array($post->images)) {
-                            foreach($post->images as $imgRef) {
-                                $imgStr = (string)$imgRef;
-                                if (strlen($imgStr) === 24 && ctype_xdigit($imgStr) && class_exists(\App\Models\Image::class)) {
-                                    $imgObj = \App\Models\Image::find($imgStr);
-                                    if ($imgObj && !empty($imgObj->base64_data)) {
-                                        $galleryImages[] = "data:{$imgObj->mime_type};base64,{$imgObj->base64_data}";
+
+                        // 1. Phân tích mảng $post->images
+                        if (!empty($post->images) && is_iterable($post->images)) {
+                            foreach ($post->images as $imgRef) {
+                                $imgStr = is_array($imgRef) ? ($imgRef['url'] ?? ($imgRef['id'] ?? '')) : (is_object($imgRef) ? ($imgRef->url ?? ($imgRef->id ?? '')) : (string)$imgRef);
+                                $imgStr = trim($imgStr);
+                                if (empty($imgStr)) continue;
+
+                                // Nếu là đường dẫn /images/{id} hoặc images/{id}
+                                if (\Illuminate\Support\Str::startsWith($imgStr, ['/images/', 'images/', '/image/', 'image/'])) {
+                                    $galleryImages[] = '/' . ltrim($imgStr, '/');
+                                    continue;
+                                }
+
+                                // Nếu là chuỗi 24 hex chars (MongoDB ObjectId của Image model)
+                                if (preg_match('/^[a-f\d]{24}$/i', $imgStr)) {
+                                    $galleryImages[] = '/images/' . $imgStr;
+                                    continue;
+                                }
+
+                                // Nếu là URL tuyệt đối hoặc Data URI
+                                if (\Illuminate\Support\Str::startsWith($imgStr, ['http://', 'https://', 'data:'])) {
+                                    if (str_contains($imgStr, '/images/')) {
+                                        $galleryImages[] = '/images/' . substr($imgStr, strpos($imgStr, '/images/') + 8);
+                                    } else {
+                                        $galleryImages[] = $imgStr;
                                     }
-                                } elseif (\Illuminate\Support\Str::startsWith($imgStr, 'http') || \Illuminate\Support\Str::startsWith($imgStr, 'data:')) {
-                                    $galleryImages[] = $imgStr;
-                                } elseif (\Illuminate\Support\Str::startsWith($imgStr, '/storage/')) {
+                                    continue;
+                                }
+
+                                // Nếu là storage
+                                if (\Illuminate\Support\Str::startsWith($imgStr, ['/storage/', 'storage/'])) {
                                     $galleryImages[] = asset(ltrim($imgStr, '/'));
-                                } else {
-                                    $galleryImages[] = asset('storage/' . $imgStr);
+                                    continue;
+                                }
+
+                                if (\Illuminate\Support\Str::startsWith($imgStr, '/')) {
+                                    $galleryImages[] = $imgStr;
+                                    continue;
+                                }
+
+                                $galleryImages[] = asset('storage/' . $imgStr);
+                            }
+                        }
+
+                        // 2. Nếu $galleryImages vẫn rỗng, kiểm tra all_images accessor
+                        if (empty($galleryImages) && !empty($post->all_images) && is_iterable($post->all_images)) {
+                            foreach ($post->all_images as $im) {
+                                $u = is_array($im) ? ($im['url'] ?? '') : (is_object($im) ? ($im->url ?? '') : (string)$im);
+                                if (!empty($u)) {
+                                    if (str_contains($u, '/images/')) {
+                                        $u = '/images/' . substr($u, strpos($u, '/images/') + 8);
+                                    }
+                                    $galleryImages[] = $u;
                                 }
                             }
                         }
-                        
-                        if(empty($galleryImages)) {
-                            $galleryImages[] = $post->display_image;
+
+                        // 3. Fallback sang display_image của Post
+                        if (empty($galleryImages) && !empty($post->display_image)) {
+                            $d = (string)$post->display_image;
+                            if (str_contains($d, '/images/')) {
+                                $d = '/images/' . substr($d, strpos($d, '/images/') + 8);
+                            }
+                            $galleryImages[] = $d;
                         }
+
+                        // 4. Fallback sang ảnh Tòa nhà mẹ nếu phòng chưa có ảnh
+                        if (empty($galleryImages) && !empty($b)) {
+                            if (!empty($b->display_image)) {
+                                $galleryImages[] = $b->display_image;
+                            } elseif (!empty($b->image)) {
+                                $galleryImages[] = \Illuminate\Support\Str::startsWith($b->image, ['http', 'data:', '/images/']) ? $b->image : asset('storage/' . ltrim($b->image, '/'));
+                            }
+                        }
+
+                        // 5. Ảnh placeholder cuối cùng nếu hoàn toàn không có ảnh
+                        if (empty($galleryImages)) {
+                            $galleryImages[] = 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1200&q=80';
+                        }
+
+                        $galleryImages = array_values(array_unique(array_filter($galleryImages)));
                     @endphp
 
                     <div class="space-y-3">
                         <!-- Main Image -->
                         <div class="rounded-md shadow-sm border border-slate-200/50 overflow-hidden bg-slate-900 relative group">
                             <div class="aspect-[16/9] w-full relative">
-                                <img id="mainImage" src="{{ $galleryImages[0] }}" alt="{{ $post->title }}" class="w-full h-full object-contain sm:object-cover transition-transform duration-700 group-hover:scale-105 opacity-90 group-hover:opacity-100">
+                                <img id="mainImage" src="{{ $galleryImages[0] }}" alt="{{ $post->title }}" class="w-full h-full object-contain sm:object-cover transition-transform duration-700 group-hover:scale-105 opacity-90 group-hover:opacity-100" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1200&q=80';">
                                 
                                 <div class="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent pointer-events-none"></div>
 
@@ -166,29 +302,122 @@
 
                         <!-- Thumbnail Gallery -->
                         @if(count($galleryImages) > 1)
-                        <div class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2 sm:gap-3">
+                        <div class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2 sm:gap-3" id="galleryThumbnails">
                             @foreach($galleryImages as $index => $imgSrc)
-                            <button onclick="document.getElementById('mainImage').src='{{ $imgSrc }}'" class="relative aspect-[4/3] rounded overflow-hidden border-2 border-transparent hover:border-brand-500 focus:border-brand-500 focus:outline-none transition-all group bg-slate-100 shadow-sm">
-                                <img src="{{ $imgSrc }}" alt="Thumbnail {{ $index + 1 }}" class="w-full h-full object-cover group-hover:opacity-100 opacity-60 transition-opacity">
+                            <button type="button" onclick="changeMainImage('{{ $imgSrc }}', this)" class="thumb-btn relative aspect-[4/3] rounded overflow-hidden border-2 {{ $index === 0 ? 'border-brand-500 ring-2 ring-brand-500/20' : 'border-transparent hover:border-slate-300' }} focus:outline-none transition-all group bg-slate-100 shadow-sm cursor-pointer">
+                                <img src="{{ $imgSrc }}" alt="Thumbnail {{ $index + 1 }}" class="w-full h-full object-cover group-hover:opacity-100 opacity-75 transition-opacity" onerror="this.onerror=null; this.src='https://placehold.co/200x150?text=No+Image';">
                             </button>
                             @endforeach
                         </div>
+                        <script>
+                            function changeMainImage(url, btn) {
+                                const mainImg = document.getElementById('mainImage');
+                                if (mainImg) mainImg.src = url;
+                                document.querySelectorAll('#galleryThumbnails .thumb-btn').forEach(b => {
+                                    b.classList.remove('border-brand-500', 'ring-2', 'ring-brand-500/20');
+                                    b.classList.add('border-transparent');
+                                });
+                                if (btn) {
+                                    btn.classList.remove('border-transparent');
+                                    btn.classList.add('border-brand-500', 'ring-2', 'ring-brand-500/20');
+                                }
+                            }
+                        </script>
                         @endif
                     </div>
 
-                    <!-- Price and Area -->
-                    <div class="flex flex-wrap items-center gap-10">
-                        <div class="flex flex-col">
-                            <span class="text-sm text-slate-500 font-bold uppercase tracking-wider mb-1">Mức giá</span>
-                            <span class="text-3xl font-black text-brand-600">{{ number_format($post->price, 0, ',', '.') }} <span class="text-xl font-bold">{{ $post->price_unit }}</span></span>
+                    <!-- Price and Area Quick Stats -->
+                    @php
+                        $rawUnit = strtolower(trim((string)($post->price_unit ?? 'thang')));
+                        if (in_array($rawUnit, ['thang', 'tháng'])) {
+                            $displayUnit = '/ tháng';
+                        } elseif (in_array($rawUnit, ['nam', 'năm'])) {
+                            $displayUnit = '/ năm';
+                        } elseif (in_array($rawUnit, ['m2', 'm²'])) {
+                            $displayUnit = '/ m²';
+                        } elseif (in_array($rawUnit, ['tong', 'tổng'])) {
+                            $displayUnit = 'VNĐ';
+                        } else {
+                            $displayUnit = '/ ' . ($post->price_unit ?: 'tháng');
+                        }
+                    @endphp
+
+                    <div class="p-5 sm:p-6 rounded-2xl bg-slate-50/80 border border-slate-200/80 flex flex-wrap items-center gap-x-8 sm:gap-x-10 gap-y-5">
+                        <!-- Mức giá -->
+                        <div class="flex flex-col min-w-fit">
+                            <span class="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                                <i class="fa-solid fa-tag text-brand-500 text-xs"></i> Mức giá
+                            </span>
+                            <div class="flex items-baseline gap-1.5 flex-nowrap">
+                                <span class="text-2xl sm:text-3xl font-black text-brand-600 tracking-tight whitespace-nowrap">
+                                    {{ number_format($post->price, 0, ',', '.') }}
+                                </span>
+                                <span class="text-base sm:text-lg font-bold text-slate-600 whitespace-nowrap">
+                                    {{ $displayUnit }}
+                                </span>
+                            </div>
                         </div>
 
+                        <!-- Divider -->
                         <div class="w-px h-10 bg-slate-200 hidden sm:block"></div>
 
-                        <div class="flex flex-col">
-                            <span class="text-sm text-slate-500 font-bold uppercase tracking-wider mb-1">Diện tích</span>
-                            <span class="text-3xl font-black text-slate-800">{{ $post->area }} <span class="text-xl font-bold">m&sup2;</span></span>
+                        <!-- Diện tích -->
+                        <div class="flex flex-col min-w-fit">
+                            <span class="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                                <i class="fa-solid fa-chart-area text-slate-400 text-xs"></i> Diện tích
+                            </span>
+                            <div class="flex items-baseline gap-1 flex-nowrap">
+                                <span class="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight whitespace-nowrap">
+                                    {{ $post->area }}
+                                </span>
+                                <span class="text-base sm:text-lg font-bold text-slate-600 whitespace-nowrap">m&sup2;</span>
+                            </div>
                         </div>
+
+                        <!-- Divider -->
+                        <div class="w-px h-10 bg-slate-200 hidden sm:block"></div>
+
+                        <!-- Phòng ngủ -->
+                        <div class="flex flex-col min-w-fit">
+                            <span class="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                                <i class="fa-solid fa-bed text-slate-400 text-xs"></i> Phòng ngủ
+                            </span>
+                            <div class="flex items-baseline gap-1.5 flex-nowrap">
+                                <span class="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight whitespace-nowrap flex items-center gap-2">
+                                    <i class="fa-solid fa-bed text-slate-400 text-xl"></i> {{ $post->bedroom ?? 1 }} <span class="text-base sm:text-lg font-bold text-slate-600">PN</span>
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Divider -->
+                        <div class="w-px h-10 bg-slate-200 hidden sm:block"></div>
+
+                        <!-- Phòng tắm / WC -->
+                        <div class="flex flex-col min-w-fit">
+                            <span class="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                                <i class="fa-solid fa-bath text-slate-400 text-xs"></i> Phòng tắm / WC
+                            </span>
+                            <div class="flex items-baseline gap-1.5 flex-nowrap">
+                                <span class="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight whitespace-nowrap flex items-center gap-2">
+                                    <i class="fa-solid fa-bath text-slate-400 text-xl"></i> {{ $post->bathroom ?? 1 }} <span class="text-base sm:text-lg font-bold text-slate-600">WC</span>
+                                </span>
+                            </div>
+                        </div>
+
+                        @if(!empty($floorVal))
+                        <!-- Divider -->
+                        <div class="w-px h-10 bg-slate-200 hidden sm:block"></div>
+
+                        <!-- Vị trí tầng / Số tầng -->
+                        <div class="flex flex-col min-w-fit">
+                            <span class="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                                <i class="fa-solid fa-stairs text-sky-500 text-xs"></i> {{ $isLienKe ? 'Số tầng nhà' : 'Vị trí tầng' }}
+                            </span>
+                            <span class="text-xl sm:text-2xl font-black text-slate-800 tracking-tight whitespace-nowrap">
+                                {{ $isLienKe ? ($floorVal . ' tầng') : ('Tầng ' . $floorVal) }}
+                            </span>
+                        </div>
+                        @endif
                     </div>
 
                     <!-- Amenities & Description -->
@@ -216,8 +445,136 @@
                         </div>
                         @endif
 
+                        <!-- Bảng Giá Dịch Vụ Cơ Sở / Tòa Nhà (Lớp Vỏ) -->
+                        @php
+                            // Tái sử dụng biến $b đã chuẩn hóa ở đầu Main Content
+                            $bTypeRaw = strtolower($b->type ?? ($post->property_type ?? ''));
+                            $bTypeLabel = mb_strtolower($b->business_type ?? ($b->type ?? ($post->property_type ?? '')));
+                            $isLand = in_array($bTypeRaw, ['dat_phan_lo', 'dat_nen', 'mat_bang']) || str_contains($bTypeLabel, 'phân lô') || str_contains($bTypeLabel, 'đất nền');
+                            $isHouse = in_array($bTypeRaw, ['nha_rieng', 'nha_nguyen_can', 'nha_o']) || str_contains($bTypeLabel, 'nhà riêng') || str_contains($bTypeLabel, 'nhà ở') || str_contains($bTypeLabel, 'nguyên căn');
+                            $isLienKe = in_array($bTypeRaw, ['cum_nha_lien_ke']) || str_contains($bTypeLabel, 'liền kề');
+
+                            $hasFees = !empty($b) && (
+                                ((float)($b->electricity_price ?? 0) > 0) ||
+                                ((float)($b->water_price ?? 0) > 0) ||
+                                ((float)($b->service_fee ?? 0) > 0) ||
+                                ((float)($b->internet_fee ?? 0) > 0) ||
+                                ((float)($b->parking_fee ?? 0) > 0)
+                            );
+                            $explicitPricing = !empty($b) && isset($b->has_service_pricing) && $b->has_service_pricing !== null 
+                                ? (bool)$b->has_service_pricing 
+                                : (!empty($b) && isset($b->apply_service_pricing) ? (bool)$b->apply_service_pricing : null);
+
+                            if ($explicitPricing !== null) {
+                                $isExcludedService = !$explicitPricing;
+                            } elseif ($hasFees) {
+                                $isExcludedService = false;
+                            } else {
+                                $isExcludedService = $isLand || $isHouse || $isLienKe;
+                            }
+                        @endphp
+
+                        <div class="pt-8 border-t border-slate-100">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-5">
+                                <h3 class="text-xl font-black text-slate-900 flex items-center">
+                                    <i class="fa-solid fa-file-invoice-dollar text-emerald-600 mr-2"></i> Chi Phí Dịch Vụ Hàng Tháng (Áp dụng tại tòa nhà)
+                                </h3>
+                                @if(!empty($b) && !$isExcludedService)
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80 w-fit">
+                                        <i class="fa-solid fa-building-circle-check text-[11px]"></i> {{ $b->name ?? 'Tòa nhà cơ sở' }}
+                                    </span>
+                                @endif
+                            </div>
+
+                            @if(empty($b) || $isExcludedService)
+                                <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/70 text-slate-600 flex items-center gap-3">
+                                    <div class="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-base shrink-0">
+                                        <i class="fa-solid fa-circle-info"></i>
+                                    </div>
+                                    <p class="text-sm font-medium">
+                                        Điện, nước khách thuê tự thanh toán trực tiếp theo hóa đơn nhà nước.
+                                    </p>
+                                </div>
+                            @else
+                                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3.5">
+                                    <!-- 1. Điện -->
+                                    <div class="p-3.5 rounded-xl bg-slate-50/80 border border-slate-200/70 hover:border-amber-300 hover:bg-amber-50/20 transition-all flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-base shadow-xs shrink-0 border border-amber-100">
+                                            <i class="fa-solid fa-bolt"></i>
+                                        </div>
+                                        <div class="overflow-hidden">
+                                            <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate">⚡ Đơn giá Điện</div>
+                                            <div class="text-base font-extrabold text-slate-900 truncate">
+                                                @if(!empty($b->electricity_price) && (float)$b->electricity_price > 0)
+                                                    {{ number_format($b->electricity_price, 0, ',', '.') }} <span class="text-xs font-semibold text-slate-500">đ/kWh</span>
+                                                @else
+                                                    <span class="text-xs font-bold text-slate-600">Theo giá nhà nước</span>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 2. Nước -->
+                                    <div class="p-3.5 rounded-xl bg-slate-50/80 border border-slate-200/70 hover:border-sky-300 hover:bg-sky-50/20 transition-all flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center text-base shadow-xs shrink-0 border border-sky-100">
+                                            <i class="fa-solid fa-droplet"></i>
+                                        </div>
+                                        <div class="overflow-hidden">
+                                            <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate">💧 Đơn giá Nước</div>
+                                            <div class="text-base font-extrabold text-slate-900 truncate">
+                                                @if(!empty($b->water_price) && (float)$b->water_price > 0)
+                                                    {{ number_format($b->water_price, 0, ',', '.') }} <span class="text-xs font-semibold text-slate-500">đ/{{ (($b->water_calc_type ?? 'm3') === 'person') ? 'người' : 'm³' }}</span>
+                                                @else
+                                                    <span class="text-xs font-bold text-slate-600">Theo giá nhà nước</span>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 3. Vệ sinh / Dịch vụ -->
+                                    <div class="p-3.5 rounded-xl bg-slate-50/80 border border-slate-200/70 hover:border-teal-300 hover:bg-teal-50/20 transition-all flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center text-base shadow-xs shrink-0 border border-teal-100">
+                                            <i class="fa-solid fa-broom"></i>
+                                        </div>
+                                        <div class="overflow-hidden">
+                                            <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate">🧹 Vệ sinh / Dịch vụ</div>
+                                            <div class="text-base font-extrabold text-slate-900 truncate">
+                                                {{ number_format($b->service_fee ?? 0, 0, ',', '.') }} <span class="text-xs font-semibold text-slate-500">đ/phòng</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 4. Wifi / Internet -->
+                                    <div class="p-3.5 rounded-xl bg-slate-50/80 border border-slate-200/70 hover:border-indigo-300 hover:bg-indigo-50/20 transition-all flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-base shadow-xs shrink-0 border border-indigo-100">
+                                            <i class="fa-solid fa-wifi"></i>
+                                        </div>
+                                        <div class="overflow-hidden">
+                                            <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate">📶 Wifi / Internet</div>
+                                            <div class="text-base font-extrabold text-slate-900 truncate">
+                                                {{ number_format($b->internet_fee ?? 0, 0, ',', '.') }} <span class="text-xs font-semibold text-slate-500">đ/phòng</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 5. Gửi xe -->
+                                    <div class="p-3.5 rounded-xl bg-slate-50/80 border border-slate-200/70 hover:border-slate-400 hover:bg-slate-100/50 transition-all flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center text-base shadow-xs shrink-0 border border-slate-200">
+                                            <i class="fa-solid fa-motorcycle"></i>
+                                        </div>
+                                        <div class="overflow-hidden">
+                                            <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate">🛵 Phí Gửi xe</div>
+                                            <div class="text-base font-extrabold text-slate-900 truncate">
+                                                {{ number_format($b->parking_fee ?? 0, 0, ',', '.') }} <span class="text-xs font-semibold text-slate-500">đ/xe</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endif
+                        </div>
+
                         <!-- Description -->
-                        <div class="@if(!empty($post->amenities)) pt-8 border-t border-slate-100 @endif">
+                        <div class="pt-8 border-t border-slate-100">
                             <h3 class="text-xl font-black text-slate-900 mb-5 flex items-center gap-3">
                                 <span class="w-10 h-10 rounded bg-brand-50 text-brand-600 flex items-center justify-center text-lg"><i class="fa-solid fa-align-left"></i></span> 
                                 Thông tin mô tả
@@ -241,7 +598,27 @@
                             </div>
                             <div>
                                 <h4 class="text-base font-bold text-slate-900">{{ $post->user->account_name ?? $post->user->username ?? $post->user->name ?? 'Người dùng' }}</h4>
-                                @if($post->user && ($post->user->isEnterprise() || ($post->user->role ?? '') === 'doanhnghiep'))
+                                @php
+                                    $u = $post->user;
+                                    $isEnterprise = $u && (method_exists($u, 'isEnterprise') ? $u->isEnterprise() : in_array($u->role ?? '', ['doanhnghiep', 'enterprise']));
+                                    $isNhansu = $u && (
+                                        (method_exists($u, 'isSubAccount') && $u->isSubAccount()) ||
+                                        (method_exists($u, 'isNhansu') && $u->isNhansu()) ||
+                                        in_array($u->role ?? '', ['nhansu', 'sub_account', 'staff', 'nhan_su', 'nhan su']) ||
+                                        !empty($u->parent_id) ||
+                                        ($post->account_role ?? '') === 'nhansu'
+                                    );
+                                    $isAdmin = $u && (method_exists($u, 'isAdmin') ? $u->isAdmin() : ($u->role ?? '') === 'admin');
+                                @endphp
+                                @if($isAdmin)
+                                <span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider bg-amber-100 text-amber-800 mt-1">
+                                    <i class="fa-solid fa-shield-halved"></i> Ban Quản Trị
+                                </span>
+                                @elseif($isNhansu)
+                                <span class="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-md uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200 mt-1">
+                                    <i class="fa-solid fa-user-tie text-emerald-600"></i> Nhân sự quản lý tòa nhà (RentHome)
+                                </span>
+                                @elseif($isEnterprise)
                                 <span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider bg-purple-100 text-purple-700 mt-1">
                                     <i class="fa-solid fa-building"></i> Doanh nghiệp
                                 </span>
@@ -320,37 +697,62 @@
                                 <!-- Họ và tên -->
                                 <div>
                                     <label for="fullname" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Họ và tên</label>
-                                    <input type="text" id="fullname" name="fullname" :disabled="isContacted" value="{{ auth()->check() ? (auth()->user()->account_name ?? auth()->user()->username ?? auth()->user()->name ?? '') : '' }}" placeholder="Nguyễn Văn A" class="w-full px-4 py-2.5 rounded border border-slate-200 bg-slate-50 focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all text-sm font-medium text-slate-700" required>
+                                    <div class="relative">
+                                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                            <i class="fa-regular fa-user text-sm"></i>
+                                        </div>
+                                        <input type="text" id="fullname" name="fullname" :disabled="isContacted" value="{{ auth()->check() ? (auth()->user()->account_name ?? auth()->user()->username ?? auth()->user()->name ?? '') : '' }}" placeholder="Nguyễn Văn A" class="w-full pl-10 pr-4 py-2.5 rounded border border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all text-sm font-medium text-slate-700" required>
+                                    </div>
                                 </div>
                                 
                                 <!-- SĐT -->
                                 <div>
                                     <label for="phone" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Số điện thoại</label>
-                                    <input type="tel" id="phone" name="phone" :disabled="isContacted" value="{{ auth()->check() ? auth()->user()->phone : '' }}" placeholder="0901234567" class="w-full px-4 py-2.5 rounded border border-slate-200 bg-slate-50 focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all text-sm font-medium text-slate-700" required>
+                                    <div class="relative">
+                                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                            <i class="fa-solid fa-phone text-sm"></i>
+                                        </div>
+                                        <input type="tel" id="phone" name="phone" :disabled="isContacted" value="{{ auth()->check() ? auth()->user()->phone : '' }}" placeholder="0901234567" class="w-full pl-10 pr-4 py-2.5 rounded border border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all text-sm font-medium text-slate-700" required>
+                                    </div>
                                 </div>
                                 
                                 <!-- Gmail -->
                                 <div>
                                     <label for="email" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Gmail</label>
-                                    <input type="email" id="email" name="email" :disabled="isContacted" value="{{ auth()->check() ? auth()->user()->email : '' }}" placeholder="example@gmail.com" class="w-full px-4 py-2.5 rounded border border-slate-200 bg-slate-50 focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all text-sm font-medium text-slate-700" required>
+                                    <div class="relative">
+                                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                            <i class="fa-regular fa-envelope text-sm"></i>
+                                        </div>
+                                        <input type="email" id="email" name="email" :disabled="isContacted" value="{{ auth()->check() ? auth()->user()->email : '' }}" placeholder="example@gmail.com" class="w-full pl-10 pr-4 py-2.5 rounded border border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all text-sm font-medium text-slate-700" required>
+                                    </div>
                                 </div>
 
                                 <!-- Lịch hẹn -->
                                 <div>
                                     <label for="appointment_date" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Lịch hẹn</label>
-                                    <input type="datetime-local" id="appointment_date" name="appointment_date" :disabled="isContacted" min="{{ now()->timezone('Asia/Ho_Chi_Minh')->format('Y-m-d\TH:i') }}" class="w-full px-4 py-2.5 rounded border border-slate-200 bg-slate-50 focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all text-sm font-medium text-slate-700" required>
+                                    <div class="relative">
+                                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                            <i class="fa-regular fa-calendar-check text-sm"></i>
+                                        </div>
+                                        <input type="datetime-local" id="appointment_date" name="appointment_date" :disabled="isContacted" min="{{ now()->timezone('Asia/Ho_Chi_Minh')->format('Y-m-d\TH:i') }}" class="w-full pl-10 pr-4 py-2.5 rounded border border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all text-sm font-medium text-slate-700" required>
+                                    </div>
                                 </div>
                                 
                                 <!-- Lời nhắn -->
                                 <div>
                                     <label for="message" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Lời nhắn</label>
-                                    <textarea id="message" name="message" :disabled="isContacted" rows="3" placeholder="Tôi quan tâm đến bất động sản này, vui lòng liên hệ lại với tôi..." class="w-full px-4 py-2.5 rounded border border-slate-200 bg-slate-50 focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all text-sm font-medium text-slate-700 resize-none" required></textarea>
+                                    <div class="relative">
+                                        <div class="absolute top-3 left-3.5 pointer-events-none text-slate-400">
+                                            <i class="fa-regular fa-comment-dots text-sm"></i>
+                                        </div>
+                                        <textarea id="message" name="message" :disabled="isContacted" rows="3" placeholder="Tôi quan tâm đến bất động sản này, vui lòng liên hệ lại với tôi..." class="w-full pl-10 pr-4 py-2.5 rounded border border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all text-sm font-medium text-slate-700 resize-none" required></textarea>
+                                    </div>
                                 </div>
                             </div>
                             
                             <!-- Submit Button -->
-                            <button type="submit" x-show="!isContacted" class="w-full py-3.5 px-4 bg-slate-900 hover:bg-brand-600 text-white rounded-md font-bold transition-all shadow hover:shadow-lg flex items-center justify-center gap-2 mt-2">
-                                <i class="fa-regular fa-paper-plane"></i> Gửi thông tin
+                            <button type="submit" x-show="!isContacted" class="w-full py-3.5 px-4 bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-600 hover:via-teal-600 hover:to-teal-700 text-white rounded-md font-bold transition-all duration-300 shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2.5 mt-3 text-base cursor-pointer">
+                                <i class="fa-solid fa-paper-plane text-sm"></i> Gửi thông tin
                             </button>
                             
                             <!-- Revoke Button -->
@@ -402,14 +804,213 @@
             </div>
         </div>
 
-        <!-- Related Properties -->
         @php
+            // Helper xử lý chuẩn thumbnail ảnh cho bài đăng (phòng cùng tòa nhà & bất động sản cùng loại)
+            $resolveThumb = function($p) use ($b) {
+                if (!empty($p->images) && is_iterable($p->images)) {
+                    foreach ($p->images as $imgRef) {
+                        $imgStr = is_array($imgRef) ? ($imgRef['url'] ?? ($imgRef['id'] ?? '')) : (is_object($imgRef) ? ($imgRef->url ?? ($imgRef->id ?? '')) : (string)$imgRef);
+                        $imgStr = trim($imgStr);
+                        if (empty($imgStr)) continue;
+
+                        if (\Illuminate\Support\Str::startsWith($imgStr, ['/images/', 'images/', '/image/', 'image/'])) {
+                            return '/' . ltrim($imgStr, '/');
+                        }
+                        if (preg_match('/^[a-f\d]{24}$/i', $imgStr)) {
+                            return '/images/' . $imgStr;
+                        }
+                        if (\Illuminate\Support\Str::startsWith($imgStr, ['http://', 'https://', 'data:'])) {
+                            if (str_contains($imgStr, '/images/')) {
+                                return '/images/' . substr($imgStr, strpos($imgStr, '/images/') + 8);
+                            }
+                            return $imgStr;
+                        }
+                        if (\Illuminate\Support\Str::startsWith($imgStr, ['/storage/', 'storage/'])) {
+                            return asset(ltrim($imgStr, '/'));
+                        }
+                        if (\Illuminate\Support\Str::startsWith($imgStr, '/')) {
+                            return $imgStr;
+                        }
+                        return asset('storage/' . $imgStr);
+                    }
+                }
+
+                if (!empty($p->all_images) && is_iterable($p->all_images)) {
+                    foreach ($p->all_images as $im) {
+                        $u = is_array($im) ? ($im['url'] ?? '') : (is_object($im) ? ($im->url ?? '') : (string)$im);
+                        if (!empty($u)) {
+                            if (str_contains($u, '/images/')) {
+                                return '/images/' . substr($u, strpos($u, '/images/') + 8);
+                            }
+                            return $u;
+                        }
+                    }
+                }
+
+                if (!empty($p->display_image)) {
+                    $d = (string)$p->display_image;
+                    if (preg_match('/^[a-f\d]{24}$/i', $d)) {
+                        return '/images/' . $d;
+                    }
+                    if (str_contains($d, '/images/')) {
+                        return '/images/' . substr($d, strpos($d, '/images/') + 8);
+                    }
+                    return $d;
+                }
+
+                if (!empty($p->building)) {
+                    $pB = $p->building;
+                    if (!empty($pB->display_image)) return $pB->display_image;
+                    if (!empty($pB->image)) {
+                        return \Illuminate\Support\Str::startsWith($pB->image, ['http', 'data:', '/images/']) ? $pB->image : asset('storage/' . ltrim($pB->image, '/'));
+                    }
+                }
+
+                if (!empty($b)) {
+                    if (!empty($b->display_image)) return $b->display_image;
+                    if (!empty($b->image)) {
+                        return \Illuminate\Support\Str::startsWith($b->image, ['http', 'data:', '/images/']) ? $b->image : asset('storage/' . ltrim($b->image, '/'));
+                    }
+                }
+
+                return 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80';
+            };
+
+            // 4. Truy vấn danh sách $sameBuildingPosts từ cùng tòa nhà
+            $sameBuildingPosts = collect([]);
+            if (!empty($post->building_id) && !empty($b)) {
+                $bIdStr = (string)$post->building_id;
+                $sameBuildingPosts = \App\Models\Post::where(function($q) use ($bIdStr, $post) {
+                        $q->where('building_id', $bIdStr)
+                          ->orWhere('building_id', $post->building_id);
+                    })
+                    ->where('_id', '!=', $post->_id)
+                    ->whereIn('status', ['approved', 'active'])
+                    ->latest()
+                    ->get()
+                    ->filter(function($p) {
+                        return empty($p->is_rented) && !in_array($p->status, ['rented', 'dang_thue', 'đã cho thuê']);
+                    })
+                    ->take(8);
+            }
+        @endphp
+
+        <!-- Section 4: Các phòng đang trống khác thuộc cùng tòa nhà (Lớp Vỏ) -->
+        @if(!empty($post->building_id) && !empty($b))
+        <div class="mt-12 pt-10 border-t border-slate-200">
+            @if($sameBuildingPosts->count() > 0)
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h2 class="text-2xl font-black text-slate-900 flex items-center gap-3">
+                            <i class="fa-solid fa-building-user text-brand-600"></i> Các phòng đang trống khác tại tòa nhà {{ $b->name }}
+                        </h2>
+                        <div class="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-slate-500 font-medium">
+                            <span><i class="fa-solid fa-location-dot text-brand-500"></i> {{ $b->full_address ?? ($b->address_detail ?? ($post->address ?? '')) }}</span>
+                            <span class="text-slate-300">•</span>
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                Còn {{ $sameBuildingPosts->count() }} phòng trống khác đang mở cho thuê
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Navigation Buttons -->
+                    <div class="flex items-center gap-2 self-end sm:self-center">
+                        <button onclick="document.getElementById('same-building-slider').scrollBy({ left: -320, behavior: 'smooth' })" class="w-10 h-10 rounded-full bg-slate-100 hover:bg-brand-600 text-slate-600 hover:text-white flex items-center justify-center transition-colors shadow-sm cursor-pointer" aria-label="Cuộn trái">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </button>
+                        <button onclick="document.getElementById('same-building-slider').scrollBy({ left: 320, behavior: 'smooth' })" class="w-10 h-10 rounded-full bg-slate-100 hover:bg-brand-600 text-slate-600 hover:text-white flex items-center justify-center transition-colors shadow-sm cursor-pointer" aria-label="Cuộn phải">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Scrollable Container -->
+                <div id="same-building-slider" class="flex gap-6 overflow-x-auto snap-x snap-mandatory pb-4 hide-scrollbar">
+                    @foreach($sameBuildingPosts as $sbPost)
+                    @php
+                        $sbImg = $resolveThumb($sbPost);
+                        $sbFloor = $sbPost->floor ?? ($sbPost->floor_number ?? null);
+                        $sbType = $typeMap[strtolower($sbPost->property_type ?? '')] ?? ($typeMap[$sbPost->property_type ?? ''] ?? 'Phòng');
+                    @endphp
+                    <a href="{{ url('/chitietbaidang/' . $sbPost->_id) }}" class="min-w-[280px] sm:min-w-[300px] max-w-[300px] flex-none snap-start bg-white rounded-xl border border-slate-200/70 shadow-sm hover:shadow-lg transition-all group overflow-hidden flex flex-col h-full hover:-translate-y-1">
+                        <div class="relative aspect-[4/3] overflow-hidden bg-slate-100">
+                            <img src="{{ $sbImg }}" alt="{{ $sbPost->title }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80';">
+                            <div class="absolute top-3 left-3 bg-brand-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider shadow-sm">
+                                {{ $sbType }}
+                            </div>
+                            @if(!empty($sbFloor))
+                            <div class="absolute top-3 right-3 bg-slate-900/80 backdrop-blur-xs text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm flex items-center gap-1 border border-white/20">
+                                <i class="fa-solid fa-stairs text-sky-400"></i> Tầng {{ $sbFloor }}
+                            </div>
+                            @endif
+                        </div>
+                        <div class="p-4 flex flex-col flex-1">
+                            <h3 class="text-slate-900 font-bold text-sm mb-2 line-clamp-2 group-hover:text-brand-600 transition-colors leading-snug">{{ $sbPost->title }}</h3>
+                            <div class="mt-auto">
+                                <div class="flex items-center justify-between mt-3 mb-2">
+                                    <span class="text-brand-600 font-black text-base">{{ number_format($sbPost->price, 0, ',', '.') }} {{ $sbPost->price_unit }}</span>
+                                    <span class="text-slate-600 font-bold text-xs">{{ $sbPost->area }} m&sup2;</span>
+                                </div>
+                                <div class="text-slate-500 text-xs flex items-center justify-between border-t border-slate-100 pt-2.5 mt-2">
+                                    <span class="truncate flex items-center gap-1 text-slate-600 font-medium">
+                                        <i class="fa-solid fa-city text-emerald-600 text-[11px]"></i> {{ $b->name }}
+                                    </span>
+                                    <span class="text-brand-600 font-bold flex items-center gap-1 shrink-0 group-hover:translate-x-0.5 transition-transform">
+                                        Xem <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                    @endforeach
+                </div>
+            @else
+                <!-- Thông báo nhẹ nhàng khi chỉ có duy nhất 1 phòng này còn trống -->
+                <div class="p-5 rounded-2xl bg-gradient-to-r from-amber-50/70 via-emerald-50/40 to-slate-50 border border-amber-200/70 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div class="flex items-center gap-3.5">
+                        <div class="w-11 h-11 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center text-xl shrink-0 border border-amber-200">
+                            <i class="fa-solid fa-building-circle-check"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                                <span>Cơ sở / Tòa nhà: {{ $b->name }}</span>
+                                <span class="text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">Lớp Vỏ</span>
+                            </h4>
+                            <p class="text-sm font-medium text-slate-600 mt-0.5">
+                                Hiện tại đây là phòng trống duy nhất đang mở cho thuê tại cơ sở {{ $b->name }}.
+                            </p>
+                        </div>
+                    </div>
+                    @if(!empty($b->full_address))
+                    <div class="text-xs text-slate-500 font-medium flex items-center gap-1.5 bg-white/80 px-3.5 py-2 rounded-lg border border-slate-200/80">
+                        <i class="fa-solid fa-location-dot text-brand-500"></i> {{ $b->full_address }}
+                    </div>
+                    @endif
+                </div>
+            @endif
+        </div>
+        @endif
+
+        <!-- Section 5: Bất động sản cùng loại (Loại trừ bài cùng tòa nhà và fallback ảnh chuẩn) -->
+        @php
+            // Danh sách ID cần loại trừ khỏi relatedPosts
+            $excludeIds = array_filter(array_unique(array_merge(
+                [(string)$post->_id, (string)($post->id ?? '')],
+                $sameBuildingPosts->pluck('_id')->map(fn($id) => (string)$id)->toArray(),
+                $sameBuildingPosts->pluck('id')->map(fn($id) => (string)$id)->toArray()
+            )));
+
             $relatedPosts = \App\Models\Post::where('property_type', $post->property_type)
-                ->where('_id', '!=', $post->_id)
-                ->where('status', 'approved')
+                ->whereNotIn('_id', $excludeIds)
+                ->whereIn('status', ['approved', 'active'])
                 ->latest()
-                ->limit(10)
-                ->get();
+                ->limit(15)
+                ->get()
+                ->filter(function($rp) use ($excludeIds) {
+                    return !in_array((string)$rp->_id, $excludeIds) && !in_array((string)($rp->id ?? ''), $excludeIds);
+                })
+                ->take(10);
         @endphp
 
         @if($relatedPosts->count() > 0)
@@ -421,10 +1022,10 @@
                 
                 <!-- Navigation Buttons -->
                 <div class="flex items-center gap-2">
-                    <button onclick="document.getElementById('related-slider').scrollBy({ left: -320, behavior: 'smooth' })" class="w-10 h-10 rounded-full bg-slate-100 hover:bg-brand-600 text-slate-600 hover:text-white flex items-center justify-center transition-colors shadow-sm">
+                    <button onclick="document.getElementById('related-slider').scrollBy({ left: -320, behavior: 'smooth' })" class="w-10 h-10 rounded-full bg-slate-100 hover:bg-brand-600 text-slate-600 hover:text-white flex items-center justify-center transition-colors shadow-sm cursor-pointer" aria-label="Cuộn trái">
                         <i class="fa-solid fa-chevron-left"></i>
                     </button>
-                    <button onclick="document.getElementById('related-slider').scrollBy({ left: 320, behavior: 'smooth' })" class="w-10 h-10 rounded-full bg-slate-100 hover:bg-brand-600 text-slate-600 hover:text-white flex items-center justify-center transition-colors shadow-sm">
+                    <button onclick="document.getElementById('related-slider').scrollBy({ left: 320, behavior: 'smooth' })" class="w-10 h-10 rounded-full bg-slate-100 hover:bg-brand-600 text-slate-600 hover:text-white flex items-center justify-center transition-colors shadow-sm cursor-pointer" aria-label="Cuộn phải">
                         <i class="fa-solid fa-chevron-right"></i>
                     </button>
                 </div>
@@ -433,11 +1034,15 @@
             <!-- Scrollable Container -->
             <div id="related-slider" class="flex gap-6 overflow-x-auto snap-x snap-mandatory pb-4 hide-scrollbar">
                 @foreach($relatedPosts as $rPost)
-                <a href="{{ url('/chitietbaidang/' . $rPost->_id) }}" class="min-w-[280px] sm:min-w-[300px] max-w-[300px] flex-none snap-start bg-white rounded-md border border-slate-200/60 shadow-sm hover:shadow-md transition-all group overflow-hidden flex flex-col h-full">
+                @php
+                    $rImg = $resolveThumb($rPost);
+                    $rType = $typeMap[strtolower($rPost->property_type ?? '')] ?? ($typeMap[$rPost->property_type ?? ''] ?? 'Bất động sản');
+                @endphp
+                <a href="{{ url('/chitietbaidang/' . $rPost->_id) }}" class="min-w-[280px] sm:min-w-[300px] max-w-[300px] flex-none snap-start bg-white rounded-md border border-slate-200/60 shadow-sm hover:shadow-md transition-all group overflow-hidden flex flex-col h-full hover:-translate-y-0.5">
                     <div class="relative aspect-[4/3] overflow-hidden bg-slate-100">
-                        <img src="{{ $rPost->display_image }}" alt="{{ $rPost->title }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                        <img src="{{ $rImg }}" alt="{{ $rPost->title }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80';">
                         <div class="absolute top-3 left-3 bg-brand-600 text-white text-[10px] font-bold px-2.5 py-1 rounded uppercase tracking-wider shadow-sm">
-                            {{ $typeMap[$rPost->property_type] ?? 'Bất động sản' }}
+                            {{ $rType }}
                         </div>
                     </div>
                     <div class="p-4 flex flex-col flex-1">

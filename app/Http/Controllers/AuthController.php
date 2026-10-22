@@ -49,10 +49,10 @@ class AuthController extends Controller
                 return redirect()->intended('/kiem-duyet/tong-quan')->with('success', 'Xin chào ' . ($user->account_name ?: 'Kiểm duyệt viên') . '! Đăng nhập thành công vào Kênh Kiểm Duyệt.');
             }
 
-            // 3. Tài khoản con (doanh nghiệp / nhân viên phụ trách) -> Chuyển về Trang chủ (Home)
-            if ($user->isSubAccount() || !empty($user->parent_id) || in_array($user->role, ['sub_account', 'staff'])) {
+            // 3. Tài khoản con (nhân sự / nhân viên phụ trách) -> Chuyển về Trang chủ (Home)
+            if ($user->isSubAccount() || !empty($user->parent_id) || in_array($user->role, ['sub_account', 'staff', 'nhansu', 'nhan su', 'nhan_su'])) {
                 $request->session()->forget('url.intended');
-                return redirect('/')->with('success', 'Xin chào ' . ($user->account_name ?: $user->username ?: 'Tài khoản Doanh nghiệp') . '! Đăng nhập thành công.');
+                return redirect('/')->with('success', 'Xin chào ' . ($user->account_name ?: $user->username ?: 'Nhân sự RentHome') . '! Đăng nhập thành công.');
             }
 
             // 4. Doanh nghiệp mẹ / Quản trị Doanh nghiệp chính -> Chuyển về Overview
@@ -102,7 +102,7 @@ class AuthController extends Controller
             'username' => explode('@', $validated['email'])[0],
             'phone' => $validated['phone'],
             'password' => Hash::make($validated['password']),
-            'role' => 'user',
+            'role' => 'canhan',
             'status' => 'active',
             'is_locked' => false,
             'is_deleted' => false,
@@ -110,7 +110,7 @@ class AuthController extends Controller
 
         User::create($userData);
 
-        return redirect('/login')->with('success', 'Đăng ký tài khoản người thuê nhà thành công! Vui lòng đăng nhập.');
+        return redirect('/login')->with('success', 'Đăng ký tài khoản cá nhân thành công! Vui lòng đăng nhập.');
     }
 
     public function logout(Request $request)

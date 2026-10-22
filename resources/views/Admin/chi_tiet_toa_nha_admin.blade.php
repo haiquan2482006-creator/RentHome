@@ -1,3 +1,51 @@
+@php
+    $typeMap = [
+        'can_ho'           => 'Chung cư mini / Căn hộ dịch vụ',
+        'can_ho_dich_vu'   => 'Chung cư mini / Căn hộ dịch vụ',
+        'chung_cu_mini'    => 'Chung cư mini / Căn hộ dịch vụ',
+        'nha_tro'          => 'Nhà trọ / Khu trọ',
+        'day_tro'          => 'Nhà trọ / Khu trọ',
+        'ky_tuc_xa'        => 'Ký túc xá / Sleepbox',
+        'nha_rieng'        => 'Nhà ở / Nhà riêng lẻ',
+        'nha_nguyen_can'   => 'Nhà ở / Nhà riêng lẻ',
+        'cum_nha_lien_ke'  => 'Cụm nhà liền kề / Dự án',
+        'dat_phan_lo'      => 'Đất phân lô / Đất nền',
+        'dat_nen'          => 'Mặt bằng kinh doanh / Đất nền',
+        'toa_nha_van_phong'=> 'Tòa nhà văn phòng',
+    ];
+    $rawType = $building->type ?? $building->business_type ?? '';
+    $displayTypeText = $typeMap[$rawType] ?? ($typeText ?? ($rawType ?: 'Chung cư mini / Căn hộ dịch vụ'));
+
+    $elecPrice = (float)($building->electricity_price ?? 0);
+    $waterPrice = (float)($building->water_price ?? 0);
+    $waterType = $building->water_calc_type ?? 'm3';
+    $waterUnit = ($waterType === 'person') ? 'người' : 'm³';
+    $serviceFee = (float)($building->service_fee ?? 0);
+    $internetFee = (float)($building->internet_fee ?? 0);
+    $parkingFee = (float)($building->parking_fee ?? 0);
+
+    $hasAnyServiceFee = ($elecPrice > 0 || $waterPrice > 0 || $serviceFee > 0 || $internetFee > 0 || $parkingFee > 0);
+    $hasServiceExplicit = isset($building->has_service_pricing) && $building->has_service_pricing !== null ? (bool)$building->has_service_pricing : null;
+
+    if ($hasServiceExplicit !== null) {
+        $noServicePricing = !$hasServiceExplicit;
+    } elseif ($hasAnyServiceFee) {
+        $noServicePricing = false;
+    } else {
+        $isExcludedType = in_array($rawType, ['dat_phan_lo', 'dat_nen']);
+        $noServicePricing = $isExcludedType || !$hasAnyServiceFee;
+    }
+
+    $bAmenities = is_array($building->amenities) ? $building->amenities : (is_string($building->amenities) ? json_decode($building->amenities, true) : []);
+    $bAmenities = is_array($bAmenities) ? array_values(array_filter($bAmenities)) : [];
+
+    $fullAddress = implode(', ', array_filter([
+        $building->address_detail,
+        $building->ward,
+        $building->district,
+        $building->province
+    ]));
+@endphp
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -777,6 +825,218 @@
                 max-width: 100%;
             }
         }
+
+        /* ========================================================================= */
+        /* KHỐI CẤU HÌNH BẢNG GIÁ DỊCH VỤ & TIỆN ÍCH DÙNG CHUNG (LỚP VỎ)             */
+        /* ========================================================================= */
+        .building-shell-card {
+            background-color: var(--bg-card);
+            border-radius: 18px;
+            border: 1px solid var(--border-color);
+            padding: 24px 28px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow-subtle);
+            transition: var(--transition);
+        }
+
+        .building-shell-card:hover {
+            box-shadow: var(--shadow-card);
+        }
+
+        .shell-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            padding-bottom: 14px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .shell-card-title {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .shell-pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+
+        .shell-price-item {
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+            transition: var(--transition);
+        }
+
+        .shell-price-item:hover {
+            border-color: #cbd5e1;
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-subtle);
+        }
+
+        .shell-price-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.15rem;
+            flex-shrink: 0;
+        }
+
+        .shell-icon-elec { background: #fffbeb; color: #d97706; border: 1px solid #fef3c7; }
+        .shell-icon-water { background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe; }
+        .shell-icon-service { background: #f0fdf4; color: #059669; border: 1px solid #dcfce7; }
+        .shell-icon-wifi { background: #f5f3ff; color: #7c3aed; border: 1px solid #ede9fe; }
+        .shell-icon-parking { background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; }
+
+        .shell-price-body {
+            min-width: 0;
+            flex: 1;
+        }
+
+        .shell-price-name {
+            font-size: 0.725rem;
+            color: var(--text-muted);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-bottom: 3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .shell-price-value {
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+
+        .shell-price-value .unit {
+            font-size: 0.775rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .shell-price-value.text-state {
+            font-size: 0.825rem;
+            color: #059669;
+            font-weight: 700;
+        }
+
+        .shell-no-pricing-alert {
+            background: #fffbeb;
+            border: 1.5px solid #fde68a;
+            border-radius: 14px;
+            padding: 16px 20px;
+            margin-bottom: 20px;
+            color: #92400e;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            line-height: 1.5;
+        }
+
+        .shell-meta-wrapper {
+            background-color: #f8fafc;
+            border-radius: 14px;
+            border: 1px solid #e2e8f0;
+            padding: 16px 20px;
+        }
+
+        .shell-meta-section {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        .shell-meta-label {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-width: 210px;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .shell-amenities-tags {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            flex: 1;
+        }
+
+        .shell-amenity-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            background-color: #ffffff;
+            border: 1px solid #cbd5e1;
+            color: #1e293b;
+            font-size: 0.775rem;
+            font-weight: 700;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+        }
+
+        .shell-amenity-pill i {
+            color: #0284c7;
+            font-size: 0.7rem;
+        }
+
+        .shell-address-text {
+            font-size: 0.85rem;
+            color: var(--text-primary);
+            flex: 1;
+            line-height: 1.5;
+        }
+
+        @media (max-width: 1280px) {
+            .shell-pricing-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .shell-pricing-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .shell-meta-label {
+                min-width: 100%;
+            }
+        }
+
+        @media (max-width: 520px) {
+            .shell-pricing-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
@@ -810,7 +1070,7 @@
                     <h1 class="page-header-title">
                         Chi Tiết Vận Hành (Admin): <span class="highlight">{{ $building->name }}</span>
                         <span class="type-badge-pill">
-                            <i class="fa-solid fa-tag"></i> {{ $typeText }}
+                            <i class="fa-solid fa-tag"></i> {{ $displayTypeText }}
                         </span>
                         <span class="scale-badge-pill">
                             <i class="fa-solid fa-layer-group"></i> {{ $stats->total_scale }} Phòng
@@ -943,6 +1203,163 @@
                         <span class="rm-badge rm-badge-red">
                             <i class="fa-solid fa-circle-exclamation"></i> Chưa đóng / Còn nợ: <strong>{{ $stats->unpaid_rooms }} phòng</strong>
                         </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- KHỐI 2.5 - CẤU HÌNH BẢNG GIÁ DỊCH VỤ & TIỆN ÍCH DÙNG CHUNG (LỚP VỎ)        -->
+        <!-- ========================================================================= -->
+        <div class="building-shell-card">
+            <!-- Header của Card -->
+            <div class="shell-card-header">
+                <div class="shell-card-title">
+                    <i class="fa-solid fa-file-invoice-dollar" style="color: #d97706; font-size: 1.25rem;"></i>
+                    <span>Cấu Hình Bảng Giá Dịch Vụ & Tiện Ích Dùng Chung (Lớp Vỏ)</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <span class="rm-badge rm-badge-amber">
+                        <i class="fa-solid fa-building-circle-check"></i> Áp dụng toàn tòa nhà
+                    </span>
+                    <span class="rm-badge rm-badge-blue">
+                        <i class="fa-solid fa-lock"></i> Kế thừa tự động
+                    </span>
+                </div>
+            </div>
+
+            <!-- Bảng Giá Dịch Vụ Dùng Chung -->
+            @if($noServicePricing)
+                <div class="shell-no-pricing-alert">
+                    <i class="fa-solid fa-circle-info" style="font-size: 1.25rem; flex-shrink: 0; color: #d97706;"></i>
+                    <div>
+                        <strong>Lưu ý:</strong> Cơ sở này không áp dụng thu phí dịch vụ dùng chung (Khách thuê tự thanh toán theo đồng hồ/quy định riêng).
+                    </div>
+                </div>
+            @else
+                <div class="shell-pricing-grid">
+                    <!-- Điện -->
+                    <div class="shell-price-item">
+                        <div class="shell-price-icon shell-icon-elec">
+                            <i class="fa-solid fa-bolt"></i>
+                        </div>
+                        <div class="shell-price-body">
+                            <div class="shell-price-name">⚡ Đơn giá Điện</div>
+                            <div class="shell-price-value {{ $elecPrice > 0 ? '' : 'text-state' }}">
+                                @if($elecPrice > 0)
+                                    {{ number_format($elecPrice, 0, ',', '.') }} <span class="unit">đ/kWh</span>
+                                @else
+                                    Theo giá nhà nước
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Nước -->
+                    <div class="shell-price-item">
+                        <div class="shell-price-icon shell-icon-water">
+                            <i class="fa-solid fa-droplet"></i>
+                        </div>
+                        <div class="shell-price-body">
+                            <div class="shell-price-name">💧 Đơn giá Nước</div>
+                            <div class="shell-price-value {{ $waterPrice > 0 ? '' : 'text-state' }}">
+                                @if($waterPrice > 0)
+                                    {{ number_format($waterPrice, 0, ',', '.') }} <span class="unit">đ/{{ $waterUnit }}</span>
+                                @else
+                                    Theo giá nhà nước
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Phí dịch vụ / Vệ sinh -->
+                    <div class="shell-price-item">
+                        <div class="shell-price-icon shell-icon-service">
+                            <i class="fa-solid fa-broom"></i>
+                        </div>
+                        <div class="shell-price-body">
+                            <div class="shell-price-name">🧹 Phí dịch vụ / Vệ sinh</div>
+                            <div class="shell-price-value">
+                                @if($serviceFee > 0)
+                                    {{ number_format($serviceFee, 0, ',', '.') }} <span class="unit">đ/phòng</span>
+                                @else
+                                    <span class="text-state">0 <span class="unit">đ/phòng</span></span>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Wifi / Internet -->
+                    <div class="shell-price-item">
+                        <div class="shell-price-icon shell-icon-wifi">
+                            <i class="fa-solid fa-wifi"></i>
+                        </div>
+                        <div class="shell-price-body">
+                            <div class="shell-price-name">📶 Phí Wifi / Internet</div>
+                            <div class="shell-price-value">
+                                @if($internetFee > 0)
+                                    {{ number_format($internetFee, 0, ',', '.') }} <span class="unit">đ/phòng</span>
+                                @else
+                                    <span class="text-state">0 <span class="unit">đ/phòng</span></span>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Phí gửi xe -->
+                    <div class="shell-price-item">
+                        <div class="shell-price-icon shell-icon-parking">
+                            <i class="fa-solid fa-motorcycle"></i>
+                        </div>
+                        <div class="shell-price-body">
+                            <div class="shell-price-name">🛵 Phí gửi xe</div>
+                            <div class="shell-price-value">
+                                @if($parkingFee > 0)
+                                    {{ number_format($parkingFee, 0, ',', '.') }} <span class="unit">đ/xe</span>
+                                @else
+                                    <span class="text-state">0 <span class="unit">đ/xe</span></span>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
+            <!-- Tiện ích chung & Địa chỉ chi tiết -->
+            <div class="shell-meta-wrapper">
+                <!-- Tiện ích chung -->
+                <div class="shell-meta-section">
+                    <div class="shell-meta-label">
+                        <i class="fa-solid fa-wand-magic-sparkles" style="color: #0284c7;"></i>
+                        <span>Tiện ích chung của cơ sở:</span>
+                    </div>
+                    <div class="shell-amenities-tags">
+                        @if(count($bAmenities) > 0)
+                            @foreach($bAmenities as $am)
+                                <span class="shell-amenity-pill">
+                                    <i class="fa-solid fa-check"></i> {{ $am }}
+                                </span>
+                            @endforeach
+                        @else
+                            <span style="font-size: 0.8rem; color: var(--text-muted); font-style: italic;">Chưa thiết lập tiện ích dùng chung.</span>
+                        @endif
+                    </div>
+                </div>
+
+                <!-- Địa chỉ chi tiết -->
+                <div class="shell-meta-section" style="margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--border-color);">
+                    <div class="shell-meta-label">
+                        <i class="fa-solid fa-map-location-dot" style="color: #059669;"></i>
+                        <span>Địa chỉ chi tiết (Hồ sơ tòa nhà):</span>
+                    </div>
+                    <div class="shell-address-text">
+                        <i class="fa-solid fa-location-dot" style="color: #dc2626; margin-right: 4px;"></i>
+                        <strong>{{ $fullAddress ?: 'Chưa cập nhật địa chỉ chi tiết' }}</strong>
+                        @if(!empty($building->project))
+                            <span class="rm-badge rm-badge-blue" style="margin-left: 8px;">
+                                <i class="fa-solid fa-city"></i> Dự án / KĐT: {{ $building->project }}
+                            </span>
+                        @endif
                     </div>
                 </div>
             </div>

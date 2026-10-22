@@ -19,6 +19,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        \App\Models\Invoice::observe(\App\Observers\InvoiceObserver::class);
+
         $defaultSettings = [
             'banner_title' => 'Tìm Nhà Cho Thuê Nhanh Chóng & Dễ Dàng',
             'banner_subtitle' => 'Hàng ngàn căn hộ, phòng trọ chất lượng cao được xác thực mỗi ngày tại RentHome',

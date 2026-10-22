@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Nhà Đang Thuê & Thanh Toán Hóa Đơn - RentHome</title>
 
     <!-- Google Fonts -->
@@ -15,6 +16,9 @@
 
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -340,6 +344,7 @@
                             @php
                                 $post = $contract->post ?: \App\Models\Post::find($contract->post_id);
                                 $owner = $contract->owner ?: ($post ? \App\Models\User::find($post->user_id) : null);
+                                $landlord = $owner;
                                 $landlordName = $owner->account_name ?? ($owner->username ?? 'Chủ nhà');
                                 $landlordPhone = $owner->phone ?? ($contract->owner_phone ?? 'Chưa cập nhật');
                                 $houseTitle = $post ? ($post->title ?? 'Nhà / Phòng cho thuê') : ($contract->tenant_name ? 'Phòng ' . $contract->tenant_name : 'Phòng trọ');
@@ -453,28 +458,31 @@
                                     </tr>
                                 ';
 
-                                $invoiceItem = [
-                                    'code' => $firstMonthInvoiceCode,
-                                    'contractId' => $contractId,
-                                    'houseName' => $houseTitle,
-                                    'landlordName' => $landlordName,
-                                    'landlordPhone' => $landlordPhone,
-                                    'landlordInfo' => $landlordName . ' (SĐT: ' . $landlordPhone . ')',
-                                    'dueDate' => $contract->billing_date ? ('Hạn ' . $contract->billing_date . ' hàng tháng') : 'Hạn Mùng 10 hàng tháng',
-                                    'total' => number_format($totalFirstMonthCalc) . ' VNĐ',
-                                    'totalRaw' => number_format($totalFirstMonthCalc),
-                                    'bankShort' => 'MB Bank',
-                                    'bankFull' => 'MB Bank (Ngân hàng Quân Đội)',
-                                    'bankAccount' => '0912 987 654 888',
-                                    'bankOwner' => mb_strtoupper($landlordName, 'UTF-8'),
-                                    'rowsHtml' => $invRowsHtml,
-                                ];
-                                $invoiceDataJsonMap[$contractId] = $invoiceItem;
-                                $invoiceDataJsonMap[$firstMonthInvoiceCode] = $invoiceItem;
-                                $invoiceDataJsonMap[$roomCode] = $invoiceItem;
-                                if ($realInvoice && !empty($realInvoice->_id)) {
-                                    $invoiceDataJsonMap[(string)$realInvoice->_id] = $invoiceItem;
+                                // Lấy thông tin tài khoản ngân hàng chuẩn VietQR
+                                $enterpriseUser = \App\Models\User::getEnterpriseUser();
+                                $bUser = ($enterpriseUser && !empty($enterpriseUser->bank_account)) 
+                                    ? $enterpriseUser 
+                                    : (($landlord ?? $owner) ?: \Illuminate\Support\Facades\Auth::user());
+                                if (!$bUser || empty($bUser->bank_account)) {
+                                    $fallbackB = \App\Models\User::whereNotNull('bank_account')->where('bank_account', '!=', '')->first();
+                                    if ($fallbackB) $bUser = $fallbackB;
                                 }
+                                $bName = !empty($bUser->bank_name) ? $bUser->bank_name : 'VietBank';
+                                $bAccount = !empty($bUser->bank_account) ? $bUser->bank_account : '00939399884747';
+                                $bHolder = mb_strtoupper((!empty($bUser->bank_owner)) ? $bUser->bank_owner : ((!empty($bUser->bank_account_holder)) ? $bUser->bank_account_holder : 'NGUYEN THI VAN ANH'), 'UTF-8');
+
+                                // Lấy thông tin nhân sự phụ trách
+                                $staffUser = null;
+                                if (!empty($contract->staff_id)) {
+                                    $staffUser = \App\Models\User::find($contract->staff_id);
+                                } elseif (!empty($contract->created_by)) {
+                                    $cr = \App\Models\User::find($contract->created_by);
+                                    if ($cr && ($cr->isSubAccount() || $cr->isStaff() || $cr->role === 'nhansu')) $staffUser = $cr;
+                                }
+                                $personInCharge = $staffUser ?: ($landlord ?? $owner);
+                                $staffName = $personInCharge ? ($personInCharge->account_name ?: ($personInCharge->name ?: ($personInCharge->username ?: 'Nhân sự vận hành'))) : ($landlordName ?? 'Chủ nhà');
+                                $staffPhone = $personInCharge ? ($personInCharge->phone ?: ($landlordPhone ?? 'Chưa cập nhật')) : ($landlordPhone ?? 'Chưa cập nhật');
+
                                 // XÁC ĐỊNH TRẠNG THÁI THANH TOÁN CỦA CĂN NHÀ
                                 $unpaidInvoice = \App\Models\Invoice::where('contract_id', $contractId)
                                     ->where(function($q) {
@@ -483,8 +491,16 @@
                                     ->latest()
                                     ->first();
 
+                                $pendingApprovalInvoice = \App\Models\Invoice::where('contract_id', $contractId)
+                                    ->where(function($q) {
+                                        $q->where('status', 'pending_approval')->orWhere('payment_status', 'pending_approval');
+                                    })
+                                    ->latest()
+                                    ->first();
+
+                                $isHousePendingApproval = !empty($pendingApprovalInvoice);
                                 $isHousePaid = false;
-                                if (!$unpaidInvoice) {
+                                if (!$unpaidInvoice && !$isHousePendingApproval) {
                                     $isHousePaid = true;
                                 } else {
                                     if ($contract->payment_status === 'paid' && ($contract->last_paid_period === date('m/Y'))) {
@@ -494,18 +510,49 @@
                                     }
                                 }
 
-                                $unpaidAmount = $unpaidInvoice ? (float)($unpaidInvoice->total_amount ?? $totalFirstMonthCalc) : 0;
-                                $invoiceActionCode = $unpaidInvoice ? ($unpaidInvoice->invoice_code ?? $firstMonthInvoiceCode) : $firstMonthInvoiceCode;
+                                $activeInv = $pendingApprovalInvoice ?: ($unpaidInvoice ?: null);
+                                $unpaidAmount = $activeInv ? (float)($activeInv->total_amount ?? $totalFirstMonthCalc) : 0;
+                                $invoiceActionCode = $activeInv ? ($activeInv->invoice_code ?? $firstMonthInvoiceCode) : $firstMonthInvoiceCode;
                                 if ($isHousePaid) {
                                     $latestPaidInvoice = \App\Models\Invoice::where('contract_id', $contractId)->latest()->first();
                                     if ($latestPaidInvoice && !empty($latestPaidInvoice->invoice_code)) {
                                         $invoiceActionCode = $latestPaidInvoice->invoice_code;
                                     }
                                 }
+
+                                $invoiceItem = [
+                                    'code' => $invoiceActionCode,
+                                    'contractId' => $contractId,
+                                    'houseName' => $houseTitle,
+                                    'landlordName' => $landlordName,
+                                    'landlordPhone' => $landlordPhone,
+                                    'staffName' => $staffName,
+                                    'staffPhone' => $staffPhone,
+                                    'landlordInfo' => ($staffUser ? 'Nhân sự: ' : 'Chủ nhà: ') . $staffName . ' (SĐT: ' . $staffPhone . ')',
+                                    'dueDate' => $contract->billing_date ? ('Hạn ' . $contract->billing_date . ' hàng tháng') : 'Hạn Mùng 10 hàng tháng',
+                                    'total' => number_format($unpaidAmount ?: $totalFirstMonthCalc) . ' VNĐ',
+                                    'totalRaw' => number_format($unpaidAmount ?: $totalFirstMonthCalc),
+                                    'bankShort' => $bName,
+                                    'bankFull' => $bName,
+                                    'bankAccount' => $bAccount,
+                                    'bankOwner' => $bHolder,
+                                    'rowsHtml' => $invRowsHtml,
+                                    'isPaid' => $isHousePaid,
+                                    'isPendingApproval' => $isHousePendingApproval,
+                                    'status' => $activeInv ? $activeInv->status : ($isHousePaid ? 'paid' : 'unpaid'),
+                                    'proofImage' => !empty($activeInv?->proof_image) ? (str_starts_with($activeInv->proof_image, 'http') ? $activeInv->proof_image : asset(ltrim($activeInv->proof_image, '/'))) : null,
+                                ];
+                                $invoiceDataJsonMap[$contractId] = $invoiceItem;
+                                $invoiceDataJsonMap[$firstMonthInvoiceCode] = $invoiceItem;
+                                $invoiceDataJsonMap[$invoiceActionCode] = $invoiceItem;
+                                $invoiceDataJsonMap[$roomCode] = $invoiceItem;
+                                if ($realInvoice && !empty($realInvoice->_id)) {
+                                    $invoiceDataJsonMap[(string)$realInvoice->_id] = $invoiceItem;
+                                }
                             @endphp
 
-                            <!-- DẤU HIỆU 2: VIỀN THẺ NHÀ PHẢN ÁNH TRẠNG THÁI (VIỀN ĐỎ NẾU CHƯA ĐÓNG) -->
-                            <div class="bg-white rounded-3xl border {{ !$isHousePaid ? 'border-2 border-rose-300 ring-4 ring-rose-50/70 shadow-md' : 'border border-slate-200/90' }} overflow-hidden shadow-card hover:shadow-lg transition-all flex flex-col md:flex-row relative">
+                            <!-- DẤU HIỆU 2: VIỀN THẺ NHÀ PHẢN ÁNH TRẠNG THÁI -->
+                            <div class="bg-white rounded-3xl border {{ $isHousePendingApproval ? 'border-2 border-amber-300 ring-4 ring-amber-50/70 shadow-md' : (!$isHousePaid ? 'border-2 border-rose-300 ring-4 ring-rose-50/70 shadow-md' : 'border border-slate-200/90') }} overflow-hidden shadow-card hover:shadow-lg transition-all flex flex-col md:flex-row relative">
                                 <div class="relative w-full md:w-80 lg:w-96 shrink-0 min-h-[220px] md:min-h-full bg-slate-100 overflow-hidden">
                                     <img src="{{ $imgUrl }}" alt="{{ $houseTitle }}" class="w-full h-full object-cover">
                                     <div class="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:to-slate-950/20"></div>
@@ -518,7 +565,11 @@
                                             Mã: {{ $roomCode }}
                                         </span>
                                         <!-- DẤU HIỆU 3: HUY HIỆU BADGE TRỰC DIỆN TRÊN ẢNH PHÒNG -->
-                                        @if(!$isHousePaid)
+                                        @if($isHousePendingApproval)
+                                            <span class="px-3 py-1 rounded-full bg-amber-500 text-white text-xs font-black backdrop-blur-md shadow-md flex items-center gap-1.5 border border-white/20">
+                                                <i class="fa-solid fa-clock-rotate-left text-[10px] animate-spin"></i> ĐANG CHỜ DUYỆT CK
+                                            </span>
+                                        @elseif(!$isHousePaid)
                                             <span class="px-3 py-1 rounded-full bg-rose-600 text-white text-xs font-black backdrop-blur-md shadow-md flex items-center gap-1.5 border border-white/20 animate-pulse">
                                                 <span class="w-2 h-2 rounded-full bg-white animate-ping"></span>
                                                 <i class="fa-solid fa-clock text-[10px]"></i> CHƯA THANH TOÁN
@@ -585,10 +636,32 @@
                                             class="w-full py-2.5 px-3 rounded-xl bg-skybrand-600 hover:bg-skybrand-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-sm hover:shadow active:scale-[0.98]">
                                             <i class="fa-solid fa-phone text-sm"></i> Liên hệ chủ nhà
                                         </button>
-                                        <button type="button" onclick="openReturnModal('{{ addslashes($houseTitle) }}', '{{ $roomCode }}', '{{ addslashes($landlordName) }}', '{{ number_format($deposit) }}đ')"
-                                            class="w-full py-2.5 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-all hover:bg-rose-100/80 active:scale-[0.98]">
-                                            <i class="fa-solid fa-arrow-right-from-bracket text-sm"></i> Gửi yêu cầu trả nhà
-                                        </button>
+                                        @if($contract->status === 'terminated')
+                                            <button type="button" disabled
+                                                class="w-full py-2.5 px-3 rounded-xl bg-slate-100 text-slate-600 border border-slate-300 font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm opacity-90 cursor-not-allowed">
+                                                <i class="fa-solid fa-circle-check text-emerald-500"></i> Đã bàn giao phòng (Còn trống)
+                                            </button>
+                                        @elseif($contract->status === 'pending_liquidation')
+                                            <button type="button" onclick="switchMainForm('thanh-toan-hoa-don')"
+                                                class="w-full py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all animate-pulse">
+                                                <i class="fa-solid fa-credit-card"></i> Thanh toán nốt nợ thanh lý
+                                            </button>
+                                        @elseif($contract->status === 'pending_refund')
+                                            <button type="button" disabled
+                                                class="w-full py-2.5 px-3 rounded-xl bg-sky-50 text-sky-700 border border-sky-300 font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm opacity-90 cursor-not-allowed">
+                                                <i class="fa-solid fa-hourglass-half animate-spin"></i> Chờ hoàn tiền cọc
+                                            </button>
+                                        @elseif(!empty($contract->checkout_request) && ($contract->checkout_request['status'] ?? '') === 'pending')
+                                            <button type="button" disabled
+                                                class="w-full py-2.5 px-3 rounded-xl bg-amber-50 text-amber-700 border border-amber-300 font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm opacity-90 cursor-not-allowed">
+                                                <i class="fa-solid fa-clock-rotate-left text-sm animate-pulse"></i> Đã gửi yêu cầu trả phòng
+                                            </button>
+                                        @else
+                                            <button type="button" onclick="openReturnModal('{{ $contractId }}', '{{ addslashes($houseTitle) }}', '{{ $roomCode }}', '{{ addslashes($landlordName) }}', '{{ number_format($deposit) }}đ')"
+                                                class="w-full py-2.5 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-all hover:bg-rose-100/80 active:scale-[0.98]">
+                                                <i class="fa-solid fa-arrow-right-from-bracket text-sm"></i> Gửi yêu cầu trả nhà
+                                            </button>
+                                        @endif
                                     </div>
                                 </div>
                             </div>
@@ -599,6 +672,128 @@
                             </div>
                         @endforelse
                     </div>
+
+                    @if(isset($terminatedContracts) && $terminatedContracts->isNotEmpty())
+                        <!-- DANH SÁCH CÁC CĂN ĐÃ THANH LÝ & BÀN GIAO PHÒNG TRỐNG -->
+                        <div class="mt-8 pt-8 border-t border-slate-200">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="w-8 h-8 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-sm">
+                                        <i class="fa-solid fa-clock-rotate-left"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-base font-extrabold text-slate-800">Lịch Sử Thuê & Hợp Đồng Đã Thanh Lý ({{ $terminatedContracts->count() }})</h3>
+                                        <p class="text-xs text-slate-500">Các căn nhà đã hoàn tất trả phòng, đối soát công nợ và chuyển trạng thái phòng trống</p>
+                                    </div>
+                                </div>
+                                <span class="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200 flex items-center gap-1.5 self-start sm:self-auto">
+                                    <i class="fa-solid fa-circle-check text-emerald-500"></i> Phòng đã bàn giao (Còn trống)
+                                </span>
+                            </div>
+
+                            <div class="flex flex-col gap-5">
+                                @foreach($terminatedContracts as $termContract)
+                                    @php
+                                        $tPost = $termContract->post ?: \App\Models\Post::find($termContract->post_id);
+                                        $tOwner = $termContract->owner ?: ($tPost ? \App\Models\User::find($tPost->user_id) : null);
+                                        $tLandlordName = $tOwner->account_name ?? ($tOwner->username ?? 'Chủ nhà');
+                                        $tLandlordPhone = $tOwner->phone ?? ($termContract->owner_phone ?? 'Chưa cập nhật');
+                                        $tHouseTitle = $tPost ? ($tPost->title ?? 'Nhà / Phòng cho thuê') : ($termContract->tenant_name ? 'Phòng ' . $termContract->tenant_name : 'Phòng trọ');
+                                        $tRoomCode = $termContract->contract_code ?? ('HD-' . substr((string)($termContract->_id ?? $termContract->id), -4));
+                                        $tPrice = (float)($termContract->rent_price ?? ($tPost->price ?? 0));
+                                        $tDeposit = (float)($termContract->deposit ?? 0);
+                                        $tStartDate = $termContract->start_date ? date('d/m/Y', strtotime($termContract->start_date)) : '01/01/2026';
+                                        $tEndDate = $termContract->end_date ?: ($termContract->start_date ? date('d/m/Y', strtotime($termContract->start_date . ' + ' . ($termContract->duration_months ?? 12) . ' months')) : '01/01/2027');
+                                        $tAddress = $tPost ? ($tPost->address . ($tPost->district ? ', ' . $tPost->district : '') . ($tPost->province ? ', ' . $tPost->province : '')) : 'Địa chỉ phòng trọ';
+                                        $tImgUrl = ($tPost && !empty($tPost->display_image)) ? $tPost->display_image : 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80';
+                                        $tContractId = (string)($termContract->_id ?? $termContract->id);
+                                        $tLiquidation = $termContract->liquidation_details ?? [];
+                                        $contractJsonMap[$tContractId] = [
+                                            'id' => $tContractId,
+                                            'contract_code' => $tRoomCode,
+                                            'house_title' => $tHouseTitle,
+                                            'address' => $tAddress,
+                                            'landlord_name' => $tLandlordName,
+                                            'landlord_phone' => $tLandlordPhone,
+                                            'tenant_name' => $termContract->tenant_name ?? 'Khách thuê',
+                                            'tenant_phone' => $termContract->tenant_phone ?? '',
+                                            'rent_price' => $tPrice,
+                                            'deposit' => $tDeposit,
+                                            'start_date' => $tStartDate,
+                                            'end_date' => $tEndDate,
+                                            'duration_months' => $termContract->duration_months ?? 12,
+                                            'status' => 'terminated',
+                                        ];
+                                    @endphp
+                                    <div class="bg-slate-50/90 rounded-3xl border border-slate-200 overflow-hidden shadow-sm flex flex-col md:flex-row relative hover:shadow transition-all">
+                                        <div class="relative w-full md:w-72 lg:w-80 shrink-0 min-h-[190px] bg-slate-200 overflow-hidden">
+                                            <img src="{{ $tImgUrl }}" alt="{{ $tHouseTitle }}" class="w-full h-full object-cover">
+                                            <div class="absolute inset-0 bg-slate-900/30"></div>
+                                            <div class="absolute top-3 left-3 flex flex-wrap gap-2 z-10">
+                                                <span class="px-3 py-1 rounded-full bg-slate-800/90 text-white text-xs font-bold backdrop-blur-md shadow-sm">
+                                                    <i class="fa-solid fa-flag-checkered text-[10px] text-amber-400"></i> ĐÃ THANH LÝ
+                                                </span>
+                                                <span class="px-2.5 py-1 rounded-full bg-white/90 text-slate-800 text-[11px] font-bold shadow-sm">
+                                                    Mã: {{ $tRoomCode }}
+                                                </span>
+                                            </div>
+                                            <div class="absolute bottom-3 left-3 right-3 z-10">
+                                                <span class="w-full px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-[11px] font-extrabold flex items-center justify-center gap-1 shadow-md">
+                                                    <i class="fa-solid fa-door-open"></i> Phòng đã bàn giao (Còn trống)
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div class="flex-1 p-5 md:p-6 flex flex-col justify-between space-y-3">
+                                            <div>
+                                                <div class="border-b border-slate-200/80 pb-2.5 flex items-start justify-between gap-3">
+                                                    <div>
+                                                        <h3 class="text-base md:text-lg font-bold text-slate-800 leading-snug">{{ $tHouseTitle }}</h3>
+                                                        <p class="text-xs text-slate-500 font-medium flex items-center gap-1.5 mt-0.5">
+                                                            <i class="fa-solid fa-location-dot text-rose-500"></i> {{ $tAddress }}
+                                                        </p>
+                                                    </div>
+                                                    <span class="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold shrink-0">
+                                                        <i class="fa-solid fa-check-double"></i> Đã hoàn tất công nợ
+                                                    </span>
+                                                </div>
+
+                                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs bg-white p-3 rounded-xl border border-slate-200/70 mt-2.5">
+                                                    <div>
+                                                        <span class="text-slate-400 block text-[11px]">Giá thuê từng áp dụng:</span>
+                                                        <span class="font-bold text-slate-700">{{ number_format($tPrice) }}đ/tháng</span>
+                                                    </div>
+                                                    <div>
+                                                        <span class="text-slate-400 block text-[11px]">Thời gian thuê:</span>
+                                                        <span class="font-semibold text-slate-600">{{ $tStartDate }} - {{ $tEndDate }}</span>
+                                                    </div>
+                                                    <div>
+                                                        <span class="text-slate-400 block text-[11px]">Ngày bàn giao trả:</span>
+                                                        <span class="font-bold text-slate-800">{{ !empty($tLiquidation['checkout_date']) ? date('d/m/Y', strtotime($tLiquidation['checkout_date'])) : ($termContract->terminated_at ? date('d/m/Y', strtotime($termContract->terminated_at)) : 'Đã bàn giao') }}</span>
+                                                    </div>
+                                                    <div>
+                                                        <span class="text-slate-400 block text-[11px]">Trạng thái phòng:</span>
+                                                        <span class="font-black text-emerald-600">Còn trống (Đã bàn giao)</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="flex flex-wrap sm:flex-nowrap gap-2.5 pt-2 border-t border-slate-200/80">
+                                                <button type="button" onclick="openTenantContractModal('{{ $tContractId }}')"
+                                                    class="w-full sm:w-auto px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition-all">
+                                                    <i class="fa-solid fa-file-contract"></i> Xem lại hợp đồng
+                                                </button>
+                                                <button type="button" onclick="openSettlementReceipt('{{ $tContractId }}', '{{ addslashes($tHouseTitle) }}', '{{ $tRoomCode }}', {{ json_encode($tLiquidation) }})"
+                                                    class="w-full sm:w-auto px-4 py-2 rounded-xl bg-skybrand-50 hover:bg-skybrand-100 text-skybrand-700 border border-skybrand-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-all">
+                                                    <i class="fa-solid fa-receipt"></i> Xem biên bản quyết toán thanh lý
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
                 </div>
             </div>
 
@@ -794,34 +989,66 @@
                                         ';
                                     }
 
+                                     $invStaff = null;
+                                    if ($invContract && !empty($invContract->staff_id)) {
+                                        $invStaff = \App\Models\User::find($invContract->staff_id);
+                                    }
+                                    if (!$invStaff && !empty($inv->staff_id)) {
+                                        $invStaff = \App\Models\User::find($inv->staff_id);
+                                    }
+                                    if (!$invStaff && $invContract && !empty($invContract->created_by)) {
+                                        $cUser = \App\Models\User::find($invContract->created_by);
+                                        if ($cUser && in_array($cUser->role, ['staff', 'nhan_vien', 'sub_account'])) {
+                                            $invStaff = $cUser;
+                                        }
+                                    }
+                                    $staffName = $invStaff->account_name ?? ($invStaff->name ?? ($invStaff->username ?? $invLandlordName));
+                                    $staffPhone = $invStaff->phone ?? $invLandlordPhone;
+
+                                    $invBankName = $invOwner->bank_name ?? 'MB Bank (Ngân hàng Quân Đội)';
+                                    $invBankAccount = $invOwner->bank_account ?? '0912 987 654 888';
+                                    $invBankOwner = $invOwner->bank_owner ?? mb_strtoupper($invLandlordName, 'UTF-8');
+                                    $invBankShort = !empty($invOwner->bank_name) ? explode(' ', trim($invOwner->bank_name))[0] : 'MB Bank';
+                                    $isPendingApproval = ($inv->status === 'pending_approval' || $inv->payment_status === 'pending_approval');
+                                    $paymentMethod = $inv->payment_method ?? ($inv->payment_type ?? '');
+
                                     $invItemData = [
                                         'code' => $invCode,
                                         'contractId' => $invContractId,
                                         'houseName' => $invHouseTitle,
                                         'landlordName' => $invLandlordName,
                                         'landlordPhone' => $invLandlordPhone,
+                                        'staffName' => $staffName,
+                                        'staffPhone' => $staffPhone,
                                         'landlordInfo' => $invLandlordName . ' (SĐT: ' . $invLandlordPhone . ')',
                                         'dueDate' => $invContract && $invContract->billing_date ? ('Hạn ' . $invContract->billing_date . ' hàng tháng') : 'Hạn Mùng 10 hàng tháng',
                                         'total' => number_format($inv->total_amount ?? 0) . ' VNĐ',
                                         'totalRaw' => number_format($inv->total_amount ?? 0),
-                                        'bankShort' => 'MB Bank',
-                                        'bankFull' => 'MB Bank (Ngân hàng Quân Đội)',
-                                        'bankAccount' => '0912 987 654 888',
-                                        'bankOwner' => mb_strtoupper($invLandlordName, 'UTF-8'),
+                                        'bankShort' => $invBankShort,
+                                        'bankFull' => $invBankName,
+                                        'bankAccount' => $invBankAccount,
+                                        'bankOwner' => $invBankOwner,
                                         'rowsHtml' => $currentRowsHtml,
                                         'isPaid' => $isPaid,
+                                        'isPendingApproval' => $isPendingApproval,
+                                        'proofImage' => !empty($inv->proof_image) ? (str_starts_with($inv->proof_image, 'http') ? $inv->proof_image : asset($inv->proof_image)) : null,
                                         'status' => $inv->status ?? 'unpaid',
+                                        'paymentMethod' => $paymentMethod,
                                         'paymentDate' => $inv->payment_date ?? date('d/m/Y'),
                                     ];
                                     $invoiceDataJsonMap[$invCode] = $invItemData;
                                     $invoiceDataJsonMap[$invId] = $invItemData;
                                 @endphp
-                                <div class="bg-white rounded-2xl {{ $isPaid ? 'border border-emerald-300 shadow-xs bg-emerald-50/15' : 'border-2 border-rose-200/90 shadow-sm' }} p-5 hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div class="bg-white rounded-2xl {{ $isPaid ? 'border border-emerald-300 shadow-xs bg-emerald-50/15' : ($isPendingApproval ? 'border-2 border-amber-300 shadow-sm bg-amber-50/20' : 'border-2 border-rose-200/90 shadow-sm') }} p-5 hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-4">
                                     <div class="space-y-2">
                                         <div class="flex flex-wrap items-center gap-2">
                                             @if($isPaid)
                                                 <span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-[11px] flex items-center gap-1 border border-emerald-200">
                                                     <i class="fa-solid fa-circle-check text-emerald-600"></i> Đã thanh toán
+                                                </span>
+                                            @elseif($isPendingApproval)
+                                                <span class="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-extrabold text-[11px] flex items-center gap-1 border border-amber-300 animate-pulse">
+                                                    <i class="fa-solid fa-clock-rotate-left text-amber-600"></i> Đang Chờ Duyệt CK
                                                 </span>
                                             @else
                                                 <span class="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 font-extrabold text-[11px] flex items-center gap-1 border border-rose-200">
@@ -843,6 +1070,10 @@
                                         <h3 class="text-base font-extrabold text-slate-900">{{ $invHouseTitle }}</h3>
                                         <div class="text-xs text-slate-500 flex flex-wrap items-center gap-3">
                                             <span>Chủ nhà: <strong class="text-slate-800">{{ $invLandlordName }}</strong> ({{ $invLandlordPhone }})</span>
+                                            @if(!empty($staffName) && $staffName !== $invLandlordName)
+                                                <span>•</span>
+                                                <span>Nhân sự phụ trách: <strong class="text-slate-800">{{ $staffName }}</strong> ({{ $staffPhone }})</span>
+                                            @endif
                                             <span>•</span>
                                             <span>Tiền phòng: <strong class="text-skybrand-700">{{ number_format($inv->rent_price ?: ($invContract ? ($invContract->rent_price ?? 0) : 0)) }}đ</strong></span>
                                             @if($isFirstMonth)
@@ -859,12 +1090,18 @@
 
                                     <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4 shrink-0">
                                         <div class="text-left md:text-right">
-                                            <span class="text-xs text-slate-500 block">{{ $isPaid ? 'Số tiền đã đóng:' : 'Tổng tiền thanh toán:' }}</span>
-                                            <span class="text-xl font-black {{ $isPaid ? 'text-emerald-700' : 'text-rose-600' }}">{{ number_format($inv->total_amount ?? 0) }} VNĐ</span>
+                                            <span class="text-xs {{ $isPendingApproval ? 'text-amber-700 font-bold' : 'text-slate-500' }} block">
+                                                {{ $isPaid ? 'Số tiền đã đóng:' : ($isPendingApproval ? 'Đang chờ Kế toán duyệt:' : 'Tổng tiền thanh toán:') }}
+                                            </span>
+                                            <span class="text-xl font-black {{ $isPaid ? 'text-emerald-700' : ($isPendingApproval ? 'text-amber-600' : 'text-rose-600') }}">{{ number_format($inv->total_amount ?? 0) }} VNĐ</span>
                                         </div>
                                         @if($isPaid)
                                             <button onclick="openInvoiceDetailModal('{{ $invCode }}')" class="py-2.5 px-4 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-xs flex items-center gap-2 shadow-xs transition-all active:scale-95 cursor-pointer">
                                                 <i class="fa-solid fa-receipt text-emerald-600"></i> Xem chi tiết hóa đơn
+                                            </button>
+                                        @elseif($isPendingApproval)
+                                            <button onclick="openInvoiceDetailModal('{{ $invCode }}')" class="py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center gap-2 shadow-xs transition-all hover:scale-105 active:scale-95 cursor-pointer">
+                                                <i class="fa-solid fa-hourglass-half"></i> Xem Trạng Thái Duyệt
                                             </button>
                                         @else
                                             <button onclick="openInvoiceDetailModal('{{ $invCode }}')" class="py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 shadow-sm transition-all hover:scale-105 active:scale-95 cursor-pointer">
@@ -895,13 +1132,36 @@
                                     $invHouseTitle = $invPost ? ($invPost->title ?? 'Nhà / Phòng cho thuê') : ($invContract->tenant_name ? 'Phòng ' . $invContract->tenant_name : 'Phòng trọ');
                                     $invCode = $inv->invoice_code ?? ('INV-' . substr((string)($inv->_id ?? $inv->id), -4));
                                     $isFirstMonth = ((float)($inv->deposit ?? 0) > 0) || ($inv->billing_period && (str_contains($inv->billing_period, 'Kỳ đầu tiên') || str_contains($inv->billing_period, 'Cọc')));
+                                    $isPendingApproval = ($inv->status === 'pending_approval' || $inv->payment_status === 'pending_approval');
+                                    
+                                    $invStaff = null;
+                                    if ($invContract && !empty($invContract->staff_id)) {
+                                        $invStaff = \App\Models\User::find($invContract->staff_id);
+                                    }
+                                    if (!$invStaff && !empty($inv->staff_id)) {
+                                        $invStaff = \App\Models\User::find($inv->staff_id);
+                                    }
+                                    if (!$invStaff && $invContract && !empty($invContract->created_by)) {
+                                        $cUser = \App\Models\User::find($invContract->created_by);
+                                        if ($cUser && in_array($cUser->role, ['staff', 'nhan_vien', 'sub_account'])) {
+                                            $invStaff = $cUser;
+                                        }
+                                    }
+                                    $staffName = $invStaff->account_name ?? ($invStaff->name ?? ($invStaff->username ?? $invLandlordName));
+                                    $staffPhone = $invStaff->phone ?? $invLandlordPhone;
                                 @endphp
-                                <div class="bg-white rounded-2xl border-2 border-rose-200/90 p-5 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div class="bg-white rounded-2xl border-2 {{ $isPendingApproval ? 'border-amber-300 shadow-sm bg-amber-50/20' : 'border-rose-200/90 shadow-sm' }} p-5 hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-4">
                                     <div class="space-y-2">
                                         <div class="flex flex-wrap items-center gap-2">
-                                            <span class="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 font-extrabold text-[11px] flex items-center gap-1 border border-rose-200">
-                                                <i class="fa-solid fa-clock"></i> Chưa thanh toán
-                                            </span>
+                                            @if($isPendingApproval)
+                                                <span class="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-extrabold text-[11px] flex items-center gap-1 border border-amber-300 animate-pulse">
+                                                    <i class="fa-solid fa-clock-rotate-left text-amber-600"></i> Đang Chờ Duyệt CK
+                                                </span>
+                                            @else
+                                                <span class="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 font-extrabold text-[11px] flex items-center gap-1 border border-rose-200">
+                                                    <i class="fa-solid fa-clock"></i> Chưa thanh toán
+                                                </span>
+                                            @endif
                                             <span class="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-mono text-[11px] font-bold">
                                                 Mã: {{ $invCode }}
                                             </span>
@@ -912,6 +1172,10 @@
                                         <h3 class="text-base font-extrabold text-slate-900">{{ $invHouseTitle }}</h3>
                                         <div class="text-xs text-slate-500 flex flex-wrap items-center gap-3">
                                             <span>Chủ nhà: <strong class="text-slate-800">{{ $invLandlordName }}</strong> ({{ $invLandlordPhone }})</span>
+                                            @if(!empty($staffName) && $staffName !== $invLandlordName)
+                                                <span>•</span>
+                                                <span>Nhân sự phụ trách: <strong class="text-slate-800">{{ $staffName }}</strong> ({{ $staffPhone }})</span>
+                                            @endif
                                             <span>•</span>
                                             <span>Tiền phòng: <strong class="text-skybrand-700">{{ number_format($inv->rent_price ?: ($invContract ? ($invContract->rent_price ?? 0) : 0)) }}đ</strong></span>
                                         </div>
@@ -919,12 +1183,20 @@
 
                                     <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4 shrink-0">
                                         <div class="text-left md:text-right">
-                                            <span class="text-xs text-slate-500 block">Tổng tiền thanh toán:</span>
-                                            <span class="text-xl font-black text-rose-600">{{ number_format($inv->total_amount ?? 0) }} VNĐ</span>
+                                            <span class="text-xs {{ $isPendingApproval ? 'text-amber-700 font-bold' : 'text-slate-500' }} block">
+                                                {{ $isPendingApproval ? 'Đang chờ Kế toán duyệt:' : 'Tổng tiền thanh toán:' }}
+                                            </span>
+                                            <span class="text-xl font-black {{ $isPendingApproval ? 'text-amber-600' : 'text-rose-600' }}">{{ number_format($inv->total_amount ?? 0) }} VNĐ</span>
                                         </div>
-                                        <button onclick="openInvoiceDetailModal('{{ $invCode }}')" class="py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 shadow-sm transition-all hover:scale-105 active:scale-95 cursor-pointer">
-                                            <i class="fa-solid fa-receipt"></i> Chi tiết & Thanh toán
-                                        </button>
+                                        @if($isPendingApproval)
+                                            <button onclick="openInvoiceDetailModal('{{ $invCode }}')" class="py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center gap-2 shadow-xs transition-all hover:scale-105 active:scale-95 cursor-pointer">
+                                                <i class="fa-solid fa-hourglass-half"></i> Xem Trạng Thái Duyệt
+                                            </button>
+                                        @else
+                                            <button onclick="openInvoiceDetailModal('{{ $invCode }}')" class="py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 shadow-sm transition-all hover:scale-105 active:scale-95 cursor-pointer">
+                                                <i class="fa-solid fa-receipt"></i> Chi tiết & Thanh toán
+                                            </button>
+                                        @endif
                                     </div>
                                 </div>
                             @empty
@@ -1122,6 +1394,7 @@
             </div>
 
             <form id="returnHouseForm" onsubmit="handleReturnSubmit(event)" class="space-y-4 text-xs">
+                <input type="hidden" id="returnContractId" value="">
                 <div>
                     <label class="font-bold text-slate-700 block mb-1">Căn hộ / Phòng trọ trả:</label>
                     <input type="text" id="returnHouseName" readonly class="w-full p-3 rounded-xl border border-slate-200 bg-slate-100 font-bold text-slate-800">
@@ -1145,27 +1418,28 @@
 
                 <div>
                     <label class="font-bold text-slate-700 block mb-1">Lý do trả nhà (*):</label>
-                    <select required class="w-full p-2.5 rounded-xl border border-slate-200 font-medium focus:ring-2 focus:ring-skybrand-500 focus:outline-none">
+                    <select id="returnReasonSelect" required onchange="handleReturnReasonChange(this)" class="w-full p-2.5 rounded-xl border border-slate-200 font-medium focus:ring-2 focus:ring-skybrand-500 focus:outline-none">
                         <option value="">-- Chọn lý do --</option>
-                        <option value="hethan">Hết thời hạn hợp đồng thuê nhà</option>
-                        <option value="chuyencongtac">Chuyển địa điểm làm việc / chuyển vùng</option>
-                        <option value="muanha">Đã mua được nhà mới</option>
-                        <option value="khac">Lý do cá nhân khác</option>
+                        <option value="Hết thời hạn hợp đồng thuê nhà">Hết thời hạn hợp đồng thuê nhà</option>
+                        <option value="Chuyển địa điểm làm việc / chuyển vùng">Chuyển địa điểm làm việc / chuyển vùng</option>
+                        <option value="Đã mua được nhà mới">Đã mua được nhà mới</option>
+                        <option value="khac">Lý do cá nhân khác...</option>
                     </select>
+                    <input type="text" id="returnReasonCustom" class="w-full p-2.5 rounded-xl border border-slate-200 font-medium hidden mt-2" placeholder="Nhập lý do cụ thể...">
                 </div>
 
                 <div class="space-y-2 border-t border-slate-100 pt-3">
                     <label class="font-bold text-slate-800 block">Thông tin ngân hàng nhận lại tiền cọc:</label>
                     <div class="grid grid-cols-2 gap-3">
-                        <input type="text" placeholder="Tên Ngân hàng (MB, VCB...)" required class="p-2.5 rounded-xl border border-slate-200">
-                        <input type="text" placeholder="Số tài khoản" required class="p-2.5 rounded-xl border border-slate-200 font-mono">
+                        <input type="text" id="returnBankName" placeholder="Tên Ngân hàng (MB, VCB...)" required class="p-2.5 rounded-xl border border-slate-200">
+                        <input type="text" id="returnBankAccount" placeholder="Số tài khoản" required class="p-2.5 rounded-xl border border-slate-200 font-mono">
                     </div>
-                    <input type="text" placeholder="Tên chủ tài khoản nhận tiền" required class="w-full p-2.5 rounded-xl border border-slate-200 uppercase">
+                    <input type="text" id="returnBankHolder" placeholder="Tên chủ tài khoản nhận tiền" required class="w-full p-2.5 rounded-xl border border-slate-200 uppercase">
                 </div>
 
                 <div>
                     <label class="font-bold text-slate-700 block mb-1">Ghi chú bổ sung cho chủ nhà:</label>
-                    <textarea rows="2" class="w-full p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-skybrand-500 focus:outline-none" placeholder="Hẹn giờ bàn giao chìa khóa, tình trạng phòng..."></textarea>
+                    <textarea id="returnNote" rows="2" class="w-full p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-skybrand-500 focus:outline-none" placeholder="Hẹn giờ bàn giao chìa khóa, tình trạng phòng..."></textarea>
                 </div>
 
                 <div class="pt-2 flex gap-3">
@@ -1212,6 +1486,30 @@
             <div id="detailPaidAlert" class="hidden p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 font-bold text-xs flex items-center gap-2.5">
                 <i class="fa-solid fa-circle-check text-emerald-600 text-lg shrink-0"></i>
                 <span id="detailPaidAlertText">Hóa đơn này đã được xác nhận thanh toán thành công!</span>
+            </div>
+
+            <!-- Khung thông báo khi hóa đơn Đang Chờ Duyệt CK (YÊU CẦU 2) -->
+            <div id="detailPendingApprovalAlert" class="hidden p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl text-amber-900 shadow-sm space-y-2">
+                <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                        <i class="fa-solid fa-hourglass-half text-base animate-spin" style="animation-duration: 3s;"></i>
+                    </div>
+                    <div class="space-y-0.5 flex-1">
+                        <h5 class="font-extrabold text-sm text-amber-900">Bạn đã báo cáo thanh toán thành công. Vui lòng chờ Kế toán duyệt để hoàn tất!</h5>
+                        <p class="text-xs text-amber-800 leading-relaxed">
+                            Hệ thống sẽ tự động gạch nợ và đổi trạng thái hóa đơn sang màu xanh ngay sau khi Kế toán hoàn tất đối soát ngân hàng.
+                        </p>
+                    </div>
+                    <span class="px-2.5 py-1 rounded-full bg-amber-200 text-amber-900 text-[10px] font-black uppercase tracking-wider shrink-0">
+                        Đang Chờ Duyệt CK
+                    </span>
+                </div>
+                <div id="detailProofContainer" class="hidden pt-2 border-t border-amber-200/80 flex items-center gap-3">
+                    <span class="text-xs font-semibold text-amber-900">Biên lai giao dịch:</span>
+                    <a id="detailProofLink" href="#" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white border border-amber-300 text-xs font-bold text-amber-800 hover:bg-amber-100 transition-colors shadow-xs">
+                        <i class="fa-solid fa-image text-amber-600"></i> Xem ảnh biên lai đã gửi
+                    </a>
+                </div>
             </div>
 
             <!-- Bảng tính tiền chi tiết minh bạch -->
@@ -1265,13 +1563,29 @@
                             </div>
                         </div>
 
-                        <button id="btnTriggerVietQR" 
-                                class="w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-sm transition-all">
-                            <i class="fa-solid fa-qrcode text-sm"></i> Quét mã VietQR chuyển khoản ngay
-                        </button>
+                        <div class="space-y-2 pt-1">
+                            <button id="btnTriggerVietQR" 
+                                    class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer">
+                                <i class="fa-solid fa-qrcode text-sm"></i> Quét mã VietQR chuyển khoản ngay
+                            </button>
+
+                            <!-- Nút Báo Đã Chuyển Khoản (YÊU CẦU 1) -->
+                            <button id="btnTriggerReportTransfer" type="button" onclick="openReportTransferModal()" 
+                                    class="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-95 cursor-pointer">
+                                <i class="fa-solid fa-paper-plane text-sm"></i> Báo Đã Chuyển Khoản
+                            </button>
+
+                            <!-- Dòng thông báo khi Đang Chờ Duyệt CK (YÊU CẦU 2) -->
+                            <div id="transferPendingMessage" class="hidden p-3 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-300 text-amber-900 text-xs font-semibold space-y-1 shadow-xs">
+                                <div class="flex items-center gap-2 font-bold text-amber-800">
+                                    <i class="fa-solid fa-clock-rotate-left text-amber-600 text-base"></i>
+                                    <span>Bạn đã báo cáo thanh toán thành công. Vui lòng chờ Kế toán duyệt để hoàn tất!</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- HÌNH THỨC 2: TIỀN MẶT -->
+                    <!-- HÌNH THỨC 2: TIỀN MẶT (YÊU CẦU 3) -->
                     <div class="p-3.5 bg-amber-50/60 rounded-2xl border border-amber-200 shadow-xs space-y-2.5 flex flex-col justify-between">
                         <div class="space-y-2">
                             <div class="flex items-center justify-between">
@@ -1281,21 +1595,32 @@
                                 <span class="text-[10px] text-amber-700 font-bold">Đóng trực tiếp</span>
                             </div>
                             
-                            <div class="p-2.5 bg-white/90 rounded-xl border border-amber-200 space-y-1.5 text-xs">
+                            <div class="p-2.5 bg-white/90 rounded-xl border border-amber-200 space-y-2 text-xs">
                                 <p class="text-amber-900 font-bold flex items-center gap-2 text-xs">
-                                    <i class="fa-solid fa-comments-dollar text-amber-600"></i>
-                                    "Vui lòng gặp chủ nhà để đóng tiền mặt"
+                                    <i class="fa-solid fa-hand-holding-dollar text-amber-600"></i>
+                                    <span>Đóng tiền mặt cho Nhân sự phụ trách:</span>
                                 </p>
+                                <div class="bg-amber-50/70 p-2 rounded-lg border border-amber-200/80 text-[11px] space-y-1">
+                                    <p class="flex justify-between">
+                                        <span class="text-slate-600">Nhân sự phụ trách:</span>
+                                        <strong id="detailStaffName" class="text-slate-900">--</strong>
+                                    </p>
+                                    <p class="flex justify-between">
+                                        <span class="text-slate-600">Số điện thoại:</span>
+                                        <strong id="detailStaffPhone" class="text-skybrand-700 font-mono">--</strong>
+                                    </p>
+                                </div>
                                 <p id="detailCashNote" class="text-slate-600 leading-relaxed text-[11px]">
-                                    Chủ nhà: <strong>Lê Thị Mai</strong> (SĐT: 0912 987 654). Sau khi đóng tiền mặt, chủ nhà sẽ xác nhận hóa đơn hoàn tất trên hệ thống.
+                                    Sau khi bạn đưa tiền mặt, Nhân sự sẽ xác nhận trên hệ thống và hóa đơn của bạn sẽ chuyển sang màu xanh (Đã thanh toán).
                                 </p>
                             </div>
                         </div>
 
-                        <button id="btnTriggerContactLandlord" 
-                                class="w-full py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-all">
-                            <i class="fa-solid fa-phone"></i> Liên hệ chủ nhà đóng tiền mặt
-                        </button>
+                        <!-- Nút Gọi Nhân Sự Thu Tiền (YÊU CẦU 3) -->
+                        <a id="btnCallStaffCash" href="tel:0912345678" 
+                           class="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95 cursor-pointer">
+                            <i class="fa-solid fa-phone"></i> Gọi Nhân Sự Thu Tiền
+                        </a>
                     </div>
                 </div>
             </div>
@@ -1310,7 +1635,7 @@
                 <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
                     <i class="fa-solid fa-qrcode text-skybrand-600"></i> Thanh Toán Qua VietQR
                 </h3>
-                <button onclick="closePayQRModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center">
+                <button onclick="closePayQRModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center cursor-pointer">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
@@ -1334,9 +1659,109 @@
                 </div>
             </div>
 
-            <button onclick="confirmPaidSuccess()" class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-all">
+            <button onclick="handleQRCompleted()" class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-95 cursor-pointer">
                 <i class="fa-solid fa-circle-check"></i> Tôi đã hoàn tất chuyển khoản
             </button>
+        </div>
+    </div>
+
+
+    <!-- ========================================================================= -->
+    <!-- MODAL: BÁO ĐÃ CHUYỂN KHOẢN (YÊU CẦU 1 - UPLOAD BIÊN LAI / BILL GIAO DỊCH) -->
+    <!-- ========================================================================= -->
+    <div id="reportTransferModal" onclick="if(event.target === this) closeReportTransferModal()" class="fixed inset-0 z-50 hidden bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 cursor-pointer">
+        <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl overflow-hidden border border-slate-100 transform transition-all cursor-default">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white p-5 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-xl shadow-xs">
+                        <i class="fa-solid fa-file-invoice-dollar"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-black tracking-tight">Xác Nhận Đã Chuyển Khoản</h3>
+                        <p class="text-xs text-amber-100">Báo cáo để Kế toán duyệt hóa đơn ngay</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeReportTransferModal()" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-colors cursor-pointer">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Body Form -->
+            <form id="formReportTransfer" onsubmit="submitReportTransfer(event)" class="p-5 space-y-4">
+                <input type="hidden" id="reportInvoiceCode" name="invoice_code" value="">
+
+                <!-- Tóm tắt hóa đơn -->
+                <div class="p-3 bg-amber-50/70 rounded-2xl border border-amber-200/90 text-xs space-y-1.5">
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-600">Mã hóa đơn:</span>
+                        <strong id="reportCodeDisplay" class="font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-amber-200">HD-092026</strong>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-600">Số tiền thanh toán:</span>
+                        <strong id="reportAmountDisplay" class="text-base font-black text-rose-600">3.605.000 VNĐ</strong>
+                    </div>
+                    <div class="flex justify-between items-center text-[11px] text-slate-500 pt-1 border-t border-amber-200/60">
+                        <span>Ngân hàng nhận:</span>
+                        <span id="reportBankDisplay" class="font-bold text-slate-700">MB Bank - 0912 987 654 888</span>
+                    </div>
+                </div>
+
+                <!-- Upload Ảnh Biên Lai (YÊU CẦU 1) -->
+                <div class="space-y-2">
+                    <label class="block text-xs font-bold text-slate-800">
+                        <i class="fa-solid fa-camera text-amber-600 mr-1"></i> Ảnh biên lai / Bill giao dịch thành công:
+                        <span class="text-[11px] font-normal text-slate-500">(Không bắt buộc, nhưng khuyến khích)</span>
+                    </label>
+
+                    <!-- Dropzone / Input wrapper -->
+                    <div id="dropzoneProof" onclick="document.getElementById('proofImageInput').click()" 
+                         class="group relative border-2 border-dashed border-amber-300 hover:border-amber-500 bg-amber-50/30 hover:bg-amber-50/70 rounded-2xl p-4 text-center cursor-pointer transition-all">
+                        <input type="file" id="proofImageInput" name="proof_image" accept="image/*" class="hidden" onchange="previewProofImage(this)">
+                        
+                        <div id="dropzonePrompt" class="space-y-1.5 py-2">
+                            <div class="w-10 h-10 mx-auto rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-lg group-hover:scale-110 transition-transform">
+                                <i class="fa-solid fa-cloud-arrow-up"></i>
+                            </div>
+                            <p class="text-xs font-bold text-slate-700">Chạm để tải ảnh hoặc chụp biên lai giao dịch</p>
+                            <p class="text-[11px] text-slate-400">Hỗ trợ JPG, PNG, WEBP (Tối đa 5MB)</p>
+                        </div>
+
+                        <!-- Image Preview -->
+                        <div id="proofPreviewContainer" class="hidden relative">
+                            <img id="proofPreviewImage" src="#" alt="Biên lai giao dịch" class="max-h-52 mx-auto rounded-xl shadow-md border border-slate-200 object-contain">
+                            <button type="button" onclick="event.stopPropagation(); removeProofImage();" class="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-lg hover:bg-rose-700 transition-colors cursor-pointer">
+                                <i class="fa-solid fa-xmark text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ghi chú thêm -->
+                <div class="space-y-1">
+                    <label class="block text-xs font-bold text-slate-800">
+                        <i class="fa-regular fa-comment-dots text-slate-500 mr-1"></i> Lời nhắn hoặc Ghi chú (Nếu có):
+                    </label>
+                    <input type="text" id="reportNote" name="note" placeholder="Vd: Đã CK từ ngân hàng Techcombank số đuôi ...889 lúc 14h30" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                </div>
+
+                <!-- Lưu ý bảo đảm -->
+                <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-2 text-[11px] text-slate-600">
+                    <i class="fa-solid fa-shield-halved text-emerald-600 text-base shrink-0"></i>
+                    <span>Sau khi bấm xác nhận, hệ thống sẽ chuyển hóa đơn sang <strong>Đang Chờ Duyệt CK</strong> để Kế toán đối soát và gạch nợ!</span>
+                </div>
+
+                <!-- Footer Action Buttons -->
+                <div class="pt-2 flex items-center gap-3">
+                    <button type="button" onclick="closeReportTransferModal()" class="w-1/3 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-colors cursor-pointer">
+                        Để sau
+                    </button>
+                    <button type="submit" id="btnSubmitReportTransfer" class="w-2/3 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-95 cursor-pointer">
+                        <i class="fa-solid fa-paper-plane"></i>
+                        <span>Xác Nhận & Báo Chuyển Khoản</span>
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -1770,9 +2195,15 @@
 
         
 
+        let currentActiveInvoiceCode = null;
+        let currentActiveInvoiceData = null;
+
         function openInvoiceDetailModal(houseKey) {
             const data = invoiceDataMap[houseKey];
             if (!data) return;
+
+            currentActiveInvoiceCode = data.code;
+            currentActiveInvoiceData = data;
 
             document.getElementById('detailInvoiceCode').innerText = 'Mã hóa đơn: ' + data.code;
             document.getElementById('detailHouseName').innerText = data.houseName;
@@ -1787,17 +2218,36 @@
             document.getElementById('detailBankOwner').innerText = data.bankOwner;
             document.getElementById('detailTransferSyntax').innerText = data.code;
 
-            // Xử lý hiển thị trạng thái đã thanh toán / chưa thanh toán
+            // Xử lý hiển thị trạng thái đã thanh toán / chờ duyệt / chưa thanh toán
             const bannerHeader = document.getElementById('detailBannerHeader');
             const statusBadge = document.getElementById('detailStatusBadge');
             const paidAlert = document.getElementById('detailPaidAlert');
             const paidAlertText = document.getElementById('detailPaidAlertText');
+            const pendingApprovalAlert = document.getElementById('detailPendingApprovalAlert');
+            const proofContainer = document.getElementById('detailProofContainer');
+            const proofLink = document.getElementById('detailProofLink');
             const footerRow = document.getElementById('detailFooterRow');
             const totalLabel = document.getElementById('detailTotalLabel');
             const totalAmount = document.getElementById('detailTotalAmount');
             const btnVietQR = document.getElementById('btnTriggerVietQR');
+            const btnReportTransfer = document.getElementById('btnTriggerReportTransfer');
+            const transferPendingMsg = document.getElementById('transferPendingMessage');
+            const staffNameElem = document.getElementById('detailStaffName');
+            const staffPhoneElem = document.getElementById('detailStaffPhone');
+            const btnCallStaff = document.getElementById('btnCallStaffCash');
+
+            // Cập nhật thông tin nhân sự phụ trách thu tiền mặt (YÊU CẦU 3)
+            const staffDisplayName = data.staffName || data.landlordName || 'Nhân sự phụ trách';
+            const staffDisplayPhone = data.staffPhone || data.landlordPhone || '';
+            if (staffNameElem) staffNameElem.innerText = staffDisplayName;
+            if (staffPhoneElem) staffPhoneElem.innerText = staffDisplayPhone || 'Chưa cập nhật';
+            if (btnCallStaff) {
+                btnCallStaff.href = staffDisplayPhone ? ('tel:' + staffDisplayPhone) : '#';
+                btnCallStaff.innerHTML = `<i class="fa-solid fa-phone"></i> Gọi Nhân Sự Thu Tiền (${staffDisplayName} - ${staffDisplayPhone})`;
+            }
 
             if (data.isPaid) {
+                // TRƯỜNG HỢP: ĐÃ THANH TOÁN (PAID)
                 if (bannerHeader) bannerHeader.className = 'relative bg-gradient-to-r from-emerald-600 via-teal-600 to-sky-700 p-4 sm:p-5 rounded-2xl text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3';
                 if (statusBadge) {
                     statusBadge.className = 'bg-white text-emerald-700 px-4 py-2 rounded-xl shadow-lg border-2 border-emerald-300 text-center font-black tracking-wider uppercase text-sm flex items-center gap-1.5';
@@ -1807,33 +2257,63 @@
                     paidAlert.classList.remove('hidden');
                     if (paidAlertText) paidAlertText.innerHTML = `Hóa đơn này đã được xác nhận thanh toán thành công vào ngày <strong>${data.paymentDate || 'gần đây'}</strong>.`;
                 }
+                if (pendingApprovalAlert) pendingApprovalAlert.classList.add('hidden');
                 if (footerRow) footerRow.className = 'bg-emerald-50/90 border-t-2 border-emerald-300 font-extrabold';
                 if (totalLabel) totalLabel.innerHTML = '<i class="fa-solid fa-calculator text-emerald-600"></i> TỔNG CỘNG ĐÃ THANH TOÁN:';
                 if (totalAmount) totalAmount.className = 'py-3 px-3.5 text-right text-lg sm:text-xl font-black text-emerald-700';
                 if (btnVietQR) btnVietQR.innerHTML = '<i class="fa-solid fa-receipt text-sm"></i> Xem lại thông tin mã VietQR chuyển khoản';
+                if (btnReportTransfer) btnReportTransfer.classList.add('hidden');
+                if (transferPendingMsg) transferPendingMsg.classList.add('hidden');
+            } else if (data.isPendingApproval) {
+                // TRƯỜNG HỢP: ĐANG CHỜ DUYỆT CK (PENDING_APPROVAL - YÊU CẦU 2)
+                if (bannerHeader) bannerHeader.className = 'relative bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 p-4 sm:p-5 rounded-2xl text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3';
+                if (statusBadge) {
+                    statusBadge.className = 'bg-white text-amber-700 px-4 py-2 rounded-xl shadow-lg border-2 border-amber-300 text-center font-black tracking-wider uppercase text-sm animate-pulse flex items-center gap-1.5';
+                    statusBadge.innerHTML = '<i class="fa-solid fa-clock-rotate-left text-amber-600"></i> ĐANG CHỜ DUYỆT CK';
+                }
+                if (paidAlert) paidAlert.classList.add('hidden');
+                if (pendingApprovalAlert) pendingApprovalAlert.classList.remove('hidden');
+                
+                // Hiển thị nút xem biên lai nếu đã upload
+                if (proofContainer && proofLink) {
+                    if (data.proofImage) {
+                        proofContainer.classList.remove('hidden');
+                        proofLink.href = data.proofImage;
+                    } else {
+                        proofContainer.classList.add('hidden');
+                    }
+                }
+
+                if (footerRow) footerRow.className = 'bg-amber-50/90 border-t-2 border-amber-300 font-extrabold';
+                if (totalLabel) totalLabel.innerHTML = '<i class="fa-solid fa-calculator text-amber-600"></i> TỔNG CỘNG ĐANG CHỜ DUYỆT:';
+                if (totalAmount) totalAmount.className = 'py-3 px-3.5 text-right text-lg sm:text-xl font-black text-amber-600';
+                if (btnVietQR) btnVietQR.innerHTML = '<i class="fa-solid fa-qrcode text-sm"></i> Xem lại mã VietQR chuyển khoản';
+                
+                // Ẩn nút "Báo Đã Chuyển Khoản" và hiện dòng thông báo chờ kế toán duyệt (YÊU CẦU 2)
+                if (btnReportTransfer) btnReportTransfer.classList.add('hidden');
+                if (transferPendingMsg) transferPendingMsg.classList.remove('hidden');
             } else {
+                // TRƯỜNG HỢP: CHƯA THANH TOÁN (UNPAID / PENDING / OVERDUE)
                 if (bannerHeader) bannerHeader.className = 'relative bg-gradient-to-r from-rose-500 via-rose-600 to-amber-600 p-4 sm:p-5 rounded-2xl text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3';
                 if (statusBadge) {
                     statusBadge.className = 'bg-white text-rose-600 px-4 py-2 rounded-xl shadow-lg border-2 border-rose-200 text-center font-black tracking-wider uppercase text-sm animate-pulse flex items-center gap-1.5';
                     statusBadge.innerHTML = '<i class="fa-solid fa-circle-exclamation text-rose-600"></i> CHƯA THANH TOÁN';
                 }
                 if (paidAlert) paidAlert.classList.add('hidden');
+                if (pendingApprovalAlert) pendingApprovalAlert.classList.add('hidden');
                 if (footerRow) footerRow.className = 'bg-rose-50/90 border-t-2 border-rose-300 font-extrabold';
                 if (totalLabel) totalLabel.innerHTML = '<i class="fa-solid fa-calculator text-rose-600"></i> TỔNG CỘNG CẦN THANH TOÁN:';
                 if (totalAmount) totalAmount.className = 'py-3 px-3.5 text-right text-lg sm:text-xl font-black text-rose-600';
                 if (btnVietQR) btnVietQR.innerHTML = '<i class="fa-solid fa-qrcode text-sm"></i> Quét mã VietQR chuyển khoản ngay';
-            }
 
-            document.getElementById('detailCashNote').innerHTML = `Chủ nhà: <strong>${data.landlordName}</strong> (SĐT: <a href="tel:${data.landlordPhone}" class="text-skybrand-600 font-bold hover:underline">${data.landlordPhone}</a>). Sau khi đóng tiền mặt, chủ nhà sẽ xác nhận hóa đơn hoàn tất trên hệ thống.`;
+                // Hiển thị nút "Báo Đã Chuyển Khoản" và ẩn thông báo chờ duyệt
+                if (btnReportTransfer) btnReportTransfer.classList.remove('hidden');
+                if (transferPendingMsg) transferPendingMsg.classList.add('hidden');
+            }
 
             document.getElementById('btnTriggerVietQR').onclick = function() {
                 closeInvoiceDetailModal();
                 openPayQRModal(data.code, data.totalRaw, data.landlordName, data.bankAccount, data.bankShort, data.houseName);
-            };
-
-            document.getElementById('btnTriggerContactLandlord').onclick = function() {
-                closeInvoiceDetailModal();
-                openContactModal(data.landlordName, data.landlordPhone, data.houseName);
             };
 
             document.getElementById('invoiceDetailModal').classList.remove('hidden');
@@ -1841,6 +2321,182 @@
 
         function closeInvoiceDetailModal() {
             document.getElementById('invoiceDetailModal').classList.add('hidden');
+        }
+
+        // =========================================================================
+        // LOGIC CHO MODAL BÁO ĐÃ CHUYỂN KHOẢN (YÊU CẦU 1)
+        // =========================================================================
+        function openReportTransferModal(code) {
+            const invCode = code || currentActiveInvoiceCode;
+            if (!invCode) {
+                showToast('Chưa chọn hóa đơn cần báo chuyển khoản!');
+                return;
+            }
+
+            const data = invoiceDataMap[invCode] || currentActiveInvoiceData;
+            if (!data) {
+                showToast('Không tìm thấy thông tin hóa đơn!');
+                return;
+            }
+
+            currentActiveInvoiceCode = invCode;
+
+            // Điền thông tin vào form
+            document.getElementById('reportInvoiceCode').value = invCode;
+            document.getElementById('reportCodeDisplay').innerText = invCode;
+            document.getElementById('reportAmountDisplay').innerText = data.total || '0 VNĐ';
+            document.getElementById('reportBankDisplay').innerText = `${data.bankShort || 'Ngân hàng'} - ${data.bankAccount || ''} (${data.bankOwner || ''})`;
+
+            // Reset upload và ghi chú
+            removeProofImage();
+            const noteInput = document.getElementById('reportNote');
+            if (noteInput) noteInput.value = '';
+
+            // Đóng modal chi tiết nếu đang mở
+            closeInvoiceDetailModal();
+
+            // Mở modal báo chuyển khoản
+            document.getElementById('reportTransferModal').classList.remove('hidden');
+        }
+
+        function closeReportTransferModal() {
+            document.getElementById('reportTransferModal').classList.add('hidden');
+        }
+
+        // Preview ảnh biên lai khi người dùng chọn file
+        function previewProofImage(input) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                if (file.size > 5 * 1024 * 1024) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Ảnh quá lớn',
+                        text: 'Vui lòng chọn ảnh dung lượng dưới 5MB để tải lên nhanh hơn!',
+                        confirmButtonColor: '#f59e0b'
+                    });
+                    input.value = '';
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('proofPreviewImage').src = e.target.result;
+                    document.getElementById('dropzonePrompt').classList.add('hidden');
+                    document.getElementById('proofPreviewContainer').classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Xóa ảnh đã chọn
+        function removeProofImage() {
+            const input = document.getElementById('proofImageInput');
+            if (input) input.value = '';
+            const previewImg = document.getElementById('proofPreviewImage');
+            if (previewImg) previewImg.src = '#';
+            const previewContainer = document.getElementById('proofPreviewContainer');
+            if (previewContainer) previewContainer.classList.add('hidden');
+            const promptBox = document.getElementById('dropzonePrompt');
+            if (promptBox) promptBox.classList.remove('hidden');
+        }
+
+        // Xử lý submit Form Báo Đã Chuyển Khoản
+        function submitReportTransfer(e) {
+            e.preventDefault();
+            const invCode = document.getElementById('reportInvoiceCode').value;
+            if (!invCode) {
+                showToast('Thiếu mã hóa đơn!');
+                return;
+            }
+
+            const btnSubmit = document.getElementById('btnSubmitReportTransfer');
+            const originalBtnHtml = btnSubmit.innerHTML;
+            btnSubmit.disabled = true;
+            btnSubmit.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang gửi báo cáo...';
+
+            const formData = new FormData();
+            const proofInput = document.getElementById('proofImageInput');
+            if (proofInput && proofInput.files[0]) {
+                formData.append('proof_image', proofInput.files[0]);
+            }
+            const noteInput = document.getElementById('reportNote');
+            if (noteInput && noteInput.value.trim()) {
+                formData.append('note', noteInput.value.trim());
+            }
+
+            const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
+
+            fetch('/api/invoices/' + encodeURIComponent(invCode) + '/report-transfer', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': token,
+                    'Accept': 'application/json'
+                },
+                body: formData
+            })
+            .then(res => res.json())
+            .then(resData => {
+                btnSubmit.disabled = false;
+                btnSubmit.innerHTML = originalBtnHtml;
+
+                if (resData.success) {
+                    closeReportTransferModal();
+
+                    // Cập nhật trạng thái trong invoiceDataMap ngay lập tức
+                    if (invoiceDataMap[invCode]) {
+                        invoiceDataMap[invCode].isPendingApproval = true;
+                        invoiceDataMap[invCode].status = 'pending_approval';
+                        if (resData.proof_image) {
+                            invoiceDataMap[invCode].proofImage = resData.proof_image;
+                        }
+                    }
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Đã Báo Chuyển Khoản Thành Công!',
+                        html: `
+                            <div class="text-left space-y-2 text-xs sm:text-sm text-slate-700">
+                                <p>Hệ thống đã ghi nhận thông báo chuyển khoản của bạn cho hóa đơn <strong>${invCode}</strong>.</p>
+                                <div class="p-3 bg-amber-50 rounded-xl border border-amber-300 text-amber-900 font-bold flex items-center gap-2">
+                                    <i class="fa-solid fa-hourglass-half text-amber-600 text-base"></i>
+                                    <span>Trạng thái: Đang Chờ Duyệt CK</span>
+                                </div>
+                                <p class="text-slate-500 text-xs">Vui lòng chờ Kế toán đối soát và gạch nợ hoàn tất nhé!</p>
+                            </div>
+                        `,
+                        confirmButtonText: 'Đã hiểu',
+                        confirmButtonColor: '#f59e0b',
+                        allowOutsideClick: false
+                    }).then(() => {
+                        window.location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Không thể gửi báo cáo',
+                        text: resData.message || 'Có lỗi xảy ra, vui lòng thử lại sau!',
+                        confirmButtonColor: '#ef4444'
+                    });
+                }
+            })
+            .catch(err => {
+                btnSubmit.disabled = false;
+                btnSubmit.innerHTML = originalBtnHtml;
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Lỗi kết nối',
+                    text: 'Không thể kết nối tới máy chủ. Vui lòng kiểm tra lại mạng!',
+                    confirmButtonColor: '#ef4444'
+                });
+            });
+        }
+
+        // Xử lý khi khách bấm "Tôi đã hoàn tất chuyển khoản" trên VietQR Modal
+        function handleQRCompleted() {
+            closePayQRModal();
+            const code = document.getElementById('qrContentText').innerText.trim();
+            // Mở ngay modal upload biên lai / báo chuyển khoản
+            openReportTransferModal(code);
         }
         // Switch Between Form 1 (Nhà đang thuê) and Form 2 (Thanh toán hóa đơn)
         function switchMainForm(formName) {
@@ -1934,7 +2590,8 @@
         }
 
         // Return Request Modal Logic
-        function openReturnModal(houseName, roomCode, landlord, deposit) {
+        function openReturnModal(contractId, houseName, roomCode, landlord, deposit) {
+            document.getElementById('returnContractId').value = contractId || '';
             document.getElementById('returnHouseName').value = houseName + ' (Mã: ' + roomCode + ')';
             document.getElementById('returnLandlord').value = landlord;
             document.getElementById('returnDeposit').value = deposit;
@@ -1950,10 +2607,101 @@
             document.getElementById('returnModal').classList.add('hidden');
         }
 
-        function handleReturnSubmit(e) {
+        function handleReturnReasonChange(selectEl) {
+            const customInput = document.getElementById('returnReasonCustom');
+            if (selectEl.value === 'khac') {
+                customInput.classList.remove('hidden');
+                customInput.required = true;
+                customInput.focus();
+            } else {
+                customInput.classList.add('hidden');
+                customInput.required = false;
+            }
+        }
+
+        async function handleReturnSubmit(e) {
             e.preventDefault();
-            closeReturnModal();
-            showToast('Đã gửi yêu cầu trả nhà thành công! Chủ nhà sẽ nhận được thông tin và tiến hành xác nhận chuyển trạng thái phòng thành "Còn trống".');
+            const contractId = document.getElementById('returnContractId').value;
+            if (!contractId) {
+                showToast('Không xác định được hợp đồng cần trả phòng!', 'error');
+                return;
+            }
+
+            const expectedDate = document.getElementById('returnDate').value;
+            if (!expectedDate) {
+                showToast('Vui lòng chọn ngày dự kiến bàn giao trả phòng!', 'warning');
+                return;
+            }
+
+            const reasonSelect = document.getElementById('returnReasonSelect').value;
+            const reasonCustom = document.getElementById('returnReasonCustom').value.trim();
+            const reason = (reasonSelect === 'khac' ? reasonCustom : reasonSelect) || 'Khách thuê yêu cầu trả phòng.';
+
+            const bankAccount = document.getElementById('returnBankAccount').value.trim();
+            const bankName = document.getElementById('returnBankName').value.trim();
+            const bankHolder = document.getElementById('returnBankHolder').value.trim();
+            const note = document.getElementById('returnNote').value.trim();
+
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang gửi yêu cầu...';
+            }
+
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+            try {
+                const response = await fetch(`/api/contracts/${contractId}/request-checkout`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken
+                    },
+                    body: JSON.stringify({
+                        expected_checkout_date: expectedDate,
+                        reason: reason + (note ? (' - Ghi chú: ' + note) : ''),
+                        bank_account: bankAccount,
+                        bank_name: bankName,
+                        bank_holder: bankHolder
+                    })
+                });
+
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(data.message || 'Gửi yêu cầu không thành công');
+                }
+
+                closeReturnModal();
+                
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Đã gửi yêu cầu trả phòng!',
+                        text: data.message || 'Yêu cầu của bạn đã được chuyển tới Ban Quản lý và Nhân sự vận hành.',
+                        confirmButtonColor: '#059669',
+                        confirmButtonText: 'Đã hiểu'
+                    }).then(() => {
+                        window.location.reload();
+                    });
+                } else {
+                    showToast(data.message || 'Đã gửi yêu cầu trả nhà thành công! Nhân sự sẽ liên hệ đối soát.', 'success');
+                    setTimeout(() => window.location.reload(), 1500);
+                }
+            } catch (err) {
+                console.error(err);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire('Lỗi', err.message, 'error');
+                } else {
+                    showToast(err.message, 'error');
+                }
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalBtnHtml;
+                }
+            }
         }
 
         // Pay QR Modal Logic
@@ -1996,6 +2744,83 @@
             .catch(err => {
                 showToast('Hệ thống đã ghi nhận thông báo chuyển khoản của bạn!');
             });
+        }
+
+        // Xem Biên bản quyết toán thanh lý (Popup SweetAlert2)
+        function openSettlementReceipt(contractId, houseTitle, roomCode, details) {
+            const d = details || {};
+            const checkoutDate = d.checkout_date ? new Date(d.checkout_date).toLocaleDateString('vi-VN') : 'Đã bàn giao';
+            const totalDebt = d.total_debt ? new Intl.NumberFormat('vi-VN').format(d.total_debt) + ' đ' : '0 đ';
+            const depositAmount = d.deposit_amount ? new Intl.NumberFormat('vi-VN').format(d.deposit_amount) + ' đ' : '0 đ';
+            const netAmount = d.net_amount ? new Intl.NumberFormat('vi-VN').format(Math.abs(d.net_amount)) + ' đ' : '0 đ';
+            const damageFee = d.damage_fee ? new Intl.NumberFormat('vi-VN').format(d.damage_fee) + ' đ' : '0 đ';
+            const elecAmount = d.electricity_amount ? new Intl.NumberFormat('vi-VN').format(d.electricity_amount) + ' đ' : '0 đ';
+            const waterAmount = d.water_amount ? new Intl.NumberFormat('vi-VN').format(d.water_amount) + ' đ' : '0 đ';
+            const proratedRent = d.prorated_rent ? new Intl.NumberFormat('vi-VN').format(d.prorated_rent) + ' đ' : '0 đ';
+
+            const html = `
+                <div style="text-align: left; font-size: 13px; line-height: 1.6; color: #334155;">
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 16px; margin-bottom: 14px;">
+                        <div style="font-weight: 800; font-size: 15px; color: #0f172a;">${houseTitle}</div>
+                        <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Mã hợp đồng: <strong>${roomCode}</strong> | Ngày bàn giao: <strong>${checkoutDate}</strong></div>
+                        <div style="display: inline-block; margin-top: 6px; padding: 2px 8px; border-radius: 6px; background: #ecfdf5; color: #059669; font-weight: 700; font-size: 11px;">
+                            <i class="fa-solid fa-circle-check"></i> Trạng thái phòng: Đã bàn giao (Còn trống)
+                        </div>
+                    </div>
+
+                    <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 12px;">
+                        <tbody>
+                            <tr style="border-bottom: 1px dashed #e2e8f0;">
+                                <td style="padding: 6px 0; color: #64748b;">Tiền phòng tính theo ngày ở (${d.stay_days || 0} ngày):</td>
+                                <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #0f172a;">${proratedRent}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px dashed #e2e8f0;">
+                                <td style="padding: 6px 0; color: #64748b;">Điện chốt cuối (${d.electricity_old || 0} -> ${d.electricity_new || 0} kWh):</td>
+                                <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #0f172a;">${elecAmount}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px dashed #e2e8f0;">
+                                <td style="padding: 6px 0; color: #64748b;">Nước chốt cuối:</td>
+                                <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #0f172a;">${waterAmount}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px dashed #e2e8f0;">
+                                <td style="padding: 6px 0; color: #64748b;">Bồi thường hư hại tài sản:</td>
+                                <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #e11d48;">${damageFee}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #cbd5e1; background: #fafafa;">
+                                <td style="padding: 8px 4px; font-weight: 700; color: #0f172a;">Tổng các khoản nợ phát sinh:</td>
+                                <td style="padding: 8px 4px; text-align: right; font-weight: 800; color: #e11d48;">${totalDebt}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #cbd5e1; background: #f0fdf4;">
+                                <td style="padding: 8px 4px; font-weight: 700; color: #166534;">Khấu trừ tiền cọc bảo đảm:</td>
+                                <td style="padding: 8px 4px; text-align: right; font-weight: 800; color: #16a34a;">-${depositAmount}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div style="background: #f1f5f9; border-radius: 10px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 800; color: #1e293b; font-size: 13px;">Kết quả đối soát cuối cùng:</span>
+                        <span style="font-weight: 900; font-size: 15px; color: ${d.scenario === 'A' ? '#e11d48' : '#059669'};">
+                            ${d.scenario === 'A' ? 'Đã thu thêm ' + netAmount : (d.scenario === 'B' ? 'Đã hoàn cọc ' + netAmount : 'Hòa nợ (0 đ)')}
+                        </span>
+                    </div>
+                </div>
+            `;
+
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: '<span style="font-size: 18px; font-weight: 800; color: #0f172a;"><i class="fa-solid fa-receipt text-sky-600 mr-2"></i> Biên Bản Quyết Toán Thanh Lý Hợp Đồng</span>',
+                    html: html,
+                    width: '560px',
+                    confirmButtonText: 'Đã Hiểu & Đóng',
+                    confirmButtonColor: '#0284c7',
+                    customClass: {
+                        popup: 'rounded-3xl shadow-2xl p-6',
+                        confirmButton: 'px-5 py-2.5 rounded-xl font-bold text-xs'
+                    }
+                });
+            } else {
+                alert('Biên bản quyết toán hợp đồng ' + roomCode + ':\n- Tổng nợ: ' + totalDebt + '\n- Tiền cọc đã cấn trừ: ' + depositAmount + '\n- Phòng đã bàn giao lại (Còn trống)');
+            }
         }
 
         // Toast Helper

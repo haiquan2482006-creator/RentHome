@@ -17,6 +17,18 @@ class User extends Authenticatable
     protected $collection = 'users';
 
     /**
+     * The model's default values for attributes.
+     *
+     * @var array
+     */
+    protected $attributes = [
+        'role' => 'canhan',
+        'status' => 'active',
+        'is_locked' => false,
+        'is_deleted' => false,
+    ];
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
@@ -137,17 +149,24 @@ class User extends Authenticatable
 
     public function isEnterprise(): bool
     {
-        return ($this->role === 'doanhnghiep' || $this->role === 'enterprise');
+        return ($this->role === 'doanhnghiep' || $this->role === 'enterprise') && empty($this->parent_id);
     }
 
     public function isSubAccount(): bool
     {
-        return ($this->role === 'sub_account' || $this->role === 'staff' || !empty($this->parent_id));
+        return in_array($this->role, ['sub_account', 'staff', 'nhansu', 'nhan su', 'nhan_su'], true) || !empty($this->parent_id);
     }
 
     public function isStaff(): bool
     {
         return $this->isSubAccount();
+    }
+
+    public function isNhansu(): bool
+    {
+        return in_array($this->role, ['nhansu', 'nhan su', 'nhan_su', 'sub_account', 'staff'], true)
+            || str_contains(mb_strtolower($this->staff_role ?? ''), 'nhân sự')
+            || str_contains(mb_strtolower($this->staff_role ?? ''), 'nhan su');
     }
 
     public function isIndividual(): bool

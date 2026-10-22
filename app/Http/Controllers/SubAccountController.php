@@ -45,11 +45,11 @@ class SubAccountController extends Controller
     private function getCustomerAccounts()
     {
         return User::where(function($q) {
-                $q->where('role', 'user')
-                  ->orWhere('role', 'canhan')
+                $q->where('role', 'canhan')
+                  ->orWhere('role', 'user')
                   ->orWhere('role', 'khach')
                   ->orWhere(function($subQ) {
-                      $subQ->whereNotIn('role', ['admin', 'doanhnghiep', 'enterprise', 'staff', 'sub_account'])
+                      $subQ->whereNotIn('role', ['admin', 'doanhnghiep', 'enterprise', 'staff', 'sub_account', 'kiemduyet', 'moderator', 'nhansu', 'nhan su', 'nhan_su'])
                            ->whereNull('parent_id');
                   });
             })
@@ -73,6 +73,9 @@ class SubAccountController extends Controller
         $subAccounts = User::where(function($q) {
                 $q->where('role', 'sub_account')
                   ->orWhere('role', 'staff')
+                  ->orWhere('role', 'nhansu')
+                  ->orWhere('role', 'nhan su')
+                  ->orWhere('role', 'nhan_su')
                   ->orWhere('role', 'kiemduyet')
                   ->orWhere('role', 'moderator')
                   ->orWhere('role', 'doanhnghiep')
@@ -181,8 +184,8 @@ class SubAccountController extends Controller
             }
 
             // Chuẩn hóa chức vụ hiển thị
-            if (empty($account->staff_role) || $account->staff_role === 'Nhân viên') {
-                $account->staff_role = $isModerator ? 'Kiểm duyệt viên' : 'Doanh nghiệp';
+            if (empty($account->staff_role) || in_array($account->staff_role, ['Nhân viên', 'Doanh nghiệp'], true)) {
+                $account->staff_role = $isModerator ? 'Kiểm duyệt viên' : 'Nhân sự';
             }
 
             // Không gán mật khẩu mẫu nếu chưa có
@@ -267,12 +270,21 @@ class SubAccountController extends Controller
                 $counter++;
             }
 
-            $roleInput = $request->input('role', 'doanhnghiep');
-            $staffRole = !empty($validated['staff_role']) ? $validated['staff_role'] : 'Doanh nghiệp';
+            $rawRole = $request->input('role');
+            $rawStaffRole = $request->input('staff_role');
 
-            $isModerator = in_array(strtolower($roleInput), ['kiemduyet', 'moderator', 'kiem_duyet'], true)
-                || str_contains(mb_strtolower($staffRole), 'kiểm duyệt')
-                || str_contains(mb_strtolower($staffRole), 'kiem duyet');
+            $isModerator = in_array(strtolower((string)$rawRole), ['kiemduyet', 'moderator', 'kiem_duyet'], true)
+                || str_contains(mb_strtolower((string)$rawStaffRole), 'kiểm duyệt')
+                || str_contains(mb_strtolower((string)$rawStaffRole), 'kiem duyet');
+
+            if ($isModerator) {
+                $roleInput = 'kiemduyet';
+                $staffRole = !empty($rawStaffRole) ? $rawStaffRole : 'Kiểm duyệt viên';
+            } else {
+                // Tài khoản con do admin tạo mặc định là nhân sự
+                $roleInput = 'nhansu';
+                $staffRole = (!empty($rawStaffRole) && !in_array($rawStaffRole, ['Doanh nghiệp', 'doanhnghiep', 'Nhân viên'], true)) ? $rawStaffRole : 'Nhân sự';
+            }
 
             // Tòa nhà phân công: Kiểm duyệt viên tuyệt đối là [], nhân viên lọc sạch 'all' / '*'
             if ($isModerator) {
@@ -391,16 +403,24 @@ class SubAccountController extends Controller
                 || str_contains(mb_strtolower($subAccount->staff_role ?? ''), 'kiểm duyệt')
                 || str_contains(mb_strtolower($request->input('staff_role') ?? ''), 'kiểm duyệt');
 
-            if ($request->has('role') && !empty($request->input('role'))) {
-                $subAccount->role = $request->input('role');
-            } elseif (empty($subAccount->role)) {
-                $subAccount->role = $isModerator ? 'kiemduyet' : 'doanhnghiep';
-            }
+            if ($isModerator) {
+                $subAccount->role = 'kiemduyet';
+                $subAccount->staff_role = !empty($validated['staff_role']) ? $validated['staff_role'] : ($subAccount->staff_role ?: 'Kiểm duyệt viên');
+            } else {
+                // Tài khoản do admin tạo / cập nhật: chuyển từ doanh nghiệp sang nhansu / Nhân sự
+                $inputRole = $request->input('role');
+                if (!empty($inputRole) && !in_array($inputRole, ['doanhnghiep', 'enterprise'], true)) {
+                    $subAccount->role = $inputRole;
+                } else {
+                    $subAccount->role = 'nhansu';
+                }
 
-            if (!empty($validated['staff_role'])) {
-                $subAccount->staff_role = $validated['staff_role'];
-            } elseif (empty($subAccount->staff_role)) {
-                $subAccount->staff_role = $isModerator ? 'Kiểm duyệt viên' : 'Doanh nghiệp';
+                $inputStaffRole = $validated['staff_role'] ?? null;
+                if (!empty($inputStaffRole) && !in_array($inputStaffRole, ['Doanh nghiệp', 'doanhnghiep', 'Nhân viên'], true)) {
+                    $subAccount->staff_role = $inputStaffRole;
+                } else {
+                    $subAccount->staff_role = 'Nhân sự';
+                }
             }
 
             $cleanAssigned = [];

@@ -133,7 +133,15 @@
                                     data-address="{{ $bFullAddr ?: ($b->address_detail ?? '') }}"
                                     data-name="{{ $b->name }}"
                                     data-type="{{ $b->type ?? $b->business_type ?? $b->property_group ?? 'nha_o' }}"
+                                    data-business-type="{{ $b->business_type ?? ($b->type ?? '') }}"
+                                    data-floors="{{ $b->total_floors ?? $b->floors ?? 0 }}"
                                     data-amenities="{{ json_encode($bAmenities, JSON_UNESCAPED_UNICODE) }}"
+                                    data-elec="{{ $b->electricity_price ?? '' }}"
+                                    data-water="{{ $b->water_price ?? '' }}"
+                                    data-water-type="{{ $b->water_calc_type ?? 'm3' }}"
+                                    data-service="{{ $b->service_fee ?? '' }}"
+                                    data-internet="{{ $b->internet_fee ?? '' }}"
+                                    data-parking="{{ $b->parking_fee ?? '' }}"
                                     {{ ($preselectedBuildingId == ($b->_id ?? $b->id)) ? 'selected' : '' }}>
                                     🏢 {{ $b->name }} ({{ $b->province }} - {{ $b->total_rooms ?? 0 }} phòng)
                                 </option>
@@ -151,7 +159,10 @@
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center justify-between gap-2 mb-1">
                                     <h4 class="font-extrabold text-slate-900 text-xs truncate" id="preview-building-name"></h4>
-                                    <span id="preview-building-type-badge" class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-bold text-[10px] shrink-0 whitespace-nowrap"></span>
+                                    <div class="flex items-center gap-1.5 shrink-0">
+                                        <span id="preview-building-floors-badge" class="hidden px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold text-[10px] border border-amber-200 whitespace-nowrap"><i class="fa-solid fa-layer-group text-[9px] mr-1"></i><span id="preview-building-floors-text"></span></span>
+                                        <span id="preview-building-type-badge" class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-bold text-[10px] shrink-0 whitespace-nowrap"></span>
+                                    </div>
                                 </div>
                                 <div class="text-xs text-slate-700 font-medium leading-relaxed flex items-center gap-1.5">
                                     <span class="text-rose-500 font-bold shrink-0 text-sm">📍</span>
@@ -244,7 +255,10 @@
                         <div class="flex-1 min-w-0">
                             <div class="flex items-center justify-between gap-2 mb-1">
                                 <p class="font-extrabold text-purple-950 text-xs truncate" id="step2-building-name"></p>
-                                <span id="step2-building-type-badge" class="px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-bold text-[10px] border border-purple-200 shrink-0 whitespace-nowrap"></span>
+                                <div class="flex items-center gap-1.5 shrink-0">
+                                    <span id="step2-building-floors-badge" class="hidden px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold text-[10px] border border-amber-200 whitespace-nowrap"><i class="fa-solid fa-layer-group text-[9px] mr-1"></i><span id="step2-building-floors-text"></span></span>
+                                    <span id="step2-building-type-badge" class="px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-bold text-[10px] border border-purple-200 shrink-0 whitespace-nowrap"></span>
+                                </div>
                             </div>
                             <p class="text-[11px] text-purple-800/90 font-medium leading-relaxed break-words" id="step2-building-address"></p>
                         </div>
@@ -254,39 +268,60 @@
                 <!-- Input Hidden chứa Loại hình BĐS (Được đồng bộ tự động từ Tòa nhà đã chọn) -->
                 <input type="hidden" name="property_type" id="hidden_property_type" value="nha_o">
 
-                <!-- Giá & Diện tích -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1.5" id="price-label-text">Giá thuê mong muốn <span class="text-rose-500">*</span></label>
-                        <div class="flex items-center shadow-sm rounded-2xl bg-white border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-emerald-500 transition-all relative">
-                            
+                <!-- Giá, Diện tích & Vị trí tầng (Cân đối tỉ lệ 5 - 3 - 4, đồng bộ chiều cao tuyệt đối) -->
+                <div class="grid grid-cols-1 sm:grid-cols-12 gap-3.5 items-start">
+                    <!-- 1. Giá thuê mong muốn (5 cols) -->
+                    <div class="sm:col-span-5 transition-all" id="price-col">
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5 truncate h-5 leading-5" id="price-label-text">
+                            Giá thuê mong muốn <span class="text-rose-500">*</span>
+                        </label>
+                        <div class="flex items-center shadow-xs rounded-2xl bg-white border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-emerald-500 transition-all relative h-11">
                             <!-- Ô nhập giá -->
                             <input type="text" id="post-price" placeholder="VD: 15.000.000"
                                 oninput="formatPriceInput(this)" onblur="validatePriceInput(this)"
-                                class="w-full pl-4 pr-2 py-3 text-xs font-medium text-slate-800 focus:outline-none bg-transparent">
-                            
+                                class="w-full pl-3.5 pr-2 py-2.5 h-full text-xs font-medium text-slate-800 focus:outline-none bg-transparent">
                             <!-- Đường kẻ dọc -->
                             <div class="w-px h-6 bg-slate-200 shrink-0"></div>
-                            
                             <!-- Dropdown chọn chu kỳ -->
-                            <select id="post-price-unit" class="bg-slate-50 hover:bg-slate-100 text-amber-700 font-bold text-[11px] py-3 pl-3 pr-7 focus:outline-none cursor-pointer border-none outline-none appearance-none relative shrink-0">
+                            <select id="post-price-unit" class="bg-slate-50 hover:bg-slate-100 text-amber-700 font-bold text-[11px] h-full pl-2.5 pr-6 focus:outline-none cursor-pointer border-none outline-none appearance-none relative shrink-0">
                                 <option value="thang">/ tháng</option>
                                 <option value="nam">/ năm</option>
                                 <option value="tong">Tổng tiền</option>
                                 <option value="m2">/ m²</option>
                             </select>
-                            <!-- Icon mũi tên cho dropdown -->
-                            <i class="fa-solid fa-chevron-down absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[9px] pointer-events-none"></i>
+                            <i class="fa-solid fa-chevron-down absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-[9px] pointer-events-none"></i>
                         </div>
-                        <p id="price-helper-text" class="text-[11px] mt-1.5 text-slate-500 font-semibold h-4"></p>
+                        <p id="price-helper-text" class="text-[11px] mt-1 text-slate-500 font-semibold h-4 leading-4 truncate"></p>
                     </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1.5">Diện tích (m²) <span class="text-rose-500">*</span></label>
-                        <div class="relative">
+
+                    <!-- 2. Diện tích (3 cols) -->
+                    <div class="sm:col-span-3 transition-all" id="area-col">
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5 truncate h-5 leading-5">
+                            Diện tích (m²) <span class="text-rose-500">*</span>
+                        </label>
+                        <div class="relative h-11">
                             <input type="number" id="post-area" placeholder="VD: 85"
-                                class="w-full pl-4 pr-10 py-3 rounded-2xl bg-white border border-slate-200 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
-                            <span class="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-amber-600 text-xs">m²</span>
+                                class="w-full pl-3.5 pr-9 py-2.5 h-11 rounded-2xl bg-white border border-slate-200 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all">
+                            <span class="absolute right-3 top-1/2 -translate-y-1/2 font-bold text-amber-600 text-xs pointer-events-none">m²</span>
                         </div>
+                        <p class="h-4 mt-1"></p>
+                    </div>
+
+                    <!-- 3. Số tầng (4 cols - rộng rãi, không bị tràn dòng) -->
+                    <div class="sm:col-span-4 transition-all" id="floor-col">
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between gap-1 h-5 leading-5">
+                            <span class="truncate" id="floor-label-title">Vị trí tầng</span>
+                            <span id="floor-hint" class="text-slate-400 font-normal text-[10px] shrink-0 whitespace-nowrap leading-none">(Tùy chọn)</span>
+                        </label>
+                        <div class="relative h-11">
+                            <input type="text" id="post-floor" placeholder="VD: 3"
+                                class="w-full pl-3.5 pr-14 py-2.5 h-11 rounded-2xl bg-white border border-slate-200 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all">
+                            <div id="floor-lock-badge" class="hidden absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-slate-400 pointer-events-none select-none">
+                                <span class="font-bold text-slate-500 text-[11px]">tầng</span>
+                                <i class="fa-solid fa-lock text-[10px] text-amber-500"></i>
+                            </div>
+                        </div>
+                        <p id="floor-helper-note" class="text-[11px] mt-1 text-slate-500 font-medium h-4 leading-4 truncate"></p>
                     </div>
                 </div>
 
@@ -318,6 +353,25 @@
                         </span>
                         <span class="text-[11px] text-slate-400 font-normal">Kế thừa tòa nhà & Tùy chọn riêng</span>
                     </label>
+
+                    <!-- Khối Bảng giá dịch vụ dùng chung từ Tòa nhà (Kế thừa tự động - Chỉ xem) -->
+                    <div id="building-service-prices-box" class="hidden mb-3 p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/90 shadow-2xs transition-all">
+                        <div class="flex items-center justify-between gap-2 mb-2">
+                            <span class="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                                <i class="fa-solid fa-file-invoice-dollar text-amber-600"></i> Bảng giá dịch vụ dùng chung từ Tòa nhà
+                            </span>
+                            <span class="text-[10px] text-amber-800 font-bold bg-amber-100/90 px-2.5 py-0.5 rounded-full border border-amber-200 shrink-0 flex items-center gap-1">
+                                <i class="fa-solid fa-lock text-[9px]"></i> Kế thừa tự động (Cố định)
+                            </span>
+                        </div>
+                        <div id="building-service-prices-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-2.5">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                        <p class="text-[11px] text-amber-800/80 leading-relaxed font-medium flex items-center gap-1.5">
+                            <i class="fa-solid fa-circle-info text-amber-600 text-[10px] shrink-0"></i>
+                            <span>Các đơn giá dịch vụ trên được cấu hình cố định từ Tòa nhà (Lớp Vỏ) và tự động áp dụng cho bài đăng này.</span>
+                        </p>
+                    </div>
 
                     <!-- Khối 1: Tiện ích dùng chung kế thừa từ Tòa nhà (Read-only) -->
                     <div id="building-amenities-box" class="hidden mb-3 p-3.5 rounded-2xl bg-blue-50/70 border border-blue-200/90 shadow-2xs transition-all">
@@ -452,6 +506,11 @@
                     if(post.area) {
                         const areaInput = document.getElementById('post-area');
                         if(areaInput) areaInput.value = post.area;
+                    }
+                    const savedFloor = (post.floor !== undefined && post.floor !== null) ? post.floor : post.floor_number;
+                    if(savedFloor !== undefined && savedFloor !== null && savedFloor !== '') {
+                        const floorInput = document.getElementById('post-floor');
+                        if(floorInput) floorInput.value = savedFloor;
                     }
                     if(post.bedroom) {
                         const bedSpan = document.getElementById('bedroom-count');
@@ -1103,6 +1162,71 @@
 
         let currentBuildingAmenities = [];
 
+        function renderBuildingServicePrices(selectedOption) {
+            const box = document.getElementById('building-service-prices-box');
+            const list = document.getElementById('building-service-prices-list');
+            if (!box || !list) return;
+
+            if (!selectedOption || !selectedOption.value) {
+                box.classList.add('hidden');
+                list.innerHTML = '';
+                return;
+            }
+
+            // 1. Kiểm tra loại hình tòa nhà (data-type): ẩn nếu là dat_nen, dat_phan_lo, cum_nha_lien_ke
+            const bType = (selectedOption.getAttribute('data-type') || '').trim().toLowerCase();
+            const excludedTypes = ['dat_nen', 'dat_phan_lo', 'cum_nha_lien_ke'];
+            if (excludedTypes.includes(bType)) {
+                box.classList.add('hidden');
+                list.innerHTML = '';
+                return;
+            }
+
+            // 2. Lấy dữ liệu giá dịch vụ từ data-attributes
+            const elecPrice = parseFloat(selectedOption.getAttribute('data-elec')) || 0;
+            const waterPrice = parseFloat(selectedOption.getAttribute('data-water')) || 0;
+            const waterType = (selectedOption.getAttribute('data-water-type') || 'm3').toLowerCase();
+            const serviceFee = parseFloat(selectedOption.getAttribute('data-service')) || 0;
+            const internetFee = parseFloat(selectedOption.getAttribute('data-internet')) || 0;
+            const parkingFee = parseFloat(selectedOption.getAttribute('data-parking')) || 0;
+
+            const formatter = new Intl.NumberFormat('vi-VN');
+            const waterUnit = (waterType === 'person' || waterType === 'nguoi') ? 'đ/người' : 'đ/m³';
+
+            const serviceItems = [
+                { label: 'Điện', emoji: '⚡', val: elecPrice, unit: 'đ/kWh' },
+                { label: 'Nước', emoji: '💧', val: waterPrice, unit: waterUnit },
+                { label: 'Dịch vụ / Vệ sinh', emoji: '🧹', val: serviceFee, unit: 'đ/phòng' },
+                { label: 'Wifi / Internet', emoji: '📶', val: internetFee, unit: 'đ/phòng' },
+                { label: 'Gửi xe', emoji: '🛵', val: parkingFee, unit: 'đ/xe' },
+            ];
+
+            // Chỉ hiển thị các khoản phí có giá trị > 0
+            const activeServices = serviceItems.filter(item => item.val > 0);
+
+            // Nếu tất cả các mức giá đều trống hoặc bằng 0, ẩn khối
+            if (activeServices.length === 0) {
+                box.classList.add('hidden');
+                list.innerHTML = '';
+                return;
+            }
+
+            // Render danh sách pill/card dạng Read-only
+            list.innerHTML = activeServices.map(item => `
+                <div class="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white border border-amber-200/80 shadow-2xs">
+                    <span class="text-xs font-semibold text-slate-700 flex items-center gap-1.5 whitespace-nowrap shrink-0">
+                        <span class="text-sm shrink-0 leading-none">${item.emoji}</span>
+                        <span class="whitespace-nowrap">${item.label}:</span>
+                    </span>
+                    <span class="text-xs font-bold text-amber-950 bg-amber-100/80 px-2.5 py-1 rounded-lg border border-amber-200/70 whitespace-nowrap ml-2 font-mono shrink-0">
+                        ${formatter.format(item.val)} <span class="font-sans font-semibold text-[10px] text-amber-800">${item.unit}</span>
+                    </span>
+                </div>
+            `).join('');
+
+            box.classList.remove('hidden');
+        }
+
         function renderBuildingAmenities(amenitiesList) {
             const box = document.getElementById('building-amenities-box');
             const container = document.getElementById('building-amenities-tags');
@@ -1276,6 +1400,20 @@
             
             formData.append('area', areaInput.value.trim());
 
+            // Số tầng / Vị trí tầng của phòng / căn hộ
+            const floorInput = document.getElementById('post-floor');
+            if (floorInput && floorInput.value !== '') {
+                const floorVal = floorInput.value.trim();
+                formData.append('floor', floorVal);
+                formData.append('floor_number', floorVal);
+            }
+
+            // Số phòng ngủ & phòng tắm (nếu có)
+            const bedCount = document.getElementById('bedroom-count')?.innerText?.trim();
+            if (bedCount) formData.append('bedroom', bedCount);
+            const bathCount = document.getElementById('bathroom-count')?.innerText?.trim();
+            if (bathCount) formData.append('bathroom', bathCount);
+
             // Địa chỉ kế thừa trực tiếp từ Tòa nhà đã chọn
             const bSelectEl = document.getElementById('select-building-id');
             const selectedOpt = bSelectEl ? bSelectEl.options[bSelectEl.selectedIndex] : null;
@@ -1343,8 +1481,23 @@
                 btn.innerHTML = originalText;
                 btn.disabled = false;
                 if (data.success) {
-                    alert(data.message || 'Đã gửi bài viết lên hệ thống chờ duyệt!');
-                    window.location.href = "{{ url('Overview') }}";
+                    sessionStorage.removeItem('edit_post_data');
+                    alert(data.message || 'Đã gửi bài đăng thành công! Bài viết đang chờ Kiểm duyệt viên phê duyệt.');
+                    
+                    let targetUrl = '/Overview?tab=pending';
+                    if (data.redirect_url) {
+                        try {
+                            if (data.redirect_url.startsWith('http://') || data.redirect_url.startsWith('https://')) {
+                                const parsed = new URL(data.redirect_url);
+                                targetUrl = parsed.pathname + parsed.search + parsed.hash;
+                            } else {
+                                targetUrl = data.redirect_url;
+                            }
+                        } catch (e) {
+                            targetUrl = '/Overview?tab=pending';
+                        }
+                    }
+                    window.location.href = targetUrl;
                 } else {
                     alert(data.error || data.message || 'Có lỗi xảy ra khi đăng bài!');
                 }
@@ -1405,6 +1558,8 @@
                 'ky_tuc_xa': 'Ký túc xá / Sleepbox',
                 'dat_phan_lo': 'Đất phân lô',
                 'dat_nen': 'Đất nền',
+                'cum_nha_lien_ke': 'Cụm nhà liền kề / Dự án',
+                'nha_rieng': 'Nhà ở / Nhà riêng lẻ',
                 'nha_o': 'Nhà ở',
                 'phong_tro': 'Phòng trọ'
             };
@@ -1443,22 +1598,75 @@
             const s2Addr = document.getElementById('step2-building-address');
             const s2Type = document.getElementById('step2-building-type-badge');
 
+            const floorCol = document.getElementById('floor-col');
+            const floorInput = document.getElementById('post-floor');
+            const floorHint = document.getElementById('floor-hint');
+            const floorTitle = document.getElementById('floor-label-title');
+            const floorLockBadge = document.getElementById('floor-lock-badge');
+            const floorHelper = document.getElementById('floor-helper-note');
+            const areaCol = document.getElementById('area-col');
+
+            const s1FloorsBadge = document.getElementById('preview-building-floors-badge');
+            const s1FloorsText = document.getElementById('preview-building-floors-text');
+            const s2FloorsBadge = document.getElementById('step2-building-floors-badge');
+            const s2FloorsText = document.getElementById('step2-building-floors-text');
+
             if (!selectedOption || !selectedOption.value) {
                 if (previewCard) {
                     previewCard.classList.add('d-none');
                     previewCard.classList.add('hidden');
                 }
                 if (s2Box) s2Box.classList.add('hidden');
+                if (s1FloorsBadge) s1FloorsBadge.classList.add('hidden');
+                if (s2FloorsBadge) s2FloorsBadge.classList.add('hidden');
+
                 renderBuildingAmenities([]);
+                renderBuildingServicePrices(null);
                 const defaultType = selectedOption?.getAttribute('data-type') || 'nha_o';
                 applyPropertyTypeMapping(defaultType);
+
+                // Khôi phục mặc định ô nhập tầng khi chưa chọn tòa nhà
+                if (floorCol) {
+                    floorCol.classList.remove('hidden');
+                    floorCol.className = 'sm:col-span-4 transition-all';
+                }
+                if (areaCol) {
+                    areaCol.className = 'sm:col-span-3 transition-all';
+                }
+                if (floorTitle) floorTitle.innerText = 'Vị trí tầng';
+                if (floorHint) {
+                    floorHint.innerText = '(Tùy chọn)';
+                    floorHint.className = 'text-slate-400 font-normal text-[10px] shrink-0 whitespace-nowrap leading-none';
+                }
+                if (floorLockBadge) floorLockBadge.classList.add('hidden');
+                if (floorHelper) {
+                    floorHelper.classList.add('hidden');
+                    floorHelper.innerHTML = '';
+                }
+                if (floorInput) {
+                    floorInput.readOnly = false;
+                    floorInput.removeAttribute('max');
+                    floorInput.placeholder = 'VD: 3';
+                    floorInput.value = '';
+                    floorInput.className = 'w-full pl-3.5 pr-14 py-2.5 h-11 rounded-2xl bg-white border border-slate-200 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all';
+                }
                 return;
             }
 
             const addr = (selectedOption.getAttribute('data-address') || '').trim();
             const bName = selectedOption.getAttribute('data-name') || selectedOption.innerText.trim();
-            const bType = selectedOption.getAttribute('data-type') || 'nha_o';
+            const bType = (selectedOption.getAttribute('data-type') || 'nha_o').toLowerCase();
+            const bBusinessType = (selectedOption.getAttribute('data-business-type') || '').toLowerCase();
             const readableType = getPropertyTypeLabel(bType);
+
+            const floorsAttr = selectedOption.getAttribute('data-floors');
+            const totalFloors = parseInt(floorsAttr, 10) || 0;
+
+            const isLienKe = (bType === 'cum_nha_lien_ke') || 
+                             bType.includes('liền kề') || 
+                             bType.includes('dự án') || 
+                             bBusinessType.includes('liền kề') || 
+                             bBusinessType.includes('dự án');
 
             // 1. Tự động mapping Loại hình BĐS & Ẩn/Hiện Số phòng ngủ, Số phòng tắm
             applyPropertyTypeMapping(bType);
@@ -1468,6 +1676,17 @@
                 if (previewName) previewName.innerText = bName;
                 if (previewAddr) previewAddr.innerText = addr || 'Địa chỉ theo hồ sơ tòa nhà';
                 if (previewBadge) previewBadge.innerText = readableType;
+                if (s1FloorsBadge && s1FloorsText) {
+                    if (isLienKe) {
+                        s1FloorsText.innerText = totalFloors > 0 ? `Quy mô: ${totalFloors} tầng` : 'Cụm liền kề';
+                        s1FloorsBadge.classList.remove('hidden');
+                    } else if (totalFloors > 0) {
+                        s1FloorsText.innerText = `${totalFloors} tầng`;
+                        s1FloorsBadge.classList.remove('hidden');
+                    } else {
+                        s1FloorsBadge.classList.add('hidden');
+                    }
+                }
                 previewCard.classList.remove('d-none');
                 previewCard.classList.remove('hidden');
             }
@@ -1477,6 +1696,17 @@
                 s2Name.innerText = bName;
                 s2Addr.innerText = addr || 'Địa chỉ theo hồ sơ tòa nhà';
                 if (s2Type) s2Type.innerText = readableType;
+                if (s2FloorsBadge && s2FloorsText) {
+                    if (isLienKe) {
+                        s2FloorsText.innerText = totalFloors > 0 ? `Quy mô: ${totalFloors} tầng` : 'Cụm liền kề';
+                        s2FloorsBadge.classList.remove('hidden');
+                    } else if (totalFloors > 0) {
+                        s2FloorsText.innerText = `${totalFloors} tầng`;
+                        s2FloorsBadge.classList.remove('hidden');
+                    } else {
+                        s2FloorsBadge.classList.add('hidden');
+                    }
+                }
                 s2Box.classList.remove('hidden');
             }
 
@@ -1491,6 +1721,117 @@
                 console.error('Lỗi parse data-amenities:', e);
             }
             renderBuildingAmenities(bAmenities);
+
+            // 5. Kế thừa bảng giá dịch vụ dùng chung từ Tòa Nhà
+            renderBuildingServicePrices(selectedOption);
+
+            // 6. Xử lý logic số tầng của Lớp Vỏ / Từng căn nhà bên trong
+            const isLandType = (bType === 'dat_nen' || bType === 'dat_phan_lo');
+
+            if (isLandType) {
+                // Tự động ẩn ô nhập tầng cho đất nền
+                if (floorCol) floorCol.classList.add('hidden');
+                if (areaCol) {
+                    areaCol.className = 'sm:col-span-7 transition-all';
+                }
+                if (floorInput) {
+                    floorInput.value = '';
+                    floorInput.readOnly = false;
+                }
+                if (floorLockBadge) floorLockBadge.classList.add('hidden');
+                if (floorHelper) {
+                    floorHelper.classList.add('hidden');
+                    floorHelper.innerHTML = '';
+                }
+            } else if (isLienKe) {
+                // RIÊNG ĐỐI VỚI CỤM NHÀ LIỀN KỀ / DỰ ÁN:
+                // Từng căn nhà bên trong có thể có số tầng khác nhau, nhân sự (con) được toàn quyền chỉnh số tầng
+                if (floorCol) {
+                    floorCol.classList.remove('hidden');
+                    floorCol.className = 'sm:col-span-4 transition-all';
+                }
+                if (areaCol) {
+                    areaCol.className = 'sm:col-span-3 transition-all';
+                }
+                if (floorTitle) floorTitle.innerText = 'Số tầng của nhà';
+                if (floorHint) {
+                    floorHint.innerHTML = '<span class="text-sky-600 font-bold text-[10px] shrink-0 whitespace-nowrap leading-none">(Tùy chỉnh)</span>';
+                    floorHint.className = 'shrink-0 whitespace-nowrap';
+                }
+                if (floorInput) {
+                    floorInput.readOnly = false;
+                    floorInput.removeAttribute('max');
+                    floorInput.className = 'w-full pl-3.5 pr-14 py-2.5 h-11 rounded-2xl bg-white border border-slate-200 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none transition-all';
+                    floorInput.placeholder = 'VD: 3, 4, 5...';
+                    // Nếu đang trống thì gợi ý số tầng mặc định của cụm (nếu có)
+                    if (!floorInput.value || floorInput.value === '') {
+                        floorInput.value = totalFloors > 0 ? totalFloors : '';
+                    }
+                }
+                if (floorLockBadge) {
+                    floorLockBadge.classList.remove('hidden');
+                    floorLockBadge.innerHTML = '<span class="font-bold text-slate-400 text-[11px]">tầng</span>';
+                }
+                if (floorHelper) {
+                    floorHelper.classList.remove('hidden');
+                    floorHelper.innerHTML = '<span class="text-sky-600 font-semibold inline-flex items-center gap-1"><i class="fa-solid fa-pen text-[10px]"></i> Tùy chỉnh số tầng riêng cho từng nhà trong cụm liền kề</span>';
+                }
+            } else if (totalFloors > 0) {
+                // TÒA NHÀ CÓ SỐ TẦNG (Chung cư mini, KTX...): HIỂN THỊ CỐ ĐỊNH VÀ KHÔNG CHO SỬA
+                if (floorCol) {
+                    floorCol.classList.remove('hidden');
+                    floorCol.className = 'sm:col-span-4 transition-all';
+                }
+                if (areaCol) {
+                    areaCol.className = 'sm:col-span-3 transition-all';
+                }
+                if (floorTitle) floorTitle.innerText = 'Số tầng';
+                if (floorHint) {
+                    floorHint.innerHTML = '<span class="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200/90 px-1.5 py-0.5 rounded-md whitespace-nowrap shrink-0 leading-none"><i class="fa-solid fa-lock text-[8px]"></i> Cố định</span>';
+                    floorHint.className = 'shrink-0 whitespace-nowrap';
+                }
+                if (floorInput) {
+                    floorInput.value = totalFloors;
+                    floorInput.readOnly = true;
+                    floorInput.className = 'w-full pl-3.5 pr-14 py-2.5 h-11 rounded-2xl bg-slate-100/90 border border-slate-200 text-xs font-extrabold text-slate-800 cursor-not-allowed select-none focus:outline-none transition-all';
+                }
+                if (floorLockBadge) {
+                    floorLockBadge.classList.remove('hidden');
+                    floorLockBadge.innerHTML = '<span class="font-bold text-slate-500 text-[11px]">tầng</span><i class="fa-solid fa-lock text-[10px] text-amber-500"></i>';
+                }
+                if (floorHelper) {
+                    floorHelper.classList.remove('hidden');
+                    floorHelper.innerHTML = '<span class="text-emerald-600 font-semibold inline-flex items-center gap-1"><i class="fa-solid fa-circle-check text-[10px]"></i> Cố định theo tòa nhà</span>';
+                }
+            } else {
+                // Tòa nhà chưa có số tầng: Cho phép nhập tự do
+                if (floorCol) {
+                    floorCol.classList.remove('hidden');
+                    floorCol.className = 'sm:col-span-4 transition-all';
+                }
+                if (areaCol) {
+                    areaCol.className = 'sm:col-span-3 transition-all';
+                }
+                if (floorTitle) floorTitle.innerText = 'Vị trí tầng';
+                if (floorHint) {
+                    floorHint.innerText = '(Tùy chọn)';
+                    floorHint.className = 'text-slate-400 font-normal text-[10px] shrink-0 whitespace-nowrap leading-none';
+                }
+                if (floorInput) {
+                    floorInput.readOnly = false;
+                    floorInput.className = 'w-full pl-3.5 pr-14 py-2.5 h-11 rounded-2xl bg-white border border-slate-200 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all';
+                    floorInput.placeholder = 'VD: 3';
+                    floorInput.removeAttribute('max');
+                }
+                if (floorLockBadge) {
+                    floorLockBadge.classList.add('hidden');
+                    floorLockBadge.innerHTML = '<span class="font-bold text-slate-500 text-[11px]">tầng</span><i class="fa-solid fa-lock text-[10px] text-amber-500"></i>';
+                }
+                if (floorHelper) {
+                    floorHelper.classList.add('hidden');
+                    floorHelper.innerHTML = '';
+                }
+            }
         }
 
         // ======================= SỰ KIỆN KHỞI TẠO & ĐÓNG MENU =======================
@@ -1544,6 +1885,15 @@
                         if (bSelect) {
                             bSelect.value = postData.building_id;
                             onBuildingSelected(bSelect);
+                        }
+                    }
+
+                    const savedFloor2 = (postData.floor !== undefined && postData.floor !== null) ? postData.floor : postData.floor_number;
+                    if(savedFloor2 !== undefined && savedFloor2 !== null && savedFloor2 !== '') {
+                        const floorInput = document.getElementById('post-floor');
+                        // Nếu ô này không bị khóa cố định bởi tòa nhà thì khôi phục giá trị đã lưu
+                        if(floorInput && !floorInput.readOnly) {
+                            floorInput.value = savedFloor2;
                         }
                     }
                     

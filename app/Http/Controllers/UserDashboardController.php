@@ -17,45 +17,88 @@ class UserDashboardController extends Controller
             return response()->json(['success' => false], 401);
         }
 
+        $userId = (string)($user->_id ?? $user->id);
+
         if ($user->isSubAccount()) {
             $assignedIds = (array) ($user->assigned_buildings ?? []);
             $isAll = empty($assignedIds) || in_array('all', $assignedIds, true) || in_array('*', $assignedIds, true);
 
             if ($isAll) {
-                $activePostsCount = Post::where(function ($q) {
-                        $q->whereIn('status', ['active', 'approved', 'đã cho thuê', 'rented', 'dang_thue'])
-                          ->orWhere('is_rented', true);
-                    })
-                    ->count();
-                $totalViews = Post::sum('views') ?? 0;
-                $totalLikes = Post::sum('likes') ?? 0;
+                $parentId = (string)($user->parent_id ?: $userId);
+                $query = Post::where(function($q) use ($parentId, $userId) {
+                    $q->where('parent_id', $parentId)
+                      ->orWhere('user_id', $userId)
+                      ->orWhere('staff_id', $userId)
+                      ->orWhere('author_id', $userId);
+                });
                 $totalBuildingsCount = \App\Models\Building::count();
             } else {
-                $activePostsCount = Post::whereIn('building_id', $assignedIds)
-                    ->where(function ($q) {
-                        $q->whereIn('status', ['active', 'approved', 'đã cho thuê', 'rented', 'dang_thue'])
-                          ->orWhere('is_rented', true);
-                    })
-                    ->count();
-                $totalViews = Post::whereIn('building_id', $assignedIds)->sum('views') ?? 0;
-                $totalLikes = Post::whereIn('building_id', $assignedIds)->sum('likes') ?? 0;
+                $query = Post::where(function($q) use ($assignedIds, $userId) {
+                    $q->whereIn('building_id', $assignedIds)
+                      ->orWhere('user_id', $userId)
+                      ->orWhere('staff_id', $userId)
+                      ->orWhere('author_id', $userId);
+                });
                 $totalBuildingsCount = count($assignedIds);
             }
+
+            $activePostsCount = (clone $query)->where(function ($q) {
+                    $q->whereIn('status', ['active', 'approved', 'đã cho thuê', 'rented', 'dang_thue'])
+                      ->orWhere('is_rented', true);
+                })
+                ->whereNotIn('status', ['pending', 'rejected', 'deleted'])
+                ->count();
+
+            $pendingPostsCount = (clone $query)->where('status', 'pending')->count();
+            $totalViews = (clone $query)->sum('views') ?? 0;
+            $totalLikes = (clone $query)->sum('likes') ?? 0;
         } elseif ($user->isEnterprise() || $user->isAdmin()) {
             $activePostsCount = Post::where(function ($q) {
                     $q->whereIn('status', ['active', 'approved', 'đã cho thuê', 'rented', 'dang_thue'])
                       ->orWhere('is_rented', true);
                 })
+                ->whereNotIn('status', ['pending', 'rejected', 'deleted'])
                 ->count();
+            $pendingPostsCount = Post::where('status', 'pending')->count();
             $totalViews = Post::sum('views') ?? 0;
             $totalLikes = Post::sum('likes') ?? 0;
             $totalBuildingsCount = \App\Models\Building::count();
         } else {
-            $userId = $user->_id ?? $user->id;
-            $activePostsCount = Post::where('user_id', $userId)->count();
-            $totalViews = Post::where('user_id', $userId)->sum('views') ?? 0;
-            $totalLikes = Post::where('user_id', $userId)->sum('likes') ?? 0;
+            $query = Post::where(function($q) use ($userId) {
+                $q->where('user_id', $userId)
+                  ->orWhere('staff_id', $userId)
+                  ->orWhere('author_id', $userId);
+            });
+
+            $activePostsCount = (clone $query)
+                ->whereIn('status', ['active', 'approved'])
+                ->whereNotIn('status', ['pending', 'rejected', 'deleted'])
+                ->count();
+            $pendingPostsCount = (clone $query)->where('status', 'pending')->count();
+            $totalViews = (clone $query)->sum('views') ?? 0;
+            $totalLikes = (clone $query)->sum('likes') ?? 0;
             $totalBuildingsCount = 0;
+            $staffCashDebt = 0;
+        }
+
+        if ($user->isSubAccount()) {
+            $staffCashDebt = \App\Models\Invoice::where(function ($q) use ($userId) {
+                    $q->where('collected_by', $userId)
+                      ->orWhere('created_by', $userId);
+                })
+                ->where('payment_method', 'cash')
+                ->where(function ($q) {
+                    $q->whereNull('is_remitted_to_admin')
+                      ->orWhere('is_remitted_to_admin', false)
+                      ->orWhere('is_remitted_to_admin', 0);
+                })
+                ->where(function ($q) {
+                    $q->where('status', 'paid')
+                      ->orWhere('payment_status', 'paid');
+                })
+                ->sum('total_amount');
+        } else {
+            $staffCashDebt = 0;
         }
 
         return response()->json([
@@ -64,7 +107,10 @@ class UserDashboardController extends Controller
                 'total_views' => $totalViews,
                 'total_likes' => $totalLikes,
                 'active_posts_count' => $activePostsCount,
-                'total_buildings_count' => $totalBuildingsCount
+                'pending_posts_count' => $pendingPostsCount,
+                'total_buildings_count' => $totalBuildingsCount,
+                'staff_cash_debt' => (float)$staffCashDebt,
+                'staff_cash_debt_formatted' => number_format((float)$staffCashDebt) . ' VNĐ',
             ]
         ]);
     }
@@ -76,19 +122,37 @@ class UserDashboardController extends Controller
             return response()->json(['success' => false], 401);
         }
         $status = $request->query('status', 'active');
+        $userId = (string)($user->_id ?? $user->id);
         
-        $query = Post::query();
+        $query = Post::with(['building', 'user']);
 
         if ($user->isSubAccount()) {
             $assignedIds = (array) ($user->assigned_buildings ?? []);
             if (!empty($assignedIds) && !in_array('all', $assignedIds, true) && !in_array('*', $assignedIds, true)) {
-                $query->whereIn('building_id', $assignedIds);
+                $query->where(function($q) use ($assignedIds, $userId) {
+                    $q->whereIn('building_id', $assignedIds)
+                      ->orWhere('user_id', $userId)
+                      ->orWhere('staff_id', $userId)
+                      ->orWhere('author_id', $userId);
+                });
+            } else {
+                $parentId = (string)($user->parent_id ?: $userId);
+                $query->where(function($q) use ($parentId, $userId) {
+                    $q->where('parent_id', $parentId)
+                      ->orWhere('user_id', $userId)
+                      ->orWhere('staff_id', $userId)
+                      ->orWhere('author_id', $userId);
+                });
             }
         } elseif (!$user->isEnterprise() && !$user->isAdmin()) {
-            $query->where('user_id', $user->_id ?? $user->id);
+            $query->where(function($q) use ($userId) {
+                $q->where('user_id', $userId)
+                  ->orWhere('staff_id', $userId)
+                  ->orWhere('author_id', $userId);
+            });
         }
 
-        $activeContractPostIds = Contract::where('status', '!=', 'cancelled')
+        $activeContractPostIds = Contract::whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly'])
             ->pluck('post_id')
             ->filter()
             ->toArray();
@@ -101,7 +165,9 @@ class UserDashboardController extends Controller
                     $q->orWhereIn('_id', $activeContractPostIds)
                       ->orWhereIn('id', $activeContractPostIds);
                 }
-            })->orderBy('created_at', 'desc')->get();
+            })->whereNotIn('status', ['pending', 'rejected', 'deleted'])->orderBy('created_at', 'desc')->get();
+        } elseif ($status === 'pending') {
+            $posts = $query->where('status', 'pending')->orderBy('created_at', 'desc')->get();
         } else {
             $posts = $query->where('status', $status)->orderBy('created_at', 'desc')->get();
         }
@@ -126,13 +192,19 @@ class UserDashboardController extends Controller
             return response()->json(['success' => false], 401);
         }
 
-        $query = Post::whereIn('status', ['approved', 'active', 'rejected', 'hidden', 'deleted', 'pending', 'đã cho thuê', 'rented', 'dang_thue']);
+        $userId = (string)($user->_id ?? $user->id);
+        $query = Post::with(['building', 'user'])
+            ->whereIn('status', ['approved', 'active', 'rejected', 'hidden', 'deleted', 'pending', 'đã cho thuê', 'rented', 'dang_thue']);
 
         if ($user->isSubAccount()) {
             $assignedIds = (array) ($user->assigned_buildings ?? []);
-            $query->whereIn('building_id', $assignedIds);
+            if (!empty($assignedIds) && !in_array('all', $assignedIds, true) && !in_array('*', $assignedIds, true)) {
+                $query->whereIn('building_id', $assignedIds);
+            } else {
+                $query->where('user_id', $userId)->orWhere('staff_id', $userId);
+            }
         } elseif (!$user->isEnterprise() && !$user->isAdmin()) {
-            $query->where('user_id', $user->_id ?? $user->id);
+            $query->where('user_id', $userId)->orWhere('staff_id', $userId);
         }
 
         $posts = $query->orderBy('updated_at', 'desc')->get();
@@ -142,9 +214,13 @@ class UserDashboardController extends Controller
 
     public function getNotifications()
     {
-        $userId = Auth::id();
-        \Log::info('getNotifications called. Auth ID: ' . ($userId ?? 'NULL'));
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['success' => false], 401);
+        }
+        $userId = (string)($user->_id ?? $user->id);
         $notifications = Notification::where('user_id', $userId)
+            ->orWhere('user_id', $user->id)
             ->orderBy('created_at', 'desc')
             ->get();
             

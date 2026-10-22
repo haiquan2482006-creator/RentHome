@@ -27,7 +27,7 @@ class OperationManagementController extends Controller
         }
 
         // 1. Truy xuất danh sách các hợp đồng đang active của doanh nghiệp chung
-        $contractsQuery = Contract::where('status', '!=', 'cancelled');
+        $contractsQuery = Contract::whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly']);
 
         // Nếu là tài khoản con và có phân quyền theo tòa nhà chỉ định
         if ($user->isSubAccount() && !empty($user->assigned_buildings) && !in_array('all', $user->assigned_buildings, true)) {
@@ -123,10 +123,17 @@ class OperationManagementController extends Controller
                 })
                 ->exists();
 
-            // LOGIC TRẠNG THÁI: Tôn trọng trạng thái chủ nhà bấm chọn trực tiếp bên ngoài
-            if ($contract->payment_status === 'paid' || $hasPaidInvoice) {
+            // LOGIC TRẠNG THÁI: Tôn trọng trạng thái chuyển khoản chờ duyệt hoặc thanh toán
+            $isPendingApproval = ($latestInvoice && ($latestInvoice->status === 'pending_approval' || $latestInvoice->payment_status === 'pending_approval'));
+            if ($isPendingApproval) {
+                $status = 'pending_approval'; // Khách đã chuyển khoản, chờ Admin kế toán duyệt
+                $statusLabel = 'Khách Đã CK - Chờ Duyệt';
+                $isDue = false;
+            } elseif ($contract->payment_status === 'paid' || $hasPaidInvoice) {
                 $status = 'paid'; // Đã thanh toán -> Chấm xanh
-                $statusLabel = 'Đã thu tiền';
+                $statusLabel = ($latestInvoice && $latestInvoice->payment_method === 'bank_transfer') 
+                    ? 'Đã CK (Đã duyệt)' 
+                    : (($latestInvoice && $latestInvoice->payment_method === 'cash') ? 'Đã thu tiền mặt' : 'Đã thu tiền');
                 $isDue = false;
             } elseif ($contract->payment_status === 'unpaid') {
                 $status = 'unpaid'; // Chưa thanh toán -> Chấm đỏ
@@ -202,6 +209,10 @@ class OperationManagementController extends Controller
                 'billing_month'   => $invMonth,
                 'status'          => $status,
                 'status_label'    => $statusLabel,
+                'invoice_status'  => $latestInvoice ? $latestInvoice->status : $status,
+                'payment_method'  => $latestInvoice ? $latestInvoice->payment_method : null,
+                'proof_image'     => $latestInvoice ? $latestInvoice->proof_image : null,
+                'is_remitted_to_admin' => $latestInvoice ? $latestInvoice->is_remitted_to_admin : null,
                 'rent_price'      => $invRentPrice,
                 'deposit'         => $invDeposit,
                 'elec_old'        => $elecOld,
@@ -252,7 +263,18 @@ class OperationManagementController extends Controller
                 'payment_limit_days'     => $contract->payment_limit_days ?: '5 ngày',
                 'late_penalty_fee'       => $contract->late_penalty_fee ?: '20.000 VNĐ / ngày',
                 'address'                => $post ? ($post->address ?? trim(($post->ward ?? '') . ', ' . ($post->district ?? '') . ', ' . ($post->province ?? ''), ', ')) : 'Số 18 Trần Phú, Phường Mộ Lao, Quận Hà Đông, TP. Hà Nội',
+                'checkout_request'       => $contract->checkout_request ?? [],
+                'has_checkout_request'   => !empty($contract->checkout_request) && (
+                    (is_array($contract->checkout_request) && ($contract->checkout_request['status'] ?? '') === 'pending') ||
+                    (is_object($contract->checkout_request) && ($contract->checkout_request->status ?? '') === 'pending')
+                ),
             ];
+
+            $checkoutReq = $contract->checkout_request ?? [];
+            $hasCheckoutReq = !empty($checkoutReq) && (
+                (is_array($checkoutReq) && ($checkoutReq['status'] ?? '') === 'pending') ||
+                (is_object($checkoutReq) && ($checkoutReq->status ?? '') === 'pending')
+            );
 
             return (object)[
                 'id'                     => $contractId,
@@ -265,9 +287,11 @@ class OperationManagementController extends Controller
                 'price'                  => (float)($contract->rent_price ?? ($post->price ?? 0)),
                 'deposit'                => (float)($contract->deposit ?? 0),
                 'bill_date'              => $billDate,
-                'status'                 => $status, // Biến ảo: 'paid' hoặc 'unpaid'
-                'status_label'           => $statusLabel, // 'Chưa đến kỳ thu', 'Chưa thu tiền', 'Đã thu tiền'
+                'status'                 => $status, // Biến ảo: 'paid', 'unpaid', hoặc 'pending_approval'
+                'status_label'           => $statusLabel,
                 'is_due'                 => $isDue, // true nếu đến hạn và chưa thu
+                'payment_method'         => $latestInvoice ? $latestInvoice->payment_method : null,
+                'proof_image'            => $latestInvoice ? $latestInvoice->proof_image : null,
                 'debt_period'            => 'Kỳ ' . $currentMonthStr . ' (Hạn ' . $billDate . '/' . $currentMonth . ')',
                 'debt_amount'            => $invTotal,
                 'paid_period'            => 'Kỳ ' . $currentMonthStr,
@@ -287,6 +311,10 @@ class OperationManagementController extends Controller
                 'payment_cycle'          => $contract->payment_cycle ?: '1 tháng',
                 'payment_limit_days'     => $contract->payment_limit_days ?: '5 ngày',
                 'late_penalty_fee'       => $contract->late_penalty_fee ?: '20.000 VNĐ / ngày',
+                'contract_status'        => $contract->status ?? 'active',
+                'checkout_request'       => $checkoutReq,
+                'has_checkout_request'   => $hasCheckoutReq,
+                'contract'               => $contract,
                 'contract_details'       => $contractDetails,
                 'invoice_code'           => $cleanInvCode,
                 'invoice_total'          => $invTotal,
@@ -299,6 +327,7 @@ class OperationManagementController extends Controller
         // 3. Thống kê số lượng phòng
         $paidCount = $rooms->where('status', 'paid')->count();
         $unpaidCount = $rooms->where('status', 'unpaid')->count();
+        $pendingApprovalCount = $rooms->where('status', 'pending_approval')->count();
         $dueRooms = $rooms->where('status', 'unpaid')->values();
 
         $roomsQuery = Post::where(function ($q) {
@@ -314,7 +343,7 @@ class OperationManagementController extends Controller
 
         $availableRooms = $roomsQuery->get();
 
-        return view('qlvan_hanh.Room_list', compact('rooms', 'paidCount', 'unpaidCount', 'availableRooms', 'dueRooms'));
+        return view('qlvan_hanh.Room_list', compact('rooms', 'paidCount', 'unpaidCount', 'pendingApprovalCount', 'availableRooms', 'dueRooms'));
     }
 
     /**
@@ -327,7 +356,7 @@ class OperationManagementController extends Controller
         $today = $now->day;
         $currentMonthStr = $now->format('m/Y');
 
-        $contractsQuery = Contract::where('status', '!=', 'cancelled');
+        $contractsQuery = Contract::whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly']);
         if ($user && $user->isSubAccount() && !empty($user->assigned_buildings) && !in_array('all', $user->assigned_buildings, true)) {
             $assignedIds = array_map('strval', (array)$user->assigned_buildings);
             $postIds = Post::whereIn('building_id', $assignedIds)->pluck('_id')->map(fn($id) => (string)$id)->toArray();
@@ -447,7 +476,7 @@ class OperationManagementController extends Controller
         }
 
         // 1. Lấy danh sách hợp đồng hoạt động của doanh nghiệp
-        $contractsQuery = Contract::where('status', '!=', 'cancelled');
+        $contractsQuery = Contract::whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly']);
         if ($user->isSubAccount() && !empty($user->assigned_buildings) && !in_array('all', $user->assigned_buildings, true)) {
             $assignedIds = array_map('strval', (array)$user->assigned_buildings);
             $postIds = Post::whereIn('building_id', $assignedIds)->pluck('_id')->map(fn($id) => (string)$id)->toArray();
@@ -755,11 +784,38 @@ class OperationManagementController extends Controller
         $currentMonthStr = $now->format('m/Y');
         $contractIdStr = (string)($contract->_id ?? $contract->id);
 
+        // KHÓA AN TOÀN: Nếu khách đã chuyển khoản và đang ở trạng thái pending_approval -> Không cho phép thu tiền mặt
+        if ($status === 'paid') {
+            $hasPendingApproval = Invoice::where(function ($q) use ($contractIdStr, $contract) {
+                    $q->where('contract_id', $contractIdStr);
+                    if (!empty($contract->contract_code)) {
+                        $q->orWhere('contract_id', $contract->contract_code)
+                          ->orWhere('contract_code', $contract->contract_code);
+                    }
+                })
+                ->where(function ($q) {
+                    $q->where('status', 'pending_approval')
+                      ->orWhere('payment_status', 'pending_approval');
+                })
+                ->exists();
+
+            if ($hasPendingApproval) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Hóa đơn này khách đã chuyển khoản và đang chờ Kế toán duyệt. Không thể thao tác thu tiền mặt!'
+                ], 400);
+            }
+        }
+
         // 1. Cập nhật trạng thái trên hợp đồng
         $contract->payment_status = $status;
         if ($status === 'paid') {
             $contract->last_paid_period = $currentMonthStr;
             $contract->last_paid_date = $now->toDateTimeString();
+            // Nếu hợp đồng đang chờ đóng cọc/kỳ đầu -> Tự động kích hoạt (Active) hợp đồng chính thức
+            if ($contract->status === 'pending_deposit' || $contract->status === 'pending_payment' || $contract->status === 'pending') {
+                $contract->status = 'active';
+            }
         } else {
             if ($contract->last_paid_period === $currentMonthStr) {
                 $contract->last_paid_period = null;
@@ -787,15 +843,181 @@ class OperationManagementController extends Controller
             $inv->status = $status;
             $inv->payment_status = $status;
             $inv->payment_date = ($status === 'paid') ? $now->toDateTimeString() : null;
+            if ($status === 'paid') {
+                $method = $request->input('payment_method', 'cash');
+                $inv->payment_method = $method;
+                if ($method === 'cash') {
+                    $inv->collected_by = (string)Auth::id();
+                    $inv->is_remitted_to_admin = false;
+                } else {
+                    $inv->is_remitted_to_admin = true;
+                }
+            } else {
+                $inv->payment_method = null;
+                $inv->collected_by = null;
+                $inv->is_remitted_to_admin = false;
+            }
             $inv->save();
         }
 
         return response()->json([
-            'success'      => true,
-            'message'      => ($status === 'paid') ? 'Đã đánh dấu ĐÃ THU TIỀN thành công!' : 'Đã chuyển thành CHƯA THU TIỀN!',
-            'status'       => $status,
-            'status_label' => ($status === 'paid') ? 'Đã thu tiền' : 'Chưa thu tiền',
-            'room_code'    => $contract->contract_code,
+            'success'         => true,
+            'message'         => ($status === 'paid') ? 'Đã đánh dấu ĐÃ THU TIỀN thành công! Hợp đồng đã được kích hoạt chính thức.' : 'Đã chuyển thành CHƯA THU TIỀN!',
+            'status'          => $status,
+            'status_label'    => ($status === 'paid') ? 'Đã thu tiền' : 'Chưa thu tiền',
+            'contract_status' => $contract->status,
+            'room_code'       => $contract->contract_code,
         ]);
+    }
+
+    /**
+     * Hiển thị trang Chi tiết Hóa đơn chuyên nghiệp (Đặc biệt cho Hóa đơn #1 thanh toán nhận nhà)
+     */
+    public function showInvoiceDetail($code)
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return redirect()->route('login')->with('error', 'Vui lòng đăng nhập để xem chi tiết hóa đơn.');
+        }
+
+        $cleanCode = trim($code);
+        $cleanHyphen = str_replace(' ', '-', $cleanCode);
+
+        // 1. Tìm trực tiếp theo invoice_code hoặc _id/id
+        $invoice = Invoice::where('invoice_code', $cleanCode)
+            ->orWhere('invoice_code', $cleanHyphen)
+            ->orWhere('_id', $cleanCode)
+            ->orWhere('id', $cleanCode)
+            ->first();
+
+        // 2. Nếu chưa thấy, tìm theo mã hợp đồng (contract_code) hoặc contract_id / room_id
+        if (!$invoice) {
+            $contract = Contract::where('contract_code', $cleanCode)
+                ->orWhere('contract_code', $cleanHyphen)
+                ->orWhere('_id', $cleanCode)
+                ->orWhere('id', $cleanCode)
+                ->orWhere('post_id', $cleanCode)
+                ->orWhere('room_id', $cleanCode)
+                ->first();
+
+            if ($contract) {
+                $cId = (string)($contract->_id ?? $contract->id);
+                $invoice = Invoice::where('contract_id', $cId)
+                    ->orWhere('contract_id', $contract->contract_code)
+                    ->latest()
+                    ->first();
+
+                // Nếu hợp đồng chưa có bất kỳ hóa đơn nào trong DB -> Tự động sinh Hóa đơn #1
+                if (!$invoice) {
+                    $firstInvoiceCode = 'INV-' . date('Ym') . '-' . strtoupper(substr(uniqid(), -4));
+                    $startDate = !empty($contract->start_date) ? \Carbon\Carbon::parse($contract->start_date) : now();
+                    $startDay = (int)$startDate->day;
+                    $rawRentPrice = (float)($contract->rent_price ?? 0);
+                    $rawDeposit = (float)($contract->deposit ?? 0);
+                    $rawMonthlyService = (float)($contract->internet_price ?? 0) + (float)($contract->service_fee ?? ($contract->garbage_price ?? 0)) + (float)($contract->parking_fee ?? 0);
+
+                    if ($startDay === 1) {
+                        $rentPriceFirstMonth = $rawRentPrice;
+                        $serviceFirstMonth = $rawMonthlyService;
+                        $periodDescription = 'Kỳ đầu tiên (Trọn tháng ' . $startDate->format('m/Y') . ')';
+                        $noteDescription = 'Hóa đơn thanh toán lần đầu: Tiền cọc & Trọn tháng ' . $startDate->format('m/Y') . ' tiền phòng khi nhận nhà. (Điện nước ghi nhận chỉ số đầu; thành tiền = 0 VNĐ).';
+                    } else {
+                        $stayDays = max(1, 30 - $startDay + 1);
+                        $rentPriceFirstMonth = (float)round(($rawRentPrice / 30) * $stayDays);
+                        $serviceFirstMonth = (float)round(($rawMonthlyService / 30) * $stayDays);
+                        $periodDescription = 'Kỳ đầu tiên (Lẻ ' . $stayDays . ' ngày: ' . $startDate->format('d/m') . ' - ' . $startDate->copy()->endOfMonth()->format('d/m/Y') . ')';
+                        $noteDescription = 'Hóa đơn thanh toán lần đầu: Tiền cọc & Tiền phòng lẻ ' . $stayDays . ' ngày của tháng ' . $startDate->format('m/Y') . '. (Điện nước ghi nhận chỉ số đầu; thành tiền = 0 VNĐ).';
+                    }
+
+                    $invoice = Invoice::create([
+                        'contract_id'        => $cId,
+                        'room_id'            => (string)($contract->room_id ?? $contract->post_id ?? ''),
+                        'post_id'            => (string)($contract->post_id ?? ''),
+                        'owner_id'           => (string)($contract->owner_id ?? ''),
+                        'created_by'         => (string)Auth::id(),
+                        'staff_id'           => (string)Auth::id(),
+                        'tenant_id'          => $contract->tenant_id,
+                        'tenant_name'        => $contract->tenant_name,
+                        'invoice_code'       => $firstInvoiceCode,
+                        'billing_month'      => $startDate->format('m/Y'),
+                        'billing_period'     => $periodDescription,
+                        'month'              => (int)$startDate->format('m'),
+                        'year'               => (int)$startDate->format('Y'),
+                        'rent_price'         => $rentPriceFirstMonth,
+                        'deposit'            => $rawDeposit,
+                        'electricity_amount' => 0,
+                        'electricity_old'    => (float)($contract->electricity_start ?? 0),
+                        'electricity_new'    => (float)($contract->electricity_start ?? 0),
+                        'water_amount'       => 0,
+                        'water_old'          => (float)($contract->water_start ?? 0),
+                        'water_new'          => (float)($contract->water_start ?? 0),
+                        'service_amount'     => $serviceFirstMonth,
+                        'total_amount'       => $rawDeposit + $rentPriceFirstMonth + $serviceFirstMonth,
+                        'status'             => 'unpaid',
+                        'payment_status'     => 'unpaid',
+                        'note'               => $noteDescription,
+                    ]);
+                }
+            }
+        }
+
+        if (!$invoice) {
+            return redirect()->route('qlvan_hanh.room_list')->with('error', 'Không tìm thấy hóa đơn tương ứng với ' . $code);
+        }
+
+        $contract = $invoice->contract;
+        if (!$contract && !empty($invoice->contract_id)) {
+            $contract = Contract::find($invoice->contract_id) ?: Contract::where('contract_code', $invoice->contract_id)->first();
+        }
+
+        $post = $invoice->post;
+        if (!$post && !empty($invoice->post_id)) {
+            $post = Post::find($invoice->post_id);
+        }
+        if (!$post && $contract && !empty($contract->post_id)) {
+            $post = Post::find($contract->post_id);
+        }
+
+        // Lấy thông tin tài khoản ngân hàng của Công ty / Doanh nghiệp RentHome để tạo mã VietQR
+        $enterpriseUser = \App\Models\User::getEnterpriseUser();
+        $bankUser = ($enterpriseUser && !empty($enterpriseUser->bank_account)) 
+            ? $enterpriseUser 
+            : ((!empty($contract->owner_id) ? \App\Models\User::find($contract->owner_id) : null) ?: Auth::user());
+        if (!$bankUser || empty($bankUser->bank_account)) {
+            $fallbackBankUser = \App\Models\User::whereNotNull('bank_account')->where('bank_account', '!=', '')->first();
+            if ($fallbackBankUser) $bankUser = $fallbackBankUser;
+        }
+
+        $bankName = !empty($bankUser->bank_name) ? $bankUser->bank_name : 'VietBank';
+        $bankAccount = !empty($bankUser->bank_account) ? $bankUser->bank_account : '00939399884747';
+        $rawHolder = (!empty($bankUser->bank_owner)) 
+            ? $bankUser->bank_owner 
+            : (!empty($bankUser->bank_account_holder) 
+                ? $bankUser->bank_account_holder 
+                : (!empty($bankUser->account_name) 
+                    ? $bankUser->account_name 
+                    : (!empty($bankUser->name) 
+                        ? $bankUser->name 
+                        : 'NGUYEN THI VAN ANH')));
+        $bankHolder = mb_strtoupper($rawHolder, 'UTF-8');
+
+        $memo = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $invoice->invoice_code));
+        $totalAmount = (float)($invoice->total_amount ?? 0);
+        $qrUrl = "https://img.vietqr.io/image/{$bankName}-{$bankAccount}-compact2.png?amount={$totalAmount}&addInfo=" . urlencode($memo) . "&accountName=" . urlencode($bankHolder);
+
+        // Kiểm tra xem đây có phải là Hóa đơn #1 (Kỳ đầu tiên - Cọc & Nhận nhà) hay không
+        $isFirstInvoice = (float)($invoice->deposit ?? 0) > 0 || str_contains($invoice->billing_period ?? '', 'Kỳ đầu') || str_contains($invoice->note ?? '', 'lần đầu');
+
+        return view('qlvan_hanh.chi_tiet_hoa_don', compact(
+            'invoice',
+            'contract',
+            'post',
+            'bankName',
+            'bankAccount',
+            'bankHolder',
+            'memo',
+            'qrUrl',
+            'isFirstInvoice'
+        ));
     }
 }

@@ -68,6 +68,43 @@
     $defaultRentPrice = old('rent_price', ($roomPriceRaw && is_numeric($roomPriceRaw)) ? number_format($roomPriceRaw) . ' VNĐ/tháng' : ($roomPriceRaw ?? ''));
     $roomDepositRaw = $room->deposit ?? $roomPriceRaw;
     $defaultDeposit = old('deposit', ($roomDepositRaw && is_numeric($roomDepositRaw)) ? number_format($roomDepositRaw) . ' VNĐ' : ($roomDepositRaw ?? ''));
+
+    // Lấy thông tin Tòa nhà (Lớp Vỏ) của bài đăng đã chọn để kế thừa bảng giá dịch vụ
+    $building = null;
+    if ($room) {
+        $building = $room->building;
+        if (!$building && !empty($room->building_id) && class_exists(\App\Models\Building::class)) {
+            $building = \App\Models\Building::find($room->building_id);
+        }
+    }
+
+    // Giá điện mặc định (kế thừa từ Tòa nhà)
+    $defaultElecPriceRaw = old('electricity_price', $room->electricity_price ?? ($building->electricity_price ?? ''));
+    $defaultElecPrice = (is_numeric($defaultElecPriceRaw) && $defaultElecPriceRaw > 0) ? number_format($defaultElecPriceRaw, 0, ',', '.') : (string)$defaultElecPriceRaw;
+
+    // Hình thức tính tiền nước (Khối vs Người)
+    $defaultWaterType = old('water_calculation_type', $room->water_calculation_type ?? ($building->water_calc_type ?? 'khoi'));
+    $isWaterNguoi = in_array(strtolower((string)$defaultWaterType), ['person', 'nguoi', 'người']);
+
+    // Giá nước theo khối
+    $defaultWaterPriceBlockRaw = old('water_price_block', $room->water_price_block ?? (!$isWaterNguoi ? ($building->water_price ?? '') : ''));
+    $defaultWaterPriceBlock = (is_numeric($defaultWaterPriceBlockRaw) && $defaultWaterPriceBlockRaw > 0) ? number_format($defaultWaterPriceBlockRaw, 0, ',', '.') : (string)$defaultWaterPriceBlockRaw;
+
+    // Giá nước theo người
+    $defaultWaterPricePersonRaw = old('water_price_person', $room->water_price_person ?? ($isWaterNguoi ? ($building->water_price ?? '') : ''));
+    $defaultWaterPricePerson = (is_numeric($defaultWaterPricePersonRaw) && $defaultWaterPricePersonRaw > 0) ? number_format($defaultWaterPricePersonRaw, 0, ',', '.') : (string)$defaultWaterPricePersonRaw;
+
+    // Phí Internet
+    $defaultInternetPriceRaw = old('internet_price', $room->internet_price ?? ($building->internet_fee ?? ''));
+    $defaultInternetPrice = (is_numeric($defaultInternetPriceRaw) && $defaultInternetPriceRaw > 0) ? number_format($defaultInternetPriceRaw, 0, ',', '.') : ((string)$defaultInternetPriceRaw === '0' ? '0' : (string)$defaultInternetPriceRaw);
+
+    // Phí Dịch vụ chung / Vệ sinh
+    $defaultServicePriceRaw = old('service_fee', $room->service_fee ?? ($room->garbage_price ?? ($building->service_fee ?? '')));
+    $defaultServicePrice = (is_numeric($defaultServicePriceRaw) && $defaultServicePriceRaw > 0) ? number_format($defaultServicePriceRaw, 0, ',', '.') : ((string)$defaultServicePriceRaw === '0' ? '0' : (string)$defaultServicePriceRaw);
+
+    // Phí Gửi xe
+    $defaultParkingPriceRaw = old('parking_fee', $room->parking_fee ?? ($building->parking_fee ?? ''));
+    $defaultParkingPrice = (is_numeric($defaultParkingPriceRaw) && $defaultParkingPriceRaw > 0) ? number_format($defaultParkingPriceRaw, 0, ',', '.') : ((string)$defaultParkingPriceRaw === '0' ? '0' : (string)$defaultParkingPriceRaw);
 @endphp
 <!DOCTYPE html>
 <html lang="vi" class="scroll-smooth">
@@ -200,7 +237,7 @@
                 </div>
             @endif
 
-            <form id="fullCreateContractForm" method="POST" action="{{ route('contracts.store') }}" class="space-y-6 text-xs sm:text-sm">
+            <form id="fullCreateContractForm" method="POST" action="{{ route('contracts.store') }}" enctype="multipart/form-data" class="space-y-6 text-xs sm:text-sm">
                 @csrf
                 
                 <!-- TRƯỜNG ẨN ĐÓNG VAI TRÒ FLAG ĐÁNH DẤU NGUỒN FORM (KHÁCH LIÊN HỆ HAY KHÁCH VÃNG LAI) -->
@@ -322,6 +359,11 @@
                                             continue;
                                         }
 
+                                        $b = $post->building;
+                                        if (!$b && !empty($post->building_id) && class_exists(\App\Models\Building::class)) {
+                                            $b = \App\Models\Building::find($post->building_id);
+                                        }
+
                                         $postTitle = $post->title ?? $post->name ?? ('Bài đăng #' . $postId);
                                         $priceVal = $post->price ?? null;
                                         $priceFormatted = (isset($priceVal) && is_numeric($priceVal)) ? number_format($priceVal) . 'đ/tháng' : ($priceVal ?? '');
@@ -330,6 +372,12 @@
                                     <option value="{{ $postId }}" 
                                             data-price="{{ $priceVal ?? '' }}"
                                             data-title="{{ $postTitle }}"
+                                            data-elec="{{ $b->electricity_price ?? '' }}"
+                                            data-water="{{ $b->water_price ?? '' }}"
+                                            data-water-type="{{ $b->water_calc_type ?? 'khoi' }}"
+                                            data-service="{{ $b->service_fee ?? '' }}"
+                                            data-internet="{{ $b->internet_fee ?? '' }}"
+                                            data-parking="{{ $b->parking_fee ?? '' }}"
                                             @if($isRoomMatch) selected @endif>
                                         {{ $postTitle }} @if($priceFormatted) - {{ $priceFormatted }} @endif @if($location) ({{ $location }}) @endif
                                     </option>
@@ -424,11 +472,11 @@
                                 Giá Điện (VNĐ/số) <span class="text-rose-500">*</span>
                             </label>
                             <div class="relative">
-                                <input type="text" id="fElecPrice" name="electricity_price" value="{{ old('electricity_price', $room->electricity_price ?? '') }}" placeholder="Nhập giá điện (VD: 3000 hoặc 3.500)" required class="w-full pl-3.5 pr-12 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-amber-500 focus:border-amber-500 focus:outline-none shadow-xs transition-all">
+                                <input type="text" id="fElecPrice" name="electricity_price" value="{{ $defaultElecPrice }}" placeholder="Nhập giá điện (VD: 3000 hoặc 3.500)" required class="w-full pl-3.5 pr-12 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-amber-500 focus:border-amber-500 focus:outline-none shadow-xs transition-all">
                                 <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none">đ/số</span>
                             </div>
                             <div class="text-xs text-slate-500 mt-1 font-medium">
-                                Hiển thị: <span id="fElecPriceDisplay" class="font-bold text-slate-800">0</span> VNĐ / số
+                                Hiển thị: <span id="fElecPriceDisplay" class="font-bold text-slate-800">{{ $defaultElecPrice ?: '0' }}</span> VNĐ / số
                             </div>
                             <span class="text-[11px] text-slate-400 mt-0.5 block">* Cấu hình sẽ được lưu vào hợp đồng để hệ thống tự động tính tiền điện</span>
                         </div>
@@ -442,32 +490,40 @@
 
                     <!-- CẤU HÌNH NƯỚC (NÚT CHỌN TOGGLE: TÍNH KHỐI / TÍNH NGƯỜI) -->
                     <div class="pt-3 space-y-3 border-t border-slate-200">
+                        <!-- Trường ẩn lưu hình thức tính nước gửi lên backend -->
+                        <input type="hidden" id="fWaterMode" name="water_calculation_type" value="{{ $isWaterNguoi ? 'nguoi' : 'khoi' }}">
+
                         <div class="flex flex-wrap items-center justify-between gap-3">
                             <label class="font-extrabold text-slate-900 text-xs sm:text-sm flex items-center gap-2">
                                 <i class="fa-solid fa-droplet text-skybrand-600"></i> Giá Nước Thỏa Thuận (Chọn hình thức tính):
                             </label>
-                            <div class="inline-flex rounded-xl bg-slate-200 p-1 font-bold text-xs shadow-inner">
-                                <button type="button" id="btnModeKhoi" onclick="switchWaterForm('khoi')" class="px-4 py-1.5 rounded-lg bg-emerald-600 text-white shadow-sm transition-all">
-                                    <i class="fa-solid fa-cube"></i> Tính Theo Khối
-                                </button>
-                                <button type="button" id="btnModeNguoi" onclick="switchWaterForm('nguoi')" class="px-4 py-1.5 rounded-lg text-slate-700 hover:text-slate-900 transition-all">
-                                    <i class="fa-solid fa-users"></i> Tính Theo Người
-                                </button>
+                            <div class="flex flex-col items-start sm:items-end">
+                                <div class="inline-flex rounded-xl bg-slate-200 p-1 font-bold text-xs shadow-inner">
+                                    <button type="button" id="btnModeKhoi" onclick="switchWaterForm('khoi')" class="px-4 py-1.5 rounded-lg {{ !$isWaterNguoi ? 'bg-emerald-600 text-white shadow-sm' : ($room ? 'opacity-50 cursor-not-allowed pointer-events-none bg-slate-100 text-slate-400' : 'text-slate-700 hover:text-slate-900') }} transition-all">
+                                        <i class="fa-solid fa-cube"></i> Tính Theo Khối
+                                    </button>
+                                    <button type="button" id="btnModeNguoi" onclick="switchWaterForm('nguoi')" class="px-4 py-1.5 rounded-lg {{ $isWaterNguoi ? 'bg-emerald-600 text-white shadow-sm' : ($room ? 'opacity-50 cursor-not-allowed pointer-events-none bg-slate-100 text-slate-400' : 'text-slate-700 hover:text-slate-900') }} transition-all">
+                                        <i class="fa-solid fa-users"></i> Tính Theo Người
+                                    </button>
+                                </div>
+                                <p id="waterModeWarning" class="{{ $room ? '' : 'hidden' }} mt-1.5">
+                                    <span class="text-[11px] text-rose-500 font-medium italic"><i class="fa-solid fa-lock text-[10px]"></i> Phương thức tính nước được khóa cố định theo hạ tầng của tòa nhà này.</span>
+                                </p>
                             </div>
                         </div>
 
                         <!-- SUB-FORM 1: TÍNH THEO KHỐI -->
-                        <div id="subWaterKhoi" class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-4 rounded-2xl border border-slate-200">
+                        <div id="subWaterKhoi" class="{{ $isWaterNguoi ? 'hidden ' : '' }}grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-4 rounded-2xl border border-slate-200">
                             <div>
                                 <label class="block font-bold text-slate-800 mb-1">
                                     Số tiền (VNĐ/khối) <span class="text-rose-500">*</span>
                                 </label>
                                 <div class="relative">
-                                    <input type="text" id="fWaterPriceKhoi" name="water_price_block" value="{{ old('water_price_block', $room->water_price_block ?? '') }}" placeholder="Nhập giá nước (VD: 25000 hoặc 25.000)" class="w-full pl-3.5 pr-14 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-sky-500 focus:border-sky-500 focus:outline-none">
+                                    <input type="text" id="fWaterPriceKhoi" name="water_price_block" value="{{ $defaultWaterPriceBlock }}" placeholder="Nhập giá nước (VD: 25000 hoặc 25.000)" class="w-full pl-3.5 pr-14 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-sky-500 focus:border-sky-500 focus:outline-none">
                                     <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none">đ/khối</span>
                                 </div>
                                 <div class="text-xs text-slate-500 mt-1 font-medium">
-                                    Hiển thị: <span id="fWaterKhoiDisplay" class="font-bold text-slate-800">0</span> VNĐ / khối
+                                    Hiển thị: <span id="fWaterKhoiDisplay" class="font-bold text-slate-800">{{ $defaultWaterPriceBlock ?: '0' }}</span> VNĐ / khối
                                 </div>
                             </div>
                             <div>
@@ -478,17 +534,17 @@
                         </div>
 
                         <!-- SUB-FORM 2: TÍNH THEO NGƯỜI -->
-                        <div id="subWaterNguoi" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-4 rounded-2xl border border-slate-200">
+                        <div id="subWaterNguoi" class="{{ !$isWaterNguoi ? 'hidden ' : '' }}grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-4 rounded-2xl border border-slate-200">
                             <div>
                                 <label class="block font-bold text-slate-800 mb-1">
                                     Số tiền (VNĐ/người) <span class="text-rose-500">*</span>
                                 </label>
                                 <div class="relative">
-                                    <input type="text" id="fWaterPriceNguoi" name="water_price_person" value="{{ old('water_price_person', $room->water_price_person ?? '') }}" placeholder="Nhập giá nước (VD: 100000 hoặc 100.000)" class="w-full pl-3.5 pr-16 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-sky-500 focus:border-sky-500 focus:outline-none">
+                                    <input type="text" id="fWaterPriceNguoi" name="water_price_person" value="{{ $defaultWaterPricePerson }}" placeholder="Nhập giá nước (VD: 100000 hoặc 100.000)" class="w-full pl-3.5 pr-16 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-sky-500 focus:border-sky-500 focus:outline-none">
                                     <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none">đ/người</span>
                                 </div>
                                 <div class="text-xs text-slate-500 mt-1 font-medium">
-                                    Hiển thị: <span id="fWaterNguoiDisplay" class="font-bold text-slate-800">0</span> VNĐ / người
+                                    Hiển thị: <span id="fWaterNguoiDisplay" class="font-bold text-slate-800">{{ $defaultWaterPricePerson ?: '0' }}</span> VNĐ / người
                                 </div>
                             </div>
                             <div>
@@ -503,33 +559,49 @@
                 <!-- PHẦN 3: PHÍ DỊCH VỤ CỐ ĐỊNH -->
                 <div class="bg-slate-50 p-5 sm:p-6 rounded-2xl border border-slate-200 space-y-4">
                     <h3 class="font-extrabold text-slate-900 text-sm uppercase tracking-wider flex items-center gap-2 border-b border-slate-200 pb-3">
-                        <i class="fa-solid fa-wifi text-purple-600 text-base"></i> 3. Phí Dịch Vụ Cố Định Hàng Tháng
+                        <i class="fa-solid fa-bell-concierge text-purple-600 text-base"></i> 3. Phí Dịch Vụ Cố Định Hàng Tháng
                     </h3>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <!-- 1. Internet -->
                         <div>
                             <label class="block font-bold text-slate-800 mb-1.5">
                                 Internet / Wifi (VNĐ/tháng)
                             </label>
                             <div class="relative">
-                                <input type="text" id="fInternetPrice" name="internet_price" value="{{ old('internet_price', $room->internet_price ?? '') }}" placeholder="VD: 100000 hoặc 100.000" class="w-full pl-3.5 pr-16 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none shadow-xs transition-all">
+                                <input type="text" id="fInternetPrice" name="internet_price" value="{{ $defaultInternetPrice }}" placeholder="VD: 100.000" class="w-full pl-3.5 pr-16 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none shadow-xs transition-all">
                                 <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none">đ/tháng</span>
                             </div>
                             <div class="text-xs text-slate-500 mt-1 font-medium">
-                                Hiển thị: <span id="fInternetPriceDisplay" class="font-bold text-slate-800">0</span> VNĐ / tháng
+                                Hiển thị: <span id="fInternetPriceDisplay" class="font-bold text-slate-800">{{ $defaultInternetPrice !== '' ? $defaultInternetPrice : '0' }}</span> VNĐ / tháng
                             </div>
                         </div>
 
+                        <!-- 2. Phí dịch vụ chung / Vệ sinh -->
                         <div>
                             <label class="block font-bold text-slate-800 mb-1.5">
-                                Rác sinh hoạt (VNĐ/phòng)
+                                Phí dịch vụ chung / Vệ sinh
                             </label>
                             <div class="relative">
-                                <input type="text" id="fGarbagePrice" name="garbage_price" value="{{ old('garbage_price', $room->garbage_price ?? '') }}" placeholder="VD: 30000 hoặc 30.000" class="w-full pl-3.5 pr-16 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none shadow-xs transition-all">
+                                <input type="text" id="fServicePrice" name="service_fee" value="{{ $defaultServicePrice }}" placeholder="VD: 50.000" class="w-full pl-3.5 pr-16 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none shadow-xs transition-all">
                                 <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none">đ/phòng</span>
                             </div>
                             <div class="text-xs text-slate-500 mt-1 font-medium">
-                                Hiển thị: <span id="fGarbagePriceDisplay" class="font-bold text-slate-800">0</span> VNĐ / phòng
+                                Hiển thị: <span id="fServicePriceDisplay" class="font-bold text-slate-800">{{ $defaultServicePrice !== '' ? $defaultServicePrice : '0' }}</span> VNĐ / phòng
+                            </div>
+                        </div>
+
+                        <!-- 3. Phí Gửi Xe -->
+                        <div>
+                            <label class="block font-bold text-slate-800 mb-1.5">
+                                Phí Gửi Xe (VNĐ/xe)
+                            </label>
+                            <div class="relative">
+                                <input type="text" id="fParkingPrice" name="parking_fee" value="{{ $defaultParkingPrice }}" placeholder="VD: 100.000" class="w-full pl-3.5 pr-14 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none shadow-xs transition-all">
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none">đ/xe</span>
+                            </div>
+                            <div class="text-xs text-slate-500 mt-1 font-medium">
+                                Hiển thị: <span id="fParkingPriceDisplay" class="font-bold text-slate-800">{{ $defaultParkingPrice !== '' ? $defaultParkingPrice : '0' }}</span> VNĐ / xe
                             </div>
                         </div>
                     </div>
@@ -581,7 +653,7 @@
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div>
                             <label class="block font-bold text-slate-800 mb-1.5">Ngày bắt đầu tính tiền <span class="text-rose-500">*</span></label>
-                            <input type="date" id="fStartDate" name="start_date" value="{{ old('start_date', date('Y-m-d')) }}" onchange="calcEndDate()" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-bold text-slate-900 bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none shadow-xs">
+                            <input type="date" id="fStartDate" name="start_date" value="{{ old('start_date', date('Y-m-d')) }}" onchange="calcEndDate(); calcFirstInvoicePreview();" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-bold text-slate-900 bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none shadow-xs">
                             <span class="text-[11px] text-slate-500 mt-1 block">* Ngày khách chính thức dọn vào ở</span>
                         </div>
 
@@ -596,6 +668,135 @@
                             <input type="text" id="fEndDateDisplay" name="end_date_display" value="{{ old('end_date_display', '') }}" readonly class="w-full px-3.5 py-2.5 rounded-xl border border-emerald-300 text-xs sm:text-sm font-extrabold text-emerald-700 bg-emerald-50/90 shadow-xs">
                             <span class="text-[11px] text-emerald-700 font-semibold mt-1 block">* Kết quả tự động hiển thị ngày kết thúc</span>
                         </div>
+                    </div>
+                </div>
+
+                <!-- DỰ KIẾN HÓA ĐƠN ĐẦU TIÊN (HÓA ĐƠN #1 - CỌC & NHẬN PHÒNG PRO-RATED) -->
+                <div class="bg-gradient-to-br from-slate-900 to-[#0b132a] text-white p-6 sm:p-7 rounded-3xl border border-slate-800 shadow-xl space-y-4">
+                    <div class="flex flex-wrap items-center justify-between border-b border-slate-700/80 pb-3 gap-2">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-400/30 flex items-center justify-center text-sm font-black">
+                                <i class="fa-solid fa-receipt"></i>
+                            </span>
+                            <div>
+                                <h3 class="font-extrabold text-white text-sm sm:text-base uppercase tracking-wider flex items-center gap-2">
+                                    <span>Tạm Tính Hóa Đơn Lần Đầu (Hóa Đơn #1)</span>
+                                </h3>
+                                <p class="text-[11px] text-slate-300">Tự động tính tiền cọc và tiền phòng (Nguyên tháng hoặc Lẻ ngày theo Ngày bắt đầu tính tiền)</p>
+                            </div>
+                        </div>
+
+                        <!-- Badge hình thức tính (Trọn tháng hay Lẻ ngày) -->
+                        <span id="proratedBadge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-400/30 shadow-xs">
+                            <i class="fa-solid fa-circle-check"></i> Trọn 1 tháng
+                        </span>
+                    </div>
+
+                    <!-- Bảng tóm tắt các khoản -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                        <div class="bg-white/5 p-3.5 rounded-2xl border border-white/10 space-y-1">
+                            <span class="text-slate-400 block text-[11px] uppercase font-bold">1. Tiền Cọc Giữ Phòng:</span>
+                            <p class="text-base font-extrabold text-white" id="previewDeposit">0 VNĐ</p>
+                            <span class="text-[10px] text-slate-400 italic block">100% bảo lãnh hợp đồng</span>
+                        </div>
+
+                        <div class="bg-white/5 p-3.5 rounded-2xl border border-white/10 space-y-1">
+                            <div class="flex items-center justify-between">
+                                <span class="text-slate-400 block text-[11px] uppercase font-bold">2. Tiền Phòng Kỳ Đầu:</span>
+                                <span id="previewRentDaysTag" class="text-[10px] text-emerald-400 font-bold">30 ngày</span>
+                            </div>
+                            <p class="text-base font-extrabold text-emerald-400" id="previewRentPrice">0 VNĐ</p>
+                            <span class="text-[10px] text-slate-400 italic block" id="previewRentFormula">Trọn vẹn 1 tháng</span>
+                        </div>
+
+                        <div class="bg-white/5 p-3.5 rounded-2xl border border-white/10 space-y-1">
+                            <span class="text-slate-400 block text-[11px] uppercase font-bold">3. Phí Dịch Vụ Kỳ Đầu:</span>
+                            <p class="text-base font-extrabold text-purple-300" id="previewServicePrice">0 VNĐ</p>
+                            <span class="text-[10px] text-slate-400 italic block">Wifi, rác, vệ sinh, xe</span>
+                        </div>
+
+                        <div class="bg-white/5 p-3.5 rounded-2xl border border-white/10 space-y-1">
+                            <span class="text-slate-400 block text-[11px] uppercase font-bold">4. Điện & Nước Kỳ Đầu:</span>
+                            <p class="text-base font-extrabold text-sky-400">0 VNĐ</p>
+                            <span class="text-[10px] text-slate-400 italic block">Ghi nhận chỉ số bàn giao</span>
+                        </div>
+                    </div>
+
+                    <!-- Tổng cộng & Chú thích -->
+                    <div class="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-700/80">
+                        <div class="text-xs text-slate-300 flex items-center gap-2">
+                            <i class="fa-solid fa-circle-info text-amber-400 text-sm"></i>
+                            <span>Ngay sau khi bấm Lưu, hệ thống sẽ tạo Hóa đơn #1 và chuyển sang màn hình Thanh toán VietQR.</span>
+                        </div>
+
+                        <div class="text-left sm:text-right">
+                            <span class="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">Tổng Cần Thu Lần Đầu (Nhận Nhà):</span>
+                            <p class="text-xl sm:text-2xl font-black text-rose-400 tracking-tight" id="previewTotalFirstMonth">0 VNĐ</p>
+                            <span class="text-[10px] text-slate-300 italic block" id="previewTotalWords"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PHẦN 6: HỒ SƠ ĐÍNH KÈM (CCCD 2 MẶT) -->
+                <div class="bg-slate-50 p-5 sm:p-6 rounded-2xl border border-slate-200 space-y-4">
+                    <div class="flex items-center gap-3 pb-3 border-b border-slate-200">
+                        <span class="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center text-sm font-bold">
+                            <i class="fa-solid fa-shield-halved"></i>
+                        </span>
+                        <div>
+                            <h3 class="font-extrabold text-slate-900 text-sm uppercase tracking-wider">6. Giấy Tờ Xác Minh (CCCD/CMND)</h3>
+                            <p class="text-xs text-slate-500 font-medium">Vui lòng tải lên ảnh chụp căn cước công dân (CCCD/CMND) rõ nét 2 mặt.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-center sm:justify-start gap-6 pt-1 w-full">
+                        <!-- CCCD Mặt trước -->
+                        <label class="doc-label relative flex flex-col items-center justify-between p-3.5 w-full sm:w-[330px] rounded-2xl transition-all cursor-pointer group overflow-hidden bg-[#f0fbf5] border-2 border-dashed border-teal-300/80 hover:border-teal-400 shadow-xs">
+                            <!-- Trạng thái ĐÃ TẢI LÊN -->
+                            <div id="wrapper-preview-cccd-front" class="hidden flex-col items-center w-full">
+                                <div class="w-full h-44 rounded-xl overflow-hidden border border-slate-200 shadow-xs bg-slate-100 flex items-center justify-center">
+                                    <img id="preview-cccd-front" src="" alt="CCCD mặt trước" class="w-full h-full object-cover">
+                                </div>
+                                <p class="mt-2.5 mb-1 text-xs sm:text-sm font-semibold text-emerald-600 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-check"></i> Đã tải lên (Bấm để đổi)
+                                </p>
+                            </div>
+
+                            <!-- Trạng thái CHƯA TẢI LÊN -->
+                            <div id="placeholder-cccd-front" class="flex flex-col items-center justify-center text-center p-6 h-[210px] w-full">
+                                <div class="w-10 h-10 rounded-xl bg-teal-50 border border-teal-200/80 text-teal-600 flex items-center justify-center text-lg mb-2.5 group-hover:scale-105 transition-transform">
+                                    <i class="fa-regular fa-id-card"></i>
+                                </div>
+                                <span class="text-sm font-bold text-slate-800 group-hover:text-emerald-700 transition-colors">CCCD Mặt Trước <span class="text-rose-500">*</span></span>
+                                <span class="text-xs text-slate-400 mt-1 font-medium">Nhấp để tải ảnh mặt trước</span>
+                            </div>
+
+                            <input type="file" name="cccd_images[]" id="fCccdFront" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" accept="image/*">
+                        </label>
+
+                        <!-- CCCD Mặt sau -->
+                        <label class="doc-label relative flex flex-col items-center justify-between p-3.5 w-full sm:w-[330px] rounded-2xl transition-all cursor-pointer group overflow-hidden bg-[#f0fbf5] border-2 border-dashed border-teal-300/80 hover:border-teal-400 shadow-xs">
+                            <!-- Trạng thái ĐÃ TẢI LÊN -->
+                            <div id="wrapper-preview-cccd-back" class="hidden flex-col items-center w-full">
+                                <div class="w-full h-44 rounded-xl overflow-hidden border border-slate-200 shadow-xs bg-slate-100 flex items-center justify-center">
+                                    <img id="preview-cccd-back" src="" alt="CCCD mặt sau" class="w-full h-full object-cover">
+                                </div>
+                                <p class="mt-2.5 mb-1 text-xs sm:text-sm font-semibold text-emerald-600 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-check"></i> Đã tải lên (Bấm để đổi)
+                                </p>
+                            </div>
+
+                            <!-- Trạng thái CHƯA TẢI LÊN -->
+                            <div id="placeholder-cccd-back" class="flex flex-col items-center justify-center text-center p-6 h-[210px] w-full">
+                                <div class="w-10 h-10 rounded-xl bg-teal-50 border border-teal-200/80 text-teal-600 flex items-center justify-center text-lg mb-2.5 group-hover:scale-105 transition-transform">
+                                    <i class="fa-regular fa-rectangle-list"></i>
+                                </div>
+                                <span class="text-sm font-bold text-slate-800 group-hover:text-emerald-700 transition-colors">CCCD Mặt Sau <span class="text-rose-500">*</span></span>
+                                <span class="text-xs text-slate-400 mt-1 font-medium">Nhấp để tải ảnh mặt sau</span>
+                            </div>
+
+                            <input type="file" name="cccd_images[]" id="fCccdBack" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" accept="image/*">
+                        </label>
                     </div>
                 </div>
 
@@ -707,7 +908,8 @@
             { id: 'fRentPrice', display: 'fRentPriceDisplay' },
             { id: 'fDeposit', display: 'fDepositDisplay' },
             { id: 'fInternetPrice', display: 'fInternetPriceDisplay' },
-            { id: 'fGarbagePrice', display: 'fGarbagePriceDisplay' },
+            { id: 'fServicePrice', display: 'fServicePriceDisplay' },
+            { id: 'fParkingPrice', display: 'fParkingPriceDisplay' },
         ];
 
         function initPriceFormatting() {
@@ -718,6 +920,7 @@
                 // Khi gõ số: cập nhật tức thì số bên dưới (VD: 3000 -> 3.000)
                 el.addEventListener('input', () => {
                     updateFieldDisplay(item.id, item.display);
+                    calcFirstInvoicePreview();
                 });
 
                 // Khi rời khỏi ô: chuẩn hóa định dạng dấu chấm trong ô nhập
@@ -727,32 +930,124 @@
                         el.value = formatThousands(num);
                     }
                     updateFieldDisplay(item.id, item.display);
+                    calcFirstInvoicePreview();
                 });
 
                 // Cập nhật giá trị khởi tạo khi vừa load trang
                 updateFieldDisplay(item.id, item.display);
             });
+            calcFirstInvoicePreview();
         }
 
-        // Switch water calculation mode
-        function switchWaterForm(mode) {
+        // Tính toán tạm tính hóa đơn #1 (Lẻ ngày hoặc Nguyên tháng)
+        function calcFirstInvoicePreview() {
+            const startDateInput = document.getElementById('fStartDate');
+            if (!startDateInput) return;
+
+            let startDay = 1;
+            if (startDateInput.value) {
+                const parts = startDateInput.value.split('-');
+                if (parts.length === 3) {
+                    startDay = parseInt(parts[2], 10) || 1;
+                }
+            }
+
+            const rentPrice = parseNumberOnly(document.getElementById('fRentPrice')?.value);
+            const deposit = parseNumberOnly(document.getElementById('fDeposit')?.value);
+            const wifi = parseNumberOnly(document.getElementById('fInternetPrice')?.value);
+            const service = parseNumberOnly(document.getElementById('fServicePrice')?.value);
+            const parking = parseNumberOnly(document.getElementById('fParkingPrice')?.value);
+            const totalMonthlyService = wifi + service + parking;
+
+            let stayDays = 30;
+            let firstRent = rentPrice;
+            let firstService = totalMonthlyService;
+            const proratedBadge = document.getElementById('proratedBadge');
+            const previewRentDaysTag = document.getElementById('previewRentDaysTag');
+            const previewRentFormula = document.getElementById('previewRentFormula');
+
+            if (startDay === 1) {
+                stayDays = 30;
+                firstRent = rentPrice;
+                firstService = totalMonthlyService;
+                if (proratedBadge) {
+                    proratedBadge.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-400/30 shadow-xs";
+                    proratedBadge.innerHTML = '<i class="fa-solid fa-circle-check"></i> Trọn 1 tháng';
+                }
+                if (previewRentDaysTag) previewRentDaysTag.textContent = "Trọn tháng";
+                if (previewRentFormula) previewRentFormula.textContent = "Trọn vẹn 1 tháng";
+            } else {
+                stayDays = Math.max(1, 30 - startDay + 1);
+                firstRent = Math.round((rentPrice / 30) * stayDays);
+                firstService = Math.round((totalMonthlyService / 30) * stayDays);
+                if (proratedBadge) {
+                    proratedBadge.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-400/30 shadow-xs";
+                    proratedBadge.innerHTML = `<i class="fa-solid fa-scissors"></i> Tính Lẻ ${stayDays} Ngày (Pro-rated)`;
+                }
+                if (previewRentDaysTag) previewRentDaysTag.textContent = `Lẻ ${stayDays} ngày`;
+                if (previewRentFormula) previewRentFormula.textContent = `[${formatThousands(rentPrice)}đ / 30] × ${stayDays} ngày`;
+            }
+
+            const totalFirst = deposit + firstRent + firstService;
+
+            const elDeposit = document.getElementById('previewDeposit');
+            const elRent = document.getElementById('previewRentPrice');
+            const elService = document.getElementById('previewServicePrice');
+            const elTotal = document.getElementById('previewTotalFirstMonth');
+            const elWords = document.getElementById('previewTotalWords');
+
+            if (elDeposit) elDeposit.textContent = formatThousands(deposit) + ' VNĐ';
+            if (elRent) elRent.textContent = formatThousands(firstRent) + ' VNĐ';
+            if (elService) elService.textContent = formatThousands(firstService) + ' VNĐ';
+            if (elTotal) elTotal.textContent = formatThousands(totalFirst) + ' VNĐ';
+            if (elWords) elWords.textContent = totalFirst > 0 ? ('(Bằng chữ: ' + numberToVietnameseWords(totalFirst) + ')') : '';
+        }
+
+        // Switch water calculation mode (hỗ trợ khóa cứng phương thức theo cấu hình tòa nhà)
+        function switchWaterForm(mode, isLocked = false) {
             const btnKhoi = document.getElementById('btnModeKhoi');
             const btnNguoi = document.getElementById('btnModeNguoi');
             const subKhoi = document.getElementById('subWaterKhoi');
             const subNguoi = document.getElementById('subWaterNguoi');
             const waterModeInput = document.getElementById('fWaterMode');
+            const warningEl = document.getElementById('waterModeWarning');
+
             if (waterModeInput) waterModeInput.value = mode;
 
+            const activeClass = "px-4 py-1.5 rounded-lg bg-emerald-600 text-white shadow-sm transition-all";
+            const inactiveLockedClass = "px-4 py-1.5 rounded-lg opacity-50 cursor-not-allowed pointer-events-none bg-slate-100 text-slate-400 transition-all";
+            const inactiveNormalClass = "px-4 py-1.5 rounded-lg text-slate-700 hover:text-slate-900 transition-all";
+
             if (mode === 'khoi') {
-                btnKhoi.className = "px-4 py-1.5 rounded-lg bg-emerald-600 text-white shadow-sm transition-all";
-                btnNguoi.className = "px-4 py-1.5 rounded-lg text-slate-700 hover:text-slate-900 transition-all";
-                subKhoi.classList.remove('hidden');
-                subNguoi.classList.add('hidden');
+                if (btnKhoi) {
+                    btnKhoi.className = activeClass;
+                    btnKhoi.disabled = false;
+                }
+                if (btnNguoi) {
+                    btnNguoi.className = isLocked ? inactiveLockedClass : inactiveNormalClass;
+                    btnNguoi.disabled = isLocked;
+                }
+                if (subKhoi) subKhoi.classList.remove('hidden');
+                if (subNguoi) subNguoi.classList.add('hidden');
             } else {
-                btnNguoi.className = "px-4 py-1.5 rounded-lg bg-emerald-600 text-white shadow-sm transition-all";
-                btnKhoi.className = "px-4 py-1.5 rounded-lg text-slate-700 hover:text-slate-900 transition-all";
-                subNguoi.classList.remove('hidden');
-                subKhoi.classList.add('hidden');
+                if (btnNguoi) {
+                    btnNguoi.className = activeClass;
+                    btnNguoi.disabled = false;
+                }
+                if (btnKhoi) {
+                    btnKhoi.className = isLocked ? inactiveLockedClass : inactiveNormalClass;
+                    btnKhoi.disabled = isLocked;
+                }
+                if (subNguoi) subNguoi.classList.remove('hidden');
+                if (subKhoi) subKhoi.classList.add('hidden');
+            }
+
+            if (warningEl) {
+                if (isLocked) {
+                    warningEl.classList.remove('hidden');
+                } else {
+                    warningEl.classList.add('hidden');
+                }
             }
         }
 
@@ -801,22 +1096,108 @@
             const rentPriceInput = document.getElementById('fRentPrice');
             const depositInput = document.getElementById('fDeposit');
 
-            // Đồng bộ dữ liệu phòng khi chọn bài đăng
-            function syncRoomData() {
+            // Đồng bộ dữ liệu phòng khi chọn bài đăng (force: bắt buộc ghi đè khi người dùng chủ động chọn phòng mới)
+            function syncRoomData(force = false) {
                 if (!roomSelect) return;
+
+                // Xử lý trường hợp "Không chọn phòng nào" (value rỗng): mở khóa lại cả 2 nút và ẩn thông báo khóa
+                if (!roomSelect.value || roomSelect.value === '') {
+                    switchWaterForm('khoi', false);
+                    return;
+                }
+
                 const selectedOpt = roomSelect.options[roomSelect.selectedIndex];
-                if (selectedOpt && selectedOpt.dataset.price) {
+                if (!selectedOpt) return;
+
+                // 1. Đồng bộ Giá thuê & Tiền cọc
+                if (selectedOpt.dataset.price) {
                     const price = selectedOpt.dataset.price;
                     const numPrice = parseNumberOnly(price);
-                    if (rentPriceInput && numPrice > 0) {
+                    if (rentPriceInput && numPrice > 0 && (force || !rentPriceInput.value || parseNumberOnly(rentPriceInput.value) <= 0)) {
                         rentPriceInput.value = formatThousands(numPrice);
                         updateFieldDisplay('fRentPrice', 'fRentPriceDisplay');
                     }
-                    if (depositInput && numPrice > 0 && (!depositInput.value || depositInput.value === '')) {
+                    if (depositInput && numPrice > 0 && (force || !depositInput.value || parseNumberOnly(depositInput.value) <= 0)) {
                         depositInput.value = formatThousands(numPrice);
                         updateFieldDisplay('fDeposit', 'fDepositDisplay');
                     }
                 }
+
+                // 2. Kế thừa Bảng giá dịch vụ Lớp Vỏ (Tòa nhà)
+                // Giá điện
+                const elecPriceInput = document.getElementById('fElecPrice');
+                if (elecPriceInput && selectedOpt.dataset.elec !== undefined && selectedOpt.dataset.elec !== '') {
+                    const numElec = parseNumberOnly(selectedOpt.dataset.elec);
+                    if (numElec > 0 && (force || !elecPriceInput.value || parseNumberOnly(elecPriceInput.value) <= 0)) {
+                        elecPriceInput.value = formatThousands(numElec);
+                    }
+                }
+                updateFieldDisplay('fElecPrice', 'fElecPriceDisplay');
+
+                // 2.2 Hình thức tính & giá nước thỏa thuận từ Tòa nhà (Auto-Toggle & Khóa cố định)
+                const waterPrice = parseNumberOnly(selectedOpt.getAttribute('data-water'));
+                const waterType = (selectedOpt.getAttribute('data-water-type') || '').toLowerCase();
+                const isNguoi = waterType.includes('person') || waterType.includes('nguoi');
+                const targetMode = isNguoi ? 'nguoi' : 'khoi';
+
+                // Tự động chuyển đúng tab và khóa chặt tab còn lại theo hạ tầng tòa nhà
+                switchWaterForm(targetMode, true);
+
+                const waterNguoiInput = document.getElementById('fWaterPriceNguoi');
+                const waterKhoiInput = document.getElementById('fWaterPriceKhoi');
+
+                // Điền waterPrice vào đúng ô input tương ứng (nếu = 0 thì để trống để nhân viên tự nhập thỏa thuận)
+                if (targetMode === 'nguoi') {
+                    if (waterNguoiInput) {
+                        waterNguoiInput.value = waterPrice > 0 ? formatThousands(waterPrice) : '';
+                    }
+                    if (waterKhoiInput) {
+                        waterKhoiInput.value = '';
+                    }
+                } else {
+                    if (waterKhoiInput) {
+                        waterKhoiInput.value = waterPrice > 0 ? formatThousands(waterPrice) : '';
+                    }
+                    if (waterNguoiInput) {
+                        waterNguoiInput.value = '';
+                    }
+                }
+
+                updateFieldDisplay('fWaterPriceKhoi', 'fWaterKhoiDisplay');
+                updateFieldDisplay('fWaterPriceNguoi', 'fWaterNguoiDisplay');
+
+                // Phí Internet
+                const internetPriceInput = document.getElementById('fInternetPrice');
+                if (internetPriceInput && selectedOpt.dataset.internet !== undefined && selectedOpt.dataset.internet !== '') {
+                    const numInternet = parseNumberOnly(selectedOpt.dataset.internet);
+                    if (force || !internetPriceInput.value || internetPriceInput.value === '') {
+                        internetPriceInput.value = numInternet > 0 ? formatThousands(numInternet) : '0';
+                    }
+                }
+                updateFieldDisplay('fInternetPrice', 'fInternetPriceDisplay');
+
+                // Phí Dịch vụ / Vệ sinh
+                const servicePriceInput = document.getElementById('fServicePrice');
+                if (servicePriceInput && selectedOpt.dataset.service !== undefined && selectedOpt.dataset.service !== '') {
+                    const numService = parseNumberOnly(selectedOpt.dataset.service);
+                    if (force || !servicePriceInput.value || servicePriceInput.value === '') {
+                        servicePriceInput.value = numService > 0 ? formatThousands(numService) : '0';
+                    }
+                }
+                updateFieldDisplay('fServicePrice', 'fServicePriceDisplay');
+
+                // Phí Gửi xe
+                const parkingPriceInput = document.getElementById('fParkingPrice');
+                if (parkingPriceInput && selectedOpt.dataset.parking !== undefined && selectedOpt.dataset.parking !== '') {
+                    const numParking = parseNumberOnly(selectedOpt.dataset.parking);
+                    if (force || !parkingPriceInput.value || parkingPriceInput.value === '') {
+                        parkingPriceInput.value = numParking > 0 ? formatThousands(numParking) : '0';
+                    }
+                }
+                updateFieldDisplay('fParkingPrice', 'fParkingPriceDisplay');
+
+                // Cập nhật lại Bảng tạm tính Hóa đơn #1
+                calcFirstInvoicePreview();
             }
 
             // Đồng bộ toàn bộ dữ liệu khách thuê khi đổi khách trong dropdown
@@ -849,7 +1230,7 @@
                         }
                     }
                     if (foundOpt) {
-                        syncRoomData();
+                        syncRoomData(true);
                     }
                 }
             }
@@ -859,7 +1240,13 @@
             }
 
             if (roomSelect) {
-                roomSelect.addEventListener('change', syncRoomData);
+                roomSelect.addEventListener('change', () => {
+                    if (!roomSelect.value || roomSelect.value === '') {
+                        switchWaterForm('khoi', false);
+                    } else {
+                        syncRoomData(true);
+                    }
+                });
             }
 
             // Kích hoạt đồng bộ ban đầu nếu đã có lựa chọn từ URL
@@ -869,9 +1256,47 @@
                     roomSelect.value = currentOpt.dataset.postId;
                 }
             }
-            if (roomSelect && roomSelect.value && (!rentPriceInput.value || rentPriceInput.value === '')) {
-                syncRoomData();
+            if (roomSelect && roomSelect.value) {
+                syncRoomData(false);
+            } else {
+                switchWaterForm('khoi', false);
             }
+
+            // Xử lý xem trước (preview) ảnh CCCD 2 mặt (Mặt trước & Mặt sau)
+            function setupCccdPreview(inputId, previewId, wrapperId, placeholderId) {
+                const input = document.getElementById(inputId);
+                const preview = document.getElementById(previewId);
+                const wrapper = document.getElementById(wrapperId);
+                const placeholder = document.getElementById(placeholderId);
+
+                if (!input || !preview || !wrapper || !placeholder) return;
+
+                input.addEventListener('change', function () {
+                    if (this.files && this.files[0]) {
+                        const file = this.files[0];
+                        if (!file.type.startsWith('image/')) return;
+
+                        const reader = new FileReader();
+                        reader.onload = function (e) {
+                            preview.src = e.target.result;
+                            wrapper.classList.remove('hidden');
+                            wrapper.classList.add('flex');
+                            placeholder.classList.add('hidden');
+                            placeholder.classList.remove('flex');
+
+                            const label = input.closest('label');
+                            if (label) {
+                                label.classList.remove('bg-[#f0fbf5]', 'border-dashed', 'border-teal-300/80');
+                                label.classList.add('bg-white', 'border-solid', 'border-slate-200');
+                            }
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+            }
+
+            setupCccdPreview('fCccdFront', 'preview-cccd-front', 'wrapper-preview-cccd-front', 'placeholder-cccd-front');
+            setupCccdPreview('fCccdBack', 'preview-cccd-back', 'wrapper-preview-cccd-back', 'placeholder-cccd-back');
         });
     </script>
 </body>

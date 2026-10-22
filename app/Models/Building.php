@@ -18,6 +18,7 @@ class Building extends Model
         'type', 
         'business_type',
         'property_group',
+        'has_service_pricing',
         'province', 
         'district', 
         'ward', 
@@ -41,6 +42,7 @@ class Building extends Model
     ];
 
     protected $casts = [
+        'has_service_pricing' => 'boolean',
         'images' => 'array',
         'amenities' => 'array',
         'manager_ids' => 'array',

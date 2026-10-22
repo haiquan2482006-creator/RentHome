@@ -93,12 +93,30 @@
         $isHouse = !$isLienKe && (($bTypeRaw === 'nha_rieng') || str_contains($bTypeLower, 'nhà riêng') || str_contains($bTypeLower, 'nhà ở') || str_contains($bTypeLower, 'nguyên căn'));
         $isMatBang = ($bTypeRaw === 'dat_nen') || str_contains($bTypeLower, 'mặt bằng') || str_contains($bTypeLower, 'văn phòng');
 
-        // Ẩn Nhóm 2 (Bảng giá dịch vụ dùng chung) đối với Cụm liền kề, Đất phân lô, Nhà riêng lẻ
-        $hideSharedServicePricing = ($isLand || $isLienKe || $isHouse);
-
         // Đơn vị gọi tên Lớp Ruột (phòng / căn / lô / mặt bằng)
         $unitName = $isLienKe ? 'căn' : ($isLand ? 'lô' : ($isMatBang ? 'mặt bằng' : 'phòng'));
         $unitNameCap = ucfirst($unitName);
+
+        // Kiểm tra xem cơ sở có áp dụng bảng giá dịch vụ dùng chung hay không:
+        // 1. Ưu tiên kiểm tra trường has_service_pricing được lưu rõ ràng từ công tắc Admin
+        // 2. Hoặc nếu cơ sở đã có bất kỳ đơn giá nào > 0 (Điện, Nước, Dịch vụ, Wifi, Gửi xe)
+        // 3. Nếu chưa có đơn giá và không có công tắc: mặc định ẩn với Đất phân lô, Cụm liền kề, Nhà riêng lẻ
+        $hasConfiguredFees = (
+            ((float)($building->electricity_price ?? 0) > 0) ||
+            ((float)($building->water_price ?? 0) > 0) ||
+            ((float)($building->service_fee ?? 0) > 0) ||
+            ((float)($building->internet_fee ?? 0) > 0) ||
+            ((float)($building->parking_fee ?? 0) > 0)
+        );
+        $hasExplicitPricing = isset($building->has_service_pricing) && $building->has_service_pricing !== null;
+
+        if ($hasExplicitPricing) {
+            $hideSharedServicePricing = !((bool)$building->has_service_pricing);
+        } elseif ($hasConfiguredFees) {
+            $hideSharedServicePricing = false;
+        } else {
+            $hideSharedServicePricing = ($isLand || $isLienKe || $isHouse);
+        }
 
         // 3. PHÂN QUYỀN & ĐIỀU HƯỚNG QUAY LẠI
         $currentUser = Auth::user();
@@ -183,7 +201,10 @@
             }
         }
 
-        $amenitiesList = is_array($building->amenities) ? $building->amenities : [];
+        $amenitiesList = is_array($building->amenities ?? null) 
+            ? $building->amenities 
+            : (is_string($building->amenities ?? null) ? json_decode($building->amenities, true) : []);
+        $amenitiesList = is_array($amenitiesList) ? array_values(array_filter($amenitiesList)) : [];
     @endphp
 
     <!-- ================= HERO BANNER & BỘ SƯU TẬP ẢNH LỚP VỎ ================= -->
@@ -322,6 +343,143 @@
             </div>
         </div>
 
+        <!-- ========================================================================= -->
+        <!-- KHỐI 1.5: CẤU HÌNH TIỆN ÍCH & BẢNG GIÁ DỊCH VỤ DÙNG CHUNG (LỚP VỎ)       -->
+        <!-- ========================================================================= -->
+        <div class="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-5">
+            <!-- Header khối -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                <div>
+                    <h3 class="text-base sm:text-lg font-extrabold text-slate-800 flex items-center">
+                        <i class="fa-solid fa-file-invoice-dollar text-amber-500 mr-2"></i> Cấu Hình Bảng Giá Dịch Vụ & Tiện Ích Dùng Chung (Lớp Vỏ)
+                    </h3>
+                    <p class="text-xs text-slate-500 mt-1">
+                        Thông số dịch vụ & tiện ích được áp dụng chung và kế thừa cố định cho toàn bộ bài đăng phòng trực thuộc cơ sở.
+                    </p>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap shrink-0">
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200/80">
+                        <i class="fa-solid fa-building-circle-check text-[11px]"></i> Áp dụng toàn cơ sở
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-sky-50 text-sky-700 border border-sky-200/80">
+                        <i class="fa-solid fa-lock text-[11px]"></i> Kế thừa cố định
+                    </span>
+                </div>
+            </div>
+
+            <!-- Bảng giá dịch vụ dùng chung -->
+            @if($hideSharedServicePricing)
+                <div class="p-4 rounded-2xl bg-amber-50/80 border border-amber-200/80 text-amber-900 flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center text-base shrink-0">
+                        <i class="fa-solid fa-circle-info"></i>
+                    </div>
+                    <p class="text-sm font-semibold">
+                        Cơ sở này không áp dụng thu phí dịch vụ dùng chung (Khách thuê tự thanh toán trực tiếp theo quy định/đồng hồ riêng).
+                    </p>
+                </div>
+            @else
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+                    <!-- 1. Điện -->
+                    <div class="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70 hover:border-amber-300 hover:bg-amber-50/20 transition-all">
+                        <div class="flex items-center gap-2 text-xs font-bold text-slate-500 mb-1.5">
+                            <span class="w-6 h-6 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center text-xs">
+                                <i class="fa-solid fa-bolt"></i>
+                            </span>
+                            <span>⚡ Điện</span>
+                        </div>
+                        <div class="text-base font-extrabold text-slate-800">
+                            {{ number_format($building->electricity_price ?? 0, 0, ',', '.') }}
+                            <span class="text-xs font-semibold text-slate-500">đ/kWh</span>
+                        </div>
+                        @if(empty($building->electricity_price) || (float)$building->electricity_price == 0)
+                            <div class="text-[11px] text-slate-400 mt-0.5">Theo giá nhà nước</div>
+                        @endif
+                    </div>
+
+                    <!-- 2. Nước -->
+                    <div class="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70 hover:border-sky-300 hover:bg-sky-50/20 transition-all">
+                        <div class="flex items-center gap-2 text-xs font-bold text-slate-500 mb-1.5">
+                            <span class="w-6 h-6 rounded-lg bg-sky-100 text-sky-600 flex items-center justify-center text-xs">
+                                <i class="fa-solid fa-droplet"></i>
+                            </span>
+                            <span>💧 Nước</span>
+                        </div>
+                        <div class="text-base font-extrabold text-slate-800">
+                            {{ number_format($building->water_price ?? 0, 0, ',', '.') }}
+                            <span class="text-xs font-semibold text-slate-500">đ/{{ ($building->water_calc_type ?? 'm3') === 'person' ? 'người' : 'm³' }}</span>
+                        </div>
+                        @if(empty($building->water_price) || (float)$building->water_price == 0)
+                            <div class="text-[11px] text-slate-400 mt-0.5">Theo giá nhà nước</div>
+                        @endif
+                    </div>
+
+                    <!-- 3. Vệ sinh / Dịch vụ -->
+                    <div class="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70 hover:border-teal-300 hover:bg-teal-50/20 transition-all">
+                        <div class="flex items-center gap-2 text-xs font-bold text-slate-500 mb-1.5">
+                            <span class="w-6 h-6 rounded-lg bg-teal-100 text-teal-600 flex items-center justify-center text-xs">
+                                <i class="fa-solid fa-broom"></i>
+                            </span>
+                            <span>🧹 Vệ sinh / Dịch vụ</span>
+                        </div>
+                        <div class="text-base font-extrabold text-slate-800">
+                            {{ number_format($building->service_fee ?? 0, 0, ',', '.') }}
+                            <span class="text-xs font-semibold text-slate-500">đ/{{ $unitName }}</span>
+                        </div>
+                    </div>
+
+                    <!-- 4. Wifi / Internet -->
+                    <div class="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70 hover:border-indigo-300 hover:bg-indigo-50/20 transition-all">
+                        <div class="flex items-center gap-2 text-xs font-bold text-slate-500 mb-1.5">
+                            <span class="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs">
+                                <i class="fa-solid fa-wifi"></i>
+                            </span>
+                            <span>📶 Wifi / Internet</span>
+                        </div>
+                        <div class="text-base font-extrabold text-slate-800">
+                            {{ number_format($building->internet_fee ?? 0, 0, ',', '.') }}
+                            <span class="text-xs font-semibold text-slate-500">đ/{{ $unitName }}</span>
+                        </div>
+                    </div>
+
+                    <!-- 5. Gửi xe -->
+                    <div class="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70 hover:border-slate-400 hover:bg-slate-100/50 transition-all">
+                        <div class="flex items-center gap-2 text-xs font-bold text-slate-500 mb-1.5">
+                            <span class="w-6 h-6 rounded-lg bg-slate-200 text-slate-700 flex items-center justify-center text-xs">
+                                <i class="fa-solid fa-motorcycle"></i>
+                            </span>
+                            <span>🛵 Gửi xe</span>
+                        </div>
+                        <div class="text-base font-extrabold text-slate-800">
+                            {{ number_format($building->parking_fee ?? 0, 0, ',', '.') }}
+                            <span class="text-xs font-semibold text-slate-500">đ/xe</span>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
+            <!-- Khối Tiện Ích Dùng Chung (Kế Thừa Cố Định) -->
+            <div class="pt-4 border-t border-slate-100">
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="text-sky-600 text-sm"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Tiện ích dùng chung của cơ sở:</span>
+                    <span class="text-[11px] text-slate-400 font-medium">(Kế thừa cố định cho toàn bộ bài đăng phòng con)</span>
+                </div>
+
+                @if(count($amenitiesList) > 0)
+                    <div class="flex flex-wrap gap-2">
+                        @foreach($amenitiesList as $am)
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-50 text-sky-700 border border-sky-200/70 shadow-2xs hover:bg-sky-100/80 transition-colors">
+                                <i class="fa-solid fa-lock text-[10px] text-sky-500"></i>
+                                <span>{{ $am }}</span>
+                            </span>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="text-xs text-slate-400 italic">Cơ sở chưa thiết lập tiện ích dùng chung.</p>
+                @endif
+            </div>
+        </div>
+
         <!-- BẢNG DANH SÁCH CHI TIẾT CÁC PHÒNG / BÀI ĐĂNG (LỚP RUỘT) -->
         <div class="bg-white rounded-3xl shadow-sm border border-slate-200/80 overflow-hidden">
             <!-- Thanh công cụ & Bộ lọc -->
@@ -452,8 +610,11 @@
                                                 </h4>
                                                 <div class="flex items-center gap-2 text-[11px] text-slate-500 mt-1 font-medium">
                                                     <span><i class="fa-solid fa-layer-group text-sky-500 mr-1"></i>{{ $room->property_type ?? $bTypeLabel }}</span>
-                                                    @if(!empty($room->floor_number))
-                                                        <span>• Tầng {{ $room->floor_number }}</span>
+                                                    @php
+                                                        $rFloor = $room->floor_number ?? ($room->floor ?? null);
+                                                    @endphp
+                                                    @if(!empty($rFloor))
+                                                        <span>• {{ $isLienKe ? ($rFloor . ' tầng') : ('Tầng ' . $rFloor) }}</span>
                                                     @endif
                                                 </div>
                                             </div>

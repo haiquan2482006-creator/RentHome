@@ -197,6 +197,11 @@
                                         ${post.title}
                                     </h3>
                                     <div class="flex flex-col gap-1.5 mb-4 text-xs font-semibold text-slate-500">
+                                        ${post.building && post.building.name ? `
+                                        <div class="flex items-center gap-2 text-brand-600 font-bold truncate">
+                                            <i class="fa-solid fa-building w-4 text-center"></i>
+                                            <span>${post.building.name}</span>
+                                        </div>` : ''}
                                         <div class="flex items-center gap-2 truncate">
                                             <i class="fa-solid fa-location-dot w-4 text-center"></i>
                                             <span>${address}</span>

@@ -232,6 +232,127 @@
         color: #ffffff;
     }
 
+    /* Dropdown & Submenu cho Menu Tài chính & Kế toán */
+    .nav-dropdown {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .nav-dropdown-toggle {
+        width: 100%;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        text-align: left;
+        font-family: inherit;
+        position: relative;
+    }
+
+    .nav-arrow {
+        margin-left: auto;
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        transition: transform 0.25s ease;
+        flex-shrink: 0;
+    }
+
+    .nav-dropdown.open .nav-arrow {
+        transform: rotate(180deg);
+        color: var(--brand-primary);
+    }
+
+    .nav-dropdown-toggle.active .nav-arrow {
+        color: #ffffff;
+    }
+
+    .nav-submenu {
+        display: none;
+        flex-direction: column;
+        gap: 3px;
+        margin: 4px 0 6px 18px;
+        padding-left: 10px;
+        border-left: 2px solid #e2e8f0;
+        transition: var(--transition);
+    }
+
+    .nav-dropdown.open .nav-submenu {
+        display: flex;
+    }
+
+    .nav-sublink {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-size: 0.825rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-decoration: none;
+        transition: var(--transition);
+        white-space: nowrap;
+    }
+
+    .nav-sublink i {
+        font-size: 0.95rem;
+        width: 16px;
+        text-align: center;
+        color: var(--text-muted);
+        transition: var(--transition);
+    }
+
+    .nav-sublink:hover {
+        color: var(--brand-primary);
+        background-color: var(--brand-bg);
+    }
+
+    .nav-sublink:hover i {
+        color: var(--brand-primary);
+    }
+
+    .nav-sublink.active {
+        background-color: var(--brand-primary);
+        color: #ffffff;
+        box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25);
+    }
+
+    .nav-sublink.active i {
+        color: #ffffff;
+    }
+
+    .menu-badge {
+        font-size: 0.65rem;
+        font-weight: 700;
+        padding: 1px 6px;
+        border-radius: 10px;
+        margin-left: auto;
+        line-height: 1.4;
+    }
+
+    .menu-badge.badge-amber {
+        background-color: #fef3c7;
+        color: #b45309;
+        border: 1px solid #fde68a;
+    }
+
+    .menu-badge.badge-emerald {
+        background-color: #d1fae5;
+        color: #047857;
+        border: 1px solid #a7f3d0;
+    }
+
+    .menu-badge.badge-rose {
+        background-color: #ffe4e6;
+        color: #e11d48;
+        border: 1px solid #fecdd3;
+    }
+
+    body.sidebar-collapsed .nav-arrow,
+    body.sidebar-collapsed .nav-submenu,
+    body.sidebar-collapsed .menu-badge {
+        display: none !important;
+    }
+
     /* Footer Sidebar / Admin Profile */
     .sidebar-footer {
         padding: 12px;
@@ -443,10 +564,80 @@
                 <span>Quản lý Tòa nhà</span>
             </a>
 
-            <!-- 3. Quản lý tài khoản con / Nhân viên -->
+            <!-- 3. Quản lý Tài chính & Kế toán (Mới bổ sung theo Yêu Cầu 1) -->
+            @php
+                $isFinanceActive = request()->is('*tai-chinh*') || request()->is('*duyet-chuyen-khoan*') || request()->is('*cong-no-nhan-vien*') || request()->is('*duyet-hoan-coc*') || request()->is('*refund*') || request()->is('*finance*');
+                $isBankActive = request()->is('*duyet-chuyen-khoan*') || request()->is('*bank-transfer*');
+                $isDebtActive = request()->is('*cong-no-nhan-vien*') || request()->is('*staff-debt*');
+                $isRefundActive = request()->is('*duyet-hoan-coc*') || request()->is('*refund-request*') || request()->is('*hoan-coc*');
+                
+                $badgePendingCount = 0;
+                $badgeDebtCount = 0;
+                $badgeRefundCount = 0;
+                try {
+                    $badgePendingCount = \App\Models\Invoice::where('payment_method', 'bank_transfer')
+                        ->where(function($q) {
+                            $q->where('status', 'pending_approval')->orWhere('payment_status', 'pending_approval');
+                        })->count();
+                    $badgeDebtCount = \App\Models\Invoice::where('payment_method', 'cash')
+                        ->where(function($q) {
+                            $q->where('status', 'paid')->orWhere('payment_status', 'paid');
+                        })
+                        ->where(function($q) {
+                            $q->where('is_remitted_to_admin', false)->orWhere('is_remitted_to_admin', 0)->orWhereNull('is_remitted_to_admin');
+                        })->count();
+                    $badgeRefundCount = \App\Models\Contract::where('status', 'pending_refund')->count();
+                } catch (\Exception $e) {}
+                
+                $totalPendingFinance = $badgePendingCount + $badgeRefundCount;
+            @endphp
+            <div class="nav-dropdown {{ $isFinanceActive ? 'open' : '' }}" id="finance-nav-dropdown">
+                <button type="button" class="nav-link nav-dropdown-toggle {{ $isFinanceActive ? 'active' : '' }}" onclick="toggleFinanceDropdown(event)" title="Tài chính & Kế toán">
+                    <i class="fa-solid fa-wallet" style="color: {{ $isFinanceActive ? '#ffffff' : '#10b981' }};"></i>
+                    <span>Tài chính & Kế toán</span>
+                    @if($totalPendingFinance > 0)
+                        <span class="menu-badge badge-amber" style="margin-right: 4px;">{{ $totalPendingFinance }}</span>
+                    @endif
+                    <i class="fa-solid fa-chevron-down nav-arrow"></i>
+                </button>
+                <div class="nav-submenu">
+                    <!-- Sub-menu 1: Duyệt chuyển khoản -->
+                    <a href="{{ route('admin.finance.bank_transfers') }}" class="nav-sublink {{ $isBankActive ? 'active' : '' }}" title="Duyệt chuyển khoản">
+                        <i class="fa-solid fa-building-columns"></i>
+                        <span>Duyệt chuyển khoản</span>
+                        @if($badgePendingCount > 0)
+                            <span class="menu-badge badge-amber">{{ $badgePendingCount }}</span>
+                        @endif
+                    </a>
+                    <!-- Sub-menu 2: Công nợ nhân viên -->
+                    <a href="{{ route('admin.finance.staff_debts') }}" class="nav-sublink {{ $isDebtActive ? 'active' : '' }}" title="Công nợ nhân viên">
+                        <i class="fa-solid fa-hand-holding-dollar"></i>
+                        <span>Công nợ nhân viên</span>
+                        @if($badgeDebtCount > 0)
+                            <span class="menu-badge badge-emerald">{{ $badgeDebtCount }}</span>
+                        @endif
+                    </a>
+                    <!-- Sub-menu 3: Duyệt Hoàn Cọc (Kịch bản B) -->
+                    <a href="{{ route('admin.finance.refund_requests') }}" class="nav-sublink {{ $isRefundActive ? 'active' : '' }}" title="Duyệt Hoàn Cọc">
+                        <i class="fa-solid fa-money-bill-transfer"></i>
+                        <span>Duyệt Hoàn Cọc</span>
+                        @if($badgeRefundCount > 0)
+                            <span class="menu-badge badge-rose">{{ $badgeRefundCount }}</span>
+                        @endif
+                    </a>
+                </div>
+            </div>
+
+            <!-- 4. Quản lý tài khoản con / Nhân viên -->
             <a href="{{ url('qltai_khoan_con') }}" class="nav-link {{ request()->is('qltai_khoan_con*') || request()->is('Admin/tai-khoan-con*') ? 'active' : '' }}" title="Tài khoản con & Phân quyền">
                 <i class="fa-solid fa-users-gear" style="color: #2dd4bf;"></i>
                 <span>Nhân viên & Phân quyền</span>
+            </a>
+
+            <!-- 5. Quản lý Tài khoản cá nhân / Khách thuê -->
+            <a href="{{ url('qltaikhoan_ca_nhan') }}" class="nav-link {{ request()->is('qltaikhoan_ca_nhan*') || request()->is('Admin/tai-khoan-ca-nhan*') || request()->is('qltaikhoan-ca-nhan*') ? 'active' : '' }}" title="Tài khoản cá nhân (Khách thuê)">
+                <i class="fa-solid fa-users" style="color: #0ea5e9;"></i>
+                <span>Tài khoản Khách thuê</span>
             </a>
 
             <!-- 4. Chỉnh sửa giao diện website -->
@@ -534,4 +725,13 @@
             e.target.blur();
         }
     }, { passive: false });
+
+    // Xử lý bật/tắt dropdown Tài chính & Kế toán
+    function toggleFinanceDropdown(event) {
+        if (event) event.preventDefault();
+        const dropdown = document.getElementById('finance-nav-dropdown');
+        if (dropdown) {
+            dropdown.classList.toggle('open');
+        }
+    }
 </script>

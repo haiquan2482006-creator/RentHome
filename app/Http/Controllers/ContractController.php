@@ -9,6 +9,7 @@ use App\Models\Contact;
 use App\Models\Notification;
 use App\Models\User;
 use App\Models\Invoice;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -86,6 +87,69 @@ class ContractController extends Controller
                 ? $enterpriseUser->phone 
                 : ($currentUser ? $currentUser->phone : null);
 
+            // Xử lý upload hồ sơ đính kèm (CCCD & Bản Scan Hợp đồng)
+            $cccdFiles = [];
+            if ($request->hasFile('cccd_images')) {
+                foreach ($request->file('cccd_images') as $file) {
+                    if ($file && $file->isValid()) {
+                        $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                        $destinationPath = public_path('uploads/contracts/cccd');
+                        if (!file_exists($destinationPath)) {
+                            mkdir($destinationPath, 0755, true);
+                        }
+                        $file->move($destinationPath, $filename);
+                        $cccdFiles[] = '/uploads/contracts/cccd/' . $filename;
+                    }
+                }
+            }
+
+            $docFiles = [];
+            if ($request->hasFile('contract_documents')) {
+                foreach ($request->file('contract_documents') as $file) {
+                    if ($file && $file->isValid()) {
+                        $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                        $destinationPath = public_path('uploads/contracts/docs');
+                        if (!file_exists($destinationPath)) {
+                            mkdir($destinationPath, 0755, true);
+                        }
+                        $file->move($destinationPath, $filename);
+                        $docFiles[] = '/uploads/contracts/docs/' . $filename;
+                    }
+                }
+            }
+
+            $rawRentPrice = $cleanNumber($request->input('rent_price'));
+            $rawDeposit = $cleanNumber($request->input('deposit'));
+            $internetPrice = $cleanNumber($request->input('internet_price'));
+            $garbagePrice = $cleanNumber($request->input('service_fee', $request->input('garbage_price')));
+            $parkingPrice = $cleanNumber($request->input('parking_fee'));
+            $rawMonthlyService = $internetPrice + $garbagePrice + $parkingPrice;
+
+            $startDateStr = $request->input('start_date', date('Y-m-d'));
+            $startDate = Carbon::parse($startDateStr);
+            $startDay = (int)$startDate->day;
+
+            // Xử lý tính toán Lẻ ngày (Pro-rated):
+            // - Nếu khách vào ngày 01: Trọn 1 tháng
+            // - Nếu khách vào giữa tháng (vd: ngày 15/10): Số ngày = 30 - startDay + 1 = 16 ngày
+            //   Tiền phòng kỳ đầu = [Tiền phòng / 30] x 16 ngày
+            //   Tiền dịch vụ kỳ đầu = [Dịch vụ cố định / 30] x 16 ngày
+            if ($startDay === 1) {
+                $isProrated = false;
+                $stayDays = 30;
+                $rentPriceFirstMonth = $rawRentPrice;
+                $serviceFirstMonth = $rawMonthlyService;
+                $periodDescription = 'Kỳ đầu tiên (Trọn tháng ' . $startDate->format('m/Y') . ')';
+                $noteDescription = 'Hóa đơn thanh toán lần đầu: Tiền cọc & Trọn tháng ' . $startDate->format('m/Y') . ' tiền phòng khi nhận nhà. (Điện nước ghi nhận chỉ số đầu: ' . (int)$request->input('electricity_start', 0) . ' số điện, ' . (int)$request->input('water_start', 0) . ' khối nước; thành tiền = 0 VNĐ).';
+            } else {
+                $isProrated = true;
+                $stayDays = max(1, 30 - $startDay + 1);
+                $rentPriceFirstMonth = (float)round(($rawRentPrice / 30) * $stayDays);
+                $serviceFirstMonth = (float)round(($rawMonthlyService / 30) * $stayDays);
+                $periodDescription = 'Kỳ đầu tiên (Lẻ ' . $stayDays . ' ngày: ' . $startDate->format('d/m') . ' - ' . $startDate->copy()->endOfMonth()->format('d/m/Y') . ')';
+                $noteDescription = 'Hóa đơn thanh toán lần đầu: Tiền cọc & Tiền phòng lẻ ' . $stayDays . ' ngày của tháng ' . $startDate->format('m/Y') . ' [Công thức: (' . number_format($rawRentPrice) . 'đ / 30 ngày) x ' . $stayDays . ' ngày]. (Điện nước ghi nhận chỉ số đầu: ' . (int)$request->input('electricity_start', 0) . ' số điện, ' . (int)$request->input('water_start', 0) . ' khối nước; thành tiền = 0 VNĐ).';
+            }
+
             $contractData = [
                 'contract_code'          => $contractCode,
                 'contact_id'             => $contact ? (string)($contact->_id ?? $contact->id) : null,
@@ -102,8 +166,8 @@ class ContractController extends Controller
                 'tenant_id_card'         => $request->input('tenant_id_card'),
                 'tenant_account'         => $request->input('tenant_account') ?: ($tenantUser ? $tenantUser->username : null),
                 'tenant_message'         => $request->input('tenant_message'),
-                'rent_price'             => $cleanNumber($request->input('rent_price')),
-                'deposit'                => $cleanNumber($request->input('deposit')),
+                'rent_price'             => $rawRentPrice,
+                'deposit'                => $rawDeposit,
                 'electricity_price'      => $cleanNumber($request->input('electricity_price')),
                 'electricity_start'      => (int)$request->input('electricity_start', 0),
                 'water_calculation_type' => $request->input('water_calculation_type', 'khoi'),
@@ -111,53 +175,60 @@ class ContractController extends Controller
                 'water_start'            => (int)$request->input('water_start', 0),
                 'water_price_person'     => $cleanNumber($request->input('water_price_person')),
                 'water_people_count'     => (int)$request->input('water_people_count', 1),
-                'internet_price'         => $cleanNumber($request->input('internet_price')),
-                'garbage_price'          => $cleanNumber($request->input('garbage_price')),
+                'internet_price'         => $internetPrice,
+                'garbage_price'          => $garbagePrice,
+                'service_fee'            => $garbagePrice,
+                'parking_fee'            => $parkingPrice,
+                'license_plates'         => $request->input('license_plates'),
+                'cccd_images'            => $cccdFiles,
+                'contract_documents'     => $docFiles,
                 'payment_cycle'          => $request->input('payment_cycle', '1 tháng'),
                 'billing_date'           => $request->input('billing_date', 'Mùng 5'),
                 'payment_limit_days'     => $request->input('payment_limit_days', '5 ngày'),
                 'late_penalty_fee'       => $request->input('late_penalty_fee', '20.000 VNĐ / ngày'),
-                'start_date'             => $request->input('start_date'),
+                'start_date'             => $startDateStr,
                 'duration_months'        => (int)$request->input('duration_months', 12),
                 'end_date'               => $request->input('end_date_display'),
-                'status'                 => 'active', // Trạng thái hợp đồng đang hoạt động
+                'status'                 => 'pending_deposit', // Chờ thanh toán cọc & hóa đơn lần đầu để kích hoạt chính thức
                 'payment_status'         => 'unpaid',
             ];
 
             $contract = Contract::create($contractData);
 
-            // 1.1 Tự động tạo 1 Hóa đơn đóng tiền cọc và tháng đầu tiên cho khách thuê
-            // Tháng đầu tiên khi mới nhận nhà: điện và nước chỉ ghi nhận chỉ số đầu, thành tiền bằng 0 VNĐ vì chưa sử dụng
-            $depositAmount = (float)($contract->deposit ?? 0);
-            $rentPriceAmount = (float)($contract->rent_price ?? 0);
-            $electricityAmount = 0; // Thành tiền điện tháng đầu = 0 VNĐ
-            $waterAmount = 0;       // Thành tiền nước tháng đầu = 0 VNĐ
-            $serviceAmount = (float)($contract->internet_price ?? 0) + (float)($contract->garbage_price ?? 0);
-            $totalFirstMonth = $depositAmount + $rentPriceAmount + $electricityAmount + $waterAmount + $serviceAmount;
+            // 1.1 Tự động tạo Hóa đơn #1 (Tiền cọc + Tiền phòng kỳ đầu lẻ ngày hoặc nguyên tháng + Điện nước 0 VNĐ)
+            $depositAmount = $rawDeposit;
+            $electricityAmount = 0; // Tháng đầu tiên: chỉ số đầu, thành tiền = 0 VNĐ
+            $waterAmount = 0;       // Tháng đầu tiên: chỉ số đầu, thành tiền = 0 VNĐ
+            $totalFirstMonth = $depositAmount + $rentPriceFirstMonth + $electricityAmount + $waterAmount + $serviceFirstMonth;
 
             $firstInvoiceCode = 'INV-' . date('Ym') . '-' . strtoupper(substr(uniqid(), -4));
-            Invoice::create([
+            $invoice = Invoice::create([
                 'contract_id'        => (string)($contract->_id ?? $contract->id),
                 'room_id'            => (string)$roomId,
                 'post_id'            => (string)$roomId,
                 'owner_id'           => (string)$ownerId,
                 'created_by'         => (string)Auth::id(),
+                'staff_id'           => (string)Auth::id(),
                 'tenant_id'          => $contract->tenant_id,
                 'tenant_name'        => $contract->tenant_name,
                 'invoice_code'       => $firstInvoiceCode,
-                'billing_month'      => date('m/Y'),
-                'billing_period'     => 'Kỳ đầu tiên (Cọc & Tiền phòng tháng đầu)',
-                'month'              => (int)date('m'),
-                'year'               => (int)date('Y'),
-                'rent_price'         => $rentPriceAmount,
+                'billing_month'      => $startDate->format('m/Y'),
+                'billing_period'     => $periodDescription,
+                'month'              => (int)$startDate->format('m'),
+                'year'               => (int)$startDate->format('Y'),
+                'rent_price'         => $rentPriceFirstMonth,
                 'deposit'            => $depositAmount,
                 'electricity_amount' => $electricityAmount,
+                'electricity_old'    => (float)($contract->electricity_start ?? 0),
+                'electricity_new'    => (float)($contract->electricity_start ?? 0),
                 'water_amount'       => $waterAmount,
-                'service_amount'     => $serviceAmount,
+                'water_old'          => (float)($contract->water_start ?? 0),
+                'water_new'          => (float)($contract->water_start ?? 0),
+                'service_amount'     => $serviceFirstMonth,
                 'total_amount'       => $totalFirstMonth,
                 'status'             => 'unpaid',
                 'payment_status'     => 'unpaid',
-                'note'               => 'Hóa đơn tiền cọc và tháng đầu tiên khi nhận nhà (Điện nước ghi nhận chỉ số đầu, thành tiền 0 VNĐ)',
+                'note'               => $noteDescription,
             ]);
 
             // 2. Cập nhật trạng thái của phòng thành 'đã cho thuê'
@@ -169,9 +240,10 @@ class ContractController extends Controller
 
             // 3. Logic xử lý yêu cầu được chọn tạo hợp đồng:
             if ($contact) {
-                $contact->status = 'approved';
+                $contact->status = 'đã ký hợp đồng';
                 $contact->contract_id = (string)($contract->_id ?? $contract->id);
                 $contact->save();
+            }
 
             // Gửi thông báo đến khách thuê nếu có tài khoản liên kết
             $recipientId = $contact ? ($contact->sender_id ?? ($tenantUser ? ($tenantUser->id ?? $tenantUser->_id) : null)) : ($tenantUser ? ($tenantUser->id ?? $tenantUser->_id) : null);
@@ -180,13 +252,12 @@ class ContractController extends Controller
                     'user_id'  => (string)$recipientId,
                     'post_id'  => (string)$roomId,
                     'title'    => 'Bạn đã nhận được Hợp đồng thuê nhà & Hóa đơn đóng tiền cọc đầu tháng!',
-                    'message'  => 'Chủ nhà đã tạo hợp đồng thuê và xuất hóa đơn tiền cọc & tháng đầu tiên cho bài đăng "' . ($post->title ?? 'phòng trọ') . '". Bạn có thể xem hợp đồng và nhấn "Đóng tiền cọc đầu tháng" tại mục Nhà đang thuê.',
+                    'message'  => 'Chủ nhà đã tạo hợp đồng thuê và xuất hóa đơn tiền cọc & kỳ đầu tiên (' . $periodDescription . ') cho bài đăng "' . ($post->title ?? 'phòng trọ') . '". Bạn có thể xem hóa đơn và bấm "Thanh toán ngay" để kích hoạt hợp đồng và nhận chìa khóa phòng.',
                     'type'     => 'success',
                     'is_read'  => false,
                     'category' => 'contract',
                 ]);
             }
-        }
 
             // 4. Tự động từ chối tất cả các yêu cầu khác gửi đến bài đăng đó và gửi thông báo
             $acceptedContactId = $contact ? (string)($contact->_id ?? $contact->id) : null;
@@ -195,7 +266,9 @@ class ContractController extends Controller
             // Hoàn tất Transaction
             DB::commit();
 
-            return redirect()->route('qlvan_hanh.room_list')->with('success', 'Tạo hợp đồng thành công!');
+            // Redirect thẳng sang trang Chi tiết Hóa đơn #1 vừa tạo
+            return redirect()->route('qlvan_hanh.invoice_detail', ['code' => $firstInvoiceCode])
+                ->with('success', 'Tạo hợp đồng thành công! Hóa đơn thanh toán lần đầu (Hóa đơn #1) đã được tạo.');
         } catch (\Throwable $e) {
             // Rollback nếu có lỗi xảy ra
             DB::rollBack();

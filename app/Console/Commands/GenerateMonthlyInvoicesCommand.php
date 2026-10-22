@@ -42,7 +42,7 @@ class GenerateMonthlyInvoicesCommand extends Command
         $this->info("=====================================================================");
 
         // 2. Truy vấn MongoDB: Lấy tất cả Hợp đồng đang hiệu lực (active)
-        $contracts = Contract::where('status', '!=', 'cancelled')->get();
+        $contracts = Contract::whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly'])->get();
 
         if ($contracts->isEmpty()) {
             $this->warn("Không có hợp đồng nào đang hoạt động trong hệ thống.");

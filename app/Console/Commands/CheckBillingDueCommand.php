@@ -35,7 +35,7 @@ class CheckBillingDueCommand extends Command
 
         $this->info("Bắt đầu kiểm tra hạn đóng tiền phòng ngày {$today} - Tháng {$currentMonthStr}...");
 
-        $contracts = Contract::where('status', '!=', 'cancelled')->get();
+        $contracts = Contract::whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly'])->get();
         $notifiedCount = 0;
 
         foreach ($contracts as $contract) {

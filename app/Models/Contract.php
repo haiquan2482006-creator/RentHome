@@ -36,7 +36,13 @@ class Contract extends Model
         'water_people_count',
         'internet_price',
         'garbage_price',
+        'service_fee',
+        'parking_fee',
+        'license_plates',
+        'cccd_images',
+        'contract_documents',
         'payment_cycle',
+        'deposit_amount',
         'bill_date',
         'billing_date',
         'payment_limit_days',
@@ -45,6 +51,14 @@ class Contract extends Model
         'duration_months',
         'end_date',
         'status',
+        // Trường nghiệp vụ Thanh lý & Chốt công nợ
+        'checkout_request',
+        'liquidation_details',
+        'final_invoice_id',
+        'refund_request_id',
+        'terminated_at',
+        'terminated_by',
+        'liquidation_scenario',
     ];
 
     public function post()
@@ -65,5 +79,31 @@ class Contract extends Model
     public function tenant()
     {
         return $this->belongsTo(User::class, 'tenant_id', '_id');
+    }
+
+    public function finalInvoice()
+    {
+        return $this->belongsTo(Invoice::class, 'final_invoice_id', '_id');
+    }
+
+    public function refundRequest()
+    {
+        return $this->belongsTo(RefundRequest::class, 'refund_request_id', '_id');
+    }
+
+    public function room()
+    {
+        return $this->belongsTo(Room::class, 'room_id', '_id');
+    }
+
+    /**
+     * Lấy số tiền cọc an toàn từ deposit hoặc deposit_amount
+     */
+    public function getDepositSafeAttribute(): float
+    {
+        $dep = $this->deposit ?? ($this->deposit_amount ?? 0);
+        if (is_numeric($dep)) return (float)$dep;
+        $clean = preg_replace('/[^\d]/', '', (string)$dep);
+        return $clean ? (float)$clean : 0.0;
     }
 }

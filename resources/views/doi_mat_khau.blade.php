@@ -67,8 +67,9 @@
 
     @php
         $user = \Illuminate\Support\Facades\Auth::user();
-        $isEnterprise = $user && ($user->isEnterprise() || $user->isStaff() || in_array($user->role ?? '', ['doanhnghiep', 'sub_account', 'staff']));
-        $userName = $user ? ($isEnterprise ? ($user->representative ?? $user->account_name ?? $user->company_name ?? $user->username ?? 'Doanh nghiệp') : ($user->account_name ?? $user->username ?? 'Người dùng')) : 'Người dùng';
+        $isStaff = $user && ($user->isSubAccount() || $user->isStaff() || in_array($user->role ?? '', ['nhansu', 'nhan su', 'nhan_su', 'sub_account', 'staff']));
+        $isEnterprise = $user && ($user->isEnterprise() || in_array($user->role ?? '', ['doanhnghiep', 'enterprise'])) && !$isStaff;
+        $userName = $user ? ($isStaff ? ($user->account_name ?? $user->username ?? 'Nhân sự') : ($isEnterprise ? ($user->representative ?? $user->account_name ?? $user->company_name ?? $user->username ?? 'Doanh nghiệp') : ($user->account_name ?? $user->username ?? 'Người dùng'))) : 'Người dùng';
     @endphp
 
     @include('partials.sidebar-user')

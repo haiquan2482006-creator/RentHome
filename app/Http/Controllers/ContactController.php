@@ -32,7 +32,7 @@ class ContactController extends Controller
             $contract = Contract::where(function($q) use ($targetPostIds) {
                 $q->whereIn('post_id', $targetPostIds)
                   ->orWhereIn('room_id', $targetPostIds);
-            })->where('status', '!=', 'cancelled')->latest()->first();
+            })->whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly'])->latest()->first();
 
             if ($contract && !empty($contract->contact_id)) {
                 $acceptedContactId = (string)$contract->contact_id;
@@ -138,7 +138,7 @@ class ContactController extends Controller
         $formattedDate = Carbon::parse($request->appointment_date)->format('H:i - d/m/Y');
         $note = "Lịch hẹn: " . $formattedDate;
 
-        Contact::create([
+        $contact = Contact::create([
             'post_id' => (string) $post->_id,
             'owner_id' => (string) ($post->user_id ?? $post->user->_id),
             'sender_id' => Auth::check() ? Auth::id() : null,
@@ -150,6 +150,41 @@ class ContactController extends Controller
             'message' => $request->message,
             'status' => 'pending'
         ]);
+
+        // Tạo thông báo tự động gửi về quả chuông cho tài khoản đăng bài
+        $ownerId = (string) ($post->user_id ?? ($post->user->_id ?? $post->author_id));
+        if ($ownerId) {
+            Notification::create([
+                'user_id'    => $ownerId,
+                'role'       => 'owner',
+                'category'   => 'contact_received',
+                'type'       => 'info',
+                'title'      => 'Có yêu cầu liên hệ / đặt lịch hẹn mới',
+                'message'    => "Khách hàng {$request->fullname} ({$request->phone}) vừa gửi yêu cầu liên hệ/đặt lịch xem bài đăng \"{$post->title}\".",
+                'post_id'    => (string) $post->_id,
+                'action_url' => url('/thong-bao-lien-he'),
+                'is_read'    => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        // Nếu là tài khoản nhân viên con, gửi thông báo kèm cho tài khoản doanh nghiệp mẹ
+        if (!empty($post->parent_id) && (string)$post->parent_id !== $ownerId) {
+            Notification::create([
+                'user_id'    => (string)$post->parent_id,
+                'role'       => 'doanhnghiep',
+                'category'   => 'contact_received',
+                'type'       => 'info',
+                'title'      => 'Yêu cầu liên hệ mới cho bài đăng nhân viên',
+                'message'    => "Khách hàng {$request->fullname} ({$request->phone}) vừa gửi yêu cầu liên hệ cho bài đăng \"{$post->title}\" của nhân viên.",
+                'post_id'    => (string) $post->_id,
+                'action_url' => url('/thong-bao-lien-he'),
+                'is_read'    => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
 
         return back()->with('success', 'Đã gửi thông tin liên hệ và lịch hẹn thành công! Chủ nhà sẽ sớm phản hồi bạn.');
     }
@@ -185,7 +220,7 @@ class ContactController extends Controller
             $postId = (string)($post->_id ?? $post->id);
             $contract = Contract::where(function($q) use ($postId) {
                 $q->where('post_id', $postId)->orWhere('room_id', $postId);
-            })->where('status', '!=', 'cancelled')->latest()->first();
+            })->whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly'])->latest()->first();
 
             $isRented = ($post->status === 'đã cho thuê' || !empty($post->is_rented) || $contract !== null);
 
