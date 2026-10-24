@@ -185,10 +185,14 @@
                                 <i class="fa-solid fa-chevron-down text-xs text-slate-400"></i>
                             </span>
                             <span class="text-[10px] font-semibold">
-                                @if (Auth::user()->isAdmin() || Auth::user()->isEnterprise() || Auth::user()->isStaff() || in_array(Auth::user()->role ?? '', ['doanhnghiep', 'sub_account', 'staff', 'admin']))
+                                @if (Auth::user()->isAdmin())
+                                    <span class="text-rose-600 font-bold">• Ban Quản Trị</span>
+                                @elseif (Auth::user()->isModerator())
+                                    <span class="text-sky-600 font-bold">• Kiểm duyệt viên</span>
+                                @elseif (Auth::user()->isEnterprise() || Auth::user()->isStaff() || in_array(Auth::user()->role ?? '', ['doanhnghiep', 'sub_account', 'staff', 'admin']))
                                     <span class="text-purple-600 font-bold">• Doanh nghiệp</span>
                                 @else
-                                    <span class="text-sky-600 font-bold">• Cá nhân</span>
+                                    <span class="text-emerald-600 font-bold">• Khách thuê</span>
                                 @endif
                             </span>
                         </div>
@@ -208,6 +212,8 @@
                             <div class="shrink-0">
                                 @if (Auth::user()->isAdmin())
                                     <span class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-bold text-[10px]">Ban Quản Trị</span>
+                                @elseif (Auth::user()->isModerator())
+                                    <span class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 font-bold text-[10px]">Kiểm duyệt viên</span>
                                 @elseif (Auth::user()->isSubAccount() || Auth::user()->isStaff() || (Auth::user()->role ?? '') === 'staff')
                                     <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold text-[10px]">Nhân viên Doanh nghiệp</span>
                                 @elseif (Auth::user()->isEnterprise() || (Auth::user()->role ?? '') === 'doanhnghiep')
@@ -217,6 +223,14 @@
                                 @endif
                             </div>
                         </div>
+
+                        @if (Auth::user()->isModerator())
+                            <a href="{{ url('/kiem-duyet/tong-quan') }}"
+                                class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-sky-700 bg-sky-50/70 hover:bg-sky-100 hover:text-sky-800 transition-colors">
+                                <i class="fa-solid fa-shield-halved text-sky-600 w-4 text-center"></i>
+                                <span>Kênh Kiểm Duyệt</span>
+                            </a>
+                        @endif
 
                         <a href="{{ route('user.dashboard') }}"
                             class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">

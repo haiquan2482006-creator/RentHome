@@ -1219,7 +1219,7 @@
                                 {{-- CỘT 5 (Thao Tác): Xem danh sách phòng (Quản lý ruột), Sửa, Xóa --}}
                                 <td>
                                     <div class="action-btns">
-                                        <a href="{{ url('/quan-ly-toa-nha/' . $bId) }}" class="btn-act btn-act-rooms" title="Xem danh sách phòng (Quản lý ruột)">
+                                        <a href="{{ url('/Admin/chi-tiet-toa-nha/' . $bId) }}" class="btn-act btn-act-rooms" title="Xem chi tiết vận hành & quản lý phòng (Admin)">
                                             <i class="fa-solid fa-door-open"></i>
                                         </a>
                                         <button type="button" class="btn-act" onclick="openEditModal('{{ $bId }}')" title="Chỉnh sửa tòa nhà">

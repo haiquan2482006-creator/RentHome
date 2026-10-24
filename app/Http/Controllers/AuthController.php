@@ -45,12 +45,19 @@ class AuthController extends Controller
                 return redirect()->intended('/Admin')->with('success', 'Xin chào Admin! Đăng nhập thành công vào trang quản trị.');
             }
 
-            if ($user->role === 'doanhnghiep' || $user->isEnterprise()) {
-                return redirect()->intended('/Overview')->with('success', 'Xin chào Quản trị Doanh nghiệp RentHome! Đăng nhập thành công.');
+            if ($user->isModerator() || $user->role === 'kiemduyet' || $user->role === 'moderator') {
+                return redirect()->intended('/kiem-duyet/tong-quan')->with('success', 'Xin chào ' . ($user->account_name ?: 'Kiểm duyệt viên') . '! Đăng nhập thành công vào Kênh Kiểm Duyệt.');
             }
 
-            if ($user->isSubAccount() || $user->role === 'staff' || $user->role === 'sub_account') {
-                return redirect()->intended('/Overview')->with('success', 'Xin chào ' . ($user->account_name ?: 'Nhân viên') . '! Đăng nhập thành công.');
+            // 3. Tài khoản con (doanh nghiệp / nhân viên phụ trách) -> Chuyển về Trang chủ (Home)
+            if ($user->isSubAccount() || !empty($user->parent_id) || in_array($user->role, ['sub_account', 'staff'])) {
+                $request->session()->forget('url.intended');
+                return redirect('/')->with('success', 'Xin chào ' . ($user->account_name ?: $user->username ?: 'Tài khoản Doanh nghiệp') . '! Đăng nhập thành công.');
+            }
+
+            // 4. Doanh nghiệp mẹ / Quản trị Doanh nghiệp chính -> Chuyển về Overview
+            if ($user->role === 'doanhnghiep' || $user->isEnterprise()) {
+                return redirect()->intended('/Overview')->with('success', 'Xin chào Quản trị Doanh nghiệp RentHome! Đăng nhập thành công.');
             }
 
             return redirect()->intended('/')->with('success', 'Đăng nhập thành công! Chào mừng bạn đến với RentHome.');

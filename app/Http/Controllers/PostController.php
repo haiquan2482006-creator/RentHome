@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Post;
 use App\Models\Contract;
+use App\Models\Image;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -69,16 +70,6 @@ class PostController extends Controller
         }
 
         $imagePaths = $post ? ($post->images ?? []) : [];
-        if ($request->hasFile('images')) {
-            $newPaths = [];
-            foreach ($request->file('images') as $image) {
-                if ($image && $image->isValid()) {
-                    $path = $image->store('posts', 'public');
-                    $newPaths[] = '/storage/' . $path;
-                }
-            }
-            $imagePaths = $newPaths; 
-        }
 
         $buildingId = !empty($validatedData['building_id']) ? (string)$validatedData['building_id'] : null;
         $building = null;
@@ -116,14 +107,55 @@ class PostController extends Controller
             $post->update($dataToSave);
             $msg = 'Cập nhật bài viết thành công!';
         } else {
-            $post = clone Post::create($dataToSave);
+            $post = Post::create($dataToSave);
             $msg = 'Đăng bài thành công! Bài viết đã hiển thị trên hệ thống RentHome.';
+        }
+
+        $targetPostId = (string)($post->_id ?? $post->id);
+
+        // Lưu toàn bộ file ảnh được upload trực tiếp vào collection images trong MongoDB
+        if ($request->hasFile('images')) {
+            $newPaths = [];
+            $files = $request->file('images');
+            if (!is_array($files)) {
+                $files = [$files];
+            }
+            $isFirst = true;
+            foreach ($files as $image) {
+                if ($image && $image->isValid()) {
+                    $imgDoc = Image::create([
+                        'target_type' => 'post',
+                        'target_id'   => $targetPostId,
+                        'filename'    => $image->getClientOriginalName(),
+                        'mime_type'   => $image->getClientMimeType() ?: 'image/jpeg',
+                        'size'        => $image->getSize(),
+                        'data'        => base64_encode(file_get_contents($image->getRealPath())),
+                        'is_cover'    => $isFirst,
+                        'uploaded_by' => Auth::id() ? (string)Auth::id() : null,
+                    ]);
+                    $newPaths[] = '/images/' . $imgDoc->_id;
+                    $isFirst = false;
+                }
+            }
+
+            if (!empty($newPaths)) {
+                // Xóa ảnh cũ của bài viết này trong collection images nếu người dùng đã tải ảnh mới
+                $currentHex = array_map(fn($p) => str_replace(['/images/', 'images/'], '', $p), $newPaths);
+                Image::where('target_type', 'post')
+                    ->where('target_id', $targetPostId)
+                    ->whereNotIn('_id', $currentHex)
+                    ->delete();
+
+                $post->images = $newPaths;
+                $post->display_image = $newPaths[0];
+                $post->save();
+            }
         }
 
         return response()->json([
             'success' => true,
             'message' => $msg,
-            'post_id' => $post->_id ?? $post->id
+            'post_id' => $targetPostId
         ]);
     }
 
@@ -267,6 +299,11 @@ class PostController extends Controller
                 return response()->json(['success' => false, 'message' => 'Bạn không có quyền xóa bài đăng này!'], 403);
             }
         }
+
+        $postId = (string)($post->_id ?? $post->id);
+
+        // Tự động xóa toàn bộ ảnh của bài đăng khỏi collection images
+        Image::where('target_type', 'post')->where('target_id', $postId)->delete();
 
         $post->delete();
 

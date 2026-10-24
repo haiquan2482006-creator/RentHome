@@ -1128,14 +1128,18 @@
                                     $initial = strtoupper(mb_substr($displayName, 0, 1, 'UTF-8'));
 
                                     $assigned = (array)($acc->assigned_buildings ?? []);
-                                    $isAllBld = empty($assigned) || in_array('all', $assigned) || in_array('*', $assigned);
 
                                     // Xác định vai trò hiển thị
                                     $r = strtolower($acc->role ?? '');
                                     $sr = trim($acc->staff_role ?? '');
                                     $srLower = strtolower($sr);
 
-                                    if ($r === 'kiemduyet' || $r === 'moderator' || str_contains($srLower, 'kiểm duyệt') || str_contains($srLower, 'kiem duyet')) {
+                                    $isModAccount = !empty($acc->is_moderator)
+                                        || in_array($r, ['kiemduyet', 'moderator', 'kiem_duyet'], true)
+                                        || str_contains($srLower, 'kiểm duyệt')
+                                        || str_contains($srLower, 'kiem duyet');
+
+                                    if ($isModAccount) {
                                         $roleLabel = 'Kiểm duyệt';
                                         $roleBadgeClass = 'role-badge-mod';
                                         $roleIcon = 'fa-solid fa-user-shield';
@@ -1148,9 +1152,9 @@
                                         $roleBadgeClass = 'role-badge-admin';
                                         $roleIcon = 'fa-solid fa-crown';
                                     } else {
-                                        $roleLabel = !empty($sr) && $sr !== 'Nhân viên công ty' ? $sr : 'Nhân viên';
-                                        $roleBadgeClass = 'role-badge-staff';
-                                        $roleIcon = 'fa-solid fa-user-tie';
+                                        $roleLabel = !empty($sr) && !in_array($sr, ['Nhân viên', 'Nhân viên công ty']) ? $sr : 'Doanh nghiệp';
+                                        $roleBadgeClass = 'role-badge-ent';
+                                        $roleIcon = 'fa-solid fa-building';
                                     }
                                 @endphp
                                 <tr data-acc-id="{{ $accId }}" data-name="{{ strtolower($displayName) }}" data-email="{{ strtolower($acc->email ?? '') }}" data-phone="{{ $acc->phone ?? '' }}" data-role="{{ strtolower($roleLabel) }}" data-status="{{ $isLocked ? 'locked' : 'active' }}">
@@ -1175,21 +1179,25 @@
                                     </td>
                                     <td>
                                         <div>
-                                            @if($isAllBld)
-                                                <span class="badge-bld-all"><i class="fa-solid fa-globe"></i> Tất cả tòa nhà công ty</span>
+                                            @php
+                                                $bldDetails = $acc->assigned_buildings_details ?? [];
+                                            @endphp
+                                            @if($isModAccount)
+                                                <span class="badge-bld-tag" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; font-weight: 600; font-size: 0.775rem; padding: 4px 10px; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px;" title="Kiểm duyệt viên phụ trách toàn hệ thống">
+                                                    <i class="fa-solid fa-shield-halved" style="color: #0284c7; font-size: 11px;"></i> Toàn hệ thống (Chỉ kiểm duyệt)
+                                                </span>
+                                            @elseif(!empty($bldDetails) && count($bldDetails) > 0)
+                                                <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                                                    @foreach($bldDetails as $bd)
+                                                        <span class="badge-bld-tag" style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; font-weight: 700; font-size: 0.775rem; padding: 3px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px;">
+                                                            <i class="fa-solid fa-city" style="font-size: 10px; color: #0284c7;"></i> {{ $bd->name ?? 'Tòa nhà' }}
+                                                        </span>
+                                                    @endforeach
+                                                </div>
                                             @else
-                                                @php
-                                                    $bldDetails = $acc->assigned_buildings_details ?? [];
-                                                @endphp
-                                                @if(!empty($bldDetails) && count($bldDetails) > 0)
-                                                    <div style="display: flex; flex-wrap: wrap; gap: 4px;">
-                                                        @foreach($bldDetails as $bd)
-                                                            <span class="badge-bld-tag"><i class="fa-solid fa-city" style="font-size: 10px;"></i> {{ $bd->name ?? 'Tòa nhà' }}</span>
-                                                        @endforeach
-                                                    </div>
-                                                @else
-                                                    <span class="badge-bld-tag">{{ count($assigned) }} tòa nhà phụ trách</span>
-                                                @endif
+                                                <span class="badge-bld-tag" style="background: #f8fafc; color: #94a3b8; border: 1px solid #e2e8f0; font-weight: 500; font-size: 0.775rem; padding: 4px 10px; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px;">
+                                                    <i class="fa-solid fa-ban" style="font-size: 10px; color: #cbd5e1;"></i> Chưa phân công tòa nhà
+                                                </span>
                                             @endif
                                         </div>
                                     </td>
@@ -1418,55 +1426,53 @@
                         </div>
                     </div>
 
-                    <div class="form-row-2">
-                        <div class="form-group">
-                            <label class="form-label" for="acc_role">Vai trò tài khoản <span style="color: var(--accent-red)">*</span></label>
-                            <select id="acc_role" class="form-select">
-                                <option value="kiemduyet">🛡️ Kiểm duyệt (Kiểm duyệt bài đăng & nội dung)</option>
-                                <option value="doanhnghiep">🏢 Doanh nghiệp (Quản lý doanh nghiệp)</option>
-                                <option value="staff" selected>👔 Nhân viên (Sale, Vận hành)</option>
-                            </select>
+
+                    <!-- Mục 2: Phân công tòa nhà phụ trách -->
+                    <div id="buildingSectionContainer">
+                        <div class="form-section-title" style="margin-top: 20px;">
+                            <i class="fa-solid fa-city"></i> 2. Phân Công Tòa Nhà Phụ Trách
                         </div>
-                        <div class="form-group" style="display: flex; flex-direction: column; justify-content: flex-end;">
-                            <small style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.4; margin-bottom: 6px;">
-                                <i class="fa-solid fa-circle-info" style="color: var(--brand-primary);"></i> Chọn vai trò của tài khoản để hiển thị đúng thẻ vai trò (Kiểm duyệt, Doanh nghiệp hoặc Nhân viên).
+
+                        <div class="form-group">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                <label class="form-label" for="acc_building_select" style="margin-bottom: 0;">
+                                    Danh sách tòa nhà phụ trách
+                                </label>
+                                <span id="buildingCountBadge" style="font-size: 0.75rem; font-weight: 700; color: #94a3b8; background: #f1f5f9; padding: 2px 8px; border-radius: 6px;">
+                                    Chưa phân công tòa nhà
+                                </span>
+                            </div>
+
+                            <select id="acc_building_select" class="form-select" onchange="handleBuildingSelect(this.value)">
+                                <option value="">-- Chọn tòa nhà để phân công --</option>
+                                @forelse($allBuildings ?? [] as $b)
+                                    @php $bId = (string)($b->_id ?? $b->id); @endphp
+                                    <option value="{{ $bId }}">
+                                        🏢 {{ $b->name ?? 'Tòa nhà' }}{{ !empty($b->address_detail) ? ' - ' . $b->address_detail : '' }}
+                                    </option>
+                                @empty
+                                    <option value="" disabled>Chưa có tòa nhà nào trong hệ thống</option>
+                                @endforelse
+                            </select>
+
+                            <!-- Danh sách tags các tòa nhà đã phân công (nếu chọn tòa nhà cụ thể) -->
+                            <div id="selectedBuildingsTags" style="display: none; margin-top: 8px; flex-wrap: wrap; gap: 6px;"></div>
+
+                            <small id="buildingHelperText" style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-top: 5px;">
+                                <i class="fa-solid fa-circle-info"></i> Chọn một hoặc nhiều tòa nhà từ danh sách đổ xuống để giao cho nhân viên trực tiếp quản lý.
                             </small>
                         </div>
                     </div>
 
-                    <!-- Mục 2: Phân công tòa nhà phụ trách -->
-                    <div class="form-section-title" style="margin-top: 20px;">
-                        <i class="fa-solid fa-city"></i> 2. Phân Công Tòa Nhà Phụ Trách
-                    </div>
-
-                    <div class="form-group">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                            <label class="form-label" for="acc_building_select" style="margin-bottom: 0;">
-                                Danh sách tòa nhà phụ trách <span style="color: var(--accent-red)">*</span>
-                            </label>
-                            <span id="buildingCountBadge" style="font-size: 0.75rem; font-weight: 700; color: var(--brand-primary); background: var(--brand-bg); padding: 2px 8px; border-radius: 6px;">
-                                Tất cả tòa nhà
-                            </span>
+                    <!-- Thông báo cố định nếu là Kiểm duyệt viên -->
+                    <div id="moderatorBuildingNotice" style="display: none; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; margin-top: 20px;">
+                        <div style="display: flex; align-items: center; gap: 10px; color: #334155;">
+                            <i class="fa-solid fa-shield-halved" style="color: #0284c7; font-size: 1.25rem;"></i>
+                            <div>
+                                <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">Toàn hệ thống (Chỉ kiểm duyệt)</div>
+                                <div style="font-size: 0.775rem; color: var(--text-secondary); margin-top: 2px;">Tài khoản Kiểm duyệt viên làm nhiệm vụ duyệt bài đăng và xử lý khiếu nại trên toàn hệ thống, không trực tiếp quản lý tòa nhà.</div>
+                            </div>
                         </div>
-
-                        <select id="acc_building_select" class="form-select" onchange="handleBuildingSelect(this.value)">
-                            <option value="all">🏢 Tất cả tòa nhà công ty (Quản lý toàn bộ)</option>
-                            @forelse($allBuildings ?? [] as $b)
-                                @php $bId = (string)($b->_id ?? $b->id); @endphp
-                                <option value="{{ $bId }}">
-                                    🏢 {{ $b->name ?? 'Tòa nhà' }}{{ !empty($b->address_detail) ? ' - ' . $b->address_detail : '' }}
-                                </option>
-                            @empty
-                                <option value="all" disabled>Chưa có tòa nhà nào trong hệ thống (Hệ thống tự động cấp quyền chung)</option>
-                            @endforelse
-                        </select>
-
-                        <!-- Danh sách tags các tòa nhà đã phân công (nếu chọn tòa nhà cụ thể) -->
-                        <div id="selectedBuildingsTags" style="display: none; margin-top: 8px; flex-wrap: wrap; gap: 6px;"></div>
-
-                        <small id="buildingHelperText" style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-top: 5px;">
-                            <i class="fa-solid fa-circle-info"></i> Mặc định nhân viên có quyền quản lý toàn bộ các tòa nhà của công ty, hoặc chọn một/nhiều tòa nhà cụ thể từ danh sách đổ xuống.
-                        </small>
                     </div>
 
                     <!-- Mục 3: Quyền hạn nghiệp vụ cố định -->
@@ -1825,28 +1831,19 @@
 
 
         // Tòa nhà Phân công Logic (Dropdown & Tags)
-        let selectedBuildingIds = ['all'];
+        let selectedBuildingIds = [];
 
         function handleBuildingSelect(val) {
             if (!val) return;
-            if (val === 'all') {
-                selectedBuildingIds = ['all'];
-            } else {
-                if (selectedBuildingIds.includes('all')) {
-                    selectedBuildingIds = [];
-                }
-                if (!selectedBuildingIds.includes(val)) {
-                    selectedBuildingIds.push(val);
-                }
+            if (val === 'all') return;
+            if (!selectedBuildingIds.includes(val)) {
+                selectedBuildingIds.push(val);
             }
             renderBuildingSelection();
         }
 
         function removeBuildingSelection(id) {
             selectedBuildingIds = selectedBuildingIds.filter(b => b !== id);
-            if (selectedBuildingIds.length === 0) {
-                selectedBuildingIds = ['all'];
-            }
             renderBuildingSelection();
         }
 
@@ -1857,19 +1854,20 @@
             const helperEl = document.getElementById('buildingHelperText');
             if (!selectEl) return;
 
-            if (selectedBuildingIds.includes('all') || selectedBuildingIds.length === 0) {
-                selectEl.value = 'all';
+            selectEl.value = '';
+
+            if (selectedBuildingIds.length === 0) {
                 if (tagsContainer) {
                     tagsContainer.style.display = 'none';
                     tagsContainer.innerHTML = '';
                 }
                 if (badgeEl) {
-                    badgeEl.textContent = 'Tất cả tòa nhà';
-                    badgeEl.style.color = 'var(--brand-primary)';
-                    badgeEl.style.background = 'var(--brand-bg)';
+                    badgeEl.textContent = 'Chưa phân công tòa nhà';
+                    badgeEl.style.color = '#94a3b8';
+                    badgeEl.style.background = '#f1f5f9';
                 }
                 if (helperEl) {
-                    helperEl.innerHTML = '<i class="fa-solid fa-circle-info"></i> Mặc định nhân viên có quyền quản lý toàn bộ các tòa nhà của công ty, hoặc chọn một/nhiều tòa nhà cụ thể từ danh sách đổ xuống.';
+                    helperEl.innerHTML = '<i class="fa-solid fa-circle-info"></i> Chọn một hoặc nhiều tòa nhà từ danh sách đổ xuống để giao cho nhân viên trực tiếp quản lý.';
                 }
             } else {
                 if (tagsContainer) {
@@ -1895,10 +1893,7 @@
                     badgeEl.style.background = '#dcfce7';
                 }
                 if (helperEl) {
-                    helperEl.innerHTML = '<i class="fa-solid fa-circle-plus"></i> Chọn thêm tòa nhà khác từ danh sách đổ xuống để giao thêm cho nhân viên (hoặc chọn "Tất cả tòa nhà" để giao toàn quyền).';
-                }
-                if (selectedBuildingIds.length === 1) {
-                    selectEl.value = selectedBuildingIds[0];
+                    helperEl.innerHTML = '<i class="fa-solid fa-circle-plus"></i> Có thể chọn thêm tòa nhà khác từ danh sách đổ xuống để giao thêm cho nhân viên.';
                 }
             }
         }
@@ -1919,11 +1914,12 @@
             document.getElementById('pwRequiredStar').style.display = 'inline';
             document.getElementById('pwHint').style.display = 'none';
 
-            if (document.getElementById('acc_role')) {
-                document.getElementById('acc_role').value = 'staff';
-            }
+            const bldContainer = document.getElementById('buildingSectionContainer');
+            const modNotice = document.getElementById('moderatorBuildingNotice');
+            if (bldContainer) bldContainer.style.display = 'block';
+            if (modNotice) modNotice.style.display = 'none';
 
-            selectedBuildingIds = ['all'];
+            selectedBuildingIds = [];
             renderBuildingSelection();
 
             document.getElementById('subAccountModal').classList.add('active');
@@ -1951,27 +1947,26 @@
             document.getElementById('pwHint').style.display = 'block';
             document.getElementById('pwHint').textContent = 'Mật khẩu đã tạo trước đó (giữ nguyên hoặc nhập mật khẩu mới nếu muốn đổi)';
 
-            // Vai trò tài khoản
-            if (document.getElementById('acc_role')) {
-                const r = (acc.role || '').toLowerCase();
-                const sr = (acc.staff_role || '').toLowerCase();
-                if (r === 'kiemduyet' || r === 'moderator' || sr.includes('kiểm duyệt') || sr.includes('kiem duyet')) {
-                    document.getElementById('acc_role').value = 'kiemduyet';
-                } else if (r === 'doanhnghiep' || r === 'enterprise' || sr.includes('doanh nghiệp') || sr.includes('doanh nghiep')) {
-                    document.getElementById('acc_role').value = 'doanhnghiep';
-                } else {
-                    document.getElementById('acc_role').value = 'staff';
-                }
-            }
+            const isMod = acc.is_moderator 
+                || ['kiemduyet', 'moderator', 'kiem_duyet'].includes((acc.role || '').toLowerCase())
+                || (acc.staff_role || '').toLowerCase().includes('kiểm duyệt');
 
-            // Tòa nhà
-            const assigned = (acc.assigned_buildings || []);
-            if (assigned.length === 0 || assigned.includes('all') || assigned.includes('*')) {
-                selectedBuildingIds = ['all'];
+            const bldContainer = document.getElementById('buildingSectionContainer');
+            const modNotice = document.getElementById('moderatorBuildingNotice');
+
+            if (isMod) {
+                if (bldContainer) bldContainer.style.display = 'none';
+                if (modNotice) modNotice.style.display = 'block';
+                selectedBuildingIds = [];
             } else {
+                if (bldContainer) bldContainer.style.display = 'block';
+                if (modNotice) modNotice.style.display = 'none';
+
+                // Tòa nhà phụ trách của nhân viên
+                const assigned = (acc.assigned_buildings || []).filter(b => b !== 'all' && b !== '*');
                 selectedBuildingIds = assigned.map(String);
+                renderBuildingSelection();
             }
-            renderBuildingSelection();
 
             document.getElementById('subAccountModal').classList.add('active');
         }
@@ -2006,23 +2001,21 @@
 
             const editId = document.getElementById('editAccountId').value;
             const isEdit = !!editId;
+            const existingAcc = isEdit ? subAccountsData.find(a => (a._id || a.id).toString() === editId.toString()) : null;
+
+            const isMod = existingAcc && (
+                existingAcc.is_moderator ||
+                ['kiemduyet', 'moderator', 'kiem_duyet'].includes((existingAcc.role || '').toLowerCase()) ||
+                (existingAcc.staff_role || '').toLowerCase().includes('kiểm duyệt')
+            );
 
             const name = document.getElementById('acc_name').value.trim();
             const email = document.getElementById('acc_email').value.trim();
             const phone = document.getElementById('acc_phone').value.trim();
             const password = document.getElementById('acc_password').value;
 
-            // Vai trò tài khoản
-            const roleSelect = document.getElementById('acc_role');
-            const roleVal = roleSelect ? roleSelect.value : 'staff';
-            let staff_role = 'Nhân viên';
-            if (roleVal === 'kiemduyet') staff_role = 'Kiểm duyệt';
-            else if (roleVal === 'doanhnghiep') staff_role = 'Doanh nghiệp';
-            else if (roleVal === 'staff') staff_role = 'Nhân viên';
-
-            // Tòa nhà
-            let assignedBuildings = selectedBuildingIds.includes('all') ? ['all'] : selectedBuildingIds;
-            if (assignedBuildings.length === 0) assignedBuildings = ['all'];
+            // Tòa nhà phụ trách: Nếu là Kiểm duyệt viên thì luôn là [], nếu là Sales thì lấy theo danh sách đã chọn
+            let assignedBuildings = isMod ? [] : selectedBuildingIds.filter(b => b !== 'all' && b !== '*');
 
             // Permissions cố định toàn bộ 4 quyền cốt lõi
             const permissions = ['manage_posts', 'manage_contacts', 'manage_contracts', 'manage_invoices'];
@@ -2031,8 +2024,8 @@
                 name,
                 email,
                 phone,
-                role: roleVal,
-                staff_role: staff_role,
+                role: existingAcc ? (existingAcc.role || 'doanhnghiep') : 'doanhnghiep',
+                staff_role: existingAcc ? (existingAcc.staff_role || 'Doanh nghiệp') : 'Doanh nghiệp',
                 assigned_buildings: assignedBuildings,
                 permissions: permissions
             };

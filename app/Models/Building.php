@@ -96,21 +96,41 @@ class Building extends Model
         }
 
         if (empty($imgValue)) {
-            return 'https://placehold.co/600x400?text=Building'; // Ảnh mặc định cho tòa nhà
+            return 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80'; // Ảnh mặc định cho tòa nhà
         }
+
+        $imgStr = trim((string)$imgValue);
 
         // 1. Nhận diện ID MongoDB: 24 ký tự hex -> Trả về URL route ảnh tĩnh
-        if (is_string($imgValue) && strlen($imgValue) === 24 && ctype_xdigit($imgValue)) {
-            return url('/image/' . $imgValue);
+        if (strlen($imgStr) === 24 && ctype_xdigit($imgStr)) {
+            return url('/images/' . $imgStr);
         }
 
-        // 2. Nhận diện URL web hoặc đã là chuỗi Base64
-        if (\Illuminate\Support\Str::startsWith($imgValue, 'http') || \Illuminate\Support\Str::startsWith($imgValue, 'data:')) {
-            return $imgValue;
+        // 2. Nhận diện đường dẫn /images/ hoặc /image/
+        if (\Illuminate\Support\Str::startsWith($imgStr, '/images/') || \Illuminate\Support\Str::startsWith($imgStr, 'images/')) {
+            return url('/' . ltrim($imgStr, '/'));
+        }
+        if (\Illuminate\Support\Str::startsWith($imgStr, '/image/') || \Illuminate\Support\Str::startsWith($imgStr, 'image/')) {
+            return url('/' . ltrim($imgStr, '/'));
         }
 
-        // 3. Nhận diện tên file cũ trong ổ cứng
-        return asset('storage/' . $imgValue);
+        // 3. Nhận diện URL web hoặc đã là chuỗi Base64
+        if (\Illuminate\Support\Str::startsWith($imgStr, 'http') || \Illuminate\Support\Str::startsWith($imgStr, 'data:')) {
+            return $imgStr;
+        }
+
+        // 4. Nếu đường dẫn đã chứa /storage/ hoặc storage/
+        if (\Illuminate\Support\Str::startsWith($imgStr, '/storage/') || \Illuminate\Support\Str::startsWith($imgStr, 'storage/')) {
+            return asset(ltrim($imgStr, '/'));
+        }
+
+        // 5. Nếu là đường dẫn bắt đầu bằng '/'
+        if (\Illuminate\Support\Str::startsWith($imgStr, '/')) {
+            return asset(ltrim($imgStr, '/'));
+        }
+
+        // 6. Mặc định gắn 'storage/'
+        return asset('storage/' . $imgStr);
     }
 
     // Danh sách tất cả các ảnh của tòa nhà kèm ID và URL
@@ -127,11 +147,29 @@ class Building extends Model
         }
 
         foreach ($list as $item) {
-            $imgStr = (string)$item;
+            $imgStr = trim((string)$item);
+            if (empty($imgStr)) continue;
+
             if (strlen($imgStr) === 24 && ctype_xdigit($imgStr)) {
                 $urls[] = [
                     'id' => $imgStr,
-                    'url' => url('/image/' . $imgStr)
+                    'url' => url('/images/' . $imgStr)
+                ];
+                continue;
+            }
+            if (\Illuminate\Support\Str::startsWith($imgStr, '/images/') || \Illuminate\Support\Str::startsWith($imgStr, 'images/')) {
+                $rawId = str_replace(['/images/', 'images/'], '', $imgStr);
+                $urls[] = [
+                    'id' => $rawId,
+                    'url' => url('/' . ltrim($imgStr, '/'))
+                ];
+                continue;
+            }
+            if (\Illuminate\Support\Str::startsWith($imgStr, '/image/') || \Illuminate\Support\Str::startsWith($imgStr, 'image/')) {
+                $rawId = str_replace(['/image/', 'image/'], '', $imgStr);
+                $urls[] = [
+                    'id' => $rawId,
+                    'url' => url('/' . ltrim($imgStr, '/'))
                 ];
                 continue;
             }
@@ -139,6 +177,20 @@ class Building extends Model
                 $urls[] = [
                     'id' => $imgStr,
                     'url' => $imgStr
+                ];
+                continue;
+            }
+            if (\Illuminate\Support\Str::startsWith($imgStr, '/storage/') || \Illuminate\Support\Str::startsWith($imgStr, 'storage/')) {
+                $urls[] = [
+                    'id' => $imgStr,
+                    'url' => asset(ltrim($imgStr, '/'))
+                ];
+                continue;
+            }
+            if (\Illuminate\Support\Str::startsWith($imgStr, '/')) {
+                $urls[] = [
+                    'id' => $imgStr,
+                    'url' => asset(ltrim($imgStr, '/'))
                 ];
                 continue;
             }

@@ -653,54 +653,62 @@
                     </thead>
                     <tbody>
                         @forelse($recentUsers ?? [] as $user)
-                            @if(($user->role ?? '') !== 'admin' && ($user->role ?? '') !== 'moderator')
-                                @php
-                                    $displayName = ($user->isEnterprise() || ($user->role ?? '') === 'doanhnghiep') 
-                                        ? ($user->company_name ?? $user->username) 
-                                        : ($user->account_name ?? $user->username);
-                                    $initials = mb_substr($displayName, 0, 2, 'UTF-8');
-                                @endphp
-                                <tr>
-                                    <td>
-                                        <div class="user-meta-cell">
-                                            <div class="user-avatar-sm bg-blue">
-                                                {{ strtoupper($initials) }}
-                                            </div>
-                                            <div class="user-meta-info">
-                                                <span class="user-name-text">{{ $displayName }}</span>
-                                                <span class="user-username-sub">{{ '@' . $user->username }}</span>
-                                            </div>
+                            @if(($user->role ?? '') === 'admin' || (method_exists($user, 'isAdmin') && $user->isAdmin()))
+                                @continue
+                            @endif
+                            @php
+                                $displayName = ($user->isEnterprise() || ($user->role ?? '') === 'doanhnghiep') 
+                                    ? ($user->company_name ?? $user->account_name ?? $user->username ?? explode('@', $user->email ?? 'user')[0]) 
+                                    : ($user->account_name ?? $user->username ?? explode('@', $user->email ?? 'user')[0]);
+                                $initials = mb_substr($displayName ?: 'U', 0, 2, 'UTF-8');
+                                $userHandle = $user->username ?? explode('@', $user->email ?? 'user')[0];
+                                $isLocked = $user->is_locked || in_array(($user->status ?? ''), ['locked', 'khoa', 'vi_pham', 'banned']);
+                            @endphp
+                            <tr>
+                                <td>
+                                    <div class="user-meta-cell">
+                                        <div class="user-avatar-sm bg-blue">
+                                            {{ strtoupper($initials) }}
                                         </div>
-                                    </td>
-                                    <td>{{ $user->email }}</td>
-                                    <td>{{ $user->phone ?? '---' }}</td>
-                                    <td>
-                                        @if($user->isEnterprise() || ($user->role ?? '') === 'doanhnghiep')
-                                            <span class="badge badge-business">Doanh nghiệp</span>
-                                        @else
-                                            <span class="badge badge-personal">Cá nhân</span>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        {{ $user->created_at ? $user->created_at->format('d/m/Y H:i') : 'Mới đây' }}
-                                    </td>
-                                    <td>
+                                        <div class="user-meta-info">
+                                            <span class="user-name-text">{{ $displayName }}</span>
+                                            <span class="user-username-sub">{{ '@' . $userHandle }}</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>{{ $user->email ?? '---' }}</td>
+                                <td>{{ $user->phone ?? '---' }}</td>
+                                <td>
+                                    @if(in_array(($user->role ?? ''), ['kiemduyet', 'moderator']))
+                                        <span class="badge" style="background: rgba(217, 119, 6, 0.12); color: #d97706; font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem;">Kiểm duyệt</span>
+                                    @elseif($user->isEnterprise() || ($user->role ?? '') === 'doanhnghiep')
+                                        <span class="badge badge-business">Doanh nghiệp</span>
+                                    @else
+                                        <span class="badge badge-personal">Cá nhân</span>
+                                    @endif
+                                </td>
+                                <td>
+                                    {{ $user->created_at ? (\Carbon\Carbon::parse($user->created_at)->format('d/m/Y H:i')) : 'Mới đây' }}
+                                </td>
+                                <td>
+                                    @if($isLocked)
+                                        <span class="status-pill status-locked" style="background: rgba(220, 38, 38, 0.1); color: #dc2626; padding: 4px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                                            <i class="fa-solid fa-lock"></i> Đã khóa
+                                        </span>
+                                    @else
                                         <span class="status-pill status-active">
                                             <i class="fa-solid fa-circle-check"></i> Hoạt động
                                         </span>
-                                    </td>
-                                    <td style="text-align: right;">
-                                        <div class="action-buttons">
-                                            <button class="btn-icon" title="Xem chi tiết">
-                                                <i class="fa-solid fa-eye"></i>
-                                            </button>
-                                            <button class="btn-icon btn-icon-danger" title="Khóa tài khoản">
-                                                <i class="fa-solid fa-user-slash"></i>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            @endif
+                                    @endif
+                                </td>
+                                <td style="text-align: right;">
+                                    <div class="action-buttons">
+                                        <a href="/Admin/lich-su" class="btn-icon" title="Xem chi tiết hoạt động">
+                                            <i class="fa-solid fa-eye"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
                         @empty
                             <tr>
                                 <td colspan="7" style="text-align: center; padding: 40px 20px; color: var(--text-muted);">

@@ -130,7 +130,9 @@ class User extends Authenticatable
 
     public function isModerator(): bool
     {
-        return false;
+        return in_array($this->role, ['kiemduyet', 'moderator', 'kiem_duyet'], true)
+            || str_contains(mb_strtolower($this->staff_role ?? ''), 'kiểm duyệt')
+            || str_contains(mb_strtolower($this->staff_role ?? ''), 'kiem duyet');
     }
 
     public function isEnterprise(): bool
@@ -150,7 +152,7 @@ class User extends Authenticatable
 
     public function isIndividual(): bool
     {
-        return ($this->role === 'user' || $this->role === 'canhan' || (!$this->isAdmin() && !$this->isEnterprise() && !$this->isSubAccount()));
+        return ($this->role === 'user' || $this->role === 'canhan' || (!$this->isAdmin() && !$this->isEnterprise() && !$this->isSubAccount() && !$this->isModerator()));
     }
 
     public function canManageBuilding($buildingId = null): bool
@@ -218,14 +220,27 @@ class User extends Authenticatable
     public function getDisplayAvatarAttribute()
     {
         if (!empty($this->avatar)) {
-            if (strlen($this->avatar) === 24 && ctype_xdigit($this->avatar)) {
-                return url('/image/' . $this->avatar);
+            $av = trim((string)$this->avatar);
+            if (strlen($av) === 24 && ctype_xdigit($av)) {
+                return url('/images/' . $av);
             }
-            if (filter_var($this->avatar, FILTER_VALIDATE_URL) || str_starts_with($this->avatar, 'data:image')) {
-                return $this->avatar;
+            if (str_starts_with($av, '/images/') || str_starts_with($av, 'images/')) {
+                return url('/' . ltrim($av, '/'));
             }
-            if (\Illuminate\Support\Facades\Storage::disk('public')->exists($this->avatar)) {
-                return asset('storage/' . $this->avatar);
+            if (str_starts_with($av, '/image/') || str_starts_with($av, 'image/')) {
+                return url('/' . ltrim($av, '/'));
+            }
+            if (filter_var($av, FILTER_VALIDATE_URL) || str_starts_with($av, 'data:image')) {
+                return $av;
+            }
+            if (str_starts_with($av, '/storage/') || str_starts_with($av, 'storage/')) {
+                return asset(ltrim($av, '/'));
+            }
+            if (\Illuminate\Support\Facades\Storage::disk('public')->exists($av)) {
+                return asset('storage/' . $av);
+            }
+            if (str_starts_with($av, '/')) {
+                return asset(ltrim($av, '/'));
             }
         }
         $name = $this->display_name;
@@ -238,13 +253,23 @@ class User extends Authenticatable
     private function getDocumentUrl($fieldValue)
     {
         if (empty($fieldValue)) return '';
-        if (strlen($fieldValue) === 24 && ctype_xdigit($fieldValue)) {
-            return url('/image/' . $fieldValue);
+        $val = trim((string)$fieldValue);
+        if (strlen($val) === 24 && ctype_xdigit($val)) {
+            return url('/images/' . $val);
         }
-        if (filter_var($fieldValue, FILTER_VALIDATE_URL) || str_starts_with($fieldValue, 'data:image')) {
-            return $fieldValue;
+        if (str_starts_with($val, '/images/') || str_starts_with($val, 'images/')) {
+            return url('/' . ltrim($val, '/'));
         }
-        return asset('storage/' . $fieldValue);
+        if (str_starts_with($val, '/image/') || str_starts_with($val, 'image/')) {
+            return url('/' . ltrim($val, '/'));
+        }
+        if (filter_var($val, FILTER_VALIDATE_URL) || str_starts_with($val, 'data:image')) {
+            return $val;
+        }
+        if (str_starts_with($val, '/storage/') || str_starts_with($val, 'storage/')) {
+            return asset(ltrim($val, '/'));
+        }
+        return asset('storage/' . ltrim($val, '/'));
     }
 
     public function getIdFrontUrlAttribute() { return $this->getDocumentUrl($this->id_front); }

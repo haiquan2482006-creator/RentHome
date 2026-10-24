@@ -132,8 +132,16 @@
                 </div>
             </a>
 
-            <!-- Right Actions: NÚT TẠO HỢP ĐỒNG (GÓC TRÊN BÊN PHẢI TRANG) + Đổi Mật Khẩu + Đăng Xuất -->
+            <!-- Right Actions: NÚT QUAY LẠI + NÚT TẠO HỢP ĐỒNG + Menu Tài Khoản -->
             <div class="flex items-center gap-3">
+                <!-- NÚT QUAY LẠI QUẢN LÝ BÀI ĐĂNG -->
+                <a href="{{ url('/Overview') }}" 
+                   title="Quay lại trang Quản lý bài đăng"
+                   class="py-2.5 px-3.5 sm:px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 font-bold text-xs sm:text-sm flex items-center gap-2 border border-slate-200 shadow-2xs transition-all transform hover:-translate-y-0.5">
+                    <i class="fa-solid fa-arrow-left"></i>
+                    <span>Quay lại</span>
+                </a>
+
                 <!-- NÚT TẠO HỢP ĐỒNG (TRUY CẬP TRANG TẠO HỢP ĐỒNG CHUYÊN BIỆT) -->
                 <a href="{{ url('qlvan_hanh/tao_hop_dong') }}" 
                    class="py-2.5 px-4 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5">

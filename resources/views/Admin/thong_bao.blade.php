@@ -470,123 +470,76 @@
         <!-- Danh sách thông báo -->
         <div class="notification-container" id="notifList">
 
-            <!-- Item 1 -->
-            <div class="notif-item unread">
-                <div class="notif-left">
-                    <div class="notif-avatar icon-red">
-                        <i class="fa-solid fa-shield-halved"></i>
+            @forelse($notifications ?? [] as $notif)
+                @php
+                    $notifId = (string)($notif->_id ?? $notif->id);
+                    $isUnread = empty($notif->is_read);
+                    $nType = $notif->type ?? 'info';
+                    $iconClass = match($nType) {
+                        'urgent', 'danger', 'error' => 'icon-red',
+                        'success' => 'icon-green',
+                        'warning' => 'icon-purple',
+                        default => 'icon-blue'
+                    };
+                    $iconFa = match($nType) {
+                        'urgent', 'danger', 'error' => 'fa-solid fa-shield-halved',
+                        'success' => 'fa-solid fa-paper-plane',
+                        'warning' => 'fa-solid fa-clipboard-check',
+                        default => 'fa-solid fa-building-user'
+                    };
+                    $badgeClass = match($nType) {
+                        'urgent', 'danger', 'error' => 'badge-urgent',
+                        'success' => 'badge-sent',
+                        'warning' => 'badge-moderator',
+                        default => 'badge-staff'
+                    };
+                    $badgeText = match($nType) {
+                        'urgent', 'danger', 'error' => 'Khẩn cấp',
+                        'success' => 'Đã phát',
+                        'warning' => 'Kiểm duyệt',
+                        default => 'Hệ thống'
+                    };
+                @endphp
+                <div class="notif-item {{ $isUnread ? 'unread' : '' }}" data-id="{{ $notifId }}">
+                    <div class="notif-left">
+                        <div class="notif-avatar {{ $iconClass }}">
+                            <i class="{{ $iconFa }}"></i>
+                        </div>
+                        <div class="notif-content">
+                            <div class="notif-header">
+                                <span class="notif-title">{{ $notif->title }}</span>
+                                <span class="badge {{ $badgeClass }}">{{ $badgeText }}</span>
+                            </div>
+                            <p class="notif-desc">
+                                {!! nl2br(e($notif->message)) !!}
+                            </p>
+                            <div class="notif-meta">
+                                <span><i class="fa-regular fa-clock"></i> {{ $notif->created_at ? $notif->created_at->diffForHumans() : 'Mới đây' }}</span>
+                                <span><i class="fa-solid fa-user-shield"></i> Ban Quản Trị RentHome</span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="notif-content">
-                        <div class="notif-header">
-                            <span class="notif-title">Khiếu nại cấp 2 mới được chuyển lên từ Kiểm duyệt viên</span>
-                            <span class="badge badge-urgent">Khẩn cấp</span>
-                        </div>
-                        <p class="notif-desc">
-                            Kiểm duyệt viên <strong>Nguyễn Minh Quân</strong> đã chuyển tiếp một khiếu nại liên quan đến hợp đồng đặt cọc tại <strong>Tòa nhà Premier Cầu Giấy</strong> cần Admin phê duyệt phương án giải quyết.
-                        </p>
-                        <div class="notif-meta">
-                            <span><i class="fa-regular fa-clock"></i> 10 phút trước</span>
-                            <span><i class="fa-regular fa-user"></i> Gửi từ: Kiểm duyệt viên</span>
-                        </div>
+                    <div class="notif-actions">
+                        @if($isUnread)
+                            <button class="action-icon-btn" title="Đánh dấu đã đọc" onclick="markRead(this, '{{ $notifId }}')">
+                                <i class="fa-solid fa-check"></i>
+                            </button>
+                        @endif
+                        <button class="action-icon-btn delete" title="Xóa thông báo" onclick="removeNotif(this, '{{ $notifId }}')">
+                            <i class="fa-regular fa-trash-can"></i>
+                        </button>
                     </div>
                 </div>
-                <div class="notif-actions">
-                    <button class="action-icon-btn" title="Đánh dấu đã đọc" onclick="markRead(this)">
-                        <i class="fa-solid fa-check"></i>
-                    </button>
-                    <button class="action-icon-btn delete" title="Xóa thông báo" onclick="removeNotif(this)">
-                        <i class="fa-regular fa-trash-can"></i>
-                    </button>
+            @empty
+                <div class="empty-state" id="emptyState" style="display: block;">
+                    <i class="fa-regular fa-bell-slash" style="font-size: 36px; margin-bottom: 12px; color: #cbd5e1;"></i>
+                    <p>Hiện chưa có thông báo nào trong hệ thống.</p>
                 </div>
-            </div>
+            @endforelse
 
-            <!-- Item 2 -->
-            <div class="notif-item unread">
-                <div class="notif-left">
-                    <div class="notif-avatar icon-blue">
-                        <i class="fa-solid fa-building-user"></i>
-                    </div>
-                    <div class="notif-content">
-                        <div class="notif-header">
-                            <span class="notif-title">Tài khoản con đã cập nhật trạng thái 3 phòng cho thuê mới</span>
-                            <span class="badge badge-staff">Tài khoản Doanh nghiệp</span>
-                        </div>
-                        <p class="notif-desc">
-                            Nhân viên phụ trách <strong>Trần Hoàng Nam</strong> vừa đăng 3 bài cho thuê mới tại cơ sở <strong>Số 45 Nguyễn Trãi, Thanh Xuân</strong> và đang chờ Kiểm duyệt viên phê duyệt.
-                        </p>
-                        <div class="notif-meta">
-                            <span><i class="fa-regular fa-clock"></i> 1 giờ trước</span>
-                            <span><i class="fa-solid fa-tag"></i> Quản lý bài đăng</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="notif-actions">
-                    <button class="action-icon-btn" title="Đánh dấu đã đọc" onclick="markRead(this)">
-                        <i class="fa-solid fa-check"></i>
-                    </button>
-                    <button class="action-icon-btn delete" title="Xóa thông báo" onclick="removeNotif(this)">
-                        <i class="fa-regular fa-trash-can"></i>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Item 3 -->
-            <div class="notif-item">
-                <div class="notif-left">
-                    <div class="notif-avatar icon-purple">
-                        <i class="fa-solid fa-clipboard-check"></i>
-                    </div>
-                    <div class="notif-content">
-                        <div class="notif-header">
-                            <span class="notif-title">Báo cáo kiểm duyệt bài đăng & tin tức RSS trong ngày</span>
-                            <span class="badge badge-moderator">Kiểm duyệt</span>
-                        </div>
-                        <p class="notif-desc">
-                            Hệ thống đã ghi nhận <strong>08 bài đăng BĐS</strong> được phê duyệt hiển thị và <strong>05 tin tức thị trường</strong> được đồng bộ thành công lên trang chủ.
-                        </p>
-                        <div class="notif-meta">
-                            <span><i class="fa-regular fa-clock"></i> Hôm nay, 15:30</span>
-                            <span><i class="fa-solid fa-server"></i> Hệ thống tự động</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="notif-actions">
-                    <button class="action-icon-btn delete" title="Xóa thông báo" onclick="removeNotif(this)">
-                        <i class="fa-regular fa-trash-can"></i>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Item 4 -->
-            <div class="notif-item">
-                <div class="notif-left">
-                    <div class="notif-avatar icon-green">
-                        <i class="fa-solid fa-paper-plane"></i>
-                    </div>
-                    <div class="notif-content">
-                        <div class="notif-header">
-                            <span class="notif-title">[Đã phát] Quy chuẩn hình ảnh khi đăng bài cho thuê quý IV/2026</span>
-                            <span class="badge badge-sent">Gửi: Toàn bộ Tài khoản con</span>
-                        </div>
-                        <p class="notif-desc">
-                            Yêu cầu tất cả tài khoản doanh nghiệp con khi đăng bài phòng Studio hoặc Tòa nhà phải đính kèm tối thiểu 4 ảnh thực tế và ghi rõ chi phí dịch vụ điện, nước.
-                        </p>
-                        <div class="notif-meta">
-                            <span><i class="fa-regular fa-clock"></i> Hôm qua, 09:15</span>
-                            <span><i class="fa-solid fa-user-shield"></i> Người gửi: Admin (admin2006@gmail.com)</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="notif-actions">
-                    <button class="action-icon-btn delete" title="Xóa thông báo" onclick="removeNotif(this)">
-                        <i class="fa-regular fa-trash-can"></i>
-                    </button>
-                </div>
-            </div>
-
-            <div class="empty-state" id="emptyState">
+            <div class="empty-state" id="emptyStateFiltered" style="display: none;">
                 <i class="fa-regular fa-bell-slash" style="font-size: 36px; margin-bottom: 12px; color: #cbd5e1;"></i>
-                <p>Không tìm thấy thông báo nào phù hợp.</p>
+                <p>Không tìm thấy thông báo nào phù hợp với bộ lọc.</p>
             </div>
         </div>
     </main>
@@ -650,26 +603,73 @@
             }
         })();
 
-        function markRead(btn) {
+        async function markRead(btn, id) {
             const item = btn.closest('.notif-item');
             if (item) {
                 item.classList.remove('unread');
                 btn.remove();
             }
+            if (id) {
+                try {
+                    await fetch(`/api/admin/notifications/${id}/read`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            'Accept': 'application/json'
+                        }
+                    });
+                } catch (e) {
+                    console.error(e);
+                }
+            }
         }
 
-        function markAllAsRead() {
+        async function markAllAsRead() {
             document.querySelectorAll('.notif-item.unread').forEach(item => {
                 item.classList.remove('unread');
                 const checkBtn = item.querySelector('.action-icon-btn:not(.delete)');
                 if (checkBtn) checkBtn.remove();
             });
+            try {
+                await fetch('/api/admin/notifications/mark-all-read', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    }
+                });
+            } catch (e) {
+                console.error(e);
+            }
         }
 
-        function removeNotif(btn) {
+        async function removeNotif(btn, id) {
+            if (!confirm('Bạn có chắc chắn muốn xóa thông báo này?')) return;
             const item = btn.closest('.notif-item');
             if (item) {
                 item.remove();
+            }
+            checkEmptyState();
+            if (id) {
+                try {
+                    await fetch(`/api/admin/notifications/${id}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            'Accept': 'application/json'
+                        }
+                    });
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+        }
+
+        function checkEmptyState() {
+            const items = document.querySelectorAll('.notif-item');
+            const emptyEl = document.getElementById('emptyState');
+            if (emptyEl) {
+                emptyEl.style.display = items.length === 0 ? 'block' : 'none';
             }
         }
 
@@ -694,17 +694,20 @@
                 }
             });
 
-            document.getElementById('emptyState').style.display = visibleCount === 0 ? 'block' : 'none';
+            const emptyFiltered = document.getElementById('emptyStateFiltered');
+            if (emptyFiltered) {
+                emptyFiltered.style.display = (items.length > 0 && visibleCount === 0) ? 'block' : 'none';
+            }
         }
 
         function searchNotif() {
-            const keyword = document.getElementById('searchInput').value.toLowerCase();
+            const keyword = document.getElementById('searchInput').value.toLowerCase().trim();
             const items = document.querySelectorAll('.notif-item');
             let visibleCount = 0;
 
             items.forEach(item => {
                 const text = item.innerText.toLowerCase();
-                if (text.includes(keyword)) {
+                if (!keyword || text.includes(keyword)) {
                     item.style.display = 'flex';
                     visibleCount++;
                 } else {
@@ -712,7 +715,10 @@
                 }
             });
 
-            document.getElementById('emptyState').style.display = visibleCount === 0 ? 'block' : 'none';
+            const emptyFiltered = document.getElementById('emptyStateFiltered');
+            if (emptyFiltered) {
+                emptyFiltered.style.display = (items.length > 0 && visibleCount === 0) ? 'block' : 'none';
+            }
         }
     </script>
 </body>
