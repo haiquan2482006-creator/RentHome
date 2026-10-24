@@ -383,15 +383,6 @@
             <form action="/register" method="POST">
                 @csrf
                 
-                <div style="background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.35); border-radius: 14px; padding: 12px 16px; margin-bottom: 22px; display: flex; align-items: center; gap: 12px;">
-                    <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(34, 197, 94, 0.25); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #4ade80; font-size: 18px;">
-                        <i class="fa-solid fa-house-user"></i>
-                    </div>
-                    <div>
-                        <div style="font-size: 0.88rem; font-weight: 800; color: #ffffff;">Tài Khoản Cá Nhân (Người Thuê Nhà)</div>
-                        <div style="font-size: 0.75rem; color: #cbd5e1; margin-top: 2px;">Tài khoản Doanh nghiệp được quản lý và cấp trực tiếp dưới tên <b>RentHome</b>.</div>
-                    </div>
-                </div>
 
                 <div class="input-group">
                     <label class="input-label">Họ và tên / Tên hiển thị <span class="required-star">*</span></label>

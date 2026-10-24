@@ -10,9 +10,11 @@ class Post extends Model
     protected $collection = 'posts';
 
     protected $fillable = [
-        'user_id', 'parent_id', 'staff_id', 'title', 'description', 'price', 'price_unit', 'area', 
-        'province', 'district', 'ward', 'address', 'building_id','display_image',
-        'property_type', 'account_role', 'amenities', 'images', 'status'
+        'user_id', 'parent_id', 'staff_id', 'author_id', 'title', 'description', 'price', 'price_unit', 'area', 
+        'floor', 'floor_number', 'bedroom', 'bathroom',
+        'province', 'district', 'ward', 'address', 'building_id', 'display_image',
+        'property_type', 'account_role', 'amenities', 'images', 'status',
+        'approved_at', 'approved_by', 'rejected_at', 'rejected_by', 'reject_reason'
     ];
 
     protected $casts = [

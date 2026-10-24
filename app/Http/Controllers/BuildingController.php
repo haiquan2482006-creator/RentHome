@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Building;
 use App\Models\User;
 use App\Models\Post;
+use App\Models\Room;
 use App\Models\Contract;
 use App\Models\Notification;
 use App\Models\Invoice;
@@ -33,7 +34,7 @@ class BuildingController extends Controller
     public function adminView()
     {
         $user = Auth::user();
-        if ($user && ($user->isSubAccount() || $user->role === 'sub_account' || $user->role === 'staff' || !empty($user->parent_id))) {
+        if ($user && ($user->isSubAccount() || in_array($user->role, ['sub_account', 'staff', 'nhansu', 'nhan su', 'nhan_su']) || !empty($user->parent_id))) {
             return redirect('/Overview?tab=buildings');
         }
 
@@ -49,6 +50,9 @@ class BuildingController extends Controller
             $staffList = User::where(function($q) {
                     $q->where('role', 'staff')
                       ->orWhere('role', 'sub_account')
+                      ->orWhere('role', 'nhansu')
+                      ->orWhere('role', 'nhan su')
+                      ->orWhere('role', 'nhan_su')
                       ->orWhere('role', 'doanhnghiep')
                       ->orWhere('role', 'enterprise')
                       ->orWhereNotNull('parent_id');
@@ -105,8 +109,50 @@ class BuildingController extends Controller
                     } catch (\Exception $e) {}
                 }
 
-                // Đếm số phòng bài đăng đã tạo thuộc tòa này
-                $b->actual_rooms_count = Post::where('building_id', $bId)->count();
+                // Đếm số bài đăng (nhà/phòng) và hợp đồng đang thuê thuộc tòa nhà này
+                $bPostsQuery = Post::where('building_id', $bId);
+                if (strlen($bId) === 24 && ctype_xdigit($bId)) {
+                    try {
+                        $bPostsQuery = $bPostsQuery->orWhere('building_id', new \MongoDB\BSON\ObjectId($bId));
+                    } catch (\Exception $e) {}
+                }
+                $postsList = $bPostsQuery->where(function($q) {
+                    $q->whereNull('is_deleted')->orWhere('is_deleted', false);
+                })->get();
+
+                $postIds = $postsList->map(fn($p) => (string)($p->_id ?? $p->id))->filter()->toArray();
+                $postsTotalInColl = count($postIds);
+
+                $bRoomsCount = Room::where('building_id', $bId);
+                if (strlen($bId) === 24 && ctype_xdigit($bId)) {
+                    try {
+                        $bRoomsCount = $bRoomsCount->orWhere('building_id', new \MongoDB\BSON\ObjectId($bId));
+                    } catch (\Exception $e) {}
+                }
+                $roomsTotalInColl = $bRoomsCount->count();
+
+                $actualUnits = max($roomsTotalInColl, $postsTotalInColl);
+
+                // Đếm số phòng/nhà đang cho thuê
+                $activeContractsCount = 0;
+                if (!empty($postIds)) {
+                    $activeContractsCount = Contract::whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly', 'da_huy'])
+                        ->where(function($q) use ($postIds, $bId) {
+                            $q->whereIn('post_id', $postIds)
+                              ->orWhereIn('room_id', $postIds)
+                              ->orWhere('building_id', $bId);
+                        })->count();
+                }
+                $rentedPostsCount = $postsList->filter(function($p) {
+                    return $p->is_rented === true || in_array($p->status, ['đã cho thuê', 'rented', 'dang_thue']);
+                })->count();
+
+                $activeRentCount = max($activeContractsCount, $rentedPostsCount);
+
+                $b->actual_rooms_count = $actualUnits;
+                $b->actual_posts_count = $actualUnits;
+                $b->active_rent_count = $activeRentCount;
+                $b->can_delete = ($actualUnits === 0 && $activeRentCount === 0);
 
                 return $b;
             });
@@ -183,6 +229,9 @@ class BuildingController extends Controller
                 $assignedStaff = User::where(function($q) {
                         $q->where('role', 'staff')
                           ->orWhere('role', 'sub_account')
+                          ->orWhere('role', 'nhansu')
+                          ->orWhere('role', 'nhan su')
+                          ->orWhere('role', 'nhan_su')
                           ->orWhereNotNull('parent_id');
                     })
                     ->where(function($q) use ($id) {
@@ -252,13 +301,14 @@ class BuildingController extends Controller
                 'ward' => 'nullable|string',
                 'address_detail' => 'required|string',
 
-                // Nhóm 2: Bảng giá dịch vụ mặc định (chỉ bắt buộc nếu không phải BĐS Đơn Lập / Nhà liền kề: nha_rieng, cum_nha_lien_ke, dat_nen, dat_phan_lo)
-                'electricity_price' => 'required_unless:type,cum_nha_lien_ke,nha_rieng,dat_nen,nha_nguyen_can,dat_phan_lo,Đất nền,Nhà ở / Nhà riêng lẻ,Cụm nhà liền kề / Dự án,Mặt bằng kinh doanh,Đất phân lô|nullable|numeric|min:0',
-                'water_price' => 'required_unless:type,cum_nha_lien_ke,nha_rieng,dat_nen,nha_nguyen_can,dat_phan_lo,Đất nền,Nhà ở / Nhà riêng lẻ,Cụm nhà liền kề / Dự án,Mặt bằng kinh doanh,Đất phân lô|nullable|numeric|min:0',
+                // Nhóm 2: Bảng giá dịch vụ mặc định (Không bắt buộc, có thể để trống hoặc theo giá nhà nước)
+                'electricity_price' => 'nullable|numeric|min:0',
+                'water_price' => 'nullable|numeric|min:0',
                 'water_calc_type' => 'nullable|string|in:m3,person',
                 'service_fee' => 'nullable|numeric|min:0',
                 'internet_fee' => 'nullable|numeric|min:0',
                 'parking_fee' => 'nullable|numeric|min:0',
+                'has_service_pricing' => 'nullable',
 
                 // Nhóm 3: Tiện ích & Quy mô
                 'total_floors' => 'nullable|numeric|min:1',
@@ -280,9 +330,7 @@ class BuildingController extends Controller
                 'province.required' => 'Vui lòng chọn Tỉnh / Thành phố.',
                 'district.required' => 'Vui lòng chọn Quận / Huyện.',
                 'address_detail.required' => 'Vui lòng nhập số nhà / tên đường.',
-                'electricity_price.required_unless' => 'Vui lòng nhập đơn giá điện.',
                 'electricity_price.numeric' => 'Đơn giá điện phải là số.',
-                'water_price.required_unless' => 'Vui lòng nhập đơn giá nước.',
                 'water_price.numeric' => 'Đơn giá nước phải là số.',
                 'images.max' => 'Bạn chỉ được chọn tối đa 5 ảnh cho mỗi cơ sở / tòa nhà.',
             ]);
@@ -308,6 +356,10 @@ class BuildingController extends Controller
                 'nha_rieng', 'dat_phan_lo', 'cum_nha_lien_ke', 'nha_nguyen_can', 'nhà ở / nhà riêng lẻ', 'đất phân lô / đất nền', 'đất phân lô', 'cụm nhà liền kề / dự án'
             ]));
 
+            $hasServicePricing = $request->has('has_service_pricing')
+                ? $request->boolean('has_service_pricing')
+                : (!$isSingleProperty && ($request->filled('electricity_price') || $request->filled('water_price')));
+
             // Dữ liệu chuẩn bị lưu vào MongoDB
             $data = [
                 'name' => trim($validated['name']),
@@ -319,12 +371,13 @@ class BuildingController extends Controller
                 'ward' => !empty($validated['ward']) ? trim($validated['ward']) : '',
                 'address_detail' => trim($validated['address_detail']),
 
-                'electricity_price' => (!$isSingleProperty && isset($validated['electricity_price']) && $validated['electricity_price'] !== '') ? (float)$validated['electricity_price'] : 0,
-                'water_price' => (!$isSingleProperty && isset($validated['water_price']) && $validated['water_price'] !== '') ? (float)$validated['water_price'] : 0,
+                'has_service_pricing' => $hasServicePricing,
+                'electricity_price' => ($hasServicePricing && $request->filled('electricity_price')) ? (float)$validated['electricity_price'] : null,
+                'water_price' => ($hasServicePricing && $request->filled('water_price')) ? (float)$validated['water_price'] : null,
                 'water_calc_type' => $validated['water_calc_type'] ?? 'm3',
-                'service_fee' => (!$isSingleProperty && isset($validated['service_fee'])) ? (float)$validated['service_fee'] : 0,
-                'internet_fee' => (!$isSingleProperty && isset($validated['internet_fee'])) ? (float)$validated['internet_fee'] : 0,
-                'parking_fee' => (!$isSingleProperty && isset($validated['parking_fee'])) ? (float)$validated['parking_fee'] : 0,
+                'service_fee' => ($hasServicePricing && $request->filled('service_fee')) ? (float)$validated['service_fee'] : null,
+                'internet_fee' => ($hasServicePricing && $request->filled('internet_fee')) ? (float)$validated['internet_fee'] : null,
+                'parking_fee' => ($hasServicePricing && $request->filled('parking_fee')) ? (float)$validated['parking_fee'] : null,
 
                 'total_floors' => !empty($validated['total_floors']) ? (int)$validated['total_floors'] : 1,
                 'total_rooms' => !empty($validated['total_rooms']) ? (int)$validated['total_rooms'] : 1,
@@ -541,12 +594,13 @@ class BuildingController extends Controller
                 'ward' => 'nullable|string',
                 'address_detail' => 'required|string',
 
-                'electricity_price' => 'required_unless:type,cum_nha_lien_ke,nha_rieng,dat_nen,nha_nguyen_can,dat_phan_lo,Đất nền,Nhà ở / Nhà riêng lẻ,Cụm nhà liền kề / Dự án,Mặt bằng kinh doanh,Đất phân lô|nullable|numeric|min:0',
-                'water_price' => 'required_unless:type,cum_nha_lien_ke,nha_rieng,dat_nen,nha_nguyen_can,dat_phan_lo,Đất nền,Nhà ở / Nhà riêng lẻ,Cụm nhà liền kề / Dự án,Mặt bằng kinh doanh,Đất phân lô|nullable|numeric|min:0',
+                'electricity_price' => 'nullable|numeric|min:0',
+                'water_price' => 'nullable|numeric|min:0',
                 'water_calc_type' => 'nullable|string|in:m3,person',
                 'service_fee' => 'nullable|numeric|min:0',
                 'internet_fee' => 'nullable|numeric|min:0',
                 'parking_fee' => 'nullable|numeric|min:0',
+                'has_service_pricing' => 'nullable',
 
                 'total_floors' => 'nullable|numeric|min:1',
                 'total_rooms' => 'nullable|numeric|min:1',
@@ -565,8 +619,6 @@ class BuildingController extends Controller
                 'province.required' => 'Vui lòng chọn Tỉnh / Thành phố.',
                 'district.required' => 'Vui lòng chọn Quận / Huyện.',
                 'address_detail.required' => 'Vui lòng nhập số nhà / tên đường.',
-                'electricity_price.required_unless' => 'Vui lòng nhập đơn giá điện.',
-                'water_price.required_unless' => 'Vui lòng nhập đơn giá nước.',
                 'images.max' => 'Bạn chỉ được lưu tối đa 5 ảnh cho mỗi cơ sở / tòa nhà.',
             ]);
 
@@ -628,12 +680,17 @@ class BuildingController extends Controller
             $building->ward = !empty($validated['ward']) ? trim($validated['ward']) : '';
             $building->address_detail = trim($validated['address_detail']);
 
-            $building->electricity_price = (!$isSingleProperty && isset($validated['electricity_price']) && $validated['electricity_price'] !== '') ? (float)$validated['electricity_price'] : 0;
-            $building->water_price = (!$isSingleProperty && isset($validated['water_price']) && $validated['water_price'] !== '') ? (float)$validated['water_price'] : 0;
+            $hasServicePricing = $request->has('has_service_pricing')
+                ? $request->boolean('has_service_pricing')
+                : (!$isSingleProperty && ($request->filled('electricity_price') || $request->filled('water_price')));
+
+            $building->has_service_pricing = $hasServicePricing;
+            $building->electricity_price = ($hasServicePricing && $request->filled('electricity_price')) ? (float)$validated['electricity_price'] : null;
+            $building->water_price = ($hasServicePricing && $request->filled('water_price')) ? (float)$validated['water_price'] : null;
             $building->water_calc_type = $validated['water_calc_type'] ?? 'm3';
-            $building->service_fee = (!$isSingleProperty && isset($validated['service_fee'])) ? (float)$validated['service_fee'] : 0;
-            $building->internet_fee = (!$isSingleProperty && isset($validated['internet_fee'])) ? (float)$validated['internet_fee'] : 0;
-            $building->parking_fee = (!$isSingleProperty && isset($validated['parking_fee'])) ? (float)$validated['parking_fee'] : 0;
+            $building->service_fee = ($hasServicePricing && $request->filled('service_fee')) ? (float)$validated['service_fee'] : null;
+            $building->internet_fee = ($hasServicePricing && $request->filled('internet_fee')) ? (float)$validated['internet_fee'] : null;
+            $building->parking_fee = ($hasServicePricing && $request->filled('parking_fee')) ? (float)$validated['parking_fee'] : null;
 
             if (isset($validated['total_floors'])) {
                 $building->total_floors = (int)$validated['total_floors'];
@@ -924,6 +981,11 @@ class BuildingController extends Controller
 
     /**
      * API: Xóa Tòa nhà / Cơ sở khỏi MongoDB
+     * Áp dụng quy tắc bảo vệ dữ liệu tuyệt đối (Hard Block):
+     * - Quy tắc 1: CHẶN TUYỆT ĐỐI nếu tòa nhà đang chứa bất kỳ phòng nào (bất kể đang thuê hay đang trống).
+     *   Query vào collection rooms (và posts) để đếm số phòng thuộc building_id.
+     *   Nếu count > 0, lập tức trả về HTTP 400 kèm message chứa số lượng phòng.
+     * - Quy tắc 2: Chỉ cho phép XÓA khi tòa nhà trống không hoàn toàn (count == 0). Trả về HTTP 200 Success.
      */
     public function destroy($id)
     {
@@ -937,10 +999,7 @@ class BuildingController extends Controller
                 return response()->json(['success' => false, 'message' => 'Chỉ Ban Quản Trị mới có quyền xóa tòa nhà!'], 403);
             }
 
-            $building = Building::where('_id', $id)->first();
-            if (!$building) {
-                $building = Building::find($id);
-            }
+            $building = Building::where('_id', $id)->first() ?: Building::find($id);
 
             if (!$building) {
                 return response()->json(['success' => false, 'message' => 'Không tìm thấy tòa nhà cần xóa!'], 404);
@@ -949,87 +1008,112 @@ class BuildingController extends Controller
             $bName = $building->name;
             $bId = (string)($building->_id ?? $building->id);
 
-            // 1. Tìm toàn bộ các Phòng / Bài đăng (Lớp Ruột) thuộc tòa nhà này
-            // Hỗ trợ cả building_id dạng String và ObjectId trong MongoDB
-            $childPosts = Post::where('building_id', $bId);
-            try {
+            // 1. Query vào collection 'posts' để tìm toàn bộ các Nhà / Căn hộ / Phòng (Bài đăng) thuộc tòa nhà này
+            $postsQuery = Post::where(function($q) use ($bId) {
+                $q->where('building_id', $bId);
                 if (strlen($bId) === 24 && ctype_xdigit($bId)) {
-                    $childPosts = $childPosts->orWhere('building_id', new \MongoDB\BSON\ObjectId($bId));
+                    try {
+                        $q->orWhere('building_id', new \MongoDB\BSON\ObjectId($bId));
+                    } catch (\Exception $e) {}
                 }
-            } catch (\Exception $ex) {}
-            $postsList = $childPosts->get();
+            })->where(function($q) {
+                $q->whereNull('is_deleted')->orWhere('is_deleted', false);
+            });
+            $postsList = $postsQuery->get();
+            $postIds = $postsList->map(fn($p) => (string)($p->_id ?? $p->id))->filter()->toArray();
+            $postsCount = count($postIds);
 
-            $postIds = [];
-            foreach ($postsList as $p) {
-                $postIds[] = (string)($p->_id ?? $p->id);
-            }
-            $postIds = array_values(array_filter(array_unique($postIds)));
-            $deletedRoomsCount = count($postIds);
+            // 2. Đồng thời kiểm tra collection 'rooms'
+            $roomsQuery = Room::where(function($q) use ($bId) {
+                $q->where('building_id', $bId);
+                if (strlen($bId) === 24 && ctype_xdigit($bId)) {
+                    try {
+                        $q->orWhere('building_id', new \MongoDB\BSON\ObjectId($bId));
+                    } catch (\Exception $e) {}
+                }
+            });
+            $roomsCount = $roomsQuery->count();
 
-            // 2. Cascade Delete: Xóa toàn bộ dữ liệu phụ thuộc (hợp đồng, hóa đơn, liên hệ, yêu thích)
+            // Tổng số nhà (bài đăng) thực tế liên kết với tòa nhà
+            $totalHouses = max($postsCount, $roomsCount);
+
+            // 3. Kiểm tra số lượng hợp đồng thuê đang hoạt động (active contracts) và bài đăng đang thuê
+            $activeContractsCount = 0;
             if (!empty($postIds)) {
-                // Xóa hợp đồng thuộc các phòng / bài đăng này
-                Contract::whereIn('post_id', $postIds)
-                    ->orWhereIn('room_id', $postIds)
-                    ->delete();
+                $activeContractsCount = Contract::whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly', 'da_huy'])
+                    ->where(function($q) use ($postIds, $bId) {
+                        $q->whereIn('post_id', $postIds)
+                          ->orWhereIn('room_id', $postIds)
+                          ->orWhere('building_id', $bId);
+                    })->count();
+            }
+            $rentedPostsCount = $postsList->filter(function($p) {
+                return $p->is_rented === true || in_array($p->status, ['đã cho thuê', 'rented', 'dang_thue']);
+            })->count();
+            $totalRented = max($activeContractsCount, $rentedPostsCount);
 
-                // Xóa hóa đơn thuộc các phòng / bài đăng này
-                Invoice::whereIn('post_id', $postIds)
-                    ->orWhereIn('room_id', $postIds)
-                    ->delete();
+            // =========================================================================
+            // QUY TẮC BẢO VỆ DỮ LIỆU TUYỆT ĐỐI (HARD BLOCK):
+            // CHẶN TUYỆT ĐỐI NẾU TÒA NHÀ CÒN BÀI ĐĂNG HOẶC ĐANG CÓ PHÒNG THUÊ
+            // =========================================================================
+            if ($totalHouses > 0 || $totalRented > 0) {
+                $reasons = [];
+                if ($totalHouses > 0) {
+                    $reasons[] = "{$totalHouses} bài đăng / căn nhà";
+                }
+                if ($totalRented > 0) {
+                    $reasons[] = "{$totalRented} căn đang có hợp đồng thuê";
+                }
+                $reasonDesc = implode(' và ', $reasons);
 
-                // Xóa danh sách yêu thích
-                Favorite::whereIn('post_id', $postIds)->delete();
-
-                // Xóa liên hệ / hẹn xem phòng
-                Contact::whereIn('post_id', $postIds)->delete();
-
-                // Xóa toàn bộ Phòng / Bài đăng (Lớp Ruột) thuộc tòa nhà
-                $childPostsQuery = Post::where('building_id', $bId);
-                try {
-                    if (strlen($bId) === 24 && ctype_xdigit($bId)) {
-                        $childPostsQuery = $childPostsQuery->orWhere('building_id', new \MongoDB\BSON\ObjectId($bId));
-                    }
-                } catch (\Exception $ex) {}
-                $childPostsQuery->delete();
-
-                // Xóa toàn bộ ảnh thuộc các bài đăng con trong collection images
-                Image::where('target_type', 'post')->whereIn('target_id', $postIds)->delete();
+                return response()->json([
+                    'success'       => false,
+                    'error_code'    => 'BUILDING_NOT_EMPTY',
+                    'houses_count'  => $totalHouses,
+                    'posts_count'   => $totalHouses,
+                    'rooms_count'   => $totalHouses,
+                    'rented_count'  => $totalRented,
+                    'message'       => "🚨 Không thể xóa! Tòa nhà này đang chứa {$reasonDesc} ở bên trong. Bạn phải thanh lý hợp đồng và xóa toàn bộ bài đăng/nhà trước khi có thể xóa tòa nhà này."
+                ], 400);
             }
 
-            // Xóa toàn bộ ảnh có target_type = 'building' thuộc tòa nhà đó trong collection images
-            Image::where('target_type', 'building')->where('target_id', $bId)->delete();
+            // =========================================================================
+            // QUY TẮC 2: CHỈ CHO PHÉP XÓA KHI TÒA NHÀ TRỐNG KHÔNG HOÀN TOÀN (count == 0)
+            // =========================================================================
 
-            // Đồng thời dọn dẹp nếu có hợp đồng/hóa đơn gắn trực tiếp theo building_id (nếu có)
-            try {
-                Contract::where('building_id', $bId)->delete();
-                Invoice::where('building_id', $bId)->delete();
-            } catch (\Exception $ex) {}
-
-            // 3. Gỡ bỏ ID tòa nhà này khỏi assigned_buildings của các nhân viên
+            // Gỡ bỏ ID tòa nhà này khỏi assigned_buildings của các nhân viên
             User::where('assigned_buildings', $bId)->get()->each(function($u) use ($bId) {
                 $assigned = array_diff((array)$u->assigned_buildings, [$bId]);
                 $u->assigned_buildings = array_values($assigned);
                 $u->save();
             });
 
-            // 4. Xóa Tòa nhà (Lớp Vỏ)
+            // Xóa ảnh của tòa nhà trong collection images
+            Image::where('target_type', 'building')->where('target_id', $bId)->delete();
+
+            // Dọn dẹp dữ liệu hợp đồng / hóa đơn mồ côi nếu có gắn trực tiếp building_id
+            try {
+                Contract::where('building_id', $bId)->delete();
+                Invoice::where('building_id', $bId)->delete();
+            } catch (\Exception $ex) {}
+
+            // Xóa Tòa nhà (Lớp Vỏ)
             $building->delete();
 
-            // 5. Ghi lại nhật ký quản trị
+            // Ghi lại nhật ký quản trị
             AdminActivity::log(
                 'delete',
                 'building',
                 "Xóa tòa nhà \"{$bName}\"",
-                "Đã xóa vĩnh viễn tòa nhà \"{$bName}\" và đồng bộ xóa sạch {$deletedRoomsCount} phòng/bài đăng liên quan (Cascade Delete).",
+                "Đã xóa thành công tòa nhà \"{$bName}\" (tòa nhà trống không chứa bất kỳ phòng nào bên trong).",
                 $building,
-                ['building_id' => $bId, 'deleted_rooms_count' => $deletedRoomsCount]
+                ['building_id' => $bId, 'rooms_count' => 0]
             );
 
             return response()->json([
                 'success' => true,
-                'message' => "Đã xóa thành công tòa nhà \"{$bName}\" và toàn bộ {$deletedRoomsCount} phòng thuộc tòa nhà!"
-            ]);
+                'message' => "Đã xóa thành công tòa nhà \"{$bName}\"!"
+            ], 200);
 
         } catch (\Exception $e) {
             Log::error('Lỗi xóa tòa nhà: ' . $e->getMessage());
@@ -1080,7 +1164,7 @@ class BuildingController extends Controller
             $activeContractPostIds = [];
             $activeContractMap = [];
             if (!empty($roomIds)) {
-                $contracts = Contract::where('status', '!=', 'cancelled')
+                $contracts = Contract::whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly'])
                     ->where(function($q) use ($roomIds) {
                         $q->whereIn('post_id', $roomIds)
                           ->orWhereIn('room_id', $roomIds);
@@ -1173,7 +1257,7 @@ class BuildingController extends Controller
 
         // Lấy thông tin hợp đồng
         $postIds = $posts->map(fn($p) => (string)($p->_id ?? $p->id))->filter()->toArray();
-        $contracts = Contract::where('status', '!=', 'cancelled')
+        $contracts = Contract::whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly'])
             ->where(function($q) use ($postIds) {
                 $q->whereIn('post_id', $postIds)
                   ->orWhereIn('room_id', $postIds);
@@ -1257,16 +1341,21 @@ class BuildingController extends Controller
 
         // Xác định tên loại hình
         $typeMap = [
-            'can_ho_dich_vu'   => 'Khu căn hộ dịch vụ',
-            'chung_cu_mini'    => 'Khu căn hộ mini',
-            'day_tro'          => 'Dãy phòng trọ',
+            'can_ho'           => 'Chung cư mini / Căn hộ dịch vụ',
+            'can_ho_dich_vu'   => 'Chung cư mini / Căn hộ dịch vụ',
+            'chung_cu_mini'    => 'Chung cư mini / Căn hộ dịch vụ',
+            'nha_tro'          => 'Nhà trọ / Khu trọ',
+            'day_tro'          => 'Nhà trọ / Khu trọ',
+            'ky_tuc_xa'        => 'Ký túc xá / Sleepbox',
+            'nha_rieng'        => 'Nhà ở / Nhà riêng lẻ',
+            'nha_nguyen_can'   => 'Nhà ở / Nhà riêng lẻ',
+            'cum_nha_lien_ke'  => 'Cụm nhà liền kề / Dự án',
+            'dat_phan_lo'      => 'Đất phân lô / Đất nền',
+            'dat_nen'          => 'Mặt bằng kinh doanh / Đất nền',
             'toa_nha_van_phong'=> 'Tòa nhà văn phòng',
-            'nha_nguyen_can'   => 'Nhà nguyên căn',
-            'cum_nha_lien_ke'  => 'Cụm nhà liền kề',
-            'dat_phan_lo'      => 'Đất phân lô',
-            'dat_nen'          => 'Mặt bằng kinh doanh',
         ];
-        $typeText = $typeMap[$building->type] ?? ($building->type ?? 'Khu căn hộ mini');
+        $rawType = $building->type ?? $building->business_type ?? '';
+        $typeText = $typeMap[$rawType] ?? ($rawType ?: 'Chung cư mini / Căn hộ dịch vụ');
 
         return [
             'building'    => $building,

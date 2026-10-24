@@ -11,6 +11,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
     <style>
         :root {
             --brand-primary: #0284c7;
@@ -43,6 +46,24 @@
             margin: 0;
             padding: 0;
             font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+        }
+
+        /* SweetAlert2 Custom Styling */
+        .swal2-popup.swal2-custom-popup {
+            border-radius: 18px !important;
+            font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif !important;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+            padding: 24px !important;
+        }
+        .swal2-title {
+            font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif !important;
+            letter-spacing: -0.01em;
+        }
+        .swal2-styled.swal2-confirm, .swal2-styled.swal2-cancel {
+            border-radius: 10px !important;
+            font-weight: 700 !important;
+            padding: 10px 22px !important;
+            font-size: 0.9rem !important;
         }
 
         body {
@@ -599,6 +620,46 @@
             margin-bottom: 12px;
         }
 
+        /* Switch Toggle cho Bảng giá dịch vụ Nhóm 2 */
+        .service-pricing-switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+        .service-pricing-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .service-pricing-slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background-color: #cbd5e1;
+            transition: .25s ease-in-out;
+            border-radius: 9999px;
+        }
+        .service-pricing-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .25s ease-in-out;
+            border-radius: 50%;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+        }
+        .service-pricing-switch input:checked + .service-pricing-slider {
+            background-color: var(--brand-primary);
+        }
+        .service-pricing-switch input:checked + .service-pricing-slider:before {
+            transform: translateX(20px);
+        }
+
         .form-group {
             margin-bottom: 12px;
         }
@@ -1074,7 +1135,10 @@
                                 data-name="{{ strtolower($b->name ?? '') }}" 
                                 data-address="{{ strtolower($b->full_address ?? '') }}"
                                 data-type="{{ strtolower($bType) }}"
-                                data-manager="{{ strtolower($manager->account_name ?? ($manager->username ?? '')) }}">
+                                data-manager="{{ strtolower($manager->account_name ?? ($manager->username ?? '')) }}"
+                                data-posts-count="{{ (int)($b->actual_posts_count ?? 0) }}"
+                                data-rented-count="{{ (int)($b->active_rent_count ?? 0) }}"
+                                data-can-delete="{{ !empty($b->can_delete) ? '1' : '0' }}">
                                 
                                 {{-- CỘT 1 (Cơ Sở): Ảnh bìa, Tên Tòa nhà và Phân loại --}}
                                 <td>
@@ -1140,30 +1204,48 @@
                                                 <span class="price-val" style="color: var(--brand-primary);">Nhà riêng lẻ</span>
                                             </div>
                                         @endif
-                                        @if($isLienKe)
-                                            <div class="price-item">
-                                                <i class="fa-solid fa-bolt" style="color: #f59e0b; width: 14px;"></i>
-                                                <span>Điện, Nước:</span>
-                                                <span class="price-val" style="color: var(--text-muted); font-size: 0.725rem;">Hộ gia đình tự thanh toán</span>
-                                            </div>
-                                        @elseif(!$isLand && !$isHouse)
+                                        @php
+                                            $hasElec = !is_null($b->electricity_price) && $b->electricity_price !== '' && (float)$b->electricity_price > 0;
+                                            $hasWater = !is_null($b->water_price) && $b->water_price !== '' && (float)$b->water_price > 0;
+                                            $isPricingExplicit = isset($b->has_service_pricing) && $b->has_service_pricing !== null ? (bool)$b->has_service_pricing : null;
+                                            $hasServiceActive = ($isPricingExplicit === true) || ($isPricingExplicit === null && ($hasElec || $hasWater));
+                                        @endphp
+                                        @if($hasServiceActive && ($hasElec || $hasWater))
                                             <div class="price-item">
                                                 <i class="fa-solid fa-bolt" style="color: #f59e0b; width: 14px;"></i>
                                                 <span>Điện:</span>
-                                                <span class="price-val">{{ number_format($b->electricity_price ?? 3500) }} đ/kWh</span>
+                                                <span class="price-val">{{ $hasElec ? (number_format($b->electricity_price) . ' đ/kWh') : 'Theo giá nhà nước' }}</span>
                                             </div>
                                             <div class="price-item">
                                                 <i class="fa-solid fa-droplet" style="color: #0284c7; width: 14px;"></i>
                                                 <span>Nước:</span>
                                                 <span class="price-val">
-                                                    {{ number_format($b->water_price ?? 25000) }} đ/{{ ($b->water_calc_type ?? 'm3') === 'person' ? 'người' : 'm³' }}
+                                                    {{ $hasWater ? (number_format($b->water_price) . ' đ/' . (($b->water_calc_type ?? 'm3') === 'person' ? 'người' : 'm³')) : 'Theo giá nhà nước' }}
                                                 </span>
+                                            </div>
+                                        @elseif($isLienKe)
+                                            <div class="price-item">
+                                                <i class="fa-solid fa-bolt" style="color: #f59e0b; width: 14px;"></i>
+                                                <span>Điện, Nước:</span>
+                                                <span class="price-val" style="color: var(--text-muted); font-size: 0.725rem;">Hộ gia đình tự thanh toán</span>
                                             </div>
                                         @elseif($isHouse)
                                             <div class="price-item">
                                                 <i class="fa-solid fa-bolt" style="color: #f59e0b; width: 14px;"></i>
                                                 <span>Điện, Nước:</span>
                                                 <span class="price-val" style="color: var(--text-muted); font-size: 0.725rem;">Theo giá nhà nước</span>
+                                            </div>
+                                        @elseif($isLand)
+                                            <div class="price-item">
+                                                <i class="fa-solid fa-receipt" style="color: #64748b; width: 14px;"></i>
+                                                <span>Dịch vụ:</span>
+                                                <span class="price-val" style="color: var(--text-muted); font-size: 0.725rem;">Không áp dụng</span>
+                                            </div>
+                                        @else
+                                            <div class="price-item">
+                                                <i class="fa-solid fa-receipt" style="color: #64748b; width: 14px;"></i>
+                                                <span>Điện, Nước:</span>
+                                                <span class="price-val" style="color: var(--text-muted); font-size: 0.725rem;">Theo giá nhà nước / Thỏa thuận</span>
                                             </div>
                                         @endif
                                     </div>
@@ -1225,7 +1307,10 @@
                                         <button type="button" class="btn-act" onclick="openEditModal('{{ $bId }}')" title="Chỉnh sửa tòa nhà">
                                             <i class="fa-solid fa-pen-to-square"></i>
                                         </button>
-                                        <button type="button" class="btn-act btn-act-danger" onclick="deleteBuilding('{{ $bId }}', '{{ addslashes($b->name) }}')" title="Xóa tòa nhà">
+                                        <button type="button" 
+                                                class="btn-act btn-act-danger" 
+                                                onclick="deleteBuilding('{{ $bId }}', '{{ addslashes($b->name) }}', {{ (int)($b->actual_posts_count ?? 0) }}, {{ (int)($b->active_rent_count ?? 0) }})" 
+                                                title="{{ !empty($b->can_delete) ? 'Xóa tòa nhà' : 'Tòa nhà đang có ' . ($b->actual_posts_count ?? 0) . ' bài đăng - Không thể xóa' }}">
                                             <i class="fa-solid fa-trash-can"></i>
                                         </button>
                                     </div>
@@ -1325,84 +1410,107 @@
 
                     <!-- NHÓM 2: BẢNG GIÁ DỊCH VỤ DÙNG CHUNG (Tuyệt đối không có trường Giá Thuê Phòng) -->
                     <div class="form-section-card" id="group2PricingSection">
-                        <div class="form-section-title">
+                        <div class="form-section-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
                             <span><i class="fa-solid fa-receipt"></i> Nhóm 2: Bảng Giá Dịch Vụ Dùng Chung</span>
-                            <span style="font-size: 0.725rem; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 6px; text-transform: none; font-weight: 700;">
-                                Áp dụng chung cho cả tòa
+                            <span id="service_pricing_badge" style="font-size: 0.725rem; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 6px; text-transform: none; font-weight: 700;">
+                                Áp dụng chung cho cả cơ sở
                             </span>
                         </div>
 
-                        <div class="notice-banner">
-                            <i class="fa-solid fa-circle-info" style="font-size: 1.15rem; flex-shrink: 0; color: #0284c7;"></i>
-                            <div>
-                                <strong>Lưu ý nghiệp vụ Lớp Vỏ:</strong> Tòa nhà chỉ cấu hình bảng giá dịch vụ dùng chung (Điện, Nước, Dịch vụ, Internet, Gửi xe). <strong>Tuyệt đối không có trường "Giá thuê phòng"</strong> tại đây. Giá thuê và đặt cọc được quản lý độc lập tại từng phòng con (Lớp Ruột).
-                            </div>
+                        <!-- 1. Công tắc Bật/Tắt Bảng giá dịch vụ -->
+                        <div class="service-toggle-box" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; margin-bottom: 14px; transition: all 0.2s ease;">
+                            <label for="apply_service_pricing" style="display: flex; align-items: center; gap: 12px; cursor: pointer; font-size: 0.875rem; font-weight: 700; color: #1e293b; user-select: none; margin-bottom: 0;">
+                                <label class="service-pricing-switch">
+                                    <input type="checkbox" id="apply_service_pricing" name="apply_service_pricing" value="1" checked onchange="toggleServicePricing(this.checked)">
+                                    <span class="service-pricing-slider"></span>
+                                </label>
+                                <span>Áp dụng thu phí dịch vụ chung cho cơ sở này</span>
+                            </label>
+                            <span id="service_toggle_status" style="font-size: 0.725rem; font-weight: 700; color: #059669; background: #ecfdf5; padding: 4px 10px; border-radius: 9999px; border: 1px solid #a7f3d0; display: inline-flex; items-center; gap: 4px;">
+                                <i class="fa-solid fa-circle-check"></i> Đang bật
+                            </span>
                         </div>
 
-                        <div class="form-row-3">
-                            <div class="form-group">
-                                <label class="form-label" for="b_electricity_price">Đơn giá Điện <span style="color: var(--accent-red)">*</span></label>
-                                <div class="input-group-unit">
-                                    <input type="number" id="b_electricity_price" class="form-input" placeholder="VD: 3500" min="0" step="100" required>
-                                    <span class="unit-label">đ/kWh</span>
-                                </div>
-                                <div class="money-vnd-hint" id="hint_b_electricity_price">
-                                    <div class="hint-main"><i class="fa-solid fa-coins"></i> Ghi chú: <strong class="vnd-text">-- VNĐ</strong> / kWh</div>
-                                    <span class="vnd-words">Chưa nhập số tiền</span>
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label" for="b_water_price">Đơn giá Nước <span style="color: var(--accent-red)">*</span></label>
-                                <div class="input-group-unit">
-                                    <input type="number" id="b_water_price" class="form-input" placeholder="VD: 25000" min="0" step="500" required>
-                                    <span class="unit-label" id="waterUnitLabel">đ/m³</span>
-                                </div>
-                                <div class="money-vnd-hint" id="hint_b_water_price">
-                                    <div class="hint-main"><i class="fa-solid fa-coins"></i> Ghi chú: <strong class="vnd-text">-- VNĐ</strong> / m³</div>
-                                    <span class="vnd-words">Chưa nhập số tiền</span>
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label" for="b_water_calc_type">Cách tính tiền nước</label>
-                                <select id="b_water_calc_type" class="form-select">
-                                    <option value="m3">Tính theo khối (m³)</option>
-                                    <option value="person">Tính theo đầu người / tháng</option>
-                                </select>
-                            </div>
+                        <!-- Thông báo khi tắt công tắc -->
+                        <div id="service_pricing_disabled_notice" style="display: none; padding: 12px 16px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; margin-bottom: 14px; font-size: 0.8rem; color: #92400e; line-height: 1.5;">
+                            <i class="fa-solid fa-circle-info" style="color: #d97706; margin-right: 6px;"></i>
+                            Cơ sở này <strong>không áp dụng bảng phí dịch vụ chung</strong> (phù hợp với Nhà ở / Nhà riêng lẻ, Cụm liền kề, Đất phân lô). Khách thuê tự thanh toán điện, nước theo hóa đơn nhà nước hoặc theo thỏa thuận riêng. Khi lưu, các trường phí dịch vụ sẽ mang giá trị trống/0.
                         </div>
 
-                        <div class="form-row-3">
-                            <div class="form-group">
-                                <label class="form-label" for="b_service_fee">Phí dịch vụ chung / Vệ sinh</label>
-                                <div class="input-group-unit">
-                                    <input type="number" id="b_service_fee" class="form-input" placeholder="VD: 150000" min="0" step="1000">
-                                    <span class="unit-label">đ/phòng</span>
-                                </div>
-                                <div class="money-vnd-hint" id="hint_b_service_fee">
-                                    <div class="hint-main"><i class="fa-solid fa-coins"></i> Ghi chú: <strong class="vnd-text">-- VNĐ</strong> / phòng</div>
-                                    <span class="vnd-words">Chưa nhập số tiền</span>
+                        <!-- Vùng chứa các ô nhập liệu bên dưới (Điện, Nước, Phí dịch vụ, Internet, Gửi xe) -->
+                        <div id="service_pricing_fields">
+                            <div class="notice-banner">
+                                <i class="fa-solid fa-circle-info" style="font-size: 1.15rem; flex-shrink: 0; color: #0284c7;"></i>
+                                <div>
+                                    <strong>Lưu ý nghiệp vụ Lớp Vỏ:</strong> Tòa nhà chỉ cấu hình bảng giá dịch vụ dùng chung (Điện, Nước, Dịch vụ, Internet, Gửi xe). <strong>Tuyệt đối không có trường "Giá thuê phòng"</strong> tại đây. Giá thuê và đặt cọc được quản lý độc lập tại từng phòng con (Lớp Ruột).
                                 </div>
                             </div>
-                            <div class="form-group">
-                                <label class="form-label" for="b_internet_fee">Phí Wifi / Internet</label>
-                                <div class="input-group-unit">
-                                    <input type="number" id="b_internet_fee" class="form-input" placeholder="VD: 100000" min="0" step="1000">
-                                    <span class="unit-label">đ/phòng</span>
+
+                            <div class="form-row-3">
+                                <div class="form-group">
+                                    <label class="form-label" for="b_electricity_price">Đơn giá Điện</label>
+                                    <div class="input-group-unit">
+                                        <input type="number" id="b_electricity_price" class="form-input" placeholder="VD: 3500 (Để trống: Giá nhà nước)" min="0" step="100">
+                                        <span class="unit-label">đ/kWh</span>
+                                    </div>
+                                    <div class="money-vnd-hint" id="hint_b_electricity_price">
+                                        <div class="hint-main"><i class="fa-solid fa-coins"></i> Ghi chú: <strong class="vnd-text">-- VNĐ</strong> / kWh</div>
+                                        <span class="vnd-words">Chưa nhập số tiền (Thỏa thuận / Theo giá nhà nước)</span>
+                                    </div>
                                 </div>
-                                <div class="money-vnd-hint" id="hint_b_internet_fee">
-                                    <div class="hint-main"><i class="fa-solid fa-coins"></i> Ghi chú: <strong class="vnd-text">-- VNĐ</strong> / phòng</div>
-                                    <span class="vnd-words">Chưa nhập số tiền</span>
+                                <div class="form-group">
+                                    <label class="form-label" for="b_water_price">Đơn giá Nước</label>
+                                    <div class="input-group-unit">
+                                        <input type="number" id="b_water_price" class="form-input" placeholder="VD: 25000 (Để trống: Giá nhà nước)" min="0" step="500">
+                                        <span class="unit-label" id="waterUnitLabel">đ/m³</span>
+                                    </div>
+                                    <div class="money-vnd-hint" id="hint_b_water_price">
+                                        <div class="hint-main"><i class="fa-solid fa-coins"></i> Ghi chú: <strong class="vnd-text">-- VNĐ</strong> / m³</div>
+                                        <span class="vnd-words">Chưa nhập số tiền (Thỏa thuận / Theo giá nhà nước)</span>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="b_water_calc_type">Cách tính tiền nước</label>
+                                    <select id="b_water_calc_type" class="form-select">
+                                        <option value="m3">Tính theo khối (m³)</option>
+                                        <option value="person">Tính theo đầu người / tháng</option>
+                                    </select>
                                 </div>
                             </div>
-                            <div class="form-group">
-                                <label class="form-label" for="b_parking_fee">Phí gửi xe</label>
-                                <div class="input-group-unit">
-                                    <input type="number" id="b_parking_fee" class="form-input" placeholder="VD: 100000" min="0" step="1000">
-                                    <span class="unit-label">đ/xe</span>
+
+                            <div class="form-row-3">
+                                <div class="form-group">
+                                    <label class="form-label" for="b_service_fee">Phí dịch vụ chung / Vệ sinh</label>
+                                    <div class="input-group-unit">
+                                        <input type="number" id="b_service_fee" class="form-input" placeholder="VD: 150000 (Để trống: 0đ)" min="0" step="1000">
+                                        <span class="unit-label">đ/phòng</span>
+                                    </div>
+                                    <div class="money-vnd-hint" id="hint_b_service_fee">
+                                        <div class="hint-main"><i class="fa-solid fa-coins"></i> Ghi chú: <strong class="vnd-text">-- VNĐ</strong> / phòng</div>
+                                        <span class="vnd-words">Chưa nhập số tiền</span>
+                                    </div>
                                 </div>
-                                <div class="money-vnd-hint" id="hint_b_parking_fee">
-                                    <div class="hint-main"><i class="fa-solid fa-coins"></i> Ghi chú: <strong class="vnd-text">-- VNĐ</strong> / xe</div>
-                                    <span class="vnd-words">Chưa nhập số tiền</span>
+                                <div class="form-group">
+                                    <label class="form-label" for="b_internet_fee">Phí Wifi / Internet</label>
+                                    <div class="input-group-unit">
+                                        <input type="number" id="b_internet_fee" class="form-input" placeholder="VD: 100000 (Để trống: 0đ)" min="0" step="1000">
+                                        <span class="unit-label">đ/phòng</span>
+                                    </div>
+                                    <div class="money-vnd-hint" id="hint_b_internet_fee">
+                                        <div class="hint-main"><i class="fa-solid fa-coins"></i> Ghi chú: <strong class="vnd-text">-- VNĐ</strong> / phòng</div>
+                                        <span class="vnd-words">Chưa nhập số tiền</span>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="b_parking_fee">Phí gửi xe</label>
+                                    <div class="input-group-unit">
+                                        <input type="number" id="b_parking_fee" class="form-input" placeholder="VD: 100000 (Để trống: 0đ)" min="0" step="1000">
+                                        <span class="unit-label">đ/xe</span>
+                                    </div>
+                                    <div class="money-vnd-hint" id="hint_b_parking_fee">
+                                        <div class="hint-main"><i class="fa-solid fa-coins"></i> Ghi chú: <strong class="vnd-text">-- VNĐ</strong> / xe</div>
+                                        <span class="vnd-words">Chưa nhập số tiền</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1594,8 +1702,13 @@
                 let wordsText = '';
 
                 if (isNaN(num) || val === '') {
-                    vndText = '-- VNĐ';
-                    wordsText = 'Chưa nhập số tiền';
+                    if (cfg.id === 'b_electricity_price' || cfg.id === 'b_water_price') {
+                        vndText = 'Thỏa thuận / Giá nhà nước';
+                        wordsText = 'Không thu qua chủ cơ sở';
+                    } else {
+                        vndText = '-- VNĐ';
+                        wordsText = 'Chưa nhập số tiền';
+                    }
                 } else if (num === 0) {
                     vndText = '0 VNĐ';
                     wordsText = 'Miễn phí';
@@ -1614,9 +1727,52 @@
         }
 
         // ==========================================
-        // 2. TỰ ĐỘNG ẨN/HIỆN CÁC TRƯỜNG THEO LOẠI HÌNH
+        // 2. CÔNG TẮC BẬT/TẮT BẢNG GIÁ DỊCH VỤ NHÓM 2
         // ==========================================
-        function handleTypeChange() {
+        function toggleServicePricing(isApply) {
+            const chk = document.getElementById('apply_service_pricing');
+            if (chk) chk.checked = !!isApply;
+
+            const fields = document.getElementById('service_pricing_fields');
+            const notice = document.getElementById('service_pricing_disabled_notice');
+            const badge = document.getElementById('service_pricing_badge');
+            const toggleStatus = document.getElementById('service_toggle_status');
+
+            if (isApply) {
+                if (fields) fields.style.display = 'block';
+                if (notice) notice.style.display = 'none';
+                if (badge) {
+                    badge.innerText = 'Áp dụng chung cho cả cơ sở';
+                    badge.style.background = '#e0f2fe';
+                    badge.style.color = '#0284c7';
+                }
+                if (toggleStatus) {
+                    toggleStatus.innerHTML = '<i class="fa-solid fa-circle-check"></i> Đang bật';
+                    toggleStatus.style.color = '#059669';
+                    toggleStatus.style.background = '#ecfdf5';
+                    toggleStatus.style.borderColor = '#a7f3d0';
+                }
+            } else {
+                if (fields) fields.style.display = 'none';
+                if (notice) notice.style.display = 'block';
+                if (badge) {
+                    badge.innerText = 'Tự túc / Giá nhà nước';
+                    badge.style.background = '#fef3c7';
+                    badge.style.color = '#b45309';
+                }
+                if (toggleStatus) {
+                    toggleStatus.innerHTML = '<i class="fa-solid fa-ban"></i> Đang tắt';
+                    toggleStatus.style.color = '#dc2626';
+                    toggleStatus.style.background = '#fef2f2';
+                    toggleStatus.style.borderColor = '#fecaca';
+                }
+            }
+        }
+
+        // ==========================================
+        // 2.1 TỰ ĐỘNG ẨN/HIỆN CÁC TRƯỜNG THEO LOẠI HÌNH
+        // ==========================================
+        function handleTypeChange(autoToggle = true) {
             const typeSelect = document.getElementById('property-type');
             if (!typeSelect) return;
             const val = typeSelect.value.toLowerCase().trim();
@@ -1635,6 +1791,13 @@
             const amenitiesGroup = document.getElementById('group_amenities');
             const rowScaleStaff = document.getElementById('row_scale_staff');
 
+            // Nhóm 2 luôn luôn hiển thị thẻ khung (để Admin có thể tự tay bật/tắt qua công tắc)
+            if (group2Section) group2Section.style.display = 'block';
+
+            // Điện & Nước không bao giờ bắt buộc required
+            if (electInput) electInput.removeAttribute('required');
+            if (waterInput) waterInput.removeAttribute('required');
+
             // 1. ĐẤT PHÂN LÔ / ĐẤT NỀN ('dat_phan_lo')
             if (val === 'dat_phan_lo') {
                 // Ẩn trường "Số tầng"
@@ -1649,10 +1812,8 @@
                 if (labelRooms) labelRooms.innerHTML = 'Tổng số lô / nền đất <span style="color: var(--accent-red)">*</span>';
                 if (inputRooms) inputRooms.placeholder = 'VD: 20 lô';
 
-                // Ẩn bảng giá dịch vụ phòng trọ dùng chung & gỡ required
-                if (group2Section) group2Section.style.display = 'none';
-                if (electInput) electInput.removeAttribute('required');
-                if (waterInput) waterInput.removeAttribute('required');
+                // Tự động tắt công tắc Nhóm 2 nếu autoToggle
+                if (autoToggle) toggleServicePricing(false);
 
                 // Ẩn tiện ích chung (Thang máy, máy giặt...)
                 if (amenitiesGroup) amenitiesGroup.style.display = 'none';
@@ -1672,10 +1833,8 @@
                 if (groupRooms) groupRooms.style.display = 'none';
                 if (inputRooms) inputRooms.value = '1';
 
-                // Ẩn bảng giá dịch vụ dùng chung (nhà riêng tự thanh toán điện nước theo hóa đơn nhà nước)
-                if (group2Section) group2Section.style.display = 'none';
-                if (electInput) electInput.removeAttribute('required');
-                if (waterInput) waterInput.removeAttribute('required');
+                // Tự động tắt công tắc Nhóm 2 nếu autoToggle
+                if (autoToggle) toggleServicePricing(false);
 
                 // Hiện tiện ích (Camera, Khóa vân tay, Chỗ để xe, Giờ giấc tự do...)
                 if (amenitiesGroup) amenitiesGroup.style.display = '';
@@ -1697,10 +1856,8 @@
                 if (labelRooms) labelRooms.innerHTML = 'Tổng số căn liền kề / dự án <span style="color: var(--accent-red)">*</span>';
                 if (inputRooms) inputRooms.placeholder = 'VD: 20 căn';
 
-                // Ẩn Bảng 2: Bảng giá dịch vụ dùng chung & gỡ required điện/nước
-                if (group2Section) group2Section.style.display = 'none';
-                if (electInput) electInput.removeAttribute('required');
-                if (waterInput) waterInput.removeAttribute('required');
+                // Tự động tắt công tắc Nhóm 2 nếu autoToggle
+                if (autoToggle) toggleServicePricing(false);
 
                 // Hiện tiện ích (Camera, Bảo vệ 24/7, PCCC, Chỗ để xe, Khuôn viên...)
                 if (amenitiesGroup) amenitiesGroup.style.display = '';
@@ -1721,10 +1878,8 @@
                 if (labelRooms) labelRooms.innerText = 'Tổng số mặt bằng / gian hàng';
                 if (inputRooms) inputRooms.placeholder = 'VD: 1 mặt bằng hoặc 5 gian hàng';
 
-                // Hiện bảng giá dịch vụ (Điện, Nước, Dịch vụ, Xe - không bắt buộc required)
-                if (group2Section) group2Section.style.display = 'block';
-                if (electInput) electInput.removeAttribute('required');
-                if (waterInput) waterInput.removeAttribute('required');
+                // Mặc định bật dịch vụ cho mặt bằng kinh doanh
+                if (autoToggle) toggleServicePricing(true);
 
                 // Hiện tiện ích (Bảo vệ 24/7, Camera, PCCC, Chỗ để xe...)
                 if (amenitiesGroup) amenitiesGroup.style.display = '';
@@ -1757,10 +1912,8 @@
 
                 if (groupRooms) groupRooms.style.display = '';
 
-                // Bảng giá dịch vụ dùng chung bắt buộc Điện & Nước
-                if (group2Section) group2Section.style.display = 'block';
-                if (electInput) electInput.setAttribute('required', 'required');
-                if (waterInput) waterInput.setAttribute('required', 'required');
+                // Tự động bật công tắc Nhóm 2 nếu chọn Chung cư mini hoặc Ký túc xá / Nhà trọ
+                if (autoToggle) toggleServicePricing(true);
 
                 // Hiện tiện ích
                 if (amenitiesGroup) amenitiesGroup.style.display = '';
@@ -2129,6 +2282,7 @@
             document.querySelectorAll('.amenity-chk-card').forEach(c => c.classList.remove('checked'));
 
             document.getElementById('property-type').value = 'can_ho';
+            toggleServicePricing(true);
             document.getElementById('b_electricity_price').value = '3500';
             document.getElementById('b_water_price').value = '25000';
             document.getElementById('b_water_calc_type').value = 'm3';
@@ -2206,17 +2360,26 @@
                 document.getElementById('district_name').value = b.district || '';
                 document.getElementById('ward_name').value = b.ward || '';
 
-                // Cập nhật ẩn hiện trường theo loại hình
-                handleTypeChange();
+                // Cập nhật ẩn hiện trường theo loại hình (không autoToggle để giữ trạng thái đã lưu)
+                handleTypeChange(false);
+
+                // Xác định trạng thái công tắc Nhóm 2 theo dữ liệu của tòa nhà
+                const hasPricing = (b.has_service_pricing !== undefined && b.has_service_pricing !== null)
+                    ? Boolean(b.has_service_pricing)
+                    : (Boolean(b.electricity_price && Number(b.electricity_price) > 0) || 
+                       Boolean(b.water_price && Number(b.water_price) > 0) || 
+                       !['nha_rieng', 'cum_nha_lien_ke', 'dat_phan_lo'].includes(rawType));
+                
+                toggleServicePricing(hasPricing);
 
                 // Nhóm 2: Bảng giá dịch vụ dùng chung
-                document.getElementById('b_electricity_price').value = b.electricity_price || 3500;
-                document.getElementById('b_water_price').value = b.water_price || 25000;
+                document.getElementById('b_electricity_price').value = (b.electricity_price !== null && b.electricity_price !== undefined && b.electricity_price !== '' && b.electricity_price != 0) ? b.electricity_price : '';
+                document.getElementById('b_water_price').value = (b.water_price !== null && b.water_price !== undefined && b.water_price !== '' && b.water_price != 0) ? b.water_price : '';
                 document.getElementById('b_water_calc_type').value = b.water_calc_type || 'm3';
                 document.getElementById('waterUnitLabel').innerText = (b.water_calc_type === 'person') ? 'đ/người' : 'đ/m³';
-                document.getElementById('b_service_fee').value = b.service_fee || 0;
-                document.getElementById('b_internet_fee').value = b.internet_fee || 0;
-                document.getElementById('b_parking_fee').value = b.parking_fee || 0;
+                document.getElementById('b_service_fee').value = (b.service_fee !== null && b.service_fee !== undefined && b.service_fee !== '' && b.service_fee != 0) ? b.service_fee : '';
+                document.getElementById('b_internet_fee').value = (b.internet_fee !== null && b.internet_fee !== undefined && b.internet_fee !== '' && b.internet_fee != 0) ? b.internet_fee : '';
+                document.getElementById('b_parking_fee').value = (b.parking_fee !== null && b.parking_fee !== undefined && b.parking_fee !== '' && b.parking_fee != 0) ? b.parking_fee : '';
                 updateMoneyVndNotes();
 
                 // Nhóm 3: Quy mô & Phân quyền
@@ -2298,12 +2461,30 @@
             formData.append('address_detail', document.getElementById('b_address_detail').value.trim());
 
             // Nhóm 2: Bảng giá dịch vụ dùng chung
-            formData.append('electricity_price', document.getElementById('b_electricity_price').value || 0);
-            formData.append('water_price', document.getElementById('b_water_price').value || 0);
-            formData.append('water_calc_type', document.getElementById('b_water_calc_type').value || 'm3');
-            formData.append('service_fee', document.getElementById('b_service_fee').value || 0);
-            formData.append('internet_fee', document.getElementById('b_internet_fee').value || 0);
-            formData.append('parking_fee', document.getElementById('b_parking_fee').value || 0);
+            const isPricingApplied = document.getElementById('apply_service_pricing')?.checked ?? false;
+            formData.append('has_service_pricing', isPricingApplied ? '1' : '0');
+
+            if (isPricingApplied) {
+                const elecVal = document.getElementById('b_electricity_price').value.trim();
+                const waterVal = document.getElementById('b_water_price').value.trim();
+                const servVal = document.getElementById('b_service_fee').value.trim();
+                const netVal = document.getElementById('b_internet_fee').value.trim();
+                const parkVal = document.getElementById('b_parking_fee').value.trim();
+
+                if (elecVal !== '') formData.append('electricity_price', elecVal);
+                if (waterVal !== '') formData.append('water_price', waterVal);
+                formData.append('water_calc_type', document.getElementById('b_water_calc_type').value || 'm3');
+                if (servVal !== '') formData.append('service_fee', servVal);
+                if (netVal !== '') formData.append('internet_fee', netVal);
+                if (parkVal !== '') formData.append('parking_fee', parkVal);
+            } else {
+                formData.append('electricity_price', '');
+                formData.append('water_price', '');
+                formData.append('water_calc_type', 'm3');
+                formData.append('service_fee', '');
+                formData.append('internet_fee', '');
+                formData.append('parking_fee', '');
+            }
 
             // Nhóm 3: Quy mô & Phân quyền
             formData.append('total_floors', document.getElementById('b_total_floors').value || 1);
@@ -2375,34 +2556,175 @@
         }
 
         // ==========================================
-        // 8. XÓA TÒA NHÀ
+        // 8. XÓA TÒA NHÀ (QUY TẮC BẢO VỆ DỮ LIỆU TUYỆT ĐỐI - HARD BLOCK)
         // ==========================================
-        async function deleteBuilding(id, name) {
-            if (!confirm(`Bạn có chắc chắn muốn xóa tòa nhà "${name}" không?\nHệ thống sẽ gỡ thông tin tòa nhà và phân công quản lý của nhân viên.`)) {
+        async function deleteBuilding(id, name, postsCount, rentedCount) {
+            const row = document.querySelector(`tr[data-id="${id}"]`);
+            if (postsCount === undefined && row && row.dataset.postsCount !== undefined) {
+                postsCount = parseInt(row.dataset.postsCount, 10);
+            }
+            if (rentedCount === undefined && row && row.dataset.rentedCount !== undefined) {
+                rentedCount = parseInt(row.dataset.rentedCount, 10);
+            }
+
+            // Nếu chưa xác định được số lượng (ví dụ gọi từ phiên bản cũ), kiểm tra nhanh trước
+            if (postsCount === undefined) {
+                try {
+                    const checkRes = await fetch(`/api/buildings/${id}/rooms-detail`);
+                    const checkData = await checkRes.json();
+                    const rooms = checkData.rooms || [];
+                    postsCount = rooms.length;
+                    rentedCount = rooms.filter(r => r.room_status === 'rented').length;
+                } catch (e) {
+                    postsCount = 0;
+                    rentedCount = 0;
+                }
+            }
+
+            // =========================================================================
+            // QUY TẮC CHẶN TUYỆT ĐỐI (HARD BLOCK):
+            // NẾU VẪN CÒN BÀI ĐĂNG HOẶC ĐANG CÓ PHÒNG CHO THUÊ TRONG TÒA NHÀ
+            // => LẬP TỨC HIỂN THỊ POPUP ĐỎ CẢNH BÁO
+            // => TUYỆT ĐỐI KHÔNG CÓ NÚT "ĐỒNG Ý" (CHỈ CÓ DUY NHẤT NÚT "ĐÃ HIỂU")
+            // =========================================================================
+            if (postsCount > 0 || rentedCount > 0) {
+                let reasons = [];
+                if (postsCount > 0) reasons.push(`<strong>${postsCount} bài đăng / căn nhà</strong>`);
+                if (rentedCount > 0) reasons.push(`<strong style="color: #dc2626;">${rentedCount} căn đang có hợp đồng thuê</strong>`);
+                const reasonStr = reasons.join(' và ');
+
+                await Swal.fire({
+                    icon: 'error',
+                    iconColor: '#dc2626',
+                    title: '<span style="color: #dc2626; font-weight: 800; font-size: 1.35rem;">🚨 Không thể xóa tòa nhà!</span>',
+                    html: `
+                        <div style="font-size: 0.95rem; color: #1e293b; text-align: left; line-height: 1.6; margin-top: 10px;">
+                            <div style="background: #fef2f2; border: 1.5px solid #fecaca; border-radius: 12px; padding: 16px; margin-bottom: 12px;">
+                                <p style="color: #991b1b; font-weight: 600; margin: 0;">
+                                    Tòa nhà <strong>"${name}"</strong> hiện đang chứa ${reasonStr} bên trong.
+                                </p>
+                            </div>
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; font-size: 0.875rem; color: #475569;">
+                                <i class="fa-solid fa-triangle-exclamation" style="color: #dc2626; margin-right: 6px;"></i>
+                                <strong>Quy tắc bảo vệ dữ liệu:</strong> Bạn phải thanh lý hợp đồng thuê và xóa toàn bộ các bài đăng / nhà bên trong trước khi có thể xóa tòa nhà này.
+                            </div>
+                        </div>
+                    `,
+                    confirmButtonColor: '#dc2626',
+                    confirmButtonText: '<i class="fa-solid fa-shield-halved"></i> Đã hiểu',
+                    showCancelButton: false, // TUYỆT ĐỐI KHÔNG CÓ NÚT HỦY / ĐỒNG Ý
+                    allowOutsideClick: true,
+                    customClass: {
+                        popup: 'swal2-custom-popup'
+                    }
+                });
+                return; // DỪNG LẠI NGAY LẬP TỨC - KHÔNG HIỂN THỊ NÚT ĐỒNG Ý
+            }
+
+            // =========================================================================
+            // CHỈ KHI TÒA NHÀ HOÀN TOÀN TRỐNG (0 BÀI ĐĂNG & 0 ĐANG THUÊ)
+            // MỚI BẬT SWEETALERT2 HỎI XÁC NHẬN VỚI NÚT "ĐỒNG Ý"
+            // =========================================================================
+            const confirmResult = await Swal.fire({
+                title: 'Xác nhận xóa tòa nhà',
+                html: `
+                    <div style="font-size: 1.05rem; font-weight: 700; color: #1e293b; margin-bottom: 8px;">
+                        Bạn có chắc chắn muốn xóa tòa nhà này không?
+                    </div>
+                    <div style="font-size: 0.925rem; color: #64748b; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; margin-top: 10px;">
+                        Tòa nhà: <strong style="color: #0284c7;">"${name}"</strong>
+                        <div style="color: #059669; font-size: 0.8rem; font-weight: 600; margin-top: 4px;">
+                            <i class="fa-solid fa-circle-check"></i> Tòa nhà trống hoàn toàn (0 bài đăng, không có phòng thuê)
+                        </div>
+                    </div>
+                `,
+                icon: 'warning',
+                iconColor: '#f59e0b',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: '<i class="fa-solid fa-trash-can"></i> Đồng ý',
+                cancelButtonText: 'Hủy bỏ',
+                reverseButtons: true,
+                focusCancel: true,
+                customClass: {
+                    popup: 'swal2-custom-popup'
+                }
+            });
+
+            if (!confirmResult.isConfirmed) {
                 return;
             }
+
+            // Hiển thị trạng thái đang xử lý xóa
+            Swal.fire({
+                title: 'Đang xử lý...',
+                text: 'Hệ thống đang thực hiện xóa tòa nhà...',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
 
             try {
                 const res = await fetch(`/api/buildings/${id}`, {
                     method: 'DELETE',
                     headers: {
                         'Accept': 'application/json',
+                        'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': '{{ csrf_token() }}'
                     }
                 });
 
-                const data = await res.json();
-                if (data.success) {
-                    showToast(data.message || 'Đã xóa tòa nhà thành công!', 'success');
-                    const row = document.querySelector(`tr[data-id="${id}"]`);
-                    if (row) row.remove();
-                    setTimeout(() => location.reload(), 700);
-                } else {
-                    showToast(data.message || 'Không thể xóa tòa nhà!', 'error');
+                const data = await res.json().catch(() => ({}));
+
+                // Nếu backend phát hiện lỗi bất ngờ
+                if (!res.ok || data.success === false) {
+                    await Swal.fire({
+                        icon: 'error',
+                        iconColor: '#dc2626',
+                        title: '<span style="color: #dc2626; font-weight: 800; font-size: 1.35rem;">🚨 Không thể xóa tòa nhà!</span>',
+                        text: data.message || 'Tòa nhà vẫn còn bài đăng hoặc phòng thuê bên trong!',
+                        confirmButtonColor: '#dc2626',
+                        confirmButtonText: '<i class="fa-solid fa-shield-halved"></i> Đã hiểu',
+                        showCancelButton: false,
+                        customClass: {
+                            popup: 'swal2-custom-popup'
+                        }
+                    });
+                    return;
                 }
+
+                // Xóa thành công (HTTP 200)
+                await Swal.fire({
+                    icon: 'success',
+                    iconColor: '#059669',
+                    title: '<span style="color: #059669; font-weight: 800;">Xóa thành công!</span>',
+                    text: data.message || `Đã xóa tòa nhà "${name}" thành công!`,
+                    confirmButtonColor: '#0284c7',
+                    confirmButtonText: '<i class="fa-solid fa-check"></i> Hoàn tất',
+                    timer: 2000,
+                    timerProgressBar: true,
+                    customClass: {
+                        popup: 'swal2-custom-popup'
+                    }
+                });
+
+                if (row) {
+                    row.style.transition = 'all 0.4s ease';
+                    row.style.opacity = '0';
+                    row.style.transform = 'translateX(40px)';
+                    setTimeout(() => row.remove(), 400);
+                }
+                setTimeout(() => location.reload(), 1000);
+
             } catch (err) {
-                console.error(err);
-                showToast('Lỗi khi gửi yêu cầu xóa!', 'error');
+                console.error('Lỗi khi gửi yêu cầu xóa tòa nhà:', err);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Lỗi kết nối',
+                    text: 'Không thể kết nối tới máy chủ. Vui lòng thử lại sau!',
+                    confirmButtonColor: '#dc2626',
+                    confirmButtonText: 'Đóng'
+                });
             }
         }
 

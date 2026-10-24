@@ -247,9 +247,17 @@
                     <i class="fa-solid fa-house w-5 text-center text-slate-400"></i>
                     <span>Về Trang Chủ</span>
                 </a>
-                <a href="{{ url('quan-ly-van-hanh') }}" class="sidebar-btn flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-semibold text-xs text-slate-600 hover:bg-white hover:text-brand-600 transition-all border border-transparent hover:border-slate-200">
+                <a href="{{ url('quan-ly-van-hanh') }}" class="sidebar-btn flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-semibold text-xs {{ (request()->is('quan-ly-van-hanh*') || request()->is('qlvan_hanh/Room_list*')) ? 'bg-brand-50 text-brand-600 border border-brand-200/60 shadow-xs' : 'text-slate-600 hover:bg-white hover:text-brand-600 border border-transparent hover:border-slate-200' }} transition-all" title="Quản lý vận hành">
                     <i class="fa-solid fa-gears w-5 text-center text-slate-400"></i>
                     <span>Quản lý vận hành</span>
+                </a>
+                <!-- Menu con: Thanh lý & Chốt sổ -->
+                <a href="{{ url('/qlvan_hanh/thanh_ly_cong_no') }}"
+                    class="sidebar-btn sidebar-sub-btn flex items-center gap-2.5 px-3.5 py-2 rounded-xl font-semibold text-xs {{ (request()->is('qlvan_hanh/thanh_ly_cong_no*') || request()->is('thanh-ly-cong-no*')) ? 'bg-rose-50 text-rose-600 border border-rose-200 shadow-xs font-bold' : 'text-slate-600 hover:bg-rose-50/70 hover:text-rose-600 border border-transparent hover:border-rose-100' }} transition-all pl-7 group"
+                    title="Thanh lý & Chốt sổ">
+                    <span class="w-1.5 h-1.5 rounded-full bg-rose-400 group-hover:bg-rose-600 group-hover:scale-125 transition-all shrink-0"></span>
+                    <i class="fa-solid fa-calculator w-5 text-center text-rose-500 text-xs group-hover:scale-110 transition-transform shrink-0"></i>
+                    <span class="truncate">Thanh lý & Chốt sổ</span>
                 </a>
                 @auth
                     <form action="{{ route('logout') }}" method="POST" class="m-0 p-0">

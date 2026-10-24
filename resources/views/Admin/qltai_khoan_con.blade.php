@@ -1143,18 +1143,15 @@
                                         $roleLabel = 'Kiểm duyệt';
                                         $roleBadgeClass = 'role-badge-mod';
                                         $roleIcon = 'fa-solid fa-user-shield';
-                                    } elseif ($r === 'doanhnghiep' || $r === 'enterprise' || str_contains($srLower, 'doanh nghiệp') || str_contains($srLower, 'doanh nghiep')) {
-                                        $roleLabel = 'Doanh nghiệp';
-                                        $roleBadgeClass = 'role-badge-ent';
-                                        $roleIcon = 'fa-solid fa-building';
                                     } elseif ($r === 'admin' || str_contains($srLower, 'admin') || str_contains($srLower, 'quản trị')) {
                                         $roleLabel = 'Quản trị viên';
                                         $roleBadgeClass = 'role-badge-admin';
                                         $roleIcon = 'fa-solid fa-crown';
                                     } else {
-                                        $roleLabel = !empty($sr) && !in_array($sr, ['Nhân viên', 'Nhân viên công ty']) ? $sr : 'Doanh nghiệp';
-                                        $roleBadgeClass = 'role-badge-ent';
-                                        $roleIcon = 'fa-solid fa-building';
+                                        // Tất cả tài khoản con do admin tạo đều hiển thị là Nhân sự
+                                        $roleLabel = (!empty($sr) && !in_array($sr, ['Doanh nghiệp', 'Nhân viên', 'Nhân viên công ty'])) ? $sr : 'Nhân sự';
+                                        $roleBadgeClass = 'role-badge-staff';
+                                        $roleIcon = 'fa-solid fa-user-tie';
                                     }
                                 @endphp
                                 <tr data-acc-id="{{ $accId }}" data-name="{{ strtolower($displayName) }}" data-email="{{ strtolower($acc->email ?? '') }}" data-phone="{{ $acc->phone ?? '' }}" data-role="{{ strtolower($roleLabel) }}" data-status="{{ $isLocked ? 'locked' : 'active' }}">
@@ -1304,8 +1301,9 @@
                                             @endif
                                             <div>
                                                 <div style="font-weight: 800; color: var(--text-primary); font-size: 0.92rem;">{{ $displayName }}</div>
-                                                <div style="font-size: 0.775rem; color: var(--text-muted); margin-top: 2px;">
+                                                <div style="font-size: 0.775rem; color: var(--text-muted); margin-top: 3px; display: flex; align-items: center; gap: 8px;">
                                                     <span>{{ '@' . ($cust->username ?: 'khachhang') }}</span>
+                                                    <span style="display: inline-block; padding: 1px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 700; background: #e0f2fe; color: #0284c7;">Khách hàng / Cá nhân</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -2024,8 +2022,8 @@
                 name,
                 email,
                 phone,
-                role: existingAcc ? (existingAcc.role || 'doanhnghiep') : 'doanhnghiep',
-                staff_role: existingAcc ? (existingAcc.staff_role || 'Doanh nghiệp') : 'Doanh nghiệp',
+                role: isMod ? 'kiemduyet' : 'nhansu',
+                staff_role: isMod ? 'Kiểm duyệt viên' : 'Nhân sự',
                 assigned_buildings: assignedBuildings,
                 permissions: permissions
             };

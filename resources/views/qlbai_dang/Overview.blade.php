@@ -122,8 +122,28 @@
         $currentUser = Auth::user();
         $accountType = $currentUser->role ?? 'user';
         $isEnterprise = $currentUser && ($currentUser->isEnterprise() || $accountType === 'doanhnghiep');
-        $isSubAccount = $currentUser && ($currentUser->isSubAccount() || $currentUser->isStaff() || $accountType === 'sub_account' || ($currentUser->role ?? '') === 'staff');
+        $isSubAccount = $currentUser && ($currentUser->isSubAccount() || $currentUser->isStaff() || $accountType === 'sub_account' || ($currentUser->role ?? '') === 'staff' || ($currentUser->role ?? '') === 'nhansu');
         $isAdmin = $currentUser && ($currentUser->role === 'admin' || $currentUser->isAdmin());
+
+        $staffCashDebt = 0;
+        if ($currentUser && $isSubAccount) {
+            $cUserId = (string)($currentUser->_id ?? $currentUser->id);
+            $staffCashDebt = \App\Models\Invoice::where(function ($q) use ($cUserId) {
+                    $q->where('collected_by', $cUserId)
+                      ->orWhere('created_by', $cUserId);
+                })
+                ->where('payment_method', 'cash')
+                ->where(function ($q) {
+                    $q->whereNull('is_remitted_to_admin')
+                      ->orWhere('is_remitted_to_admin', false)
+                      ->orWhere('is_remitted_to_admin', 0);
+                })
+                ->where(function ($q) {
+                    $q->where('status', 'paid')
+                      ->orWhere('payment_status', 'paid');
+                })
+                ->sum('total_amount');
+        }
 
         if ($isSubAccount) {
             $displayName = $currentUser->account_name ?? ($currentUser->username ?? 'Quản lý tòa nhà');
@@ -152,6 +172,42 @@
             $pendingContactCount = \App\Models\Contact::whereIn('post_id', $postIds)
                                                       ->where('status', 'pending')
                                                       ->count();
+        }
+
+        // Đếm số lượng bài đăng chờ duyệt của tài khoản hiện tại
+        $userPendingPostsCount = 0;
+        if ($currentUser) {
+            $cUserId = (string)($currentUser->_id ?? $currentUser->id);
+            if ($isSubAccount) {
+                $assignedIds = (array) ($currentUser->assigned_buildings ?? []);
+                if (!empty($assignedIds) && !in_array('all', $assignedIds, true) && !in_array('*', $assignedIds, true)) {
+                    $userPendingPostsCount = \App\Models\Post::where('status', 'pending')
+                        ->where(function($q) use ($assignedIds, $cUserId) {
+                            $q->whereIn('building_id', $assignedIds)
+                              ->orWhere('user_id', $cUserId)
+                              ->orWhere('staff_id', $cUserId)
+                              ->orWhere('author_id', $cUserId);
+                        })->count();
+                } else {
+                    $parentId = (string)($currentUser->parent_id ?: $cUserId);
+                    $userPendingPostsCount = \App\Models\Post::where('status', 'pending')
+                        ->where(function($q) use ($parentId, $cUserId) {
+                            $q->where('parent_id', $parentId)
+                              ->orWhere('user_id', $cUserId)
+                              ->orWhere('staff_id', $cUserId)
+                              ->orWhere('author_id', $cUserId);
+                        })->count();
+                }
+            } elseif ($isEnterprise || $isAdmin) {
+                $userPendingPostsCount = \App\Models\Post::where('status', 'pending')->count();
+            } else {
+                $userPendingPostsCount = \App\Models\Post::where('status', 'pending')
+                    ->where(function($q) use ($cUserId) {
+                        $q->where('user_id', $cUserId)
+                          ->orWhere('staff_id', $cUserId)
+                          ->orWhere('author_id', $cUserId);
+                    })->count();
+            }
         }
     @endphp
 
@@ -263,7 +319,7 @@
                             <i class="fa-solid fa-hourglass-half text-amber-500 w-5 text-center text-sm"></i>
                             <span> Chờ phê duyệt</span>
                         </div>
-                        <span id="sidebar-pending-count" class="hidden px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold shadow-xs">0</span>
+                        <span id="sidebar-pending-count" class="{{ ($userPendingPostsCount ?? 0) > 0 ? '' : 'hidden' }} px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold shadow-xs">{{ $userPendingPostsCount ?? 0 }}</span>
                     </button>
 
                     <button onclick="switchTab('history-posts')" id="tab-history-posts"
@@ -318,9 +374,18 @@
                     <span>Về Trang Chủ</span>
                 </a>
                 <a href="{{ url('quan-ly-van-hanh') }}"
-                    class="sidebar-btn flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-semibold text-xs text-slate-600 hover:bg-white hover:text-brand-600 transition-all border border-transparent hover:border-slate-200">
+                    class="sidebar-btn flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-semibold text-xs {{ (request()->is('quan-ly-van-hanh*') || request()->is('qlvan_hanh/Room_list*')) ? 'bg-brand-50 text-brand-600 border border-brand-200/60 shadow-xs' : 'text-slate-600 hover:bg-white hover:text-brand-600 border border-transparent hover:border-slate-200' }} transition-all"
+                    title="Quản lý vận hành">
                     <i class="fa-solid fa-gears w-5 text-center text-slate-400"></i>
                     <span>Quản lý vận hành</span>
+                </a>
+                <!-- Menu con: Thanh lý & Chốt sổ -->
+                <a href="{{ url('/qlvan_hanh/thanh_ly_cong_no') }}"
+                    class="sidebar-btn sidebar-sub-btn flex items-center gap-2.5 px-3.5 py-2 rounded-xl font-semibold text-xs {{ (request()->is('qlvan_hanh/thanh_ly_cong_no*') || request()->is('thanh-ly-cong-no*')) ? 'bg-rose-50 text-rose-600 border border-rose-200 shadow-xs font-bold' : 'text-slate-600 hover:bg-rose-50/70 hover:text-rose-600 border border-transparent hover:border-rose-100' }} transition-all pl-7 group"
+                    title="Thanh lý & Chốt sổ">
+                    <span class="w-1.5 h-1.5 rounded-full bg-rose-400 group-hover:bg-rose-600 group-hover:scale-125 transition-all shrink-0"></span>
+                    <i class="fa-solid fa-calculator w-5 text-center text-rose-500 text-xs group-hover:scale-110 transition-transform shrink-0"></i>
+                    <span class="truncate">Thanh lý & Chốt sổ</span>
                 </a>
                 @auth
                     <form action="{{ route('logout') }}" method="POST" class="m-0 p-0">
@@ -365,7 +430,7 @@
 
             <!-- ==================== TAB A: TỔNG QUAN ==================== -->
             <section id="content-overview" class="tab-content space-y-6">
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 {{ ($isEnterprise || $isSubAccount) ? 'xl:grid-cols-5' : '' }} gap-4">
                     <div
                         class="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between hover:border-brand-500/30 transition-all">
                         <div>
@@ -397,32 +462,72 @@
                         </div>
                     </div>
 
-                    <div
-                        class="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between hover:border-brand-500/30 transition-all">
+                    <div onclick="switchTab('active-posts')"
+                        class="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between hover:border-blue-500/30 hover:shadow-md transition-all cursor-pointer group">
                         <div>
                             <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tin đang hiển thị
                             </p>
                             <p id="active-posts-count" class="text-2xl font-black text-slate-900 mt-1">0</p>
-                            <span class="text-[11px] text-slate-400">Trên tổng 24 tin</span>
+                            <span class="text-[11px] text-blue-600 font-medium group-hover:underline flex items-center gap-1">Xem danh sách <i class="fa-solid fa-arrow-right text-[10px]"></i></span>
                         </div>
                         <div
-                            class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl shrink-0">
+                            class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition-transform">
                             <i class="fa-solid fa-house-circle-check"></i>
                         </div>
                     </div>
 
+                    <div onclick="switchTab('pending-posts')"
+                        class="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between hover:border-amber-500/40 hover:shadow-md transition-all cursor-pointer group">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Chờ phê duyệt
+                            </p>
+                            <p id="pending-posts-count" class="text-2xl font-black text-slate-900 mt-1">{{ $userPendingPostsCount }}</p>
+                            <span class="text-[11px] text-amber-600 font-bold group-hover:underline flex items-center gap-1">
+                                <i class="fa-solid fa-hourglass-half text-[10px]"></i> Đang chờ duyệt
+                            </span>
+                        </div>
+                        <div
+                            class="w-12 h-12 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition-transform">
+                            <i class="fa-solid fa-hourglass-half"></i>
+                        </div>
+                    </div>
+
                     @if($isEnterprise)
-                    <div
-                        class="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between hover:border-brand-500/30 transition-all">
+                    <div onclick="switchTab('buildings')"
+                        class="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between hover:border-purple-500/30 hover:shadow-md transition-all cursor-pointer group">
                         <div>
                             <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tòa nhà / Dự án
                             </p>
                             <p id="total-buildings-count" class="text-2xl font-black text-slate-900 mt-1">0</p>
-                            <span class="text-[11px] text-purple-600 font-bold">120 phòng đang quản lý</span>
+                            <span class="text-[11px] text-purple-600 font-bold group-hover:underline flex items-center gap-1">
+                                <i class="fa-solid fa-city text-[10px]"></i> Quản lý tòa nhà
+                            </span>
                         </div>
                         <div
-                            class="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl shrink-0">
+                            class="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition-transform">
                             <i class="fa-solid fa-city"></i>
+                        </div>
+                    </div>
+                    @endif
+
+                    @if($isSubAccount)
+                    <div class="p-5 rounded-2xl bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-rose-500/10 border-2 border-orange-300 shadow-sm flex items-center justify-between hover:border-orange-500 hover:shadow-md transition-all group">
+                        <div class="space-y-1">
+                            <p class="text-xs font-black text-orange-700 uppercase tracking-wider flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-orange-500 inline-block animate-pulse"></span>
+                                Tiền Mặt Đang Giữ (Chờ nộp Kế toán)
+                            </p>
+                            <p id="staff-cash-debt-amount" class="text-2xl sm:text-3xl font-black text-rose-600 tracking-tight mt-1">
+                                {{ number_format($staffCashDebt) }}đ
+                            </p>
+                            <div class="pt-0.5">
+                                <button type="button" onclick="openStaffDebtsModal()" class="text-xs font-extrabold text-orange-600 hover:text-orange-800 underline flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                                    <i class="fa-solid fa-list-check"></i> Xem danh sách <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="w-13 h-13 rounded-2xl bg-gradient-to-br from-orange-500 to-rose-600 text-white flex items-center justify-center text-2xl shrink-0 shadow-lg shadow-orange-500/30 group-hover:scale-105 transition-transform">
+                            <i class="fa-solid fa-hand-holding-dollar"></i>
                         </div>
                     </div>
                     @endif
@@ -2118,6 +2223,7 @@
             if (tabId === 'overview') {
                 fetchOverviewStats();
                 fetchActivePosts(); // Tab tổng quan chứa cả bảng danh sách hiển thị
+                fetchPendingPosts();
             }
             if (tabId === 'active-posts') {
                 fetchActivePosts();
@@ -2158,8 +2264,10 @@
         window.addEventListener('DOMContentLoaded', () => {
             b_fetchProvinces(); // Load data for locations in modal
             const urlParams = new URLSearchParams(window.location.search);
-            // Nếu không có param trên URL, mặc định mở tab overview
-            const tabParam = urlParams.get('tab') || 'overview'; 
+            let tabParam = urlParams.get('tab') || 'overview'; 
+            if (tabParam === 'pending') tabParam = 'pending-posts';
+            if (tabParam === 'active') tabParam = 'active-posts';
+            if (tabParam === 'history') tabParam = 'history-posts';
             
             // Chạy trigger giả lập việc user click vào tab để load dữ liệu
             switchTab(tabParam);
@@ -2317,7 +2425,11 @@ function fetchOverviewStats() {
                 if(document.getElementById('total-views')) document.getElementById('total-views').innerText = data.stats.total_views || 0;
                 if(document.getElementById('total-likes')) document.getElementById('total-likes').innerText = data.stats.total_likes || 0;
                 if(document.getElementById('active-posts-count')) document.getElementById('active-posts-count').innerText = data.stats.active_posts_count || 0;
+                if(document.getElementById('pending-posts-count') && data.stats.pending_posts_count !== undefined) document.getElementById('pending-posts-count').innerText = data.stats.pending_posts_count;
                 if(document.getElementById('total-buildings-count')) document.getElementById('total-buildings-count').innerText = data.stats.total_buildings_count || 0;
+                if(document.getElementById('staff-cash-debt-amount') && data.stats.staff_cash_debt_formatted !== undefined) {
+                    document.getElementById('staff-cash-debt-amount').innerText = data.stats.staff_cash_debt_formatted.replace(' VNĐ', 'đ');
+                }
             }
         })
         .catch(err => console.error("Lỗi lấy thống kê:", err));
@@ -2418,6 +2530,11 @@ function fetchPendingPosts() {
                 } else {
                     sidebarBadge.classList.add('hidden');
                 }
+            }
+
+            const pendingStatCount = document.getElementById('pending-posts-count');
+            if (pendingStatCount) {
+                pendingStatCount.innerText = pendingCount;
             }
 
             if (!tbody) return;
@@ -2952,6 +3069,176 @@ function fetchHistoryPosts() {
             }
         }
     </script>
+
+    @if($isSubAccount)
+    <!-- ========================================================================= -->
+    <!-- MODAL: DANH SÁCH HÓA ĐƠN TIỀN MẶT ĐANG GIỮ (CHỜ NỘP KẾ TOÁN) -->
+    <!-- ========================================================================= -->
+    <div id="staffDebtsModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4 overflow-y-auto">
+        <div class="bg-white rounded-3xl max-w-4xl w-full shadow-2xl border border-slate-100 overflow-hidden transform transition-all my-8">
+            <!-- Modal Header -->
+            <div class="px-6 py-5 bg-gradient-to-r from-orange-500 via-amber-500 to-rose-500 text-white flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-xl shadow-inner">
+                        <i class="fa-solid fa-hand-holding-dollar"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-black tracking-tight">Tiền Mặt Đang Giữ (Chờ Nộp Kế Toán)</h3>
+                        <p class="text-xs text-orange-100 font-medium">Danh sách các hóa đơn bạn đã thu tiền mặt từ khách thuê và cần nộp lại cho Kế toán</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeStaffDebtsModal()" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/25 flex items-center justify-center text-white transition-colors">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Summary Banner -->
+            <div class="p-6 bg-orange-50/70 border-b border-orange-100 flex flex-wrap items-center justify-between gap-4">
+                <div>
+                    <span class="text-xs font-bold text-orange-700 uppercase tracking-wider block">Tổng tiền mặt đang giữ chờ nộp quỹ:</span>
+                    <span id="staffModalDebtTotal" class="text-2xl sm:text-3xl font-black text-rose-600 tracking-tight">{{ number_format($staffCashDebt) }} VNĐ</span>
+                </div>
+                <div class="text-right text-xs text-slate-500 space-y-0.5">
+                    <p><i class="fa-solid fa-shield-halved text-emerald-600 mr-1"></i> Khi Admin / Kế toán kiểm đếm tiền và ấn <strong>"Xác nhận đã thu nợ"</strong>,</p>
+                    <p>hệ thống sẽ tự động gạch nợ và đưa số tiền này về <strong>0đ</strong>.</p>
+                </div>
+            </div>
+
+            <!-- Table Container -->
+            <div class="p-6 max-h-[60vh] overflow-y-auto">
+                <div class="overflow-x-auto rounded-2xl border border-slate-200">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-50 text-slate-600 font-extrabold uppercase border-b border-slate-200">
+                            <tr>
+                                <th class="py-3 px-4">Mã Hóa Đơn</th>
+                                <th class="py-3 px-4">Phòng / Tòa Nhà</th>
+                                <th class="py-3 px-4">Khách Thuê</th>
+                                <th class="py-3 px-4 text-center">Kỳ Hóa Đơn</th>
+                                <th class="py-3 px-4 text-center">Thời Gian Thu</th>
+                                <th class="py-3 px-4 text-right">Số Tiền</th>
+                                <th class="py-3 px-4 text-center">Trạng Thái</th>
+                            </tr>
+                        </thead>
+                        <tbody id="staffDebtsTableBody" class="divide-y divide-slate-100 font-medium text-slate-700">
+                            <tr>
+                                <td colspan="7" class="py-8 text-center text-slate-400">
+                                    <i class="fa-solid fa-spinner fa-spin text-2xl mb-2 text-orange-500 block"></i>
+                                    Đang tải danh sách hóa đơn...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+                <span class="text-xs text-slate-400 font-medium"><i class="fa-solid fa-clock-rotate-left mr-1"></i> Dữ liệu đồng bộ thời gian thực</span>
+                <button type="button" onclick="closeStaffDebtsModal()" class="px-5 py-2.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs transition-colors">
+                    Đóng
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openStaffDebtsModal() {
+            const modal = document.getElementById('staffDebtsModal');
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            fetchStaffDebts();
+        }
+
+        function closeStaffDebtsModal() {
+            const modal = document.getElementById('staffDebtsModal');
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        async function fetchStaffDebts() {
+            const tbody = document.getElementById('staffDebtsTableBody');
+            const totalEl = document.getElementById('staffModalDebtTotal');
+            if (!tbody) return;
+
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="py-8 text-center text-slate-400">
+                        <i class="fa-solid fa-spinner fa-spin text-2xl mb-2 text-orange-500 block"></i>
+                        Đang tải danh sách hóa đơn...
+                    </td>
+                </tr>
+            `;
+
+            try {
+                const res = await fetch('/api/staff/my-cash-debts');
+                const data = await res.json();
+
+                if (data.success) {
+                    if (totalEl) totalEl.innerText = data.total_amount_formatted || '0 VNĐ';
+
+                    const debtWidget = document.getElementById('staff-cash-debt-amount');
+                    if (debtWidget) debtWidget.innerText = (data.total_amount_formatted || '0 VNĐ').replace(' VNĐ', 'đ');
+
+                    if (!data.invoices || data.invoices.length === 0) {
+                        tbody.innerHTML = `
+                            <tr>
+                                <td colspan="7" class="py-12 text-center text-slate-400">
+                                    <div class="w-14 h-14 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3 text-2xl shadow-inner">
+                                        <i class="fa-solid fa-circle-check"></i>
+                                    </div>
+                                    <p class="font-bold text-slate-700 text-sm">Tuyệt vời! Bạn không còn giữ khoản tiền mặt nào cần nộp</p>
+                                    <p class="text-xs text-slate-400 mt-1">Toàn bộ tiền mặt thu từ khách đã được bàn giao đầy đủ cho Kế toán.</p>
+                                </td>
+                            </tr>
+                        `;
+                        return;
+                    }
+
+                    tbody.innerHTML = data.invoices.map(inv => `
+                        <tr class="hover:bg-slate-50/80 transition-colors">
+                            <td class="py-3 px-4 font-mono font-bold text-slate-900">${inv.invoice_code}</td>
+                            <td class="py-3 px-4 font-bold text-slate-900">
+                                <div class="flex items-center gap-2">
+                                    <i class="fa-solid fa-door-closed text-slate-400"></i>
+                                    <span>${inv.room_name}</span>
+                                </div>
+                            </td>
+                            <td class="py-3 px-4 font-bold text-slate-800">${inv.tenant_name}</td>
+                            <td class="py-3 px-4 text-center text-slate-500 font-semibold">${inv.billing_period}</td>
+                            <td class="py-3 px-4 text-center text-slate-500">${inv.payment_date}</td>
+                            <td class="py-3 px-4 text-right font-black text-rose-600">${inv.total_amount_formatted}</td>
+                            <td class="py-3 px-4 text-center">
+                                <span class="px-2.5 py-1 rounded-full bg-orange-100 text-orange-800 font-extrabold text-[10px] border border-orange-200 inline-flex items-center gap-1 shadow-2xs">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></span>
+                                    Chờ Nộp Kế Toán
+                                </span>
+                            </td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="py-8 text-center text-rose-500 font-bold">
+                                ${data.message || 'Có lỗi xảy ra khi tải danh sách!'}
+                            </td>
+                        </tr>
+                    `;
+                }
+            } catch (err) {
+                console.error(err);
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="py-8 text-center text-rose-500 font-bold">
+                            Lỗi kết nối máy chủ!
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+    </script>
+    @endif
 
 </body>
 

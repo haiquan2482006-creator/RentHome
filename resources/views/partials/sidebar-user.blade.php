@@ -1,7 +1,8 @@
 @php
     $user = \Illuminate\Support\Facades\Auth::user();
-    $isEnterprise = $user && ($user->isEnterprise() || $user->isStaff() || in_array($user->role ?? '', ['doanhnghiep', 'sub_account', 'staff']));
-    $userName = $user ? ($isEnterprise ? ($user->representative ?? $user->account_name ?? $user->company_name ?? $user->username ?? 'Doanh nghiệp') : ($user->account_name ?? $user->username ?? 'Người dùng')) : 'Người dùng';
+    $isStaff = $user && ($user->isSubAccount() || $user->isStaff() || in_array($user->role ?? '', ['nhansu', 'nhan su', 'nhan_su', 'sub_account', 'staff']));
+    $isEnterprise = $user && ($user->isEnterprise() || in_array($user->role ?? '', ['doanhnghiep', 'enterprise'])) && !$isStaff;
+    $userName = $user ? ($isStaff ? ($user->account_name ?? $user->username ?? 'Nhân sự') : ($isEnterprise ? ($user->representative ?? $user->account_name ?? $user->company_name ?? $user->username ?? 'Doanh nghiệp') : ($user->account_name ?? $user->username ?? 'Người dùng'))) : 'Người dùng';
     $initial = mb_strtoupper(mb_substr($userName, 0, 1, 'UTF-8'), 'UTF-8');
     $isDrawer = $isDrawer ?? false;
 
@@ -61,7 +62,11 @@
             <div class="flex-1 min-w-0">
                 <h3 class="font-bold text-sm text-white truncate">{{ $userName }}</h3>
                 <div class="flex items-center gap-1.5 mt-1">
-                    @if($isEnterprise)
+                    @if($isStaff)
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black tracking-widest uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                            <i class="fa-solid fa-user-tie"></i> Nhân sự
+                        </span>
+                    @elseif($isEnterprise)
                         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black tracking-widest uppercase bg-blue-500/20 text-blue-300 border border-blue-500/30">
                             <i class="fa-solid fa-building"></i> Doanh nghiệp
                         </span>
@@ -81,41 +86,36 @@
         <a href="{{ route('user.dashboard') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl {{ request()->routeIs('user.dashboard') ? 'bg-brand-600 text-white font-semibold shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/5 hover:text-white font-semibold transition-colors' }}">
             <i class="fa-solid fa-chart-pie w-5"></i> Hồ Sơ
         </a>
+
+        @if(!$isEnterprise && !($user && ($user->isAdmin() || $user->isModerator() || $user->isSubAccount() || in_array($user->role ?? '', ['admin', 'kiemduyet', 'moderator', 'doanhnghiep', 'enterprise', 'staff', 'sub_account']))))
+        <a href="{{ route('nha-dang-thue') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl {{ request()->routeIs('nha-dang-thue') ? 'bg-brand-600 text-white font-semibold shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/5 hover:text-white font-semibold transition-colors' }}">
+            <i class="fa-solid fa-house-chimney-user w-5 text-emerald-400"></i> Nhà đang thuê
+        </a>
+        <a href="{{ url('/lich-su-lien-he') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl {{ request()->is('lich-su-lien-he*') ? 'bg-brand-600 text-white font-semibold shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/5 hover:text-white font-semibold transition-colors' }}">
+            <i class="fa-solid fa-clock-rotate-left w-5 text-teal-400"></i> Lịch sử liên hệ
+        </a>
+        @endif
         
         <a href="{{ route('user.change_password') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl {{ request()->routeIs('user.change_password') ? 'bg-brand-600 text-white font-semibold shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/5 hover:text-white font-semibold transition-colors' }}">
             <i class="fa-solid fa-key w-5"></i> Đổi mật khẩu
         </a>
 
-        @if($isEnterprise || ($user && $user->role === 'admin'))
-        <p class="px-4 text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 mt-4">Doanh nghiệp RentHome</p>
-        <a href="{{ url('/Overview?tab=overview') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-white/5 hover:text-white font-semibold transition-colors">
-            <i class="fa-solid fa-gauge-high w-5 text-emerald-400"></i> Quản lý tổng quan
+        @if($isStaff || $isEnterprise || ($user && ($user->isAdmin() || $user->role === 'admin')))
+        <p class="px-4 text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 mt-4">Vận hành</p>
+        <a href="{{ url('quan-ly-van-hanh') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl {{ (request()->is('quan-ly-van-hanh*') || request()->is('qlvan_hanh/Room_list*')) ? 'bg-brand-600 text-white font-semibold shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/5 hover:text-white font-semibold transition-colors' }}">
+            <i class="fa-solid fa-gears w-5 text-sky-400"></i> Quản lý vận hành
         </a>
-        <a href="{{ url('/Overview?tab=buildings') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-white/5 hover:text-white font-semibold transition-colors">
-            <i class="fa-solid fa-city w-5 text-purple-400"></i> Quản lý tòa nhà
-        </a>
-        <a href="{{ url('/Overview?tab=moderation') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-white/5 hover:text-white font-semibold transition-colors">
-            <i class="fa-solid fa-shield-halved w-5 text-indigo-400"></i> Kiểm duyệt tin đăng
-        </a>
-        <a href="{{ url('/Overview?tab=sub-accounts') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-white/5 hover:text-white font-semibold transition-colors">
-            <i class="fa-solid fa-users-gear w-5 text-teal-400"></i> Tài khoản con & Phân quyền
-        </a>
-        @elseif($user && $user->isSubAccount())
-        <p class="px-4 text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 mt-4">Quản lý vận hành</p>
-        <a href="{{ url('/Overview?tab=buildings') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-white/5 hover:text-white font-semibold transition-colors">
-            <i class="fa-solid fa-city w-5 text-purple-400"></i> Tòa nhà được giao
-        </a>
-        <a href="{{ url('/Overview?tab=overview') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-white/5 hover:text-white font-semibold transition-colors">
-            <i class="fa-solid fa-list-check w-5 text-emerald-400"></i> Quản lý bài đăng
+        <!-- Menu con: Thanh lý & Chốt sổ -->
+        <a href="{{ url('/qlvan_hanh/thanh_ly_cong_no') }}" class="flex items-center gap-2.5 py-2.5 px-4 pl-8 rounded-xl font-semibold text-xs {{ (request()->is('qlvan_hanh/thanh_ly_cong_no*') || request()->is('thanh-ly-cong-no*')) ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/20' : 'text-slate-400 hover:bg-white/5 hover:text-rose-400' }} transition-colors group">
+            <span class="w-1.5 h-1.5 rounded-full bg-rose-400 group-hover:scale-125 transition-transform"></span>
+            <i class="fa-solid fa-calculator w-4 text-center text-rose-400 group-hover:scale-110 transition-transform"></i>
+            <span>Thanh lý & Chốt sổ</span>
         </a>
         @endif
     </nav>
 
-    <!-- Danger & Logout -->
+    <!-- Logout -->
     <div class="p-4 border-t border-white/10 space-y-1">
-        <button type="button" class="flex items-center gap-3 px-4 py-3 rounded-xl text-rose-400/70 hover:text-rose-400 hover:bg-rose-500/10 font-semibold transition-all w-full text-left">
-            <i class="fa-solid fa-trash-can w-5"></i> Xóa tài khoản
-        </button>
         <form action="{{ route('logout') }}" method="POST" class="m-0 p-0">
             @csrf
             <button type="submit" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:text-white hover:bg-white/5 font-semibold transition-all w-full text-left">

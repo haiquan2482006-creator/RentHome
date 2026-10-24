@@ -2,6 +2,7 @@
     $rooms = $rooms ?? [];
     $paidCount = $paidCount ?? 0;
     $unpaidCount = $unpaidCount ?? 0;
+    $pendingApprovalCount = $pendingApprovalCount ?? 0;
     $availableRooms = $availableRooms ?? [];
 @endphp
 <!DOCTYPE html>
@@ -21,6 +22,9 @@
 
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -194,7 +198,7 @@
                 </div>
 
                 <!-- Thống kê trạng thái thu tiền -->
-                <div class="flex items-center gap-4 bg-[#142248] border border-sky-500/30 px-5 py-3.5 rounded-2xl shrink-0 shadow-lg">
+                <div class="flex flex-wrap items-center gap-4 bg-[#142248] border border-sky-500/30 px-5 py-3.5 rounded-2xl shrink-0 shadow-lg">
                     <div class="flex items-center gap-2.5">
                         <span class="w-3.5 h-3.5 rounded-full bg-emerald-500 shadow-sm animate-pulse"></span>
                         <div>
@@ -210,6 +214,24 @@
                             <p class="text-lg font-black text-rose-400" id="statUnpaidCount">{{ $unpaidCount }} Phòng</p>
                         </div>
                     </div>
+                    @if($pendingApprovalCount > 0)
+                        <div class="h-8 w-px bg-slate-700/80"></div>
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-3.5 h-3.5 rounded-full bg-amber-400 shadow-sm animate-pulse"></span>
+                            <div>
+                                <p class="text-[10px] text-amber-200 uppercase font-extrabold">Chờ Duyệt CK</p>
+                                <p class="text-lg font-black text-amber-300" id="statPendingApprovalCount">{{ $pendingApprovalCount }} Phòng</p>
+                            </div>
+                        </div>
+                    @endif
+                    <div class="h-8 w-px bg-slate-700/80"></div>
+                    <div class="flex items-center gap-2.5">
+                        <span class="w-3.5 h-3.5 rounded-full bg-slate-400 shadow-sm"></span>
+                        <div>
+                            <p class="text-[10px] text-slate-300 uppercase font-extrabold">Còn Trống</p>
+                            <p class="text-lg font-black text-slate-200" id="statAvailableCount">{{ count($availableRooms ?? []) }} Phòng</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -218,7 +240,7 @@
         <!-- BỘ LỌC TÌM KIẾM & BẢNG CHÚ THÍCH TRẠNG THÁI (ĐẸP MẮT & TINH TẾ) -->
         <div class="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4">
             
-            <!-- Chú thích chấm xanh / chấm đỏ -->
+            <!-- Chú thích chấm xanh / chấm đỏ / chấm vàng -->
             <div class="flex flex-wrap items-center gap-5 text-xs font-bold">
                 <span class="text-slate-400 uppercase tracking-wider text-[10px]">Trạng Thái:</span>
                 <button onclick="filterRooms('all')" id="filter-all" class="filter-btn active px-3.5 py-1.5 rounded-xl border border-slate-200 text-slate-700 transition-all">
@@ -231,6 +253,16 @@
                 <button onclick="filterRooms('unpaid')" id="filter-unpaid" class="filter-btn px-3.5 py-1.5 rounded-xl border border-rose-200 bg-rose-50/60 text-rose-700 hover:bg-rose-100 transition-all flex items-center gap-1.5">
                     <span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block shadow-sm"></span>
                     <span>Chưa thu tiền (Chấm Đỏ)</span>
+                </button>
+                @if($pendingApprovalCount > 0)
+                    <button onclick="filterRooms('pending_approval')" id="filter-pending-approval" class="filter-btn px-3.5 py-1.5 rounded-xl border border-amber-200 bg-amber-50/60 text-amber-800 hover:bg-amber-100 transition-all flex items-center gap-1.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block shadow-sm animate-pulse"></span>
+                        <span>Khách đã CK - Chờ duyệt (Chấm Vàng: {{ $pendingApprovalCount }})</span>
+                    </button>
+                @endif
+                <button onclick="filterRooms('available')" id="filter-available" class="filter-btn px-3.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition-all flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-slate-400 inline-block shadow-sm"></span>
+                    <span>Còn Trống ({{ count($availableRooms ?? []) }})</span>
                 </button>
             </div>
 
@@ -273,8 +305,20 @@
         <div class="space-y-6" id="roomListContainer">
 
             @foreach($rooms as $room)
+                @php
+                    $checkoutReq = $room->checkout_request ?? ($room->contract->checkout_request ?? null);
+                    if ($checkoutReq === null && !empty($room->id)) {
+                        $contractObj = \App\Models\Contract::find($room->id);
+                        $checkoutReq = $contractObj ? $contractObj->checkout_request : null;
+                    }
+                    $hasCheckoutReq = !empty($checkoutReq) && (
+                        (is_array($checkoutReq) && ($checkoutReq['status'] ?? '') === 'pending') ||
+                        (is_object($checkoutReq) && ($checkoutReq->status ?? '') === 'pending')
+                    );
+                    $expectedDate = is_array($checkoutReq) ? ($checkoutReq['expected_checkout_date'] ?? null) : ($checkoutReq->expected_checkout_date ?? null);
+                @endphp
                 <div id="card-{{ $room->room_code }}" 
-                     class="room-card @if($room->status === 'unpaid') unpaid border-2 border-rose-200 @else paid border border-slate-200/90 @endif bg-white rounded-3xl overflow-hidden shadow-card hover:shadow-lg transition-all p-6 flex flex-col lg:flex-row justify-between gap-6 relative"
+                     class="room-card @if($hasCheckoutReq) border-2 border-amber-400 ring-2 ring-amber-200/80 bg-gradient-to-br from-amber-50/20 via-white to-rose-50/20 shadow-md @elseif($room->status === 'unpaid') unpaid border-2 border-rose-200 @else paid border border-slate-200/90 @endif bg-white rounded-3xl overflow-hidden shadow-card hover:shadow-lg transition-all p-6 flex flex-col lg:flex-row justify-between gap-6 relative"
                      data-status="{{ $room->status }}">
                     <div class="flex items-start gap-4">
                         @php
@@ -292,7 +336,10 @@
                                      onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80';">
                             </div>
                             <div id="room-status-dot-container-{{ $room->id }}">
-                                @if($room->status === 'unpaid')
+                                @if($room->status === 'pending_approval')
+                                    <!-- CHẤM VÀNG KHÁCH ĐÃ CHUYỂN KHOẢN CHỜ DUYỆT -->
+                                    <span class="room-status-dot-pulse absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 border-2 border-white shadow-md animate-pulse" title="Khách Đã Chuyển Khoản - Chờ Admin Kế Toán Duyệt"></span>
+                                @elseif($room->status === 'unpaid')
                                     <!-- CHẤM ĐỎ CHƯA THU TIỀN -->
                                     <span class="room-status-dot-ping absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 border-2 border-white shadow-md animate-ping"></span>
                                     <span class="room-status-dot absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 border-2 border-white shadow-md" title="Chưa thu tiền"></span>
@@ -306,7 +353,11 @@
                         <div class="space-y-1">
                             <div class="flex flex-wrap items-center gap-2">
                                 <div id="room-status-badge-{{ $room->id }}" class="inline-flex">
-                                    @if($room->status === 'unpaid')
+                                    @if($room->status === 'pending_approval')
+                                        <span class="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-extrabold text-[11px] border border-amber-300 flex items-center gap-1 shadow-2xs">
+                                            <i class="fa-solid fa-clock-rotate-left text-amber-600"></i> KHÁCH ĐÃ CK - CHỜ DUYỆT
+                                        </span>
+                                    @elseif($room->status === 'unpaid')
                                         <span class="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 font-extrabold text-[11px] flex items-center gap-1">
                                             <span class="w-2 h-2 rounded-full bg-rose-600 inline-block"></span> CHƯA THU TIỀN
                                         </span>
@@ -316,6 +367,11 @@
                                         </span>
                                     @endif
                                 </div>
+                                @if(($room->contract_status ?? '') === 'pending_deposit')
+                                    <span class="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-extrabold text-[11px] border border-amber-300 flex items-center gap-1 shadow-2xs">
+                                        <i class="fa-solid fa-clock text-amber-600"></i> Chờ Đóng Cọc (Chưa Active)
+                                    </span>
+                                @endif
                                 <span class="text-xs font-bold text-slate-400">Mã: {{ $room->room_code }}</span>
                                 @if(!empty($room->bill_date))
                                     <span class="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
@@ -323,7 +379,16 @@
                                     </span>
                                 @endif
                             </div>
-                            <h3 class="text-lg font-extrabold text-slate-900">{{ $room->name ?? $room->room_name ?? ('Phòng ' . $room->room_code) }}</h3>
+                            <div class="flex flex-wrap items-center gap-2.5">
+                                <h3 class="text-lg font-extrabold text-slate-900">{{ $room->name ?? $room->room_name ?? ('Phòng ' . $room->room_code) }}</h3>
+                                @if($hasCheckoutReq)
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 text-white font-black text-xs shadow-md animate-pulse border border-orange-200 tracking-wide"
+                                          title="Khách thuê đã gửi yêu cầu trả phòng (Dự kiến: {{ $expectedDate ? date('d/m/Y', strtotime($expectedDate)) : 'Sớm' }})">
+                                        <span class="text-xs animate-bounce inline-block">🚨</span>
+                                        <span>KHÁCH XIN TRẢ PHÒNG</span>
+                                    </span>
+                                @endif
+                            </div>
                             <p class="text-xs text-slate-600 font-medium">
                                 <i class="fa-solid fa-user text-slate-400"></i> Người thuê: <strong class="text-slate-800">{{ $room->tenant_name }}</strong> (SĐT: {{ $room->tenant_phone }})
                             </p>
@@ -331,7 +396,9 @@
                                 <span>Giá thuê: <strong class="text-brand-600 font-bold">{{ number_format($room->price) }}đ/tháng</strong></span>
                                 <span>Tiền cọc: <strong class="text-skybrand-600 font-bold">{{ number_format($room->deposit ?? $room->price) }}đ</strong></span>
                                 <div id="room-debt-status-{{ $room->id }}" class="inline-block">
-                                    @if($room->status === 'unpaid')
+                                    @if($room->status === 'pending_approval')
+                                        <span>Trạng thái: <strong class="text-amber-600 font-bold">Khách Đã CK - Chờ Duyệt ({{ number_format($room->debt_amount ?? $room->price) }}đ)</strong></span>
+                                    @elseif($room->status === 'unpaid')
                                         <span>Kỳ nợ: <strong class="text-rose-600 font-bold">{{ $room->debt_period ?? 'Kỳ này' }} ({{ number_format($room->debt_amount ?? $room->price) }}đ)</strong></span>
                                     @else
                                         <span>Trạng thái: <strong class="text-emerald-600 font-bold">{{ $room->status_label ?? ($room->paid_period ?? 'Đã thu tiền') }}</strong></span>
@@ -343,31 +410,42 @@
 
                     <!-- NÚT THAO TÁC CHO PHÒNG & NÚT CHUYỂN TRẠNG THÁI THU TIỀN -->
                     <div class="flex flex-wrap items-center lg:justify-end gap-2.5 shrink-0 border-t lg:border-t-0 pt-4 lg:pt-0 border-slate-100">
-                        <!-- CỤM NÚT TRẠNG THÁI THU TIỀN (CHUYỂN TỪ TRANG TẠO HÓA ĐƠN RA NGOÀI ĐÂY) -->
-                        <div class="inline-flex p-1 bg-slate-100 rounded-2xl border border-slate-200 shadow-inner items-center gap-1 {{ $room->status === 'paid' ? 'hidden' : '' }}" id="payment-toggle-group-{{ $room->id }}">
-                            <button type="button" 
-                                    onclick="updateRoomPaymentStatus('{{ $room->id }}', '{{ $room->room_code }}', 'unpaid', this)"
-                                    id="btn-status-unpaid-{{ $room->id }}"
-                                    title="Chuyển sang Chưa Thu Tiền"
-                                    class="px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 {{ $room->status === 'unpaid' ? 'bg-white text-rose-700 shadow-sm border border-rose-300 ring-2 ring-rose-500/20 font-extrabold' : 'text-slate-500 hover:text-rose-600 hover:bg-white/60' }}">
-                                <span class="w-2.5 h-2.5 rounded-full {{ $room->status === 'unpaid' ? 'bg-rose-500 ring-2 ring-rose-200' : 'border-2 border-slate-400' }}"></span>
-                                <span>Chưa Thu Tiền</span>
-                            </button>
-                            <button type="button" 
-                                    onclick="updateRoomPaymentStatus('{{ $room->id }}', '{{ $room->room_code }}', 'paid', this)"
-                                    id="btn-status-paid-{{ $room->id }}"
-                                    title="Chuyển sang Đã Thu Tiền"
-                                    class="px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 {{ $room->status === 'paid' ? 'bg-white text-emerald-700 shadow-sm border border-emerald-300 ring-2 ring-emerald-500/20 font-extrabold' : 'text-slate-500 hover:text-emerald-700 hover:bg-white/60' }}">
-                                <span class="w-2.5 h-2.5 rounded-full {{ $room->status === 'paid' ? 'bg-emerald-500 ring-2 ring-emerald-200' : 'border-2 border-slate-400' }}"></span>
-                                <span>Đã Thu Tiền</span>
-                            </button>
-                        </div>
+                        <!-- CỤM NÚT TRẠNG THÁI THU TIỀN & XÁC NHẬN THU TIỀN MẶT -->
+                        @if($room->status === 'pending_approval')
+                            <div class="inline-flex p-1 bg-amber-50 rounded-2xl border border-amber-200 shadow-inner items-center gap-1.5 px-3 py-2 text-xs font-bold text-amber-800" title="Khách đã báo chuyển khoản, đang chờ Kế toán đối soát sao kê">
+                                <i class="fa-solid fa-lock text-amber-600"></i>
+                                <span>Chờ Kế Toán Duyệt CK</span>
+                            </div>
+                        @else
+                            <div class="inline-flex p-1 bg-slate-100 rounded-2xl border border-slate-200 shadow-inner items-center gap-1 {{ $room->status === 'paid' ? 'hidden' : '' }}" id="payment-toggle-group-{{ $room->id }}">
+                                <button type="button" 
+                                        onclick="updateRoomPaymentStatus('{{ $room->id }}', '{{ $room->room_code }}', 'unpaid', this)"
+                                        id="btn-status-unpaid-{{ $room->id }}"
+                                        title="Chuyển sang Chưa Thu Tiền"
+                                        class="px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 {{ $room->status === 'unpaid' ? 'bg-white text-rose-700 shadow-sm border border-rose-300 ring-2 ring-rose-500/20 font-extrabold' : 'text-slate-500 hover:text-rose-600 hover:bg-white/60' }}">
+                                    <span class="w-2.5 h-2.5 rounded-full {{ $room->status === 'unpaid' ? 'bg-rose-500 ring-2 ring-rose-200' : 'border-2 border-slate-400' }}"></span>
+                                    <span>Chưa Thu</span>
+                                </button>
+                                <button type="button" 
+                                        onclick="confirmCollectCashFromList('{{ $room->id }}', '{{ $room->room_code }}', this, '{{ number_format($room->debt_amount ?? $room->price) }}', '{{ $room->tenant_name }}')"
+                                        id="btn-status-paid-{{ $room->id }}"
+                                        title="Xác nhận đã thu tiền mặt từ khách thuê này"
+                                        class="px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm font-extrabold">
+                                    <i class="fa-solid fa-money-bill-wave text-[11px]"></i>
+                                    <span>Thu Tiền Mặt</span>
+                                </button>
+                            </div>
+                        @endif
 
                         <!-- Nút Thanh Lý Hợp Đồng (Mở Form Chốt Công Nợ) -->
-                        <a href="{{ url('qlvan_hanh/thanh_ly_cong_no') }}?room={{ $room->room_code }}"
-                           class="py-2.5 px-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                        <a href="{{ url('qlvan_hanh/thanh_ly_cong_no') }}?contract_id={{ $room->id }}&room={{ $room->room_code }}"
+                           class="py-2.5 px-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all {{ $hasCheckoutReq ? 'ring-2 ring-rose-400 ring-offset-2 animate-pulse shadow-md shadow-rose-500/30' : '' }}"
+                           title="{{ $hasCheckoutReq ? 'Khách thuê có yêu cầu trả phòng. Nhấn để thanh lý hợp đồng & chốt công nợ' : 'Thanh lý hợp đồng' }}">
                             <i class="fa-solid fa-file-contract"></i>
                             <span>Thanh Lý Hợp Đồng</span>
+                            @if($hasCheckoutReq)
+                                <span class="w-2 h-2 rounded-full bg-amber-300 animate-ping inline-block -mr-0.5" title="Có yêu cầu trả phòng"></span>
+                            @endif
                         </a>
 
                         <!-- Nút Tạo Hóa Đơn -->
@@ -377,25 +455,13 @@
                             <span>Tạo Hóa Đơn</span>
                         </a>
 
-                        <!-- Nút Xem Hóa Đơn -->
-                        <button type="button" 
-                                onclick="openViewInvoiceModal({{ json_encode($room->invoice_details ?? [
-                                    'room_code'      => $room->room_code,
-                                    'invoice_code'   => $room->invoice_code ?? $room->room_code,
-                                    'tenant_name'    => $room->tenant_name ?? 'Khách thuê',
-                                    'status'         => $room->status,
-                                    'status_label'   => $room->status_label ?? ($room->status === 'unpaid' ? 'Chưa thu tiền' : 'Đã thu tiền'),
-                                    'total_amount'   => $room->invoice_total ?? $room->debt_amount ?? $room->price,
-                                    'rent_price'     => $room->price,
-                                    'elec_amount'    => 0,
-                                    'water_amount'   => 0,
-                                    'service_amount' => 0,
-                                    'deposit'        => 0,
-                                ]) }})"
-                                class="py-2.5 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                        <!-- Nút Xem Hóa Đơn (Mở trực tiếp trang chi tiết hóa đơn chi_tiet_hoa_don.blade.php) -->
+                        <a href="{{ url('qlvan_hanh/hoa_don/' . ($room->invoice_code ?: ($room->contract_code ?: $room->id))) }}"
+                           class="py-2.5 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all"
+                           title="Xem chi tiết hóa đơn đầy đủ & mã VietQR">
                             <i class="fa-solid fa-receipt"></i>
                             <span>Xem Hóa Đơn</span>
-                        </button>
+                        </a>
 
                         <!-- Nút Xem Hợp Đồng -->
                         <button type="button" 
@@ -442,6 +508,51 @@
                     <h4 class="font-bold text-base text-slate-700">Chưa có phòng hoặc hợp đồng nào</h4>
                     <p class="text-xs text-slate-400 mt-1">Danh sách phòng đang quản lý sẽ hiển thị tại đây khi kết nối dữ liệu.</p>
                 </div>
+            @endif
+
+            @if(isset($availableRooms) && count($availableRooms) > 0)
+                @foreach($availableRooms as $avail)
+                    @php
+                        $availCode = $avail->room_number ?? ($avail->title ?? 'PH-' . substr((string)($avail->_id ?? $avail->id), -4));
+                        $availPrice = (float)($avail->price ?? 0);
+                        $availImg = $avail->display_image ?: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80';
+                        $availAddress = $avail->address ?: 'RentHome';
+                    @endphp
+                    <div id="card-avail-{{ $availCode }}" 
+                         class="room-card available border border-dashed border-slate-300 bg-slate-50/70 rounded-3xl overflow-hidden shadow-xs hover:shadow-md transition-all p-6 flex flex-col lg:flex-row justify-between gap-6 relative"
+                         data-status="available">
+                        <div class="flex items-start gap-4">
+                            <div class="relative w-20 h-20 rounded-2xl overflow-hidden shrink-0 border border-slate-200 bg-slate-200">
+                                <img src="{{ $availImg }}" alt="{{ $avail->title }}" class="w-full h-full object-cover">
+                                <span class="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[9px] font-extrabold uppercase">
+                                    Trống
+                                </span>
+                            </div>
+                            <div class="space-y-1">
+                                <div class="flex items-center gap-2">
+                                    <h4 class="text-base font-extrabold text-slate-900">{{ $avail->title ?? ('Phòng ' . $availCode) }}</h4>
+                                    <span class="px-2 py-0.5 rounded-md bg-slate-200 text-slate-700 text-[10px] font-bold">Mã: {{ $availCode }}</span>
+                                </div>
+                                <p class="text-xs text-slate-500 font-medium"><i class="fa-solid fa-location-dot text-rose-500 mr-1"></i> {{ $availAddress }}</p>
+                                <p class="text-xs font-bold text-brand-600">Giá niêm yết: {{ number_format($availPrice) }} đ/tháng</p>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col sm:flex-row items-center gap-3 shrink-0 self-center">
+                            <span class="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold flex items-center gap-1.5">
+                                <i class="fa-solid fa-door-open text-emerald-500"></i> Phòng trống sẵn sàng cho thuê
+                            </span>
+                            <a href="{{ url('/chi-tiet-phong/' . ($avail->_id ?? $avail->id)) }}" target="_blank"
+                               class="px-4 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5">
+                                <i class="fa-solid fa-arrow-up-right-from-square"></i> Xem bài đăng
+                            </a>
+                            <button onclick="openCreateContractModal()" 
+                               class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5">
+                                <i class="fa-solid fa-plus"></i> Tạo hợp đồng mới
+                            </button>
+                        </div>
+                    </div>
+                @endforeach
             @endif
 
         </div>
@@ -787,10 +898,10 @@
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                        <button onclick="sendZaloInvoiceFromModal()" class="py-2.5 px-3 rounded-xl bg-skybrand-600 hover:bg-skybrand-700 text-white font-bold flex items-center justify-center gap-2 transition-all">
-                            <i class="fa-solid fa-paper-plane"></i>
-                            <span>Gửi Zalo Cho Khách</span>
-                        </button>
+                        <a id="btnOpenFullInvoicePage" href="#" class="py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold flex items-center justify-center gap-2 transition-all shadow-sm">
+                            <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                            <span>Mở Trang Hóa Đơn Chi Tiết</span>
+                        </a>
                         <button onclick="window.print()" class="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold flex items-center justify-center gap-2 transition-all">
                             <i class="fa-solid fa-print"></i>
                             <span>In File PDF Hóa Đơn</span>
@@ -1041,8 +1152,8 @@
                 <div class="flex items-center gap-2.5 w-full sm:w-auto justify-end">
                     <!-- Nút Thanh lý tiện ích -->
                     <a id="vcBtnLiquidate" href="{{ url('qlvan_hanh/thanh_ly_cong_no') }}" class="px-3.5 py-2.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-sans text-xs font-bold transition flex items-center gap-1.5">
-                        <i class="fa-solid fa-file-contract"></i>
-                        <span>Thanh Lý HĐ</span>
+                        <i id="vcBtnLiquidateIcon" class="fa-solid fa-file-contract"></i>
+                        <span id="vcBtnLiquidateText">Thanh Lý HĐ</span>
                     </a>
 
                     <!-- Nút Từ Chối (Màu xám Outline) -->
@@ -1111,28 +1222,29 @@
             const btnAll = document.getElementById('filter-all');
             const btnPaid = document.getElementById('filter-paid');
             const btnUnpaid = document.getElementById('filter-unpaid');
+            const btnPending = document.getElementById('filter-pending-approval');
+            const btnAvailable = document.getElementById('filter-available');
 
-            [btnAll, btnPaid, btnUnpaid].forEach(btn => btn.classList.remove('active'));
+            [btnAll, btnPaid, btnUnpaid, btnPending, btnAvailable].filter(Boolean).forEach(btn => btn.classList.remove('active'));
 
             const cards = document.querySelectorAll('.room-card');
             cards.forEach(card => {
+                const cardStatus = card.getAttribute('data-status');
                 if (type === 'all') {
                     card.classList.remove('hidden');
-                    btnAll.classList.add('active');
+                    if (btnAll) btnAll.classList.add('active');
                 } else if (type === 'paid') {
-                    btnPaid.classList.add('active');
-                    if (card.classList.contains('paid')) {
-                        card.classList.remove('hidden');
-                    } else {
-                        card.classList.add('hidden');
-                    }
+                    if (btnPaid) btnPaid.classList.add('active');
+                    card.classList.toggle('hidden', cardStatus !== 'paid' && !card.classList.contains('paid'));
                 } else if (type === 'unpaid') {
-                    btnUnpaid.classList.add('active');
-                    if (card.classList.contains('unpaid')) {
-                        card.classList.remove('hidden');
-                    } else {
-                        card.classList.add('hidden');
-                    }
+                    if (btnUnpaid) btnUnpaid.classList.add('active');
+                    card.classList.toggle('hidden', cardStatus !== 'unpaid' && !card.classList.contains('unpaid'));
+                } else if (type === 'pending_approval') {
+                    if (btnPending) btnPending.classList.add('active');
+                    card.classList.toggle('hidden', cardStatus !== 'pending_approval');
+                } else if (type === 'available') {
+                    if (btnAvailable) btnAvailable.classList.add('active');
+                    card.classList.toggle('hidden', cardStatus !== 'available' && !card.classList.contains('available'));
                 }
             });
         }
@@ -1191,9 +1303,52 @@
         }
 
         function confirmCollectMoneyFromModal() {
+            const targetRoomCode = activePendingDebt ? activePendingDebt.roomCode : 'NH-302';
+            const amountStr = document.getElementById('pdAmount')?.innerText || 'tiền phòng';
+            const tenantName = document.getElementById('pdTenant')?.innerText || 'khách thuê';
+
+            const confirmHtml = `
+                <div class="text-left space-y-3 text-xs sm:text-sm">
+                    <p class="text-slate-700">
+                        Bạn xác nhận <strong>đã thu [${amountStr}] tiền mặt</strong> từ khách thuê <strong>${tenantName}</strong> (${targetRoomCode})?
+                    </p>
+                    <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs">
+                        <i class="fa-solid fa-triangle-exclamation mr-1 text-amber-600"></i>
+                        Khoản tiền mặt này sẽ được ghi nhận vào mục <strong>"Tiền Mặt Đang Giữ (Chờ nộp Kế toán)"</strong> trên Bảng điều khiển của bạn.
+                    </div>
+                </div>
+            `;
+
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Xác Nhận Thu Tiền Mặt?',
+                    html: confirmHtml,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#059669',
+                    cancelButtonColor: '#64748b',
+                    confirmButtonText: '<i class="fa-solid fa-check mr-1.5"></i> Tôi Đã Thu Tiền Mặt',
+                    cancelButtonText: 'Hủy Bỏ',
+                    customClass: {
+                        popup: 'rounded-3xl shadow-2xl border border-slate-100',
+                        confirmButton: 'rounded-xl font-bold py-2.5 px-4',
+                        cancelButton: 'rounded-xl font-bold py-2.5 px-4'
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        executeCollectFromPendingDebtModal(targetRoomCode);
+                    }
+                });
+            } else {
+                if (confirm(`Bạn xác nhận đã thu [${amountStr}] tiền mặt từ khách thuê ${tenantName}?`)) {
+                    executeCollectFromPendingDebtModal(targetRoomCode);
+                }
+            }
+        }
+
+        function executeCollectFromPendingDebtModal(targetRoomCode) {
             closePendingDebtModal();
             
-            const targetRoomCode = activePendingDebt ? activePendingDebt.roomCode : 'NH-302';
             const targetCard = document.getElementById('card-' + targetRoomCode);
             
             if (targetCard) {
@@ -1206,7 +1361,7 @@
                 const statusDot = targetCard.querySelector('.room-status-dot');
                 if (statusDot) {
                     statusDot.className = "room-status-dot absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white shadow-md";
-                    statusDot.setAttribute('title', 'Đã thu tiền');
+                    statusDot.setAttribute('title', 'Đã thu tiền mặt');
                 }
                 const imgContainer = targetCard.querySelector('.relative > div');
                 if (imgContainer) {
@@ -1215,12 +1370,28 @@
                 }
                 const badgeSpan = targetCard.querySelector('.space-y-1 .flex span');
                 if (badgeSpan) {
-                    badgeSpan.className = "px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-[11px] flex items-center gap-1";
-                    badgeSpan.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-600 inline-block"></span> ĐÃ THU TIỀN`;
+                    badgeSpan.className = "px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800 font-extrabold text-[11px] flex items-center gap-1";
+                    badgeSpan.innerHTML = `<span class="w-2 h-2 rounded-full bg-teal-600 inline-block"></span> ĐÃ THU TIỀN MẶT`;
                 }
                 const debtBtn = document.getElementById('btnDebt' + targetRoomCode.replace('-', ''));
                 if (debtBtn) debtBtn.remove();
             }
+
+            // Gọi backend để cập nhật
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
+            fetch("{{ url('qlvan_hanh/update_payment_status') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                body: JSON.stringify({
+                    contract_id: targetRoomCode,
+                    status: 'paid',
+                    payment_method: 'cash'
+                })
+            }).catch(e => console.error(e));
 
             // Tính toán lại số phòng chưa thu tiền còn lại
             const remainingUnpaid = document.querySelectorAll('.room-card.unpaid').length;
@@ -1300,20 +1471,50 @@
             rawCode = String(rawCode).replace(/^Mã HĐ:\s*/i, '').trim();
             rawCode = rawCode.replace(/^(HD-)+/i, 'HD-').replace(/^(HD\s+)+/i, 'HD-');
             document.getElementById('viCode').innerText = "Mã HĐ: " + rawCode;
+            const btnFullPage = document.getElementById('btnOpenFullInvoicePage');
+            if (btnFullPage) {
+                btnFullPage.href = "{{ url('qlvan_hanh/hoa_don') }}/" + encodeURIComponent(rawCode);
+            }
 
             // 2. Tên khách & Mã phòng
             document.getElementById('viTenant').innerText = data.tenant_name || 'Khách thuê';
             document.getElementById('viRoomCode').innerText = data.room_code || '';
 
             // 3. Trạng thái thanh toán
-            const isPaid = (data.status === 'paid' || data.status === 'Đã thu tiền' || (data.status_label && data.status_label.includes('Đã thu')));
+            const isPendingApproval = (data.status === 'pending_approval' || (data.status_label && data.status_label.includes('Chờ Duyệt')) || data.invoice_status === 'pending_approval');
+            const isPaid = (data.status === 'paid' || data.status === 'Đã thu tiền' || (data.status_label && data.status_label.includes('Đã thu')) || data.invoice_status === 'paid');
+            const isBank = (data.payment_method === 'bank_transfer');
             const badge = document.getElementById('viStatusBadge');
             const btnBox = document.getElementById('viCollectBtnContainer');
             const totalBox = document.getElementById('viTotalBox');
 
-            if (isPaid) {
-                badge.className = "mt-1 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-xs";
-                badge.innerHTML = "<span class='w-2 h-2 rounded-full bg-emerald-600 inline-block'></span> ĐÃ THU TIỀN";
+            if (isPendingApproval) {
+                badge.className = "mt-1 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-800 font-extrabold text-xs border border-amber-300 shadow-2xs";
+                badge.innerHTML = "<span class='w-2 h-2 rounded-full bg-amber-500 inline-block animate-pulse'></span> KHÁCH ĐÃ CHUYỂN KHOẢN - CHỜ DUYỆT";
+                if (btnBox) {
+                    btnBox.classList.remove('hidden');
+                    btnBox.innerHTML = `
+                        <div class="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-center text-amber-800 font-bold text-xs flex items-center justify-center gap-2 shadow-2xs">
+                            <i class="fa-solid fa-lock text-amber-600 text-sm"></i>
+                            <span>Khách thuê đã báo chuyển khoản ngân hàng. Vui lòng chờ Admin Kế toán đối soát sao kê và duyệt trên Module Tài chính (Không thu tiền mặt)!</span>
+                        </div>
+                    `;
+                }
+                if (totalBox) {
+                    totalBox.className = "p-5 rounded-2xl bg-amber-50/70 border border-amber-200 text-center space-y-1";
+                    const spanLabel = totalBox.querySelector('span');
+                    const divAmount = totalBox.querySelector('div');
+                    if (spanLabel) spanLabel.className = "text-xs font-bold text-amber-700 uppercase tracking-wider block";
+                    if (divAmount) divAmount.className = "text-2xl sm:text-3xl font-black text-amber-700 tracking-tight";
+                }
+            } else if (isPaid) {
+                if (isBank) {
+                    badge.className = "mt-1 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-xs border border-emerald-300";
+                    badge.innerHTML = "<span class='w-2 h-2 rounded-full bg-emerald-600 inline-block'></span> ĐÃ THANH TOÁN (CHUYỂN KHOẢN)";
+                } else {
+                    badge.className = "mt-1 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-100 text-teal-800 font-extrabold text-xs border border-teal-300";
+                    badge.innerHTML = "<span class='w-2 h-2 rounded-full bg-teal-600 inline-block'></span> ĐÃ THU TIỀN MẶT";
+                }
                 if (btnBox) btnBox.classList.add('hidden');
                 if (totalBox) {
                     totalBox.className = "p-5 rounded-2xl bg-emerald-50 border border-emerald-200 text-center space-y-1";
@@ -1325,7 +1526,15 @@
             } else {
                 badge.className = "mt-1 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-100 text-rose-700 font-extrabold text-xs";
                 badge.innerHTML = "<span class='w-2 h-2 rounded-full bg-rose-600 inline-block'></span> CHƯA THU TIỀN";
-                if (btnBox) btnBox.classList.remove('hidden');
+                if (btnBox) {
+                    btnBox.classList.remove('hidden');
+                    btnBox.innerHTML = `
+                        <button onclick="confirmCollectMoneyFromInvoiceModal()" class="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-glow transition-all">
+                            <i class="fa-solid fa-money-bill-wave text-sm"></i>
+                            <span>XÁC NHẬN THU TIỀN MẶT</span>
+                        </button>
+                    `;
+                }
                 if (totalBox) {
                     totalBox.className = "p-5 rounded-2xl bg-rose-50 border border-rose-200 text-center space-y-1";
                     const spanLabel = totalBox.querySelector('span');
@@ -1488,23 +1697,70 @@
                 closeViewInvoiceModal();
                 return;
             }
+            const totalText = document.getElementById('viTotal')?.innerText || '';
+            const tenant = currentActiveInvoiceData.tenant_name || document.getElementById('viTenant')?.innerText || 'khách thuê';
+            const roomCode = currentActiveInvoiceData.room_code || document.getElementById('viRoomCode')?.innerText || '';
+
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Xác Nhận Thu Tiền Mặt?',
+                    html: `Bạn xác nhận <strong>đã thu [${totalText}] tiền mặt</strong> từ khách thuê <strong>${tenant}</strong> (Phòng <b>${roomCode}</b>)?`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#059669',
+                    cancelButtonColor: '#94a3b8',
+                    confirmButtonText: '<i class="fa-solid fa-check mr-1.5"></i> Tôi Đã Thu Tiền Mặt',
+                    cancelButtonText: 'Hủy Bỏ',
+                    customClass: {
+                        popup: 'rounded-3xl shadow-2xl border border-slate-100',
+                        confirmButton: 'rounded-xl font-bold py-2.5 px-4',
+                        cancelButton: 'rounded-xl font-bold py-2.5 px-4'
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        executeCollectFromInvoiceModal();
+                    }
+                });
+            } else {
+                if (confirm(`Bạn xác nhận đã thu [${totalText}] tiền mặt từ khách thuê ${tenant}?`)) {
+                    executeCollectFromInvoiceModal();
+                }
+            }
+        }
+
+        async function executeCollectFromInvoiceModal() {
+            if (!currentActiveInvoiceData) return;
             const roomCode = currentActiveInvoiceData.room_code;
             const contractId = currentActiveInvoiceData.contract_code || roomCode;
 
             // Gọi API lưu trạng thái sang DB
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
-            fetch("{{ url('qlvan_hanh/update_payment_status') }}", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken
-                },
-                body: JSON.stringify({
-                    contract_id: contractId,
-                    status: 'paid'
-                })
-            }).catch(e => console.error(e));
+            try {
+                const response = await fetch("{{ url('qlvan_hanh/update_payment_status') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken
+                    },
+                    body: JSON.stringify({
+                        contract_id: contractId,
+                        status: 'paid',
+                        payment_method: 'cash'
+                    })
+                });
+                const resData = await response.json();
+                if (!resData.success) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire('Thông Báo', resData.message || 'Lỗi khi cập nhật thanh toán', 'warning');
+                    } else {
+                        alert(resData.message || 'Lỗi khi cập nhật thanh toán');
+                    }
+                    return;
+                }
+            } catch (e) {
+                console.error(e);
+            }
 
             // Cập nhật card trên giao diện
             const targetCard = document.getElementById('card-' + roomCode);
@@ -1527,24 +1783,35 @@
                 }
                 const badgeContainer = targetCard.querySelector('[id^="room-status-badge-"]');
                 if (badgeContainer) {
-                    badgeContainer.innerHTML = `<span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-[11px] flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-600 inline-block"></span> ĐÃ THU TIỀN</span>`;
+                    badgeContainer.innerHTML = `<span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-[11px] flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-600 inline-block"></span> ĐÃ THU TIỀN MẶT</span>`;
                 }
                 const debtContainer = targetCard.querySelector('[id^="room-debt-status-"]');
                 if (debtContainer) {
-                    debtContainer.innerHTML = `<span>Trạng thái: <strong class="text-emerald-600 font-bold">Đã thu tiền</strong></span>`;
+                    debtContainer.innerHTML = `<span>Trạng thái: <strong class="text-emerald-600 font-bold">Đã thu tiền mặt</strong></span>`;
+                }
+
+                // Ẩn cụm nút toggle thanh toán bên ngoài thẻ
+                const toggleGroup = targetCard.querySelector('[id^="payment-toggle-group-"]');
+                if (toggleGroup) {
+                    toggleGroup.classList.add('hidden');
                 }
             }
 
             // Cập nhật số lượng thống kê
-            const remainingUnpaid = document.querySelectorAll('.room-card.unpaid').length;
-            const remainingPaid = document.querySelectorAll('.room-card').length - remainingUnpaid;
-            const statPaid = document.getElementById('statPaidCount');
-            const statUnpaid = document.getElementById('statUnpaidCount');
-            if (statPaid) statPaid.innerText = remainingPaid + " Phòng";
-            if (statUnpaid) statUnpaid.innerText = remainingUnpaid + " Phòng";
+            recalculateHeaderCounts();
 
             closeViewInvoiceModal();
-            showToast("Đã xác nhận thu tiền phòng " + roomCode + " thành công! Chuyển phòng sang Chấm Xanh.");
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Thành Công!',
+                    text: 'Đã xác nhận thu tiền mặt thành công! Đã ghi nhận vào công nợ cá nhân.',
+                    icon: 'success',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            } else {
+                showToast("Đã xác nhận thu tiền phòng " + roomCode + " thành công!");
+            }
         }
 
         // Helper format VNĐ
@@ -1703,8 +1970,17 @@
 
             // Link thanh lý hợp đồng
             const btnLiquidate = document.getElementById('vcBtnLiquidate');
+            const btnLiquidateText = document.getElementById('vcBtnLiquidateText');
+            const btnLiquidateIcon = document.getElementById('vcBtnLiquidateIcon');
             if (btnLiquidate) {
                 btnLiquidate.href = `{{ url('qlvan_hanh/thanh_ly_cong_no') }}?room=${roomCode}`;
+                if (btnLiquidateText) btnLiquidateText.innerText = 'Thanh Lý HĐ';
+                if (btnLiquidateIcon) btnLiquidateIcon.className = 'fa-solid fa-file-contract';
+                if (info.has_checkout_request) {
+                    btnLiquidate.className = "px-3.5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-sans text-xs font-bold shadow-md ring-2 ring-rose-400 ring-offset-1 animate-pulse transition flex items-center gap-1.5";
+                } else {
+                    btnLiquidate.className = "px-3.5 py-2.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-sans text-xs font-bold transition flex items-center gap-1.5";
+                }
             }
 
             document.getElementById('viewContractModal').classList.remove('hidden');
@@ -1848,8 +2124,40 @@
             }
         }
 
+        // CƠ CHẾ BẢO VỆ XÁC NHẬN THU TIỀN MẶT TRỰC TIẾP TRÊN THẺ PHÒNG
+        function confirmCollectCashFromList(contractId, roomCode, btnElement, amountFormatted, tenantName) {
+            const amountStr = amountFormatted ? amountFormatted + ' VNĐ' : '';
+            const tenantStr = tenantName ? `từ khách thuê <b>${tenantName}</b>` : '';
+
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Xác Nhận Thu Tiền Mặt?',
+                    html: `Bạn xác nhận <strong>đã thu [${amountStr}] tiền mặt</strong> ${tenantStr} (Phòng <b>${roomCode}</b>)?`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#059669',
+                    cancelButtonColor: '#94a3b8',
+                    confirmButtonText: '<i class="fa-solid fa-check mr-1.5"></i> Tôi Đã Thu Tiền Mặt',
+                    cancelButtonText: 'Hủy Bỏ',
+                    customClass: {
+                        popup: 'rounded-3xl shadow-2xl border border-slate-100',
+                        confirmButton: 'rounded-xl font-bold py-2.5 px-4',
+                        cancelButton: 'rounded-xl font-bold py-2.5 px-4'
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        updateRoomPaymentStatus(contractId, roomCode, 'paid', btnElement, 'cash');
+                    }
+                });
+            } else {
+                if (confirm(`Bạn xác nhận đã thu [${amountStr}] tiền mặt ${tenantStr} từ khách thuê này?`)) {
+                    updateRoomPaymentStatus(contractId, roomCode, 'paid', btnElement, 'cash');
+                }
+            }
+        }
+
         // CẬP NHẬT TRẠNG THÁI THU TIỀN TRỰC TIẾP TỪ BÊN NGOÀI DANH SÁCH PHÒNG
-        async function updateRoomPaymentStatus(contractId, roomCode, newStatus, btnElement) {
+        async function updateRoomPaymentStatus(contractId, roomCode, newStatus, btnElement, paymentMethod = 'cash') {
             if (btnElement && btnElement.disabled) return;
             if (btnElement) {
                 btnElement.disabled = true;
@@ -1868,7 +2176,8 @@
                     },
                     body: JSON.stringify({
                         contract_id: contractId,
-                        status: newStatus
+                        status: newStatus,
+                        payment_method: paymentMethod
                     })
                 });
 

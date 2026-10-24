@@ -450,7 +450,7 @@
             </a>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div id="approved-news-container" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <!-- Left: Featured Main News Card (Extra Large Frame) -->
             <article
                 class="group relative rounded-3xl overflow-hidden min-h-[460px] lg:min-h-[540px] flex flex-col justify-between p-8 sm:p-10 shadow-card hover:shadow-2xl transition-all duration-500 border border-slate-200/80">
@@ -1174,6 +1174,11 @@
                                         ${post.title}
                                     </h3>
                                     <div class="flex flex-col gap-1.5 mb-4 text-xs font-semibold text-slate-500">
+                                        ${post.building && post.building.name ? `
+                                        <div class="flex items-center gap-2 text-brand-600 font-bold truncate">
+                                            <i class="fa-solid fa-building w-4 text-center"></i>
+                                            <span>${post.building.name}</span>
+                                        </div>` : ''}
                                         <div class="flex items-center gap-2 truncate">
                                             <i class="fa-solid fa-location-dot w-4 text-center"></i>
                                             <span>${address}</span>
@@ -1181,7 +1186,7 @@
                                         <div class="flex items-center gap-2">
                                             <i class="fa-solid fa-ruler-combined w-4 text-center"></i>
                                             <span>${post.area} m²</span>
-                                                                                </div>
+                                        </div>
                                     </div>
                                     <div class="flex items-center justify-between pt-4 mt-4 border-t border-slate-100 mb-4">
                                         <div class="flex items-center gap-3">
@@ -1735,10 +1740,133 @@
             }
         });
 
-        // Initialize Featured Posts on load
+        // ==================== FETCH APPROVED NEWS CHO TRANG CHỦ ====================
+        function formatNewsTimeAgo(dateStr) {
+            if (!dateStr) return 'Vừa xong';
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            if (diffMins < 1) return 'Vừa xong';
+            if (diffMins < 60) return `${diffMins} phút trước`;
+            const diffHours = Math.floor(diffMins / 60);
+            if (diffHours < 24) return `${diffHours} giờ trước`;
+            const diffDays = Math.floor(diffHours / 24);
+            if (diffDays < 30) return `${diffDays} ngày trước`;
+            return date.toLocaleDateString('vi-VN');
+        }
+
+        async function fetchApprovedNews() {
+            const container = document.getElementById('approved-news-container');
+            if (!container) return;
+
+            try {
+                const res = await fetch('/api/news/approved');
+                const data = await res.json();
+                if (!data.success || !data.articles || data.articles.length === 0) {
+                    return; // Giữ nguyên fallback mẫu nếu chưa có dữ liệu
+                }
+
+                const articles = data.articles;
+                const featured = articles[0];
+                const smallArticles = articles.slice(1, 5);
+
+                const getSourceBadge = (source) => {
+                    const s = (source || '').toLowerCase();
+                    if (s.includes('vnexpress')) return 'bg-slate-900/80';
+                    if (s.includes('batdongsan')) return 'bg-blue-600/90';
+                    if (s.includes('cafef')) return 'bg-amber-600/90';
+                    if (s.includes('dân trí') || s.includes('dan tri')) return 'bg-emerald-600/90';
+                    return 'bg-brand-600/90';
+                };
+
+                let html = `
+                    <!-- Left: Featured Main News Card (Extra Large Frame) -->
+                    <article class="group relative rounded-3xl overflow-hidden min-h-[460px] lg:min-h-[540px] flex flex-col justify-between p-8 sm:p-10 shadow-card hover:shadow-2xl transition-all duration-500 border border-slate-200/80">
+                        <img src="${featured.image_url || 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=1200&q=80'}"
+                            alt="${featured.title}"
+                            class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                            onerror="this.src='https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=1200&q=80'">
+                        <div class="absolute inset-0 bg-gradient-to-b from-slate-950/70 via-slate-950/30 to-slate-950/90 group-hover:from-slate-950/80 transition-all"></div>
+
+                        <!-- Top badges -->
+                        <div class="relative z-10 flex items-center gap-3">
+                            <span class="px-3.5 py-1.5 rounded-full bg-brand-600 text-white font-bold text-xs uppercase shadow-md">
+                                ${featured.is_featured ? 'BÀI VIẾT NỔI BẬT' : (featured.category || 'TIN NỔI BẬT')}
+                            </span>
+                            <span class="px-3.5 py-1.5 rounded-full ${getSourceBadge(featured.source_name)} backdrop-blur-md text-white font-semibold text-xs">
+                                ${featured.source_name || 'RentHome'}
+                            </span>
+                        </div>
+
+                        <!-- Bottom content -->
+                        <div class="relative z-10">
+                            <div class="flex items-center gap-2 text-xs text-slate-300 mb-3 font-medium">
+                                <i class="fa-regular fa-clock"></i> ${formatNewsTimeAgo(featured.published_at || featured.created_at)}
+                            </div>
+                            <h3 class="text-2xl sm:text-3xl font-black text-white group-hover:text-emerald-400 transition-colors leading-snug">
+                                <a href="${featured.source_url || '#'}" target="_blank" rel="noopener noreferrer">
+                                    ${featured.title}
+                                </a>
+                            </h3>
+                            <p class="text-sm sm:text-base text-slate-200 mt-3 line-clamp-3 leading-relaxed">
+                                ${featured.summary || ''}
+                            </p>
+                            <div class="mt-6">
+                                <a href="${featured.source_url || '#'}" target="_blank" rel="noopener noreferrer"
+                                    class="inline-flex items-center gap-2.5 px-6 py-3 rounded-full bg-white/20 backdrop-blur-md text-white text-xs sm:text-sm font-bold border border-white/30 group-hover:bg-brand-600 group-hover:border-brand-600 transition-all">
+                                    Đọc bài viết đầy đủ <i class="fa-solid fa-arrow-right text-xs transition-transform group-hover:translate-x-1"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </article>
+
+                    <!-- Right: 2x2 Grid of 4 Larger News Cards -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-7">
+                        ${smallArticles.map(art => `
+                            <article class="group relative rounded-3xl overflow-hidden min-h-[255px] flex flex-col justify-between p-7 shadow-card hover:shadow-2xl transition-all duration-500 border border-slate-200/80">
+                                <img src="${art.image_url || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80'}"
+                                    alt="${art.title}"
+                                    class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                                    onerror="this.src='https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80'">
+                                <div class="absolute inset-0 bg-gradient-to-b from-slate-950/75 via-slate-950/30 to-slate-950/85 group-hover:from-slate-950/85 transition-all"></div>
+
+                                <div class="relative z-10 flex items-center justify-between">
+                                    <span class="px-3 py-1 rounded-full ${getSourceBadge(art.source_name)} backdrop-blur-sm text-[11px] font-bold text-white uppercase">
+                                        ${art.source_name || 'Báo chí'}
+                                    </span>
+                                    <span class="text-xs font-medium text-slate-300">
+                                        <i class="fa-regular fa-clock"></i> ${formatNewsTimeAgo(art.published_at || art.created_at)}
+                                    </span>
+                                </div>
+
+                                <div class="relative z-10">
+                                    <h3 class="text-base font-bold text-white group-hover:text-emerald-400 transition-colors line-clamp-2 leading-snug">
+                                        <a href="${art.source_url || '#'}" target="_blank" rel="noopener noreferrer">
+                                            ${art.title}
+                                        </a>
+                                    </h3>
+                                    <div class="mt-4 flex items-center justify-between">
+                                        <span class="text-xs font-medium text-slate-300">${art.category || 'Tin tức'}</span>
+                                        <i class="fa-solid fa-arrow-right text-xs text-white group-hover:text-emerald-400 group-hover:translate-x-1 transition-all"></i>
+                                    </div>
+                                </div>
+                            </article>
+                        `).join('')}
+                    </div>
+                `;
+
+                container.innerHTML = html;
+            } catch (err) {
+                console.error('Lỗi khi tải tin tức đã duyệt:', err);
+            }
+        }
+
+        // Initialize Featured Posts & News on load
         document.addEventListener('DOMContentLoaded', function() {
             renderFeaturedPostsSection();
             fetchRealPosts();
+            fetchApprovedNews();
         });
     </script>
 </body>

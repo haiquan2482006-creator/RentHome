@@ -13,6 +13,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->validateCsrfTokens(except: [
             'qlvan_hanh/update_payment_status',
+            'api/moderator/*',
+            'api/kiem-duyet/*',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

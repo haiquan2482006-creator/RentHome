@@ -61,8 +61,9 @@
 
     @php
         $user = \Illuminate\Support\Facades\Auth::user();
-        $isEnterprise = $user && ($user->isEnterprise() || $user->isStaff() || in_array($user->role ?? '', ['doanhnghiep', 'sub_account', 'staff']));
-        $userName = $user ? ($isEnterprise ? ($user->representative ?? $user->account_name ?? $user->company_name ?? $user->username ?? 'Doanh nghiệp') : ($user->account_name ?? $user->username ?? 'Người dùng')) : 'Người dùng';
+        $isStaff = $user && ($user->isSubAccount() || $user->isStaff() || in_array($user->role ?? '', ['nhansu', 'nhan su', 'nhan_su', 'sub_account', 'staff']));
+        $isEnterprise = $user && ($user->isEnterprise() || in_array($user->role ?? '', ['doanhnghiep', 'enterprise'])) && !$isStaff;
+        $userName = $user ? ($isStaff ? ($user->account_name ?? $user->username ?? 'Nhân sự') : ($isEnterprise ? ($user->representative ?? $user->account_name ?? $user->company_name ?? $user->username ?? 'Doanh nghiệp') : ($user->account_name ?? $user->username ?? 'Người dùng'))) : 'Người dùng';
     @endphp
 
     @include('partials.sidebar-user')
@@ -154,9 +155,19 @@
                         <div class="flex flex-col items-center sm:items-start text-center sm:text-left">
                             <div class="flex flex-wrap items-center justify-center sm:justify-start gap-3">
                                 <h2 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">{{ $userName }}</h2>
-                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full {{ $isEnterprise ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-brand-50 text-brand-700 border-brand-200' }} text-xs font-bold border">
-                                    <i class="fa-solid {{ $isEnterprise ? 'fa-building' : 'fa-user' }}"></i> {{ $isEnterprise ? 'Tài khoản Doanh nghiệp' : 'Tài khoản Cá nhân' }}
-                                </span>
+                                @if($isStaff)
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border-emerald-200 text-xs font-bold border">
+                                        <i class="fa-solid fa-user-tie"></i> Tài khoản Nhân sự
+                                    </span>
+                                @elseif($isEnterprise)
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 text-purple-700 border-purple-200 text-xs font-bold border">
+                                        <i class="fa-solid fa-building"></i> Tài khoản Doanh nghiệp
+                                    </span>
+                                @else
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-50 text-brand-700 border-brand-200 text-xs font-bold border">
+                                        <i class="fa-solid fa-user"></i> Tài khoản Cá nhân
+                                    </span>
+                                @endif
                             </div>
                             <p class="text-slate-500 mt-1.5 font-medium text-sm flex items-center gap-2">
                                 <i class="fa-regular fa-envelope text-slate-400"></i> {{ $user->email ?? 'Chưa cập nhật email' }}

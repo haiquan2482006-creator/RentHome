@@ -632,7 +632,7 @@
                     </h2>
                     <p class="card-subtitle">Danh sách tài khoản vừa đăng ký tham gia hệ thống gần đây</p>
                 </div>
-                <a href="#" class="btn-secondary">
+                <a href="/Admin/tai-khoan-con" class="btn-secondary">
                     <span>Xem tất cả</span>
                     <i class="fa-solid fa-arrow-right"></i>
                 </a>
@@ -679,12 +679,14 @@
                                 <td>{{ $user->email ?? '---' }}</td>
                                 <td>{{ $user->phone ?? '---' }}</td>
                                 <td>
-                                    @if(in_array(($user->role ?? ''), ['kiemduyet', 'moderator']))
+                                    @if(in_array(($user->role ?? ''), ['kiemduyet', 'moderator']) || (method_exists($user, 'isModerator') && $user->isModerator()))
                                         <span class="badge" style="background: rgba(217, 119, 6, 0.12); color: #d97706; font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem;">Kiểm duyệt</span>
+                                    @elseif($user->isSubAccount() || in_array(($user->role ?? ''), ['nhansu', 'nhan su', 'nhan_su', 'sub_account', 'staff']))
+                                        <span class="badge" style="background: rgba(5, 150, 105, 0.12); color: #059669; font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem;">Nhân sự</span>
                                     @elseif($user->isEnterprise() || ($user->role ?? '') === 'doanhnghiep')
                                         <span class="badge badge-business">Doanh nghiệp</span>
                                     @else
-                                        <span class="badge badge-personal">Cá nhân</span>
+                                        <span class="badge badge-personal">Khách hàng / Cá nhân</span>
                                     @endif
                                 </td>
                                 <td>

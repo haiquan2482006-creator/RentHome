@@ -1,0 +1,566 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\User;
+use App\Models\Post;
+use App\Models\Contract;
+use App\Models\AdminActivity;
+use App\Models\Notification;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
+
+class PersonalAccountController extends Controller
+{
+    /**
+     * Kiểm tra quyền quản trị Admin
+     */
+    private function checkAdminPermission()
+    {
+        $user = Auth::user();
+        return $user && ($user->isAdmin() || ($user->role === 'admin') || ($user->isEnterprise() && !$user->isSubAccount()));
+    }
+
+    /**
+     * Hiển thị giao diện danh sách Quản lý Tài khoản Cá nhân (Khách thuê)
+     */
+    public function index(Request $request)
+    {
+        if (!Auth::check()) {
+            return redirect()->guest(route('login'));
+        }
+
+        if (!$this->checkAdminPermission()) {
+            return redirect('/')->with('error', 'Bạn không có quyền truy cập trang Quản trị Admin!');
+        }
+
+        // Lấy danh sách toàn bộ tài khoản cá nhân (khách thuê / người dùng phổ thông)
+        $query = User::where(function ($q) {
+            $q->where('role', 'canhan')
+              ->orWhere('role', 'user')
+              ->orWhere('role', 'khach')
+              ->orWhereNull('role')
+              ->orWhere(function ($subQ) {
+                  $subQ->whereNotIn('role', ['admin', 'Admin', 'doanhnghiep', 'enterprise', 'staff', 'sub_account', 'kiemduyet', 'moderator', 'nhansu', 'nhan su', 'nhan_su'])
+                       ->whereNull('parent_id');
+              });
+        })
+        ->where(function ($q) {
+            $q->whereNull('is_deleted')->orWhere('is_deleted', false);
+        });
+
+        // 1. Tìm kiếm theo từ khóa (Tên, Email, SĐT, Username)
+        $search = trim($request->input('search', ''));
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('account_name', 'like', "%{$search}%")
+                  ->orWhere('username', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('phone', 'like', "%{$search}%");
+            });
+        }
+
+        // 2. Lọc theo trạng thái
+        $statusFilter = $request->input('status', 'all');
+        if ($statusFilter === 'active') {
+            $query->where(function ($q) {
+                $q->where('is_locked', false)
+                  ->whereNotIn('status', ['locked', 'khoa', 'vi_pham', 'banned']);
+            });
+        } elseif ($statusFilter === 'locked') {
+            $query->where(function ($q) {
+                $q->where('is_locked', true)
+                  ->orWhereIn('status', ['locked', 'khoa', 'vi_pham', 'banned']);
+            });
+        }
+
+        $users = $query->orderBy('created_at', 'desc')->get();
+
+        // Chuẩn bị dữ liệu thống kê phụ trợ cho từng user: số bài đăng & số phòng đang thuê
+        $users->transform(function ($user) {
+            $userId = (string)($user->_id ?? $user->id);
+
+            // Số bài đăng do user này đăng
+            $user->posts_count = Post::where(function ($q) use ($userId) {
+                $q->where('user_id', $userId)
+                  ->orWhere('author_id', $userId);
+            })->count();
+
+            // Số hợp đồng / phòng đang thuê (status != 'cancelled' và != 'expired')
+            $user->rented_rooms_count = Contract::where(function ($q) use ($user, $userId) {
+                $q->where('tenant_id', $userId);
+                if (!empty($user->username)) {
+                    $q->orWhere('tenant_account', $user->username);
+                }
+                if (!empty($user->phone)) {
+                    $q->orWhere('tenant_phone', $user->phone);
+                }
+                if (!empty($user->email)) {
+                    $q->orWhere('tenant_email', $user->email);
+                }
+            })
+            ->whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly', 'expired'])
+            ->count();
+
+            $user->is_account_locked = ($user->is_locked === true || in_array($user->status, ['locked', 'khoa', 'vi_pham', 'banned']));
+
+            return $user;
+        });
+
+        // Lọc nâng cao sau khi tính KPI nếu người dùng chọn
+        if ($statusFilter === 'renting') {
+            $users = $users->filter(fn($u) => $u->rented_rooms_count > 0)->values();
+        } elseif ($statusFilter === 'not_renting') {
+            $users = $users->filter(fn($u) => $u->rented_rooms_count == 0)->values();
+        }
+
+        // Tính các số liệu thống kê tổng quan của trang
+        $allPersonalAccounts = User::where(function ($q) {
+            $q->where('role', 'canhan')
+              ->orWhere('role', 'user')
+              ->orWhere('role', 'khach')
+              ->orWhereNull('role')
+              ->orWhere(function ($subQ) {
+                  $subQ->whereNotIn('role', ['admin', 'Admin', 'doanhnghiep', 'enterprise', 'staff', 'sub_account', 'kiemduyet', 'moderator', 'nhansu', 'nhan su', 'nhan_su'])
+                       ->whereNull('parent_id');
+              });
+        })
+        ->where(function ($q) {
+            $q->whereNull('is_deleted')->orWhere('is_deleted', false);
+        })
+        ->get();
+
+        $stats = [
+            'total'     => $allPersonalAccounts->count(),
+            'active'    => $allPersonalAccounts->filter(fn($u) => !$u->is_locked && !in_array($u->status, ['locked', 'khoa', 'vi_pham', 'banned']))->count(),
+            'locked'    => $allPersonalAccounts->filter(fn($u) => $u->is_locked || in_array($u->status, ['locked', 'khoa', 'vi_pham', 'banned']))->count(),
+            'has_posts' => Post::distinct('user_id')->count(),
+            'renting'   => Contract::whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly', 'expired'])->distinct('tenant_id')->count(),
+        ];
+
+        return view('Admin.qltaikhoan_ca_nhan', compact('users', 'stats', 'search', 'statusFilter'));
+    }
+
+    /**
+     * YÊU CẦU 1: API Nội bộ xem chi tiết tài khoản khách hàng (AJAX Modal)
+     * Route: /admin/customers/{id}/details
+     */
+    public function showDetails($id)
+    {
+        return $this->show($id);
+    }
+
+    /**
+     * Định dạng ngày tháng an toàn tuyệt đối, hỗ trợ d/m/Y, Y-m-d, timestamps và đối tượng MongoDB/Carbon
+     */
+    private function formatDateSafe($dateValue, string $format = 'd/m/Y')
+    {
+        if (empty($dateValue)) {
+            return '--';
+        }
+
+        if ($dateValue instanceof \DateTimeInterface) {
+            return $dateValue->format($format);
+        }
+
+        if (is_numeric($dateValue)) {
+            return date($format, (int)$dateValue);
+        }
+
+        $str = trim((string)$dateValue);
+        if ($str === '' || $str === '--') {
+            return '--';
+        }
+
+        // Nếu chuỗi đã ở định dạng d/m/Y (ví dụ: 21/10/2027)
+        if (preg_match('/^\d{1,2}\/\d{1,2}\/\d{4}$/', $str)) {
+            if ($format === 'd/m/Y') {
+                return $str;
+            }
+            try {
+                return Carbon::createFromFormat('d/m/Y', $str)->format($format);
+            } catch (\Exception $e) {
+                return $str;
+            }
+        }
+
+        // Nếu chuỗi ở định dạng d/m/Y H:i
+        if (preg_match('/^\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}/', $str)) {
+            try {
+                return Carbon::createFromFormat('d/m/Y H:i', substr($str, 0, 16))->format($format);
+            } catch (\Exception $e) {
+                return $str;
+            }
+        }
+
+        // Thử parse thông thường qua try/catch
+        try {
+            return Carbon::parse($str)->format($format);
+        } catch (\Exception $e) {
+            return $str;
+        }
+    }
+
+    private function formatHumanDiffSafe($dateValue)
+    {
+        if (empty($dateValue)) {
+            return 'Mới đây';
+        }
+        if ($dateValue instanceof \DateTimeInterface) {
+            return Carbon::instance($dateValue)->diffForHumans();
+        }
+        $str = trim((string)$dateValue);
+        try {
+            if (preg_match('/^\d{1,2}\/\d{1,2}\/\d{4}/', $str)) {
+                return Carbon::createFromFormat('d/m/Y', substr($str, 0, 10))->diffForHumans();
+            }
+            return Carbon::parse($str)->diffForHumans();
+        } catch (\Exception $e) {
+            return 'Mới đây';
+        }
+    }
+
+    /**
+     * Lấy chi tiết tài khoản, danh sách bài đăng & danh sách phòng đang thuê (JSON)
+     */
+    public function show($id)
+    {
+        if (!$this->checkAdminPermission()) {
+            return response()->json(['success' => false, 'message' => 'Bạn không có quyền thực hiện thao tác này.'], 403);
+        }
+
+        try {
+            $user = User::where('_id', $id)->orWhere('id', $id)->first();
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'Không tìm thấy tài khoản người dùng!'], 404);
+            }
+
+            $userId = (string)($user->_id ?? $user->id);
+
+            // 1. Danh sách bài đăng của user này
+            $rawPosts = Post::where(function ($q) use ($userId) {
+                $q->where('user_id', $userId)
+                  ->orWhere('author_id', $userId);
+            })
+            ->latest()
+            ->get();
+
+            $posts = $rawPosts->map(function ($p) {
+                return [
+                    'id'            => (string)($p->_id ?? $p->id),
+                    'title'         => $p->title ?? 'Không có tiêu đề',
+                    'price'         => number_format((float)($p->price ?? 0)) . ' ' . ($p->price_unit ?? 'VNĐ/tháng'),
+                    'raw_price'     => (float)($p->price ?? 0),
+                    'address'       => implode(', ', array_filter([$p->address ?? '', $p->ward ?? '', $p->district ?? '', $p->province ?? ''])),
+                    'status'        => $p->status ?? 'pending',
+                    'display_image' => $p->display_image ?? null,
+                    'created_at'    => $this->formatDateSafe($p->created_at, 'd/m/Y H:i'),
+                    'views'         => (int)($p->views ?? 0),
+                    'reject_reason' => $p->reject_reason ?? '',
+                    'detail_url'    => url('/chitietbaidang/' . ($p->_id ?? $p->id)),
+                ];
+            });
+
+            // 2. Danh sách các phòng / hợp đồng họ đang thuê
+            $rawContracts = Contract::where(function ($q) use ($user, $userId) {
+                $q->where('tenant_id', $userId);
+                if (!empty($user->username)) {
+                    $q->orWhere('tenant_account', $user->username);
+                }
+                if (!empty($user->phone)) {
+                    $q->orWhere('tenant_phone', $user->phone);
+                }
+                if (!empty($user->email)) {
+                    $q->orWhere('tenant_email', $user->email);
+                }
+            })
+            ->with(['post'])
+            ->latest()
+            ->get();
+
+            $contracts = $rawContracts->map(function ($c) {
+                $post = $c->post ?: ($c->post_id ? Post::find($c->post_id) : null);
+                return [
+                    'id'            => (string)($c->_id ?? $c->id),
+                    'contract_code' => $c->contract_code ?? ('HD-' . substr((string)($c->_id ?? $c->id), -6)),
+                    'room_id'       => $c->room_id ?? ($c->post_id ?? '--'),
+                    'room_title'    => $post ? ($post->title ?? 'Phòng trọ') : ($c->room_id ? 'Phòng ' . $c->room_id : 'Phòng trọ RentHome'),
+                    'room_address'  => $post ? implode(', ', array_filter([$post->address ?? '', $post->ward ?? '', $post->district ?? '', $post->province ?? ''])) : '---',
+                    'rent_price'    => number_format((float)($c->rent_price ?? ($post ? ($post->price ?? 0) : 0))) . ' VNĐ/tháng',
+                    'deposit'       => number_format((float)($c->deposit ?? 0)) . ' VNĐ',
+                    'start_date'    => $this->formatDateSafe($c->start_date, 'd/m/Y'),
+                    'end_date'      => $this->formatDateSafe($c->end_date, 'd/m/Y'),
+                    'duration'      => $c->duration_months ? ($c->duration_months . ' tháng') : '--',
+                    'status'        => $c->status ?? 'active',
+                    'is_active'     => !in_array($c->status, ['cancelled', 'terminated', 'da_thanh_ly', 'expired']),
+                ];
+            });
+
+            $isLocked = ($user->is_locked === true || in_array($user->status, ['locked', 'khoa', 'vi_pham', 'banned']));
+
+            $userData = [
+                'id'               => $userId,
+                'username'         => $user->username ?? '',
+                'account_name'     => $user->account_name ?: ($user->username ?: 'Khách hàng'),
+                'email'            => $user->email ?? '---',
+                'phone'            => $user->phone ?? '---',
+                'avatar'           => $user->display_avatar ?? ($user->avatar ?? null),
+                'address'          => $user->address ?? 'Chưa cập nhật',
+                'role'             => $user->role ?? 'canhan',
+                'status'           => $user->status ?? 'active',
+                'is_locked'        => $isLocked,
+                'lock_reason'      => $user->lock_reason ?? '',
+                'locked_at'        => $this->formatDateSafe($user->locked_at, 'd/m/Y H:i'),
+                'created_at'       => $this->formatDateSafe($user->created_at, 'd/m/Y H:i'),
+                'created_at_human' => $this->formatHumanDiffSafe($user->created_at),
+                'posts_count'      => $posts->count(),
+                'contracts_count'  => $contracts->count(),
+                'renting_count'    => $contracts->where('is_active', true)->count(),
+            ];
+
+            return response()->json([
+                'success'   => true,
+                'user'      => $userData,
+                'posts'     => $posts,
+                'contracts' => $contracts,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Lỗi showDetails PersonalAccount: ' . $e->getMessage(), [
+                'id' => $id,
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Lỗi máy chủ khi tải chi tiết khách hàng: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * YÊU CẦU 2: Chức năng "Khóa tài khoản" (Ban User)
+     * Đồng thời đảm bảo thẻ "Số tài khoản vi phạm" ở Dashboard Admin tự động đếm tăng lên
+     */
+    public function toggleLock(Request $request, $id)
+    {
+        if (!$this->checkAdminPermission()) {
+            return response()->json(['success' => false, 'message' => 'Bạn không có quyền thực hiện thao tác này.'], 403);
+        }
+
+        $user = User::where('_id', $id)->orWhere('id', $id)->first();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy tài khoản!'], 404);
+        }
+
+        if ($user->isAdmin() || $user->role === 'admin') {
+            return response()->json(['success' => false, 'message' => 'Không thể khóa tài khoản Ban Quản Trị Admin!'], 403);
+        }
+
+        $isCurrentlyLocked = ($user->is_locked === true || in_array($user->status, ['locked', 'khoa', 'vi_pham', 'banned']));
+        $newLockState = !$isCurrentlyLocked;
+
+        $reason = $request->input('reason', $newLockState ? 'Tài khoản vi phạm tiêu chuẩn cộng đồng hoặc có dấu hiệu lừa đảo/spam.' : null);
+
+        // Cập nhật trạng thái
+        // DashboardController: User::where('is_locked', true)->orWhereIn('status', ['locked', 'khoa', 'vi_pham', 'banned'])->count()
+        $user->is_locked = $newLockState;
+        $user->status = $newLockState ? 'locked' : 'active';
+        $user->locked_at = $newLockState ? now() : null;
+        $user->lock_reason = $newLockState ? $reason : null;
+        $user->save();
+
+        $userName = $user->account_name ?: ($user->username ?: $user->email);
+        $actionName = $newLockState ? 'Khóa tài khoản' : 'Mở khóa tài khoản';
+        $actionType = $newLockState ? 'lock' : 'unlock';
+
+        // Ghi nhật ký vào AdminActivity để theo dõi trên trang Lịch sử Admin
+        AdminActivity::log(
+            $actionType,
+            'account',
+            "{$actionName} người dùng",
+            "Admin đã {$actionName}: {$userName} ({$user->email}). " . ($newLockState ? "Lý do: {$reason}" : "Đã khôi phục quyền truy cập."),
+            $user,
+            ['reason' => $reason, 'user_id' => (string)($user->_id ?? $user->id)]
+        );
+
+        // Gửi thông báo đến người dùng nếu tài khoản bị khóa
+        if ($newLockState) {
+            try {
+                Notification::create([
+                    'user_id'    => (string)($user->_id ?? $user->id),
+                    'role'       => 'canhan',
+                    'category'   => 'account_locked',
+                    'type'       => 'error',
+                    'title'      => 'Tài khoản của bạn đã bị khóa',
+                    'message'    => 'Tài khoản của bạn đã bị khóa bởi Quản trị viên. Lý do: ' . $reason . '. Mọi thắc mắc xin liên hệ bộ phận hỗ trợ RentHome.',
+                    'is_read'    => false,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            } catch (\Exception $e) {
+                Log::warning('Không thể tạo notification khi khóa user: ' . $e->getMessage());
+            }
+        }
+
+        // Đếm lại tổng số tài khoản vi phạm hiện tại để trả về cho Frontend cập nhật badge nếu cần
+        $totalViolations = User::where('is_locked', true)
+            ->orWhereIn('status', ['locked', 'khoa', 'vi_pham', 'banned'])
+            ->count();
+
+        return response()->json([
+            'success'          => true,
+            'message'          => $newLockState ? "Đã khóa tài khoản {$userName} thành công!" : "Đã mở khóa tài khoản {$userName} thành công!",
+            'is_locked'        => $user->is_locked,
+            'status'           => $user->status,
+            'total_violations' => $totalViolations,
+        ]);
+    }
+
+    /**
+     * YÊU CẦU 3: Chức năng "Xóa tài khoản"
+     * Áp dụng SoftDelete để không phá vỡ liên kết khóa ngoại với Hợp đồng & Hóa đơn tài chính
+     */
+    public function destroy(Request $request, $id)
+    {
+        if (!$this->checkAdminPermission()) {
+            return response()->json(['success' => false, 'message' => 'Bạn không có quyền thực hiện thao tác này.'], 403);
+        }
+
+        $user = User::where('_id', $id)->orWhere('id', $id)->first();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy tài khoản người dùng!'], 404);
+        }
+
+        if ($user->isAdmin() || $user->role === 'admin') {
+            return response()->json(['success' => false, 'message' => 'Không thể xóa tài khoản Quản trị viên hệ thống!'], 403);
+        }
+
+        $userId = (string)($user->_id ?? $user->id);
+        $userName = $user->account_name ?: ($user->username ?: $user->email);
+        $userEmail = $user->email;
+
+        // Kiểm tra xem người dùng có dữ liệu ràng buộc hợp đồng hoặc hóa đơn tài chính không
+        $hasContracts = Contract::where(function ($q) use ($user, $userId) {
+            $q->where('tenant_id', $userId);
+            if (!empty($user->username)) $q->orWhere('tenant_account', $user->username);
+            if (!empty($user->phone)) $q->orWhere('tenant_phone', $user->phone);
+            if (!empty($user->email)) $q->orWhere('tenant_email', $user->email);
+        })->exists();
+
+        $hasInvoices = \App\Models\Invoice::where('tenant_id', $userId)->exists();
+
+        // Ghi log vào AdminActivity
+        AdminActivity::log(
+            'delete',
+            'account',
+            'Xóa tài khoản cá nhân',
+            "Admin đã xóa tài khoản khách hàng: {$userName} ({$userEmail}) [Chế độ: SoftDelete bảo toàn dữ liệu tài chính].",
+            $user,
+            ['had_contracts' => $hasContracts, 'had_invoices' => $hasInvoices]
+        );
+
+        // Khuyến nghị & thực thi SoftDelete: 
+        // Ẩn tài khoản khỏi toàn bộ danh sách, chặn đăng nhập, đổi email/username tránh xung đột nếu tái đăng ký,
+        // nhưng bảo toàn các bản ghi Contract & Invoice để phục vụ kế toán / pháp lý
+        $user->is_deleted = true;
+        $user->deleted_at = now();
+        $user->deleted_by = (string)(Auth::id() ?? 'admin');
+        $user->status = 'deleted';
+        $user->is_locked = true;
+        $user->save();
+
+        // Cũng ẩn hoặc gỡ toàn bộ bài đăng của người dùng đã xóa
+        Post::where('user_id', $userId)
+            ->orWhere('author_id', $userId)
+            ->update([
+                'status'        => 'hidden',
+                'reject_reason' => 'Tài khoản tác giả đã bị xóa khỏi hệ thống',
+            ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Đã xóa tài khoản \"{$userName}\" thành công (Đã áp dụng SoftDelete an toàn cho dữ liệu hợp đồng & hóa đơn)!",
+            'had_financial_records' => ($hasContracts || $hasInvoices),
+        ]);
+    }
+
+    /**
+     * YÊU CẦU 4: Chức năng "Gỡ bài đăng"
+     * Tìm toàn bộ bài đăng thuộc user_id này và chuyển trạng thái sang hidden/rejected (vi phạm).
+     * Không xóa cứng bài đăng để làm bằng chứng.
+     */
+    public function takedownPosts(Request $request, $id)
+    {
+        if (!$this->checkAdminPermission()) {
+            return response()->json(['success' => false, 'message' => 'Bạn không có quyền thực hiện thao tác này.'], 403);
+        }
+
+        $user = User::where('_id', $id)->orWhere('id', $id)->first();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy tài khoản người dùng!'], 404);
+        }
+
+        $userId = (string)($user->_id ?? $user->id);
+        $reason = $request->input('reason', 'Tài khoản người dùng vi phạm quy chế hoặc bị phản ánh lừa đảo / đăng tin sai sự thật.');
+
+        // Tìm tất cả bài đăng thuộc quyền sở hữu của user này
+        $userPosts = Post::where(function ($q) use ($userId) {
+            $q->where('user_id', $userId)
+              ->orWhere('author_id', $userId);
+        })->get();
+
+        if ($userPosts->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Người dùng này hiện không có bài đăng nào trên hệ thống để gỡ.',
+            ], 400);
+        }
+
+        $postCount = $userPosts->count();
+
+        // Cập nhật trạng thái bài đăng sang rejected/hidden (Không xóa cứng để làm bằng chứng đối soát)
+        foreach ($userPosts as $post) {
+            $post->status = 'rejected';
+            $post->reject_reason = 'Admin đã gỡ bài vi phạm: ' . $reason;
+            $post->rejected_at = now();
+            $post->rejected_by = (string)(Auth::id() ?? 'admin');
+            $post->save();
+        }
+
+        $userName = $user->account_name ?: ($user->username ?: $user->email);
+
+        // Ghi nhật ký vào AdminActivity
+        AdminActivity::log(
+            'reject',
+            'post',
+            "Gỡ toàn bộ {$postCount} bài đăng của người dùng vi phạm",
+            "Admin đã gỡ {$postCount} bài đăng của tài khoản: {$userName} ({$user->email}). Lý do: {$reason}. Trạng thái bài đăng đã chuyển sang [rejected] để lưu trữ làm bằng chứng.",
+            $user,
+            ['takedown_count' => $postCount, 'reason' => $reason]
+        );
+
+        // Gửi thông báo đến người dùng về việc gỡ bài
+        try {
+            Notification::create([
+                'user_id'    => $userId,
+                'role'       => 'canhan',
+                'category'   => 'posts_takedown',
+                'type'       => 'warning',
+                'title'      => 'Các bài đăng của bạn đã bị gỡ',
+                'message'    => "Ban Quản Trị đã gỡ {$postCount} bài đăng của bạn do vi phạm: {$reason}.",
+                'is_read'    => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        } catch (\Exception $e) {
+            Log::warning('Không thể tạo thông báo gỡ bài: ' . $e->getMessage());
+        }
+
+        return response()->json([
+            'success'   => true,
+            'message'   => "Đã gỡ thành công {$postCount} bài đăng của tài khoản \"{$userName}\". Các bài viết đã được chuyển sang trạng thái vi phạm để lưu trữ bằng chứng!",
+            'count'     => $postCount,
+        ]);
+    }
+}

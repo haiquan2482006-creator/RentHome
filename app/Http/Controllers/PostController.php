@@ -46,6 +46,10 @@ class PostController extends Controller
             'price' => 'required|numeric',
             'price_unit' => 'nullable|string',
             'area' => 'required|numeric',
+            'floor' => 'nullable|numeric',
+            'floor_number' => 'nullable|numeric',
+            'bedroom' => 'nullable|numeric',
+            'bathroom' => 'nullable|numeric',
             'property_type' => 'nullable|string',
             'description' => 'nullable|string',
             'account_role' => 'nullable|string',
@@ -82,33 +86,40 @@ class PostController extends Controller
         $submittedAmenities = !empty($validatedData['amenities']) ? (array)$validatedData['amenities'] : [];
         $mergedAmenities = array_values(array_unique(array_merge($buildingAmenities, $submittedAmenities)));
 
+        $floorVal = $request->filled('floor') ? (int)$request->input('floor') : ($request->filled('floor_number') ? (int)$request->input('floor_number') : null);
+
         $dataToSave = [
             'user_id' => (string)Auth::id(),
+            'author_id' => (string)Auth::id(),
             'parent_id' => (string)($user->parent_id ?: Auth::id()),
             'staff_id' => (string)Auth::id(),
             'title' => $validatedData['title'],
             'price' => $validatedData['price'],
             'price_unit' => $validatedData['price_unit'] ?? 'thang',
             'area' => $validatedData['area'],
+            'floor' => $floorVal,
+            'floor_number' => $floorVal,
+            'bedroom' => $request->filled('bedroom') ? (int)$request->input('bedroom') : null,
+            'bathroom' => $request->filled('bathroom') ? (int)$request->input('bathroom') : null,
             'province' => $building ? $building->province : null,
             'district' => $building ? $building->district : null,
             'ward' => $building ? $building->ward : null,
-            'address' => $building ? $building->address_detail : null,
+            'address' => $building ? ($building->address_detail ?: $building->address) : null,
             'property_type' => $validatedData['property_type'] ?? 'nha_o',
-            'description' => $validatedData['description'],
+            'description' => $validatedData['description'] ?? '',
             'account_role' => $validatedData['account_role'] ?? 'doanhnghiep',
             'building_id' => $buildingId,
             'amenities' => $mergedAmenities,
             'images' => $imagePaths,
-            'status' => 'approved' // Bài đăng của Doanh nghiệp & Quản lý tòa nhà được duyệt tự động hiển thị
+            'status' => 'pending' // Bắt buộc là pending (Chờ phê duyệt), tuyệt đối không để approved hay active ngay khi tạo
         ];
 
         if ($post) {
             $post->update($dataToSave);
-            $msg = 'Cập nhật bài viết thành công!';
+            $msg = 'Đã gửi bài đăng thành công! Bài viết đang chờ Kiểm duyệt viên phê duyệt.';
         } else {
             $post = Post::create($dataToSave);
-            $msg = 'Đăng bài thành công! Bài viết đã hiển thị trên hệ thống RentHome.';
+            $msg = 'Đã gửi bài đăng thành công! Bài viết đang chờ Kiểm duyệt viên phê duyệt.';
         }
 
         $targetPostId = (string)($post->_id ?? $post->id);
@@ -152,27 +163,46 @@ class PostController extends Controller
             }
         }
 
+        // Tạo 1 bản ghi thông báo mới cho phía Kiểm duyệt viên
+        try {
+            \App\Models\Notification::create([
+                'title'       => 'Tin đăng mới cần kiểm duyệt',
+                'message'     => 'Nhân viên ' . ($user->account_name ?? ($user->username ?? 'Nhân viên')) . ' vừa gửi bài viết "' . $post->title . '"' . ($building ? ' thuộc tòa nhà ' . $building->name : '') . ' đang chờ phê duyệt.',
+                'category'    => 'post_moderation',
+                'role'        => 'kiemduyet',
+                'type'        => 'post',
+                'post_id'     => $targetPostId,
+                'action_url'  => url('/kiem-duyet/qlkiem-duyet?post_id=' . $targetPostId),
+                'is_read'     => false,
+                'created_at'  => now(),
+                'updated_at'  => now(),
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Lỗi tạo notification kiểm duyệt: ' . $e->getMessage());
+        }
+
         return response()->json([
-            'success' => true,
-            'message' => $msg,
-            'post_id' => $targetPostId
+            'success'      => true,
+            'message'      => $msg,
+            'redirect_url' => '/Overview?tab=pending',
+            'post_id'      => $targetPostId
         ]);
     }
 
     public function getApproved(Request $request)
     {
-        $activeContractPostIds = Contract::where('status', '!=', 'cancelled')
+        $activeContractPostIds = Contract::whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly'])
             ->pluck('post_id')
             ->filter()
             ->toArray();
 
-        $query = Post::with(['user'])
+        $query = Post::with(['user', 'building'])
             ->whereIn('status', ['approved', 'active'])
             ->where(function ($q) {
                 $q->whereNull('is_rented')
                   ->orWhere('is_rented', false);
             })
-            ->whereNotIn('status', ['đã cho thuê', 'rented', 'dang_thue']);
+            ->whereNotIn('status', ['đã cho thuê', 'rented', 'dang_thue', 'pending', 'rejected']);
 
         if (!empty($activeContractPostIds)) {
             $query->whereNotIn('_id', $activeContractPostIds)
@@ -207,18 +237,18 @@ class PostController extends Controller
 
     public function getFeatured()
     {
-        $activeContractPostIds = Contract::where('status', '!=', 'cancelled')
+        $activeContractPostIds = Contract::whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly'])
             ->pluck('post_id')
             ->filter()
             ->toArray();
 
-        $query = Post::with(['user'])
+        $query = Post::with(['user', 'building'])
             ->whereIn('status', ['approved', 'active'])
             ->where(function ($q) {
                 $q->whereNull('is_rented')
                   ->orWhere('is_rented', false);
             })
-            ->whereNotIn('status', ['đã cho thuê', 'rented', 'dang_thue']);
+            ->whereNotIn('status', ['đã cho thuê', 'rented', 'dang_thue', 'pending', 'rejected']);
 
         if (!empty($activeContractPostIds)) {
             $query->whereNotIn('_id', $activeContractPostIds)
@@ -226,20 +256,21 @@ class PostController extends Controller
         }
 
         $posts = $query->orderBy('created_at', 'desc')->take(6)->get();
-        // The frontend expects the array of featured posts directly, or we can map it to match the expected format
         $mapped = $posts->map(function($post) {
+            $buildingName = $post->building ? ($post->building->name ?? '') : '';
+            $locationStr = implode(', ', array_filter([$post->address, $post->ward, $post->district, $post->province]));
             return [
-                'id' => $post->id,
-                'title' => $post->title,
+                'id' => (string)($post->_id ?? $post->id),
+                'title' => $post->title . ($buildingName ? ' - ' . $buildingName : ''),
                 'price' => number_format($post->price, 0, ',', '.') . ' VNĐ',
-                'location' => implode(', ', array_filter([$post->address, $post->ward, $post->district, $post->province])),
+                'location' => $locationStr ?: ($buildingName ?: 'Việt Nam'),
                 'image' => $post->display_image ?? 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80',
                 'tag' => 'NỔI BẬT',
                 'user_id' => (string) ($post->user_id ?? ''),
                 'beds' => '1-2 PN',
                 'baths' => '1-2 WC',
                 'area' => $post->area . ' m²',
-                'note' => 'Bất động sản chính chủ RentHome',
+                'note' => $buildingName ? 'Tòa nhà ' . $buildingName : 'Bất động sản chính chủ RentHome',
             ];
         });
         return response()->json($mapped);
@@ -304,6 +335,11 @@ class PostController extends Controller
 
         // Tự động xóa toàn bộ ảnh của bài đăng khỏi collection images
         Image::where('target_type', 'post')->where('target_id', $postId)->delete();
+
+        // Tự động dọn dẹp bản ghi phòng trong collection rooms (nếu có)
+        try {
+            \App\Models\Room::where('post_id', $postId)->orWhere('_id', $postId)->delete();
+        } catch (\Exception $ex) {}
 
         $post->delete();
 

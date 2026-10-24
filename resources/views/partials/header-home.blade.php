@@ -189,7 +189,9 @@
                                     <span class="text-rose-600 font-bold">• Ban Quản Trị</span>
                                 @elseif (Auth::user()->isModerator())
                                     <span class="text-sky-600 font-bold">• Kiểm duyệt viên</span>
-                                @elseif (Auth::user()->isEnterprise() || Auth::user()->isStaff() || in_array(Auth::user()->role ?? '', ['doanhnghiep', 'sub_account', 'staff', 'admin']))
+                                @elseif (Auth::user()->isSubAccount() || Auth::user()->isStaff() || in_array(Auth::user()->role ?? '', ['nhansu', 'nhan su', 'nhan_su', 'sub_account', 'staff']))
+                                    <span class="text-emerald-600 font-bold">• Nhân sự</span>
+                                @elseif (Auth::user()->isEnterprise() || in_array(Auth::user()->role ?? '', ['doanhnghiep', 'enterprise']))
                                     <span class="text-purple-600 font-bold">• Doanh nghiệp</span>
                                 @else
                                     <span class="text-emerald-600 font-bold">• Khách thuê</span>
@@ -214,8 +216,8 @@
                                     <span class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-bold text-[10px]">Ban Quản Trị</span>
                                 @elseif (Auth::user()->isModerator())
                                     <span class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 font-bold text-[10px]">Kiểm duyệt viên</span>
-                                @elseif (Auth::user()->isSubAccount() || Auth::user()->isStaff() || (Auth::user()->role ?? '') === 'staff')
-                                    <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold text-[10px]">Nhân viên Doanh nghiệp</span>
+                                @elseif (Auth::user()->isSubAccount() || Auth::user()->isStaff() || in_array(Auth::user()->role ?? '', ['nhansu', 'nhan su', 'nhan_su', 'sub_account', 'staff']))
+                                    <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[10px]">Nhân sự</span>
                                 @elseif (Auth::user()->isEnterprise() || (Auth::user()->role ?? '') === 'doanhnghiep')
                                     <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-bold text-[10px]">RentHome Doanh nghiệp</span>
                                 @else
@@ -238,14 +240,37 @@
                             <span>Hồ sơ cá nhân</span>
                         </a>
 
+                        {{-- Chỉ tài khoản cá nhân (khách thuê) mới có mục Nhà đang thuê & Lịch sử liên hệ, loại trừ Admin, Kiểm duyệt, Doanh nghiệp/Nhân viên --}}
+                        @if (!Auth::user()->isAdmin() && !Auth::user()->isModerator() && !Auth::user()->isEnterprise() && !Auth::user()->isSubAccount() && !in_array(Auth::user()->role ?? '', ['admin', 'doanhnghiep', 'enterprise', 'staff', 'sub_account', 'kiemduyet', 'moderator', 'nhansu', 'nhan su', 'nhan_su']))
+                            <a href="{{ route('nha-dang-thue') }}"
+                                class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
+                                <i class="fa-solid fa-house-chimney-user text-brand-600 w-4 text-center"></i>
+                                <span>Nhà đang thuê</span>
+                            </a>
+                            <a href="{{ url('/lich-su-lien-he') }}"
+                                class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
+                                <i class="fa-solid fa-clock-rotate-left text-brand-600 w-4 text-center"></i>
+                                <span>Lịch sử liên hệ</span>
+                            </a>
+                        @endif
 
 
-                        @if (Auth::user()->isEnterprise() || Auth::user()->isSubAccount() || Auth::user()->role === 'admin')
+
+                        @if (Auth::user()->isAdmin() || Auth::user()->role === 'admin')
+                            <a href="{{ url('/Admin') }}"
+                                class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
+                                <i class="fa-solid fa-gauge-high text-brand-600 w-4 text-center"></i>
+                                <span>Trang Quản Trị Hệ Thống</span>
+                            </a>
+                        @elseif (Auth::user()->isEnterprise() || Auth::user()->isSubAccount())
                             <a href="{{ url('Overview') }}"
                                 class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
                                 <i class="fa-solid fa-newspaper text-brand-600 w-4 text-center"></i>
                                 <span>Quản lý bài đăng</span>
                             </a>
+                        @endif
+
+                        @if (Auth::user()->isEnterprise() || Auth::user()->isSubAccount() || Auth::user()->role === 'admin')
 
                             <a href="{{ url('Overview?tab=buildings') }}"
                                 class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
@@ -257,6 +282,13 @@
                                 class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
                                 <i class="fa-solid fa-gears text-brand-600 w-4 text-center"></i>
                                 <span>Quản lý vận hành</span>
+                            </a>
+                            <!-- Menu con: Thanh lý & Chốt sổ -->
+                            <a href="{{ url('/qlvan_hanh/thanh_ly_cong_no') }}"
+                                class="flex items-center gap-2.5 px-4 py-2 pl-8 text-xs font-semibold text-slate-600 hover:bg-rose-50 hover:text-rose-600 transition-colors group">
+                                <span class="w-1.5 h-1.5 rounded-full bg-rose-400 group-hover:scale-125 transition-transform"></span>
+                                <i class="fa-solid fa-calculator text-rose-500 w-4 text-center group-hover:scale-110 transition-transform"></i>
+                                <span>Thanh lý & Chốt sổ</span>
                             </a>
 
                             <a href="{{ route('contact.index') }}"
