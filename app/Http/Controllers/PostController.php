@@ -336,6 +336,11 @@ class PostController extends Controller
         // Tự động xóa toàn bộ ảnh của bài đăng khỏi collection images
         Image::where('target_type', 'post')->where('target_id', $postId)->delete();
 
+        // Tự động dọn dẹp bản ghi phòng trong collection rooms (nếu có)
+        try {
+            \App\Models\Room::where('post_id', $postId)->orWhere('_id', $postId)->delete();
+        } catch (\Exception $ex) {}
+
         $post->delete();
 
         return response()->json([

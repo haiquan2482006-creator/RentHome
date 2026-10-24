@@ -11,6 +11,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
     <style>
         :root {
             --brand-primary: #0284c7;
@@ -43,6 +46,24 @@
             margin: 0;
             padding: 0;
             font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+        }
+
+        /* SweetAlert2 Custom Styling */
+        .swal2-popup.swal2-custom-popup {
+            border-radius: 18px !important;
+            font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif !important;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+            padding: 24px !important;
+        }
+        .swal2-title {
+            font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif !important;
+            letter-spacing: -0.01em;
+        }
+        .swal2-styled.swal2-confirm, .swal2-styled.swal2-cancel {
+            border-radius: 10px !important;
+            font-weight: 700 !important;
+            padding: 10px 22px !important;
+            font-size: 0.9rem !important;
         }
 
         body {
@@ -1114,7 +1135,10 @@
                                 data-name="{{ strtolower($b->name ?? '') }}" 
                                 data-address="{{ strtolower($b->full_address ?? '') }}"
                                 data-type="{{ strtolower($bType) }}"
-                                data-manager="{{ strtolower($manager->account_name ?? ($manager->username ?? '')) }}">
+                                data-manager="{{ strtolower($manager->account_name ?? ($manager->username ?? '')) }}"
+                                data-posts-count="{{ (int)($b->actual_posts_count ?? 0) }}"
+                                data-rented-count="{{ (int)($b->active_rent_count ?? 0) }}"
+                                data-can-delete="{{ !empty($b->can_delete) ? '1' : '0' }}">
                                 
                                 {{-- CỘT 1 (Cơ Sở): Ảnh bìa, Tên Tòa nhà và Phân loại --}}
                                 <td>
@@ -1283,7 +1307,10 @@
                                         <button type="button" class="btn-act" onclick="openEditModal('{{ $bId }}')" title="Chỉnh sửa tòa nhà">
                                             <i class="fa-solid fa-pen-to-square"></i>
                                         </button>
-                                        <button type="button" class="btn-act btn-act-danger" onclick="deleteBuilding('{{ $bId }}', '{{ addslashes($b->name) }}')" title="Xóa tòa nhà">
+                                        <button type="button" 
+                                                class="btn-act btn-act-danger" 
+                                                onclick="deleteBuilding('{{ $bId }}', '{{ addslashes($b->name) }}', {{ (int)($b->actual_posts_count ?? 0) }}, {{ (int)($b->active_rent_count ?? 0) }})" 
+                                                title="{{ !empty($b->can_delete) ? 'Xóa tòa nhà' : 'Tòa nhà đang có ' . ($b->actual_posts_count ?? 0) . ' bài đăng - Không thể xóa' }}">
                                             <i class="fa-solid fa-trash-can"></i>
                                         </button>
                                     </div>
@@ -2529,34 +2556,175 @@
         }
 
         // ==========================================
-        // 8. XÓA TÒA NHÀ
+        // 8. XÓA TÒA NHÀ (QUY TẮC BẢO VỆ DỮ LIỆU TUYỆT ĐỐI - HARD BLOCK)
         // ==========================================
-        async function deleteBuilding(id, name) {
-            if (!confirm(`Bạn có chắc chắn muốn xóa tòa nhà "${name}" không?\nHệ thống sẽ gỡ thông tin tòa nhà và phân công quản lý của nhân viên.`)) {
+        async function deleteBuilding(id, name, postsCount, rentedCount) {
+            const row = document.querySelector(`tr[data-id="${id}"]`);
+            if (postsCount === undefined && row && row.dataset.postsCount !== undefined) {
+                postsCount = parseInt(row.dataset.postsCount, 10);
+            }
+            if (rentedCount === undefined && row && row.dataset.rentedCount !== undefined) {
+                rentedCount = parseInt(row.dataset.rentedCount, 10);
+            }
+
+            // Nếu chưa xác định được số lượng (ví dụ gọi từ phiên bản cũ), kiểm tra nhanh trước
+            if (postsCount === undefined) {
+                try {
+                    const checkRes = await fetch(`/api/buildings/${id}/rooms-detail`);
+                    const checkData = await checkRes.json();
+                    const rooms = checkData.rooms || [];
+                    postsCount = rooms.length;
+                    rentedCount = rooms.filter(r => r.room_status === 'rented').length;
+                } catch (e) {
+                    postsCount = 0;
+                    rentedCount = 0;
+                }
+            }
+
+            // =========================================================================
+            // QUY TẮC CHẶN TUYỆT ĐỐI (HARD BLOCK):
+            // NẾU VẪN CÒN BÀI ĐĂNG HOẶC ĐANG CÓ PHÒNG CHO THUÊ TRONG TÒA NHÀ
+            // => LẬP TỨC HIỂN THỊ POPUP ĐỎ CẢNH BÁO
+            // => TUYỆT ĐỐI KHÔNG CÓ NÚT "ĐỒNG Ý" (CHỈ CÓ DUY NHẤT NÚT "ĐÃ HIỂU")
+            // =========================================================================
+            if (postsCount > 0 || rentedCount > 0) {
+                let reasons = [];
+                if (postsCount > 0) reasons.push(`<strong>${postsCount} bài đăng / căn nhà</strong>`);
+                if (rentedCount > 0) reasons.push(`<strong style="color: #dc2626;">${rentedCount} căn đang có hợp đồng thuê</strong>`);
+                const reasonStr = reasons.join(' và ');
+
+                await Swal.fire({
+                    icon: 'error',
+                    iconColor: '#dc2626',
+                    title: '<span style="color: #dc2626; font-weight: 800; font-size: 1.35rem;">🚨 Không thể xóa tòa nhà!</span>',
+                    html: `
+                        <div style="font-size: 0.95rem; color: #1e293b; text-align: left; line-height: 1.6; margin-top: 10px;">
+                            <div style="background: #fef2f2; border: 1.5px solid #fecaca; border-radius: 12px; padding: 16px; margin-bottom: 12px;">
+                                <p style="color: #991b1b; font-weight: 600; margin: 0;">
+                                    Tòa nhà <strong>"${name}"</strong> hiện đang chứa ${reasonStr} bên trong.
+                                </p>
+                            </div>
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; font-size: 0.875rem; color: #475569;">
+                                <i class="fa-solid fa-triangle-exclamation" style="color: #dc2626; margin-right: 6px;"></i>
+                                <strong>Quy tắc bảo vệ dữ liệu:</strong> Bạn phải thanh lý hợp đồng thuê và xóa toàn bộ các bài đăng / nhà bên trong trước khi có thể xóa tòa nhà này.
+                            </div>
+                        </div>
+                    `,
+                    confirmButtonColor: '#dc2626',
+                    confirmButtonText: '<i class="fa-solid fa-shield-halved"></i> Đã hiểu',
+                    showCancelButton: false, // TUYỆT ĐỐI KHÔNG CÓ NÚT HỦY / ĐỒNG Ý
+                    allowOutsideClick: true,
+                    customClass: {
+                        popup: 'swal2-custom-popup'
+                    }
+                });
+                return; // DỪNG LẠI NGAY LẬP TỨC - KHÔNG HIỂN THỊ NÚT ĐỒNG Ý
+            }
+
+            // =========================================================================
+            // CHỈ KHI TÒA NHÀ HOÀN TOÀN TRỐNG (0 BÀI ĐĂNG & 0 ĐANG THUÊ)
+            // MỚI BẬT SWEETALERT2 HỎI XÁC NHẬN VỚI NÚT "ĐỒNG Ý"
+            // =========================================================================
+            const confirmResult = await Swal.fire({
+                title: 'Xác nhận xóa tòa nhà',
+                html: `
+                    <div style="font-size: 1.05rem; font-weight: 700; color: #1e293b; margin-bottom: 8px;">
+                        Bạn có chắc chắn muốn xóa tòa nhà này không?
+                    </div>
+                    <div style="font-size: 0.925rem; color: #64748b; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; margin-top: 10px;">
+                        Tòa nhà: <strong style="color: #0284c7;">"${name}"</strong>
+                        <div style="color: #059669; font-size: 0.8rem; font-weight: 600; margin-top: 4px;">
+                            <i class="fa-solid fa-circle-check"></i> Tòa nhà trống hoàn toàn (0 bài đăng, không có phòng thuê)
+                        </div>
+                    </div>
+                `,
+                icon: 'warning',
+                iconColor: '#f59e0b',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: '<i class="fa-solid fa-trash-can"></i> Đồng ý',
+                cancelButtonText: 'Hủy bỏ',
+                reverseButtons: true,
+                focusCancel: true,
+                customClass: {
+                    popup: 'swal2-custom-popup'
+                }
+            });
+
+            if (!confirmResult.isConfirmed) {
                 return;
             }
+
+            // Hiển thị trạng thái đang xử lý xóa
+            Swal.fire({
+                title: 'Đang xử lý...',
+                text: 'Hệ thống đang thực hiện xóa tòa nhà...',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
 
             try {
                 const res = await fetch(`/api/buildings/${id}`, {
                     method: 'DELETE',
                     headers: {
                         'Accept': 'application/json',
+                        'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': '{{ csrf_token() }}'
                     }
                 });
 
-                const data = await res.json();
-                if (data.success) {
-                    showToast(data.message || 'Đã xóa tòa nhà thành công!', 'success');
-                    const row = document.querySelector(`tr[data-id="${id}"]`);
-                    if (row) row.remove();
-                    setTimeout(() => location.reload(), 700);
-                } else {
-                    showToast(data.message || 'Không thể xóa tòa nhà!', 'error');
+                const data = await res.json().catch(() => ({}));
+
+                // Nếu backend phát hiện lỗi bất ngờ
+                if (!res.ok || data.success === false) {
+                    await Swal.fire({
+                        icon: 'error',
+                        iconColor: '#dc2626',
+                        title: '<span style="color: #dc2626; font-weight: 800; font-size: 1.35rem;">🚨 Không thể xóa tòa nhà!</span>',
+                        text: data.message || 'Tòa nhà vẫn còn bài đăng hoặc phòng thuê bên trong!',
+                        confirmButtonColor: '#dc2626',
+                        confirmButtonText: '<i class="fa-solid fa-shield-halved"></i> Đã hiểu',
+                        showCancelButton: false,
+                        customClass: {
+                            popup: 'swal2-custom-popup'
+                        }
+                    });
+                    return;
                 }
+
+                // Xóa thành công (HTTP 200)
+                await Swal.fire({
+                    icon: 'success',
+                    iconColor: '#059669',
+                    title: '<span style="color: #059669; font-weight: 800;">Xóa thành công!</span>',
+                    text: data.message || `Đã xóa tòa nhà "${name}" thành công!`,
+                    confirmButtonColor: '#0284c7',
+                    confirmButtonText: '<i class="fa-solid fa-check"></i> Hoàn tất',
+                    timer: 2000,
+                    timerProgressBar: true,
+                    customClass: {
+                        popup: 'swal2-custom-popup'
+                    }
+                });
+
+                if (row) {
+                    row.style.transition = 'all 0.4s ease';
+                    row.style.opacity = '0';
+                    row.style.transform = 'translateX(40px)';
+                    setTimeout(() => row.remove(), 400);
+                }
+                setTimeout(() => location.reload(), 1000);
+
             } catch (err) {
-                console.error(err);
-                showToast('Lỗi khi gửi yêu cầu xóa!', 'error');
+                console.error('Lỗi khi gửi yêu cầu xóa tòa nhà:', err);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Lỗi kết nối',
+                    text: 'Không thể kết nối tới máy chủ. Vui lòng thử lại sau!',
+                    confirmButtonColor: '#dc2626',
+                    confirmButtonText: 'Đóng'
+                });
             }
         }
 

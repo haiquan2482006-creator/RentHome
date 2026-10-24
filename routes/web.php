@@ -975,7 +975,9 @@ Route::middleware(['auth'])->group(function () {
         if (!$user->isModerator() && $user->role !== 'admin') {
             return redirect('/')->with('error', 'Chỉ tài khoản Kiểm duyệt viên mới có quyền truy cập.');
         }
-        return view('kiem_duyet_vien.qltin_tuc');
+        $pendingPostsBadge = \App\Models\Post::where('status', 'pending')->count();
+        $pendingComplaints = \App\Models\Complaint::where('status', 'pending')->count();
+        return view('kiem_duyet_vien.qltin_tuc', compact('pendingPostsBadge', 'pendingComplaints', 'user'));
     })->name('moderator.news');
 
     Route::get('/kiem-duyet/lich-su', function () {
@@ -1277,7 +1279,21 @@ Route::middleware(['auth'])->group(function () {
             'post'    => $post
         ]);
     })->middleware('auth');
+
+    // API Kiểm Duyệt: Xử lý khiếu nại Cấp 1 (Nhắc nhở, Gỡ bài, Bác đơn)
+    Route::post('/api/kiem-duyet/complaints/{id}/resolve', [\App\Http\Controllers\ComplaintController::class, 'resolve'])->middleware('auth')->name('moderator.complaints.resolve');
+
+    // API Quản lý & Kiểm duyệt Tin tức BĐS (RSS & Moderation)
+    Route::get('/api/kiem-duyet/news', [\App\Http\Controllers\NewsModerationController::class, 'index'])->name('moderator.news.index');
+    Route::post('/api/kiem-duyet/news/fetch-rss', [\App\Http\Controllers\NewsModerationController::class, 'fetchRss'])->name('moderator.news.fetch_rss');
+    Route::post('/api/kiem-duyet/news', [\App\Http\Controllers\NewsModerationController::class, 'store'])->name('moderator.news.store');
+    Route::put('/api/kiem-duyet/news/{id}', [\App\Http\Controllers\NewsModerationController::class, 'update'])->name('moderator.news.update');
+    Route::post('/api/kiem-duyet/news/{id}/approve', [\App\Http\Controllers\NewsModerationController::class, 'approve'])->name('moderator.news.approve');
+    Route::delete('/api/kiem-duyet/news/{id}', [\App\Http\Controllers\NewsModerationController::class, 'destroy'])->name('moderator.news.destroy');
 });
+
+// API Public: Tin tức BĐS đã phê duyệt cho Trang chủ
+Route::get('/api/news/approved', [\App\Http\Controllers\NewsModerationController::class, 'getApprovedNews'])->name('news.approved');
 
 Route::get('/dangbai', function(){
     if (!Auth::check()) {

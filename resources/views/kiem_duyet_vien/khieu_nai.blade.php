@@ -1002,7 +1002,7 @@
             const note = document.getElementById('resolutionNote').value.trim();
 
             try {
-                await fetch(`/api/kiem-duyet/complaints/${id}/resolve`, {
+                const res = await fetch(`/api/kiem-duyet/complaints/${id}/resolve`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1011,22 +1011,31 @@
                     },
                     body: JSON.stringify({ action, note })
                 });
-            } catch (e) {}
 
-            // Cập nhật trạng thái dòng sang Đã giải quyết
-            const row = document.querySelector(`tr.complaint-row[data-id="${id}"]`);
-            if (row) {
-                row.setAttribute('data-status', 'resolved');
-                const badge = document.getElementById(`badge_${id}`);
-                if (badge) {
-                    badge.className = 'status-pill status-resolved';
-                    badge.innerHTML = '<i class="fa-solid fa-circle-check"></i> Đã giải quyết';
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    alert(data.message || 'Đã xảy ra lỗi khi xử lý khiếu nại!');
+                    return;
                 }
-            }
 
-            closeResolveModal();
-            filterComplaints();
-            alert('Đã lưu kết quả xử lý khiếu nại thành công!');
+                // Cập nhật trạng thái dòng sang Đã giải quyết
+                const row = document.querySelector(`tr.complaint-row[data-id="${id}"]`);
+                if (row) {
+                    row.setAttribute('data-status', 'resolved');
+                    const badge = document.getElementById(`badge_${id}`);
+                    if (badge) {
+                        badge.className = 'status-pill status-resolved';
+                        badge.innerHTML = '<i class="fa-solid fa-circle-check"></i> Đã giải quyết';
+                    }
+                }
+
+                closeResolveModal();
+                filterComplaints();
+                alert(data.message || 'Đã lưu kết quả xử lý khiếu nại thành công!');
+            } catch (e) {
+                console.error(e);
+                alert('Lỗi kết nối máy chủ khi xử lý khiếu nại!');
+            }
         }
     </script>
 </body>
