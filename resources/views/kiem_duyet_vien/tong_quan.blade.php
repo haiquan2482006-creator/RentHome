@@ -899,7 +899,11 @@
                     </div>
                 </div>
                 <div class="kpi-footer">
-                    <span class="kpi-tag urgent"><i class="fa-solid fa-fire"></i> Cần duyệt giá & nội dung</span>
+                    @if($pendingCount > 0)
+                        <span class="kpi-tag urgent"><i class="fa-solid fa-fire"></i> Cần duyệt giá & nội dung</span>
+                    @else
+                        <span class="kpi-tag good"><i class="fa-solid fa-check"></i> Đã xử lý toàn bộ</span>
+                    @endif
                     <a href="#quickApprovalTable" style="color: var(--primary); text-decoration: none; font-weight: 600;">Xem ngay →</a>
                 </div>
             </div>
@@ -916,7 +920,11 @@
                     </div>
                 </div>
                 <div class="kpi-footer">
-                    <span class="kpi-tag alert">2 đơn mức độ khẩn cấp</span>
+                    @if($complaintCount > 0)
+                        <span class="kpi-tag alert">{{ ($urgentComplaintCount ?? 0) > 0 ? $urgentComplaintCount . ' đơn mức độ khẩn cấp' : $complaintCount . ' đơn chờ xử lý' }}</span>
+                    @else
+                        <span class="kpi-tag good"><i class="fa-solid fa-shield-check"></i> 0 đơn phát sinh</span>
+                    @endif
                     <a href="{{ url('/kiem-duyet/khieu-nai') }}" style="color: var(--danger); text-decoration: none; font-weight: 600;">Xử lý →</a>
                 </div>
             </div>
@@ -933,8 +941,8 @@
                     </div>
                 </div>
                 <div class="kpi-footer">
-                    <span class="kpi-tag good"><i class="fa-solid fa-arrow-trend-up"></i> +18 bài trong hôm nay</span>
-                    <span style="color: var(--text-muted);">Tỷ lệ duyệt: 89%</span>
+                    <span class="kpi-tag good"><i class="fa-solid fa-arrow-trend-up"></i> {{ ($approvedToday ?? 0) > 0 ? '+' . $approvedToday . ' bài trong hôm nay' : 'Hôm nay: 0 bài mới' }}</span>
+                    <span style="color: var(--text-muted);">Tỷ lệ duyệt: {{ $approvalRate ?? 100 }}%</span>
                 </div>
             </div>
 
@@ -989,7 +997,7 @@
                 <div class="doughnut-legend">
                     <div class="legend-item">
                         <span class="legend-left"><span class="dot" style="background:#10b981;"></span> Đã duyệt</span>
-                        <strong>{{ $approvedCount }}</strong>
+                        <strong id="legendApproved">{{ $approvedCount }}</strong>
                     </div>
                     <div class="legend-item">
                         <span class="legend-left"><span class="dot" style="background:#f59e0b;"></span> Chờ duyệt</span>
@@ -1196,23 +1204,27 @@
 
     <!-- ================= JAVASCRIPT LOGIC & CHARTS ================= -->
     <script>
-        // 1. Khởi tạo Biểu đồ Lưu lượng Kiểm duyệt 7 ngày (Bar + Line Chart)
+        // 0. Dữ liệu thực tế truyền từ Controller / Backend
+        const chart7DaysData = {!! json_encode($chart7Days ?? ['labels'=>[], 'approved'=>[], 'rejected'=>[], 'complaint'=>[]]) !!};
+        const chart30DaysData = {!! json_encode($chart30Days ?? ['labels'=>[], 'approved'=>[], 'rejected'=>[], 'complaint'=>[]]) !!};
+
+        // 1. Khởi tạo Biểu đồ Lưu lượng Kiểm duyệt 7 ngày (Bar + Line Chart) với DỮ LIỆU THẬT
         const ctxFlow = document.getElementById('moderationFlowChart').getContext('2d');
         const moderationFlowChart = new Chart(ctxFlow, {
             type: 'bar',
             data: {
-                labels: ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
+                labels: chart7DaysData.labels || ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
                 datasets: [
                     {
                         label: 'Đã phê duyệt',
-                        data: [15, 22, 18, 25, 20, 16, 12],
+                        data: [...(chart7DaysData.approved || [0, 0, 0, 0, 0, 0, 0])],
                         backgroundColor: '#0284c7',
                         borderRadius: 6,
                         barPercentage: 0.55
                     },
                     {
                         label: 'Bị từ chối (Sai giá/Ảnh)',
-                        data: [2, 3, 1, 4, 2, 1, 1],
+                        data: [...(chart7DaysData.rejected || [0, 0, 0, 0, 0, 0, 0])],
                         backgroundColor: '#f59e0b',
                         borderRadius: 6,
                         barPercentage: 0.55
@@ -1220,7 +1232,7 @@
                     {
                         label: 'Khiếu nại phát sinh',
                         type: 'line',
-                        data: [1, 0, 2, 1, 3, 1, 1],
+                        data: [...(chart7DaysData.complaint || [0, 0, 0, 0, 0, 0, 0])],
                         borderColor: '#ef4444',
                         backgroundColor: '#ef4444',
                         borderWidth: 2.5,
@@ -1236,10 +1248,21 @@
                     legend: {
                         position: 'top',
                         labels: { usePointStyle: true, boxWidth: 8, font: { size: 12, weight: '600' } }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return ` ${context.dataset.label}: ${context.raw} bài/đơn`;
+                            }
+                        }
                     }
                 },
                 scales: {
-                    y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1, precision: 0 },
+                        grid: { color: '#f1f5f9' }
+                    },
                     x: { grid: { display: false } }
                 }
             }
@@ -1268,19 +1291,13 @@
             }
         });
 
-        // 3. Đổi dữ liệu biểu đồ theo mốc 7 ngày / 30 ngày
+        // 3. Đổi dữ liệu biểu đồ theo mốc 7 ngày / 30 ngày (Dữ liệu THẬT)
         function updateBarChartRange(days) {
-            if (days === '30') {
-                moderationFlowChart.data.labels = ['Tuần 1', 'Tuần 2', 'Tuần 3', 'Tuần 4'];
-                moderationFlowChart.data.datasets[0].data = [68, 82, 74, 91];
-                moderationFlowChart.data.datasets[1].data = [8, 11, 6, 9];
-                moderationFlowChart.data.datasets[2].data = [4, 6, 3, 5];
-            } else {
-                moderationFlowChart.data.labels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-                moderationFlowChart.data.datasets[0].data = [15, 22, 18, 25, 20, 16, 12];
-                moderationFlowChart.data.datasets[1].data = [2, 3, 1, 4, 2, 1, 1];
-                moderationFlowChart.data.datasets[2].data = [1, 0, 2, 1, 3, 1, 1];
-            }
+            const data = (days === '30') ? chart30DaysData : chart7DaysData;
+            moderationFlowChart.data.labels = data.labels;
+            moderationFlowChart.data.datasets[0].data = [...data.approved];
+            moderationFlowChart.data.datasets[1].data = [...data.rejected];
+            moderationFlowChart.data.datasets[2].data = [...data.complaint];
             moderationFlowChart.update();
         }
 
@@ -1309,19 +1326,42 @@
             document.getElementById('previewModal').classList.add('show');
         }
 
-        // 6. Phê duyệt nhanh bài đăng trên bảng
-        function approvePostQuick(btn, title) {
+        // 6. Phê duyệt nhanh bài đăng trên bảng (Gọi API thực tế vào CSDL)
+        async function approvePostQuick(btn, title) {
             if (!confirm('Xác nhận PHÊ DUYỆT bài đăng "' + title + '" và cho phép hiển thị công khai lên trang chủ?')) return;
             const row = btn.closest('tr');
-            row.style.transition = '0.3s';
-            row.style.opacity = '0';
-            setTimeout(() => {
-                row.remove();
-                decrementPendingCounter(true);
-            }, 300);
+            const postId = row ? row.getAttribute('data-id') : null;
+            if (!postId) return;
+
+            btn.disabled = true;
+            try {
+                const res = await fetch(`/api/kiem-duyet/posts/${postId}/approve`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    row.style.transition = '0.3s';
+                    row.style.opacity = '0';
+                    setTimeout(() => {
+                        row.remove();
+                        decrementPendingCounter(true);
+                    }, 300);
+                } else {
+                    alert(data.message || 'Có lỗi xảy ra khi phê duyệt bài đăng.');
+                    btn.disabled = false;
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Lỗi kết nối máy chủ khi phê duyệt.');
+                btn.disabled = false;
+            }
         }
 
-        // 7. Mở Modal Từ chối bài đăng
+        // 7. Mở Modal Từ chối bài đăng & Xác nhận từ chối (Gọi API thực tế vào CSDL)
         let currentRejectRow = null;
         function openRejectModal(btn, title) {
             currentRejectRow = btn.closest('tr');
@@ -1330,16 +1370,38 @@
             document.getElementById('rejectModal').classList.add('show');
         }
 
-        function confirmRejectPost() {
-            if (currentRejectRow) {
-                currentRejectRow.style.transition = '0.3s';
-                currentRejectRow.style.opacity = '0';
-                setTimeout(() => {
-                    currentRejectRow.remove();
-                    decrementPendingCounter(false);
-                }, 300);
+        async function confirmRejectPost() {
+            if (!currentRejectRow) return;
+            const postId = currentRejectRow.getAttribute('data-id');
+            const reasonSelect = document.getElementById('rejectReasonSelect').value;
+            const reasonNote = document.getElementById('rejectNoteInput').value.trim();
+            const reason = reasonNote ? `${reasonSelect} - Ghi chú: ${reasonNote}` : reasonSelect;
+
+            try {
+                const res = await fetch(`/api/kiem-duyet/posts/${postId}/reject`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({ reason: reason })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    currentRejectRow.style.transition = '0.3s';
+                    currentRejectRow.style.opacity = '0';
+                    setTimeout(() => {
+                        currentRejectRow.remove();
+                        decrementPendingCounter(false);
+                    }, 300);
+                    closeModal('rejectModal');
+                } else {
+                    alert(data.message || 'Có lỗi xảy ra khi từ chối bài đăng.');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Lỗi kết nối máy chủ khi từ chối bài đăng.');
             }
-            closeModal('rejectModal');
         }
 
         function closeModal(modalId) {
@@ -1352,28 +1414,55 @@
             const sidebarBadge = document.getElementById('sidebarPendingBadge');
             const legendPending = document.getElementById('legendPending');
 
-            let currentPending = parseInt(pendingEl.innerText) || 0;
+            let currentPending = parseInt(pendingEl ? pendingEl.innerText : 0) || 0;
             if (currentPending > 0) {
                 currentPending--;
-                pendingEl.innerText = currentPending;
-                sidebarBadge.innerText = currentPending;
-                legendPending.innerText = currentPending;
+                if (pendingEl) pendingEl.innerText = currentPending;
+                if (sidebarBadge) sidebarBadge.innerText = currentPending;
+                if (legendPending) legendPending.innerText = currentPending;
             }
 
             if (isApproved) {
                 const approvedEl = document.getElementById('kpiApprovedCount');
-                approvedEl.innerText = (parseInt(approvedEl.innerText) || 0) + 1;
-                statusRatioChart.data.datasets[0].data[0]++;
+                const legendApproved = document.getElementById('legendApproved');
+                let newApp = (parseInt(approvedEl ? approvedEl.innerText : 0) || 0) + 1;
+                if (approvedEl) approvedEl.innerText = newApp;
+                if (legendApproved) legendApproved.innerText = newApp;
+                statusRatioChart.data.datasets[0].data[0] = newApp;
+
+                // Tăng số lượng cột hôm nay trong chart7Days & chart30Days
+                if (chart7DaysData.approved && chart7DaysData.approved.length > 0) {
+                    const last7 = chart7DaysData.approved.length - 1;
+                    chart7DaysData.approved[last7] = (chart7DaysData.approved[last7] || 0) + 1;
+                }
+                if (chart30DaysData.approved && chart30DaysData.approved.length > 0) {
+                    const last30 = chart30DaysData.approved.length - 1;
+                    chart30DaysData.approved[last30] = (chart30DaysData.approved[last30] || 0) + 1;
+                }
             } else {
                 const rejectedEl = document.getElementById('kpiRejectedCount');
                 const legendRejected = document.getElementById('legendRejected');
-                let newRej = (parseInt(rejectedEl.innerText) || 0) + 1;
-                rejectedEl.innerText = newRej;
-                legendRejected.innerText = newRej;
-                statusRatioChart.data.datasets[0].data[2]++;
+                let newRej = (parseInt(rejectedEl ? rejectedEl.innerText : 0) || 0) + 1;
+                if (rejectedEl) rejectedEl.innerText = newRej;
+                if (legendRejected) legendRejected.innerText = newRej;
+                statusRatioChart.data.datasets[0].data[2] = newRej;
+
+                // Tăng số lượng từ chối hôm nay trong chart7Days & chart30Days
+                if (chart7DaysData.rejected && chart7DaysData.rejected.length > 0) {
+                    const last7 = chart7DaysData.rejected.length - 1;
+                    chart7DaysData.rejected[last7] = (chart7DaysData.rejected[last7] || 0) + 1;
+                }
+                if (chart30DaysData.rejected && chart30DaysData.rejected.length > 0) {
+                    const last30 = chart30DaysData.rejected.length - 1;
+                    chart30DaysData.rejected[last30] = (chart30DaysData.rejected[last30] || 0) + 1;
+                }
             }
             statusRatioChart.data.datasets[0].data[1] = currentPending;
             statusRatioChart.update();
+
+            const rangeSelect = document.querySelector('.select-filter');
+            const currentRange = rangeSelect ? rangeSelect.value : '7';
+            updateBarChartRange(currentRange);
         }
     </script>
 </body>

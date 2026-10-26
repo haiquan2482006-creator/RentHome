@@ -167,7 +167,12 @@
                             <!-- Populated dynamically by JS -->
                         </div>
                         <div class="p-2.5 text-center bg-slate-50 border-t border-slate-100">
-                            <a href="{{ url('/Overview?tab=notifications') }}" class="text-xs font-bold text-brand-600 hover:text-brand-700 block">
+                            @php
+                                $headerNotifUrl = (Auth::user()->role === 'canhan' || Auth::user()->isIndividual()) 
+                                    ? route('thongbao.canhan') 
+                                    : url('/Overview?tab=notifications');
+                            @endphp
+                            <a href="{{ $headerNotifUrl }}" class="text-xs font-bold text-brand-600 hover:text-brand-700 block">
                                 Xem tất cả thông báo <i class="fa-solid fa-arrow-right text-[10px] ml-1"></i>
                             </a>
                         </div>
@@ -240,8 +245,13 @@
                             <span>Hồ sơ cá nhân</span>
                         </a>
 
-                        {{-- Chỉ tài khoản cá nhân (khách thuê) mới có mục Nhà đang thuê & Lịch sử liên hệ, loại trừ Admin, Kiểm duyệt, Doanh nghiệp/Nhân viên --}}
+                        {{-- Chỉ tài khoản cá nhân (khách thuê) mới có mục Thông báo, Nhà đang thuê & Lịch sử liên hệ, loại trừ Admin, Kiểm duyệt, Doanh nghiệp/Nhân viên --}}
                         @if (!Auth::user()->isAdmin() && !Auth::user()->isModerator() && !Auth::user()->isEnterprise() && !Auth::user()->isSubAccount() && !in_array(Auth::user()->role ?? '', ['admin', 'doanhnghiep', 'enterprise', 'staff', 'sub_account', 'kiemduyet', 'moderator', 'nhansu', 'nhan su', 'nhan_su']))
+                            <a href="{{ route('thongbao.canhan') }}"
+                                class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
+                                <i class="fa-solid fa-bell text-brand-600 w-4 text-center"></i>
+                                <span>Thông báo của tôi</span>
+                            </a>
                             <a href="{{ route('nha-dang-thue') }}"
                                 class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
                                 <i class="fa-solid fa-house-chimney-user text-brand-600 w-4 text-center"></i>
@@ -480,9 +490,23 @@
     window.currentUserType = "{{ Auth::check() ? (Auth::user()->role ?? 'user') : '' }}";
     window.csrfToken = "{{ csrf_token() }}";
 
+    @php
+        $serverFavIds = [];
+        if (Auth::check() && !Auth::user()->isEnterprise() && Auth::user()->role !== 'doanhnghiep') {
+            $serverFavIds = \App\Models\Favorite::where('user_id', (string)Auth::id())
+                ->pluck('post_id')
+                ->filter()
+                ->unique()
+                ->values()
+                ->map(fn($v) => (string)$v)
+                ->toArray();
+        }
+    @endphp
+    window.SERVER_FAVORITE_IDS = {!! json_encode($serverFavIds) !!};
+
     window.RentHomeFavorites = {
         favorites: [],
-        favoriteIds: new Set(),
+        favoriteIds: new Set(window.SERVER_FAVORITE_IDS || []),
         isLoaded: false,
 
         async init() {
@@ -657,31 +681,85 @@
                 return;
             }
 
-            listContainer.innerHTML = this.favorites.map(post => `
-                <div class="py-2.5 px-2 hover:bg-slate-50/80 rounded-xl transition-colors flex items-center gap-3 group relative">
-                    <a href="/chitietbaidang/${post.id}" class="flex-1 flex items-center gap-3 min-w-0">
-                        <img src="${post.display_image || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=400&q=80'}" 
-                             class="w-12 h-12 rounded-xl object-cover shrink-0 shadow-xs border border-slate-200 group-hover:scale-105 transition-transform">
-                        <div class="flex-1 min-w-0">
-                            <h5 class="text-xs font-bold text-slate-800 truncate group-hover:text-brand-600 transition-colors">
-                                ${post.title}
-                            </h5>
-                            <p class="text-[11px] font-extrabold text-brand-600 mt-0.5">
-                                ${post.price}
-                            </p>
-                            <p class="text-[10px] text-slate-400 truncate mt-0.5">
-                                <i class="fa-solid fa-location-dot text-[9px] mr-1"></i>${post.address || 'Đang cập nhật'}
-                            </p>
+            listContainer.innerHTML = this.favorites.map(post => {
+                const rawStatus = (post.status || '').toLowerCase().trim();
+                const isRented = Boolean(
+                    post.is_rented === true ||
+                    post.is_rented === 1 ||
+                    post.is_rented === '1' ||
+                    rawStatus === 'rented' ||
+                    rawStatus === 'đã cho thuê' ||
+                    rawStatus === 'dang_thue' ||
+                    rawStatus === 'da_cho_thue' ||
+                    rawStatus === 'inactive'
+                );
+
+                if (isRented) {
+                    return `
+                        <div class="py-2.5 px-2 hover:bg-slate-50/80 rounded-xl transition-colors flex items-center gap-3 group relative bg-slate-50/60 border border-slate-100/80">
+                            <!-- Vô hiệu hóa link chi tiết: không click được (pointer-events-none) -->
+                            <div class="flex-1 flex items-center gap-3 min-w-0 pointer-events-none cursor-not-allowed select-none">
+                                <div class="relative w-12 h-12 shrink-0">
+                                    <!-- Hiệu ứng làm mờ: opacity-60 grayscale -->
+                                    <img src="${post.display_image || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=400&q=80'}" 
+                                         class="w-12 h-12 rounded-xl object-cover shadow-xs border border-slate-200 opacity-60 grayscale">
+                                    <span class="absolute inset-0 flex items-center justify-center bg-slate-900/30 rounded-xl text-[9px] font-extrabold text-white uppercase tracking-wider">
+                                        Hết
+                                    </span>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <h5 class="text-xs font-bold text-slate-500 truncate" title="${post.title}">
+                                        ${post.title}
+                                    </h5>
+                                    <!-- Thay đổi Text giá tiền: Ẩn giá, hiển thị Badge Đã cho thuê -->
+                                    <div class="mt-0.5">
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                                            Đã cho thuê
+                                        </span>
+                                    </div>
+                                    <p class="text-[10px] text-slate-400 truncate mt-0.5">
+                                        <i class="fa-solid fa-location-dot text-[9px] mr-1"></i>${post.address || 'Đang cập nhật'}
+                                    </p>
+                                </div>
+                            </div>
+                            <!-- Giữ lại nút Xóa: Vẫn hoạt động bình thường -->
+                            <button type="button" 
+                                    onclick="window.RentHomeFavorites.remove('${post.id}', event)" 
+                                    class="p-2 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-rose-50 transition-colors shrink-0 cursor-pointer" 
+                                    title="Xóa bài đăng đã thuê khỏi danh sách yêu thích">
+                                <i class="fa-solid fa-trash-can text-xs"></i>
+                            </button>
                         </div>
-                    </a>
-                    <button type="button" 
-                            onclick="window.RentHomeFavorites.remove('${post.id}', event)" 
-                            class="p-2 text-slate-300 hover:text-rose-500 rounded-lg hover:bg-rose-50 transition-colors shrink-0" 
-                            title="Bỏ thích bài đăng này">
-                        <i class="fa-solid fa-trash-can text-xs"></i>
-                    </button>
-                </div>
-            `).join('');
+                    `;
+                }
+
+                return `
+                    <div class="py-2.5 px-2 hover:bg-slate-50/80 rounded-xl transition-colors flex items-center gap-3 group relative">
+                        <a href="/chitietbaidang/${post.id}" class="flex-1 flex items-center gap-3 min-w-0">
+                            <img src="${post.display_image || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=400&q=80'}" 
+                                 class="w-12 h-12 rounded-xl object-cover shrink-0 shadow-xs border border-slate-200 group-hover:scale-105 transition-transform">
+                            <div class="flex-1 min-w-0">
+                                <h5 class="text-xs font-bold text-slate-800 truncate group-hover:text-brand-600 transition-colors">
+                                    ${post.title}
+                                </h5>
+                                <p class="text-[11px] font-extrabold text-brand-600 mt-0.5">
+                                    ${post.price}
+                                </p>
+                                <p class="text-[10px] text-slate-400 truncate mt-0.5">
+                                    <i class="fa-solid fa-location-dot text-[9px] mr-1"></i>${post.address || 'Đang cập nhật'}
+                                </p>
+                            </div>
+                        </a>
+                        <button type="button" 
+                                onclick="window.RentHomeFavorites.remove('${post.id}', event)" 
+                                class="p-2 text-slate-300 hover:text-rose-500 rounded-lg hover:bg-rose-50 transition-colors shrink-0 cursor-pointer" 
+                                title="Bỏ thích bài đăng này">
+                            <i class="fa-solid fa-trash-can text-xs"></i>
+                        </button>
+                    </div>
+                `;
+            }).join('');
         },
 
         updateCardButtons() {
@@ -706,14 +784,17 @@
 
                 btn.style.display = 'flex';
 
+                const isFeatured = btn.classList.contains('top-4') || btn.className.includes('top-4');
+                const posClass = isFeatured ? 'top-4 right-4' : 'top-3 right-3';
+
                 if (isFav) {
-                    btn.className = 'fav-toggle-btn absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-white text-rose-500 shadow-md ring-2 ring-rose-100 flex items-center justify-center transition-all duration-200 active:scale-90 group/heart';
+                    btn.className = `fav-toggle-btn absolute ${posClass} z-10 w-9 h-9 rounded-full bg-white text-rose-500 shadow-md ring-2 ring-rose-100 flex items-center justify-center transition-all duration-200 active:scale-90 group/heart`;
                     btn.title = 'Bỏ yêu thích';
                     if (icon) {
                         icon.className = 'fa-solid fa-heart text-base text-rose-500 transition-transform duration-200 group-hover/heart:scale-110';
                     }
                 } else {
-                    btn.className = 'fav-toggle-btn absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-white/90 hover:bg-white text-slate-400 hover:text-rose-500 shadow-sm flex items-center justify-center transition-all duration-200 active:scale-90 group/heart';
+                    btn.className = `fav-toggle-btn absolute ${posClass} z-10 w-9 h-9 rounded-full bg-white/90 hover:bg-white text-slate-400 hover:text-rose-500 shadow-sm flex items-center justify-center transition-all duration-200 active:scale-90 group/heart`;
                     btn.title = 'Yêu thích bài đăng';
                     if (icon) {
                         icon.className = 'fa-regular fa-heart text-base text-slate-400 group-hover/heart:text-rose-500 transition-transform duration-200 group-hover/heart:scale-110';
@@ -753,6 +834,14 @@
     document.addEventListener('DOMContentLoaded', function() {
         window.RentHomeFavorites.init();
     });
+
+    @auth
+    window.RENTHOME_USER_ROLE = '{{ Auth::user()->role ?? "canhan" }}';
+    window.RENTHOME_IS_INDIVIDUAL = {{ (Auth::user()->role === 'canhan' || Auth::user()->isIndividual()) ? 'true' : 'false' }};
+    @else
+    window.RENTHOME_USER_ROLE = '';
+    window.RENTHOME_IS_INDIVIDUAL = false;
+    @endauth
 
     document.addEventListener('DOMContentLoaded', function() {
         if (!document.getElementById('home-notif-container')) return;
@@ -836,6 +925,10 @@
             badge.style.display = unreadCount > 0 ? 'flex' : 'none';
         }
 
+        const notifItemUrl = (window.RENTHOME_IS_INDIVIDUAL || window.RENTHOME_USER_ROLE === 'canhan') 
+            ? '{{ route('thongbao.canhan') }}' 
+            : '/Overview?tab=notifications';
+
         if (list.length === 0) {
             topbarList.innerHTML = `<div class="p-4 text-center text-slate-400">Không có thông báo.</div>`;
         } else {
@@ -848,7 +941,7 @@
                 }
 
                 return `
-                    <div onclick="window.location.href='/Overview?tab=notifications'" class="p-3 hover:bg-slate-50 transition-colors cursor-pointer flex items-start gap-3 ${!n.isRead ? 'bg-rose-50/30' : ''}">
+                    <a href="${notifItemUrl}" class="p-3 hover:bg-slate-50 transition-colors cursor-pointer flex items-start gap-3 block ${!n.isRead ? 'bg-rose-50/30' : ''}">
                         <div class="w-7 h-7 rounded-lg ${n.iconBg} flex items-center justify-center shrink-0 text-xs mt-0.5">
                             <i class="fa-solid ${n.icon}"></i>
                         </div>
@@ -860,7 +953,7 @@
                             <p class="font-bold text-slate-900 text-xs truncate mt-0.5 ${!n.isRead ? 'text-slate-900 font-extrabold' : 'text-slate-700'}">${n.title}</p>
                             <p class="text-[11px] text-slate-500 line-clamp-1 mt-0.5">${n.content}</p>
                         </div>
-                    </div>
+                    </a>
                 `;
             }).join('');
         }

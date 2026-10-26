@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chi Tiết Vận Hành & Quản Lý Phòng: {{ $building->name }} - RentHome</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <style>
@@ -680,12 +681,21 @@
                                             <a href="{{ url('dangbai?edit=' . $rId) }}" class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white flex items-center justify-center transition-colors" title="Chỉnh sửa thông tin & giá phòng">
                                                 <i class="fa-solid fa-pen text-xs"></i>
                                             </a>
-                                            <button onclick="unlinkRoom('{{ $rId }}')" class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-500 hover:text-white flex items-center justify-center transition-colors cursor-pointer" title="Gỡ khỏi tòa nhà">
-                                                <i class="fa-solid fa-link-slash text-xs"></i>
-                                            </button>
-                                            <button onclick="deleteRoom('{{ $rId }}')" class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white flex items-center justify-center transition-colors cursor-pointer" title="Xóa vĩnh viễn bài đăng">
-                                                <i class="fa-solid fa-trash-can text-xs"></i>
-                                            </button>
+                                            @if($isRented)
+                                                <button disabled type="button" class="w-8 h-8 rounded-lg bg-amber-50 text-amber-300 opacity-50 cursor-not-allowed flex items-center justify-center transition-colors" title="Không thể thao tác khi đang có khách thuê">
+                                                    <i class="fa-solid fa-right-left text-xs"></i>
+                                                </button>
+                                                <button disabled type="button" class="w-8 h-8 rounded-lg bg-rose-50 text-rose-300 opacity-50 cursor-not-allowed flex items-center justify-center transition-colors" title="Không thể thao tác khi đang có khách thuê">
+                                                    <i class="fa-solid fa-trash-can text-xs"></i>
+                                                </button>
+                                            @else
+                                                <button type="button" onclick="openTransferModal('{{ $rId }}', '{{ addslashes($room->title ?? ($unitNameCap . ' #' . strtoupper(substr($rId, -5)))) }}')" class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-500 hover:text-white flex items-center justify-center transition-colors cursor-pointer" title="Chuyển sang tòa nhà khác">
+                                                    <i class="fa-solid fa-right-left text-xs"></i>
+                                                </button>
+                                                <button type="button" onclick="deleteRoom('{{ $rId }}')" class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white flex items-center justify-center transition-colors cursor-pointer" title="Xóa vĩnh viễn bài đăng">
+                                                    <i class="fa-solid fa-trash-can text-xs"></i>
+                                                </button>
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>
@@ -753,6 +763,77 @@
         </div>
     </div>
 
+    <!-- ================= MODAL CHUYỂN TÒA NHÀ / CƠ SỞ (ENTERPRISE DATA INTEGRITY) ================= -->
+    <div id="transferRoomModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 transition-all">
+        <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-200">
+            <!-- Header Modal -->
+            <div class="px-6 py-5 bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-100 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-sm shrink-0">
+                        <i class="fa-solid fa-right-left text-base"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-extrabold text-slate-900">Chuyển Sang Tòa Nhà Khác</h3>
+                        <p class="text-xs text-slate-500 font-medium">Bảo vệ toàn vẹn dữ liệu hệ thống RentHome</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeTransferModal()" class="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+
+            <!-- Body Modal -->
+            <div class="p-6 space-y-4">
+                <!-- Thông báo chuyển phòng -->
+                <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-3">
+                    <i class="fa-solid fa-circle-info text-amber-500 text-base mt-0.5 shrink-0"></i>
+                    <p class="text-xs text-slate-700 leading-relaxed font-medium">
+                        Bạn đang chuyển phòng <strong id="transferRoomTitle" class="text-slate-900 font-extrabold underline"></strong> sang cơ sở khác. Hãy chọn Tòa nhà/Cơ sở đích:
+                    </p>
+                </div>
+
+                <input type="hidden" id="transferRoomId" value="">
+
+                <!-- Select chọn tòa nhà đích -->
+                <div>
+                    <label for="transferTargetBuilding" class="block text-xs font-bold text-slate-700 mb-2">
+                        <i class="fa-solid fa-building text-sky-600 mr-1"></i> Tòa nhà / Cơ sở đích tiếp nhận *:
+                    </label>
+                    <select id="transferTargetBuilding" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-800 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all">
+                        <option value="">-- Chọn Tòa nhà / Cơ sở chuyển đến --</option>
+                        @forelse($otherBuildings ?? [] as $ob)
+                            @php
+                                $obId = (string)($ob->_id ?? $ob->id);
+                                $obAddress = implode(', ', array_filter([$ob->address_detail ?: $ob->address, $ob->district, $ob->province]));
+                            @endphp
+                            <option value="{{ $obId }}">
+                                {{ $ob->name }} {{ $obAddress ? ' (' . $obAddress . ')' : '' }}
+                            </option>
+                        @empty
+                            <option value="" disabled>Không có tòa nhà nào khác trong hệ thống</option>
+                        @endforelse
+                    </select>
+                </div>
+
+                <!-- Alert lưu ý chuẩn Enterprise -->
+                <div class="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-2.5 text-[11.5px] text-emerald-800">
+                    <i class="fa-solid fa-shield-halved text-emerald-600 text-sm shrink-0"></i>
+                    <span>Hệ thống sẽ cập nhật <code>building_id</code> và địa chỉ phòng theo cơ sở mới, đảm bảo dữ liệu phòng không bao giờ bị mồ côi.</span>
+                </div>
+            </div>
+
+            <!-- Footer Modal -->
+            <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
+                <button type="button" onclick="closeTransferModal()" class="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold transition-colors">
+                    Hủy bỏ
+                </button>
+                <button type="button" id="btnConfirmTransfer" onclick="submitTransferRoom()" class="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold shadow-sm flex items-center gap-2 transition-all">
+                    <i class="fa-solid fa-right-left"></i> Xác nhận chuyển cơ sở
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Danh sách ảnh Tòa nhà (Lớp Vỏ) truyền xuống JS
         const buildingGalleryImages = @json($buildingImages);
@@ -805,53 +886,215 @@
             });
         }
 
-        // Giữ nguyên các hàm gọi API của hệ thống
-        function unlinkRoom(id) {
-            if (!confirm('Bạn có chắc chắn muốn gỡ bài đăng này khỏi tòa nhà?')) return;
-            fetch(`/api/posts/${id}/unlink`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                }
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Đã gỡ bài đăng khỏi tòa nhà thành công!');
-                    window.location.reload();
-                } else {
-                    alert(data.message || 'Có lỗi xảy ra!');
-                }
-            })
-            .catch(err => {
-                console.error(err);
-                alert('Lỗi kết nối máy chủ!');
-            });
+        // ================= LOGIC CHUYỂN TÒA NHÀ & BẢO VỆ DỮ LIỆU ENTERPRISE =================
+        let currentTransferRoomId = null;
+
+        function openTransferModal(roomId, roomTitle) {
+            currentTransferRoomId = roomId;
+            const idInput = document.getElementById('transferRoomId');
+            const titleEl = document.getElementById('transferRoomTitle');
+            const targetSelect = document.getElementById('transferTargetBuilding');
+
+            if (idInput) idInput.value = roomId;
+            if (titleEl) titleEl.innerText = `"${roomTitle}"`;
+            if (targetSelect) targetSelect.value = '';
+
+            const modal = document.getElementById('transferRoomModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
         }
 
-        function deleteRoom(id) {
-            if (!confirm('Hành động này sẽ XÓA VĨNH VIỄN bài đăng và hình ảnh liên quan. Bạn có chắc chắn?')) return;
-            fetch(`/api/posts/${id}/delete`, {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                }
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Đã xóa bài đăng thành công!');
-                    window.location.reload();
+        function closeTransferModal() {
+            const modal = document.getElementById('transferRoomModal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+            currentTransferRoomId = null;
+        }
+
+        async function submitTransferRoom() {
+            const roomId = document.getElementById('transferRoomId')?.value || currentTransferRoomId;
+            const targetBuildingSelect = document.getElementById('transferTargetBuilding');
+            const targetBuildingId = targetBuildingSelect?.value;
+            const targetBuildingName = targetBuildingSelect?.options[targetBuildingSelect.selectedIndex]?.text || '';
+
+            if (!targetBuildingId) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Chưa chọn cơ sở đích',
+                        text: 'Vui lòng chọn Tòa nhà / Cơ sở đích tiếp nhận phòng này!'
+                    });
                 } else {
-                    alert(data.message || 'Có lỗi xảy ra!');
+                    alert('Vui lòng chọn Tòa nhà / Cơ sở đích tiếp nhận!');
                 }
-            })
-            .catch(err => {
-                console.error(err);
-                alert('Lỗi kết nối máy chủ!');
-            });
+                targetBuildingSelect?.focus();
+                return;
+            }
+
+            const confirmAction = async () => {
+                const btnConfirm = document.getElementById('btnConfirmTransfer');
+                const oldBtnHtml = btnConfirm ? btnConfirm.innerHTML : '';
+                if (btnConfirm) {
+                    btnConfirm.disabled = true;
+                    btnConfirm.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang chuyển...';
+                }
+
+                try {
+                    const res = await fetch(`/api/rooms/${roomId}/transfer`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({
+                            target_building_id: targetBuildingId
+                        })
+                    });
+
+                    const data = await res.json();
+                    if (data.success) {
+                        closeTransferModal();
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Thành công!',
+                                text: data.message || 'Đã chuyển phòng sang tòa nhà mới thành công!',
+                                timer: 1800,
+                                showConfirmButton: false
+                            }).then(() => {
+                                window.location.reload();
+                            });
+                        } else {
+                            alert(data.message || 'Chuyển tòa nhà thành công!');
+                            window.location.reload();
+                        }
+                    } else {
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Không thể chuyển',
+                                text: data.message || 'Có lỗi xảy ra khi chuyển tòa nhà!'
+                            });
+                        } else {
+                            alert(data.message || 'Có lỗi xảy ra!');
+                        }
+                        if (btnConfirm) {
+                            btnConfirm.disabled = false;
+                            btnConfirm.innerHTML = oldBtnHtml;
+                        }
+                    }
+                } catch (err) {
+                    console.error(err);
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Lỗi kết nối',
+                            text: 'Không thể kết nối đến máy chủ. Vui lòng thử lại!'
+                        });
+                    } else {
+                        alert('Lỗi kết nối máy chủ!');
+                    }
+                    if (btnConfirm) {
+                        btnConfirm.disabled = false;
+                        btnConfirm.innerHTML = oldBtnHtml;
+                    }
+                }
+            };
+
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Xác nhận chuyển cơ sở?',
+                    html: `Bạn có chắc chắn muốn chuyển phòng này sang cơ sở <b>${targetBuildingName}</b>?<br><small class="text-slate-500">Dữ liệu phòng sẽ được bảo toàn nguyên vẹn tại cơ sở mới.</small>`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#f59e0b',
+                    cancelButtonColor: '#64748b',
+                    confirmButtonText: '<i class="fa-solid fa-check"></i> Đồng ý chuyển',
+                    cancelButtonText: 'Hủy'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        confirmAction();
+                    }
+                });
+            } else {
+                if (confirm(`Xác nhận chuyển phòng sang cơ sở "${targetBuildingName}"?`)) {
+                    confirmAction();
+                }
+            }
+        }
+
+        // Đóng modal khi bấm phím Escape
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeTransferModal();
+                closeLightbox();
+            }
+        });
+
+        function deleteRoom(id) {
+            const doDelete = () => {
+                fetch(`/api/posts/${id}/delete`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}'
+                    }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Đã xóa!',
+                                text: data.message || 'Đã xóa bài đăng thành công!',
+                                timer: 1500,
+                                showConfirmButton: false
+                            }).then(() => window.location.reload());
+                        } else {
+                            alert('Đã xóa bài đăng thành công!');
+                            window.location.reload();
+                        }
+                    } else {
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Không thể xóa',
+                                text: data.message || 'Có lỗi xảy ra!'
+                            });
+                        } else {
+                            alert(data.message || 'Có lỗi xảy ra!');
+                        }
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert('Lỗi kết nối máy chủ!');
+                });
+            };
+
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Xóa vĩnh viễn bài đăng?',
+                    text: 'Hành động này sẽ XÓA VĨNH VIỄN bài đăng và hình ảnh liên quan.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#e11d48',
+                    cancelButtonColor: '#64748b',
+                    confirmButtonText: 'Đồng ý xóa',
+                    cancelButtonText: 'Hủy'
+                }).then((res) => {
+                    if (res.isConfirmed) doDelete();
+                });
+            } else {
+                if (confirm('Hành động này sẽ XÓA VĨNH VIỄN bài đăng và hình ảnh liên quan. Bạn có chắc chắn?')) {
+                    doDelete();
+                }
+            }
         }
 
         function cancelRoom(id) {
@@ -860,7 +1103,7 @@
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}'
                 }
             })
             .then(res => res.json())

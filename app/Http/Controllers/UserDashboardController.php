@@ -104,8 +104,8 @@ class UserDashboardController extends Controller
         return response()->json([
             'success' => true,
             'stats' => [
-                'total_views' => $totalViews,
-                'total_likes' => $totalLikes,
+                'total_views' => (int)$totalViews,
+                'total_likes' => (int)$totalLikes,
                 'active_posts_count' => $activePostsCount,
                 'pending_posts_count' => $pendingPostsCount,
                 'total_buildings_count' => $totalBuildingsCount,

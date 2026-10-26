@@ -178,6 +178,9 @@ class ContractLiquidationController extends Controller
         $contract->checkout_request = $checkoutRequestData;
         $contract->save();
 
+        // Ẩn tất cả các yêu cầu liên hệ của tài khoản yêu cầu trả phòng / hủy hợp đồng này
+        \App\Http\Controllers\ContactController::hideContactsForContract($contract);
+
         // Gửi Notification đến Quản lý / Nhân sự vận hành và Ban Quản Trị Admin
         $post = Post::find($contract->post_id ?? $contract->room_id);
         $roomTitle = $post ? $post->title : ($contract->room_id ? 'Phòng ' . $contract->room_id : 'Phòng trọ');
@@ -790,14 +793,8 @@ class ContractLiquidationController extends Controller
                 ]);
         }
 
-        // Cập nhật Contact liên kết (nếu có) sang đã hoàn tất thanh lý
-        $contractIdStr = (string)($contract->_id ?? $contract->id);
-        \App\Models\Contact::where('contract_id', $contractIdStr)->update(['status' => 'liquidated']);
-        if (!empty($contract->contact_id)) {
-            \App\Models\Contact::where('_id', $contract->contact_id)
-                ->orWhere('id', $contract->contact_id)
-                ->update(['status' => 'liquidated']);
-        }
+        // Ẩn hoàn toàn tất cả các yêu cầu liên hệ của hợp đồng này khỏi trang khách hàng liên hệ
+        \App\Http\Controllers\ContactController::hideContactsForContract($contract);
         $roomId = !empty($targetIds) ? implode(', ', $targetIds) : ($contract->room_id ?? 'RentHome');
 
         // 3. Ghi log hoạt động AdminActivity

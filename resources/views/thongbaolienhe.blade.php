@@ -95,6 +95,9 @@
         if ($currentUser) {
             $postIds = \App\Models\Post::where('user_id', $currentUser->id)->pluck('_id');
             $pendingContactCount = \App\Models\Contact::whereIn('post_id', $postIds)
+                                                      ->where(function($q) {
+                                                          $q->whereNull('is_hidden')->orWhere('is_hidden', '!=', true);
+                                                      })
                                                       ->where('status', 'pending')
                                                       ->count();
         }
@@ -384,7 +387,32 @@
                             
                             @forelse($post->contacts as $contact)
                             @php
-                                $isContracted = !empty($contact->contract_id) || $contact->status === 'đã ký hợp đồng';
+                                if (!empty($contact->is_hidden) || in_array($contact->status, ['liquidated', 'cancelled', 'terminated', 'hidden'])) {
+                                    continue;
+                                }
+
+                                $isContracted = false;
+                                if (!empty($contact->contract_id) || $contact->status === 'đã ký hợp đồng') {
+                                    $chkContract = null;
+                                    if (!empty($contact->contract_id)) {
+                                        $chkContract = \App\Models\Contract::where('_id', $contact->contract_id)->orWhere('id', $contact->contract_id)->first();
+                                    }
+                                    if (!$chkContract) {
+                                        $chkContract = \App\Models\Contract::where('contact_id', (string)($contact->_id ?? $contact->id))->first();
+                                    }
+
+                                    if ($chkContract) {
+                                        $isTerminated = in_array($chkContract->status, ['cancelled', 'terminated', 'da_thanh_ly', 'da_huy', 'liquidated', 'expired']);
+                                        $hasCheckout = !empty($chkContract->checkout_request);
+                                        if ($isTerminated || $hasCheckout) {
+                                            continue; // Ẩn hoàn toàn khi hợp đồng đã hủy hoặc yêu cầu trả phòng
+                                        }
+                                        $isContracted = true;
+                                    } else {
+                                        $isContracted = ($contact->status === 'đã ký hợp đồng');
+                                    }
+                                }
+
                                 $statusTheme = match($contact->status) {
                                     'pending' => ['border' => 'bg-rose-500', 'avatar' => 'from-rose-100 to-rose-50 text-rose-600 border-rose-100', 'badge_bg' => 'bg-rose-50', 'badge_text' => 'text-rose-600', 'badge_border' => 'border-rose-100', 'label' => 'Chưa xử lý', 'note_bg' => 'bg-rose-50', 'note_text' => 'text-rose-600', 'note_border' => 'border-rose-100'],
                                     'communicating' => ['border' => 'bg-blue-500', 'avatar' => 'from-blue-100 to-blue-50 text-blue-600 border-blue-100', 'badge_bg' => 'bg-blue-50', 'badge_text' => 'text-blue-600', 'badge_border' => 'border-blue-100', 'label' => 'Đang trao đổi', 'note_bg' => 'bg-blue-50', 'note_text' => 'text-blue-600', 'note_border' => 'border-blue-100'],

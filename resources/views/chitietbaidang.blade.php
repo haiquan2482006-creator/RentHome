@@ -99,6 +99,12 @@
                             $b = \App\Models\Building::find($post->building_id);
                         }
 
+                        // Kiểm tra tình trạng đã thuê (Dự phòng)
+                        $isRented = isset($isRented) ? (bool)$isRented : (bool)(
+                            $post->is_rented === true || $post->is_rented === 1 || $post->is_rented === '1' ||
+                            in_array(strtolower(trim((string)($post->status ?? ''))), ['đã cho thuê', 'rented', 'dang_thue', 'đang thuê', 'da_cho_thue', 'inactive'])
+                        );
+
                         // Chuẩn hóa mảng $typeMap hỗ trợ cả chữ hoa và chữ thường
                         $typeMap = [
                             'nha_o'               => 'Nhà ở',
@@ -288,14 +294,37 @@
                         <!-- Main Image -->
                         <div class="rounded-md shadow-sm border border-slate-200/50 overflow-hidden bg-slate-900 relative group">
                             <div class="aspect-[16/9] w-full relative">
-                                <img id="mainImage" src="{{ $galleryImages[0] }}" alt="{{ $post->title }}" class="w-full h-full object-contain sm:object-cover transition-transform duration-700 group-hover:scale-105 opacity-90 group-hover:opacity-100" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1200&q=80';">
+                                <img id="mainImage" src="{{ $galleryImages[0] }}" alt="{{ $post->title }}" class="w-full h-full object-contain sm:object-cover transition-transform duration-700 {{ $isRented ? 'opacity-40 grayscale' : 'group-hover:scale-105 opacity-90 group-hover:opacity-100' }}" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1200&q=80';">
                                 
                                 <div class="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent pointer-events-none"></div>
 
-                                @if($post->status === 'approved')
-                                <div class="absolute top-5 left-5 bg-white/90 backdrop-blur-md text-emerald-600 text-xs font-black px-4 py-2 rounded-full shadow-sm flex items-center gap-2 border border-white/50">
-                                    <i class="fa-solid fa-circle-check text-base"></i> Đã kiểm duyệt
+                                @if($isRented)
+                                <!-- Banner lớn đè lên hình ảnh chính khi nhà đã được cho thuê thành công -->
+                                <div class="absolute inset-0 bg-slate-950/75 backdrop-blur-[4px] flex flex-col items-center justify-center text-center p-6 z-20">
+                                    <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-rose-500/20 text-rose-400 border border-rose-500/40 flex items-center justify-center text-2xl sm:text-3xl mb-3 shadow-xl">
+                                        <i class="fa-solid fa-lock"></i>
+                                    </div>
+                                    <span class="inline-block px-3 py-1 rounded-full bg-rose-500 text-white font-black text-[11px] sm:text-xs uppercase tracking-widest mb-2 shadow-sm border border-rose-400/50">
+                                        Tình trạng bất động sản
+                                    </span>
+                                    <h3 class="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-wide uppercase drop-shadow-md max-w-xl">
+                                        Căn nhà này đã được cho thuê thành công
+                                    </h3>
+                                    <p class="text-xs sm:text-sm text-slate-300 mt-2 max-w-md leading-relaxed">
+                                        Phòng / Căn hộ này hiện không còn trống. Quý khách vui lòng tham khảo các bài đăng tương tự hoặc các phòng trống khác trên hệ thống.
+                                    </p>
+                                    <div class="flex items-center gap-3 mt-5">
+                                        <a href="{{ url('/baidang') }}" class="px-5 py-2.5 rounded-xl bg-white text-slate-900 font-bold text-xs sm:text-sm hover:bg-slate-100 transition shadow-lg flex items-center gap-2">
+                                            <i class="fa-solid fa-compass text-rose-500"></i> Xem danh sách phòng khác
+                                        </a>
+                                    </div>
                                 </div>
+                                @else
+                                    @if($post->status === 'approved')
+                                    <div class="absolute top-5 left-5 bg-white/90 backdrop-blur-md text-emerald-600 text-xs font-black px-4 py-2 rounded-full shadow-sm flex items-center gap-2 border border-white/50">
+                                        <i class="fa-solid fa-circle-check text-base"></i> Đã kiểm duyệt
+                                    </div>
+                                    @endif
                                 @endif
                             </div>
                         </div>
@@ -349,12 +378,18 @@
                                 <i class="fa-solid fa-tag text-brand-500 text-xs"></i> Mức giá
                             </span>
                             <div class="flex items-baseline gap-1.5 flex-nowrap">
-                                <span class="text-2xl sm:text-3xl font-black text-brand-600 tracking-tight whitespace-nowrap">
-                                    {{ number_format($post->price, 0, ',', '.') }}
-                                </span>
-                                <span class="text-base sm:text-lg font-bold text-slate-600 whitespace-nowrap">
-                                    {{ $displayUnit }}
-                                </span>
+                                @if($isRented)
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-sm font-black bg-rose-100 text-rose-700 border border-rose-200">
+                                        <i class="fa-solid fa-circle-exclamation"></i> Đã cho thuê
+                                    </span>
+                                @else
+                                    <span class="text-2xl sm:text-3xl font-black text-brand-600 tracking-tight whitespace-nowrap">
+                                        {{ number_format($post->price, 0, ',', '.') }}
+                                    </span>
+                                    <span class="text-base sm:text-lg font-bold text-slate-600 whitespace-nowrap">
+                                        {{ $displayUnit }}
+                                    </span>
+                                @endif
                             </div>
                         </div>
 
@@ -631,6 +666,16 @@
                         </div>
 
                         <div class="space-y-5 mt-6 pt-6 border-t border-slate-100">
+                            @if($isRented)
+                            <!-- Ẩn các nút Gọi điện / Zalo khi phòng đã thuê -->
+                            <div class="p-4 rounded-xl bg-rose-50 border border-rose-200 text-center">
+                                <div class="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-2 text-base">
+                                    <i class="fa-solid fa-phone-slash"></i>
+                                </div>
+                                <h5 class="text-xs font-bold text-rose-800">Đã ngừng tiếp nhận liên hệ</h5>
+                                <p class="text-[11px] text-rose-600 mt-1">Số điện thoại & Zalo đã được ẩn do căn nhà đã được cho thuê thành công.</p>
+                            </div>
+                            @else
                             <!-- Phone -->
                             <a href="tel:{{ $post->user->phone ?? '' }}" class="flex items-center group">
                                 <div class="w-10 h-10 rounded bg-brand-50 text-brand-600 flex items-center justify-center text-lg group-hover:scale-110 group-hover:bg-brand-100 transition-all shrink-0">
@@ -663,6 +708,7 @@
                                     <p class="text-base font-black text-slate-800 truncate group-hover:text-orange-600 transition-colors">{{ $post->user->email ?? 'Chưa cập nhật' }}</p>
                                 </div>
                             </a>
+                            @endif
                         </div>
 
                         @if(isset($post->user) && ($post->user->is_locked || $post->user->status === 'locked' || $post->user->is_deleted))
@@ -673,6 +719,23 @@
                     </div>
 
                     <!-- Appointment/Contact Form -->
+                    @if($isRented)
+                    <div class="bg-white rounded-lg p-6 shadow-sm border border-slate-200/60 text-center">
+                        <div class="w-14 h-14 rounded-2xl bg-rose-50 text-rose-500 border border-rose-100 flex items-center justify-center mx-auto mb-3 text-2xl">
+                            <i class="fa-solid fa-house-circle-check"></i>
+                        </div>
+                        <span class="inline-block px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 font-bold text-[10px] uppercase tracking-wider mb-2">
+                            Ngừng nhận liên hệ & đặt thuê
+                        </span>
+                        <h4 class="text-base font-bold text-slate-900 leading-snug">Căn nhà đã được thuê</h4>
+                        <p class="text-xs text-slate-500 mt-2 leading-relaxed">
+                            Form đặt thuê và gửi yêu cầu liên hệ hiện đã tạm khóa đối với bài đăng này do căn nhà đã được cho thuê thành công.
+                        </p>
+                        <a href="{{ url('/baidang') }}" class="mt-5 inline-flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow-md shadow-brand-500/20 transition">
+                            <i class="fa-solid fa-magnifying-glass"></i> Tìm kiếm phòng tương tự khác
+                        </a>
+                    </div>
+                    @else
                     <div x-data="{ isContacted: {{ $hasContacted ? 'true' : 'false' }}, contactId: '{{ $contactId ?? '' }}', contactStatus: '{{ $contactStatus ?? '' }}', isRevoking: false }" class="bg-white rounded-lg p-6 shadow-sm border border-slate-200/60 relative">
                         <h3 class="text-xs font-black text-slate-400 mb-5 uppercase tracking-widest pb-3 border-b border-slate-100">Điền thông tin liên hệ</h3>
                         
@@ -682,7 +745,7 @@
                                 {{ session('success') }}
                             </div>
                         @endif
-                        @if($errors->any())
+                        @if(isset($errors) && $errors->any())
                             <div class="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-lg mb-4 text-sm font-semibold">
                                 <ul class="list-disc list-inside">
                                     @foreach($errors->all() as $error)
@@ -800,6 +863,7 @@
                             </div>
                         </form>
                     </div>
+                    @endif
                 </div>
             </div>
         </div>

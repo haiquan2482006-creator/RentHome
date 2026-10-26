@@ -31,10 +31,19 @@
     if (empty($contacts)) {
         if (\Illuminate\Support\Facades\Auth::check()) {
             $currentUserId = \Illuminate\Support\Facades\Auth::id();
-            $userContacts = \App\Models\Contact::where('owner_id', $currentUserId)->get();
-            $contacts = $userContacts->isNotEmpty() ? $userContacts : \App\Models\Contact::all();
+            $userContacts = \App\Models\Contact::where('owner_id', $currentUserId)
+                ->where(function($q) {
+                    $q->whereNull('is_hidden')->orWhere('is_hidden', '!=', true);
+                })
+                ->whereNotIn('status', ['đã ký hợp đồng', 'liquidated', 'cancelled', 'terminated', 'hidden'])
+                ->get();
+            $contacts = $userContacts->isNotEmpty() ? $userContacts : \App\Models\Contact::where(function($q) {
+                $q->whereNull('is_hidden')->orWhere('is_hidden', '!=', true);
+            })->whereNotIn('status', ['đã ký hợp đồng', 'liquidated', 'cancelled', 'terminated', 'hidden'])->get();
         } else {
-            $contacts = \App\Models\Contact::all();
+            $contacts = \App\Models\Contact::where(function($q) {
+                $q->whereNull('is_hidden')->orWhere('is_hidden', '!=', true);
+            })->whereNotIn('status', ['đã ký hợp đồng', 'liquidated', 'cancelled', 'terminated', 'hidden'])->get();
         }
     }
 

@@ -14,6 +14,71 @@ use Carbon\Carbon;
 class ContactController extends Controller
 {
     /**
+     * Ẩn tất cả các yêu cầu liên hệ liên quan đến một hợp đồng khi hợp đồng bị hủy, thanh lý hoặc có yêu cầu trả phòng
+     */
+    public static function hideContactsForContract($contract)
+    {
+        if (!$contract) return;
+
+        $contractId = (string)($contract->_id ?? $contract->id);
+        $contactId = !empty($contract->contact_id) ? (string)$contract->contact_id : null;
+        $postIds = array_values(array_filter([(string)($contract->post_id ?? ''), (string)($contract->room_id ?? '')]));
+        $tenantId = (string)($contract->tenant_id ?? '');
+        $tenantPhone = (string)($contract->tenant_phone ?? '');
+        $tenantEmail = (string)($contract->tenant_email ?? '');
+
+        // 1. Tìm các contact theo contract_id hoặc _id
+        $contactsQuery = Contact::where(function($q) use ($contractId, $contactId) {
+            $q->where('contract_id', $contractId);
+            if ($contactId) {
+                $q->orWhere('_id', $contactId)
+                  ->orWhere('id', $contactId);
+                try {
+                    $q->orWhere('_id', new \MongoDB\BSON\ObjectId($contactId));
+                } catch (\Throwable $e) {}
+            }
+        });
+
+        $contacts = $contactsQuery->get();
+
+        // 2. Tìm thêm các contact theo post_id và thông tin người thuê nếu có
+        if (!empty($postIds) && ($tenantId || $tenantPhone || $tenantEmail)) {
+            $postContacts = Contact::where(function($q) use ($postIds) {
+                $q->whereIn('post_id', $postIds);
+                foreach ($postIds as $pid) {
+                    try {
+                        $q->orWhere('post_id', new \MongoDB\BSON\ObjectId($pid));
+                    } catch (\Throwable $e) {}
+                }
+            })->where(function($cond) use ($tenantId, $tenantPhone, $tenantEmail) {
+                $hasCond = false;
+                if ($tenantId) {
+                    $cond->where('sender_id', $tenantId);
+                    $hasCond = true;
+                }
+                if ($tenantPhone) {
+                    if ($hasCond) $cond->orWhere('phone', $tenantPhone);
+                    else { $cond->where('phone', $tenantPhone); $hasCond = true; }
+                }
+                if ($tenantEmail) {
+                    if ($hasCond) $cond->orWhere('email', $tenantEmail);
+                    else { $cond->where('email', $tenantEmail); $hasCond = true; }
+                }
+            })->get();
+
+            $contacts = $contacts->merge($postContacts)->unique(function($c) {
+                return (string)($c->_id ?? $c->id);
+            });
+        }
+
+        foreach ($contacts as $c) {
+            $c->is_hidden = true;
+            $c->status = 'liquidated';
+            $c->save();
+        }
+    }
+
+    /**
      * Tự động từ chối tất cả các yêu cầu liên hệ khác của bài đăng khi bài đăng đã có hợp đồng
      */
     public static function autoRejectOtherContactsForPost($postId, $acceptedContactId = null)
@@ -27,26 +92,22 @@ class ContactController extends Controller
             $post && !empty($post->id) ? (string)$post->id : null,
         ]));
 
-        // Nếu chưa có acceptedContactId, tìm hợp đồng của bài đăng này
+        // Nếu chưa có acceptedContactId, tìm hợp đồng còn hiệu lực của bài đăng này
         if (!$acceptedContactId) {
             $contract = Contract::where(function($q) use ($targetPostIds) {
                 $q->whereIn('post_id', $targetPostIds)
                   ->orWhereIn('room_id', $targetPostIds);
-            })->whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly'])->latest()->first();
+            })->whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly', 'da_huy', 'liquidated', 'expired'])
+              ->whereNull('checkout_request')
+              ->latest()->first();
 
-            if ($contract && !empty($contract->contact_id)) {
+            // Nếu không có hợp đồng active, không tự động từ chối yêu cầu nào
+            if (!$contract) {
+                return;
+            }
+
+            if (!empty($contract->contact_id)) {
                 $acceptedContactId = (string)$contract->contact_id;
-            } else {
-                $signedContact = Contact::where(function ($q) use ($targetPostIds) {
-                    $q->whereIn('post_id', $targetPostIds);
-                })->where(function($q) {
-                    $q->where('status', 'đã ký hợp đồng')
-                      ->orWhereNotNull('contract_id');
-                })->first();
-
-                if ($signedContact) {
-                    $acceptedContactId = (string)($signedContact->_id ?? $signedContact->id);
-                }
             }
         }
 
@@ -199,9 +260,7 @@ class ContactController extends Controller
         $userId = Auth::id();
 
         // Truy xuất các bài đăng có liên hệ dựa trên phân quyền doanh nghiệp & tài khoản con
-        $postsQuery = Post::with(['contacts' => function($query) {
-            $query->latest();
-        }]);
+        $postsQuery = Post::query();
 
         if ($user->isSubAccount() && !empty($user->assigned_buildings) && !in_array('all', $user->assigned_buildings, true)) {
             $assignedIds = array_map('strval', (array)$user->assigned_buildings);
@@ -215,25 +274,73 @@ class ContactController extends Controller
 
         $posts = $postsQuery->get();
 
-        // Tự động quét và từ chối các yêu cầu khác nếu bài đăng đã có hợp đồng
+        // Quét và ẩn các contact của những hợp đồng đã hủy, thanh lý hoặc có yêu cầu trả phòng
         foreach ($posts as $post) {
             $postId = (string)($post->_id ?? $post->id);
-            $contract = Contract::where(function($q) use ($postId) {
-                $q->where('post_id', $postId)->orWhere('room_id', $postId);
-            })->whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly'])->latest()->first();
+            $targetPostIds = array_unique(array_filter([
+                $postId,
+                !empty($post->id) ? (string)$post->id : null
+            ]));
 
-            $isRented = ($post->status === 'đã cho thuê' || !empty($post->is_rented) || $contract !== null);
+            // Tìm các hợp đồng đã hủy / thanh lý / có yêu cầu trả phòng của bài đăng này
+            $inactiveContracts = Contract::where(function($q) use ($targetPostIds) {
+                $q->whereIn('post_id', $targetPostIds)
+                  ->orWhereIn('room_id', $targetPostIds);
+            })->where(function($q) {
+                $q->whereIn('status', ['cancelled', 'terminated', 'da_thanh_ly', 'da_huy', 'liquidated', 'expired'])
+                  ->orWhereNotNull('checkout_request');
+            })->get();
 
-            if ($isRented) {
-                $acceptedContactId = $contract ? $contract->contact_id : null;
+            foreach ($inactiveContracts as $ic) {
+                self::hideContactsForContract($ic);
+            }
+
+            // Kiểm tra xem bài đăng có hợp đồng nào đang active (và không có yêu cầu trả phòng) không
+            $activeContract = Contract::where(function($q) use ($targetPostIds) {
+                $q->whereIn('post_id', $targetPostIds)
+                  ->orWhereIn('room_id', $targetPostIds);
+            })->whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly', 'da_huy', 'liquidated', 'expired'])
+              ->whereNull('checkout_request')
+              ->latest()->first();
+
+            $isRented = ($activeContract !== null || ($post->status === 'đã cho thuê' && !empty($post->is_rented)));
+
+            if ($isRented && $activeContract) {
+                $acceptedContactId = $activeContract->contact_id;
                 self::autoRejectOtherContactsForPost($postId, $acceptedContactId);
             }
         }
 
-        // Tải lại danh sách contacts mới nhất sau khi tự động quét
+        // Tải danh sách contacts, chỉ lấy các contact chưa bị ẩn và không ở trạng thái liquidated/cancelled
         $posts->load(['contacts' => function($query) {
-            $query->latest();
+            $query->where(function($q) {
+                $q->whereNull('is_hidden')->orWhere('is_hidden', '!=', true);
+            })->whereNotIn('status', ['liquidated', 'cancelled', 'terminated', 'hidden'])->latest();
         }]);
+
+        // Lọc kỹ thêm trên collection để loại trừ triệt để bất kỳ contact nào liên quan đến hợp đồng đã hủy / yêu cầu trả phòng
+        foreach ($posts as $post) {
+            $filtered = $post->contacts->filter(function($contact) {
+                if (!empty($contact->is_hidden) || in_array($contact->status, ['liquidated', 'cancelled', 'terminated', 'hidden'])) {
+                    return false;
+                }
+
+                // Nếu contact có contract_id, kiểm tra trạng thái hợp đồng
+                if (!empty($contact->contract_id)) {
+                    $c = Contract::where('_id', $contact->contract_id)->orWhere('id', $contact->contract_id)->first();
+                    if (!$c || in_array($c->status, ['cancelled', 'terminated', 'da_thanh_ly', 'da_huy', 'liquidated', 'expired']) || !empty($c->checkout_request)) {
+                        $contact->is_hidden = true;
+                        $contact->status = 'liquidated';
+                        $contact->save();
+                        return false;
+                    }
+                }
+
+                return true;
+            });
+
+            $post->setRelation('contacts', $filtered);
+        }
 
         $groupedContacts = $posts->filter(function ($post) {
             return $post->contacts && $post->contacts->count() > 0;

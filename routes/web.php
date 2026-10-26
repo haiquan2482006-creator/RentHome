@@ -27,30 +27,7 @@ Route::get('/chi-tiet-phong/{id}', function ($id) {
     return redirect()->to('/chitietbaidang/' . $id);
 });
 
-Route::get('/chitietbaidang/{id}', function ($id) {
-    $post = \App\Models\Post::with('user', 'building')->find($id);
-    if (!$post) {
-        abort(404, 'Bài đăng không tồn tại hoặc đã bị xóa.');
-    }
-
-    $hasContacted = false;
-    $contactId = '';
-    $contactStatus = '';
-    
-    if (\Illuminate\Support\Facades\Auth::check()) {
-        $contact = \App\Models\Contact::where('post_id', $id)
-            ->where('sender_id', \Illuminate\Support\Facades\Auth::id())
-            ->first();
-            
-        if ($contact) {
-            $hasContacted = true;
-            $contactId = $contact->_id ?? $contact->id;
-            $contactStatus = $contact->status ?? '';
-        }
-    }
-
-    return view('chitietbaidang', compact('post', 'hasContacted', 'contactId', 'contactStatus'));
-})->name('post.detail');
+Route::get('/chitietbaidang/{id}', [\App\Http\Controllers\PostController::class, 'show'])->name('post.detail');
 
 Route::post('/bai-dang/{id}/lien-he', [\App\Http\Controllers\ContactController::class, 'store'])->name('contact.store');
 Route::get('/thong-bao-lien-he', [\App\Http\Controllers\ContactController::class, 'index'])->middleware('auth')->name('contact.index');
@@ -517,14 +494,18 @@ $handleTaoHopDong = function (\Illuminate\Http\Request $request) {
 
     $posts = $postsQuery->get();
 
-    $contactsQuery = \App\Models\Contact::where('status', '!=', 'đã ký hợp đồng');
+    $contactsQuery = \App\Models\Contact::where(function($q) {
+        $q->whereNull('is_hidden')->orWhere('is_hidden', '!=', true);
+    })->whereNotIn('status', ['đã ký hợp đồng', 'liquidated', 'cancelled', 'terminated', 'hidden']);
     if ($posts->isNotEmpty()) {
         $postIds = $posts->pluck('_id')->map(fn($id) => (string)$id)->toArray();
         $contactsQuery->whereIn('post_id', $postIds);
     }
     $contacts = $contactsQuery->latest()->get();
     if ($contacts->isEmpty()) {
-        $contacts = \App\Models\Contact::latest()->get();
+        $contacts = \App\Models\Contact::where(function($q) {
+            $q->whereNull('is_hidden')->orWhere('is_hidden', '!=', true);
+        })->whereNotIn('status', ['đã ký hợp đồng', 'liquidated', 'cancelled', 'terminated', 'hidden'])->latest()->get();
     }
 
     $contactId = $request->query('contact_id');
@@ -898,6 +879,121 @@ Route::middleware(['auth'])->group(function () {
         $totalCount = \App\Models\Post::count();
         $complaintCount = \App\Models\Complaint::where('status', 'pending')->count();
 
+        // 1. Phân loại ngày duyệt bài & từ chối bài thực tế
+        $allPosts = \App\Models\Post::all();
+        $allComplaints = \App\Models\Complaint::all();
+        $postActivities = \App\Models\AdminActivity::where('category', 'post')->get();
+
+        $postsApprovedByDate = [];
+        $approvedToday = 0;
+        $todayStr = \Carbon\Carbon::today()->format('Y-m-d');
+
+        foreach ($allPosts as $p) {
+            $st = strtolower(trim((string)($p->status ?? '')));
+            if (in_array($st, $approvedStatuses)) {
+                $d = null;
+                if (!empty($p->approved_at)) {
+                    $d = \Carbon\Carbon::parse($p->approved_at)->format('Y-m-d');
+                } elseif (!empty($p->updated_at)) {
+                    $d = \Carbon\Carbon::parse($p->updated_at)->format('Y-m-d');
+                } elseif (!empty($p->created_at)) {
+                    $d = \Carbon\Carbon::parse($p->created_at)->format('Y-m-d');
+                }
+                if ($d) {
+                    $postsApprovedByDate[$d] = ($postsApprovedByDate[$d] ?? 0) + 1;
+                    if ($d === $todayStr) {
+                        $approvedToday++;
+                    }
+                }
+            }
+        }
+
+        $postsRejectedByDate = [];
+        foreach ($allPosts as $p) {
+            $st = strtolower(trim((string)($p->status ?? '')));
+            if (in_array($st, $rejectedStatuses)) {
+                $d = null;
+                if (!empty($p->rejected_at)) {
+                    $d = \Carbon\Carbon::parse($p->rejected_at)->format('Y-m-d');
+                } elseif (!empty($p->updated_at)) {
+                    $d = \Carbon\Carbon::parse($p->updated_at)->format('Y-m-d');
+                } elseif (!empty($p->created_at)) {
+                    $d = \Carbon\Carbon::parse($p->created_at)->format('Y-m-d');
+                }
+                if ($d) {
+                    $postsRejectedByDate[$d] = ($postsRejectedByDate[$d] ?? 0) + 1;
+                }
+            }
+        }
+
+        foreach ($postActivities as $act) {
+            if ($act->action_type === 'reject') {
+                $d = !empty($act->created_at) ? \Carbon\Carbon::parse($act->created_at)->format('Y-m-d') : null;
+                if ($d && empty($postsRejectedByDate[$d])) {
+                    $postsRejectedByDate[$d] = ($postsRejectedByDate[$d] ?? 0) + 1;
+                }
+            }
+        }
+
+        $complaintsByDate = [];
+        $urgentComplaintCount = 0;
+        foreach ($allComplaints as $c) {
+            if (!empty($c->created_at)) {
+                $d = \Carbon\Carbon::parse($c->created_at)->format('Y-m-d');
+                $complaintsByDate[$d] = ($complaintsByDate[$d] ?? 0) + 1;
+            }
+            if (($c->status ?? '') === 'pending' && in_array(strtolower((string)($c->priority ?? $c->urgency ?? '')), ['urgent', 'khan_cap', 'high', 'khẩn cấp'])) {
+                $urgentComplaintCount++;
+            }
+        }
+
+        $dayNames = [1 => 'T2', 2 => 'T3', 3 => 'T4', 4 => 'T5', 5 => 'T6', 6 => 'T7', 0 => 'CN'];
+        $chart7Days = [
+            'labels'    => [],
+            'approved'  => [],
+            'rejected'  => [],
+            'complaint' => [],
+        ];
+
+        for ($i = 6; $i >= 0; $i--) {
+            $d = \Carbon\Carbon::today()->subDays($i);
+            $dStr = $d->format('Y-m-d');
+            $dayLabel = $dayNames[$d->dayOfWeek] . ' (' . $d->format('d/m') . ')';
+
+            $chart7Days['labels'][] = $dayLabel;
+            $chart7Days['approved'][] = $postsApprovedByDate[$dStr] ?? 0;
+            $chart7Days['rejected'][] = $postsRejectedByDate[$dStr] ?? 0;
+            $chart7Days['complaint'][] = $complaintsByDate[$dStr] ?? 0;
+        }
+
+        $chart30Days = [
+            'labels'    => ['Tuần 1', 'Tuần 2', 'Tuần 3', 'Tuần 4'],
+            'approved'  => [0, 0, 0, 0],
+            'rejected'  => [0, 0, 0, 0],
+            'complaint' => [0, 0, 0, 0],
+        ];
+
+        for ($dayAgo = 0; $dayAgo < 30; $dayAgo++) {
+            $d = \Carbon\Carbon::today()->subDays($dayAgo);
+            $dStr = $d->format('Y-m-d');
+
+            $weekIndex = 3;
+            if ($dayAgo >= 21) {
+                $weekIndex = 0;
+            } elseif ($dayAgo >= 14) {
+                $weekIndex = 1;
+            } elseif ($dayAgo >= 7) {
+                $weekIndex = 2;
+            }
+
+            $chart30Days['approved'][$weekIndex] += ($postsApprovedByDate[$dStr] ?? 0);
+            $chart30Days['rejected'][$weekIndex] += ($postsRejectedByDate[$dStr] ?? 0);
+            $chart30Days['complaint'][$weekIndex] += ($complaintsByDate[$dStr] ?? 0);
+        }
+
+        $totalReviewed = $approvedCount + $rejectedCount;
+        $approvalRate = $totalReviewed > 0 ? round(($approvedCount / $totalReviewed) * 100) : 100;
+
         $stats = [
             'pending_posts'      => $pendingCount,
             'approved_posts'     => $approvedCount,
@@ -907,8 +1003,22 @@ Route::middleware(['auth'])->group(function () {
         ];
 
         $pendingPosts = \App\Models\Post::whereIn('status', $pendingStatuses)->with(['user', 'building'])->orderBy('created_at', 'desc')->take(10)->get();
+        $recentComplaints = \App\Models\Complaint::where('status', 'pending')->with('user')->orderBy('created_at', 'desc')->take(5)->get();
 
-        return view('kiem_duyet_vien.tong_quan', compact('stats', 'pendingPosts', 'pendingCount', 'complaintCount'));
+        return view('kiem_duyet_vien.tong_quan', compact(
+            'stats',
+            'pendingPosts',
+            'pendingCount',
+            'approvedCount',
+            'rejectedCount',
+            'complaintCount',
+            'chart7Days',
+            'chart30Days',
+            'approvedToday',
+            'approvalRate',
+            'urgentComplaintCount',
+            'recentComplaints'
+        ));
     })->name('moderator.dashboard');
 
     Route::get('/kiem-duyet/qlkiem-duyet', function () {
@@ -1308,6 +1418,8 @@ Route::post('/api/posts', [\App\Http\Controllers\PostController::class, 'store']
 Route::get('/api/posts/approved', [\App\Http\Controllers\PostController::class, 'getApproved'])->name('posts.approved');
 Route::get('/api/posts/featured', [\App\Http\Controllers\PostController::class, 'getFeatured'])->name('posts.featured');
 Route::post('/api/posts/{id}/unlink', [\App\Http\Controllers\PostController::class, 'unlink'])->middleware('auth')->name('posts.unlink');
+Route::post('/api/rooms/{id}/transfer', [\App\Http\Controllers\PostController::class, 'transferBuilding'])->middleware('auth')->name('rooms.transfer');
+Route::post('/api/posts/{id}/transfer', [\App\Http\Controllers\PostController::class, 'transferBuilding'])->middleware('auth')->name('posts.transfer');
 Route::delete('/api/posts/{id}/delete', [\App\Http\Controllers\PostController::class, 'destroy'])->middleware('auth')->name('posts.delete');
 Route::delete('/api/posts/{id}', [\App\Http\Controllers\PostController::class, 'destroy'])->middleware('auth');
 Route::post('/api/posts/{id}/cancel', [\App\Http\Controllers\PostController::class, 'cancel'])->middleware('auth')->name('posts.cancel');
@@ -1323,6 +1435,11 @@ Route::get('/api/user/posts/stats', [\App\Http\Controllers\UserDashboardControll
 Route::get('/api/notifications/unread', [\App\Http\Controllers\NotificationController::class, 'getUnread'])->middleware('auth');
 Route::post('/api/notifications/{id}/read', [\App\Http\Controllers\NotificationController::class, 'markAsRead'])->middleware('auth');
 Route::get('/thong-bao', [\App\Http\Controllers\NotificationController::class, 'index'])->middleware('auth')->name('notifications.index');
+Route::get('/thong-bao-ca-nhan', [\App\Http\Controllers\NotificationController::class, 'personalIndex'])->middleware('auth')->name('thongbao.canhan');
+Route::post('/thong-bao-ca-nhan/mark-all-read', [\App\Http\Controllers\NotificationController::class, 'markAllAsRead'])->middleware('auth')->name('thongbao.markAllRead');
+Route::delete('/thong-bao-ca-nhan/delete-read', [\App\Http\Controllers\NotificationController::class, 'deleteRead'])->middleware('auth')->name('thongbao.deleteRead');
+Route::post('/thong-bao-ca-nhan/{id}/read', [\App\Http\Controllers\NotificationController::class, 'markAsRead'])->middleware('auth')->name('thongbao.markRead');
+Route::delete('/thong-bao-ca-nhan/{id}', [\App\Http\Controllers\NotificationController::class, 'destroy'])->middleware('auth')->name('thongbao.destroy');
 
 Route::get('/api/notifications', [\App\Http\Controllers\UserDashboardController::class, 'getNotifications']);
 Route::post('/api/notifications/read', [\App\Http\Controllers\UserDashboardController::class, 'markNotificationsRead']);

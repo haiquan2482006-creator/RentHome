@@ -29,6 +29,9 @@
     if ($user) {
         $postIds = \App\Models\Post::where('user_id', $user->id)->pluck('_id');
         $pendingContactCount = \App\Models\Contact::whereIn('post_id', $postIds)
+                                                  ->where(function($q) {
+                                                      $q->whereNull('is_hidden')->orWhere('is_hidden', '!=', true);
+                                                  })
                                                   ->where('status', 'pending')
                                                   ->count();
     }
