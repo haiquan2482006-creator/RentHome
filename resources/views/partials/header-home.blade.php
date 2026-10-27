@@ -29,6 +29,11 @@
     .fav-bounce {
         animation: favBounce 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
+
+    /* Đảm bảo popup SweetAlert2 luôn hiển thị trên cùng tất cả các modal */
+    .swal2-container {
+        z-index: 999999 !important;
+    }
 </style>
 
 @php
@@ -52,7 +57,6 @@
         ['url' => url('/#featured'), 'label' => 'Nhà nổi bật', 'active' => false],
         ['url' => url('/#features'), 'label' => 'Ưu điểm', 'active' => false],
         ['url' => url('/#news'), 'label' => 'Tin tức', 'active' => false],
-        ['url' => url('/#contact'), 'label' => 'Liên hệ', 'active' => false],
     ];
 @endphp
 
@@ -612,6 +616,12 @@
                         this.favorites = this.favorites.filter(p => String(p.id) !== idStr);
                         this.showToast(data.message || 'Đã xóa khỏi danh sách yêu thích.', 'info');
                     }
+
+                    if (data.favorites_count !== undefined) {
+                        document.querySelectorAll(`[data-fav-counter-id="${idStr}"]`).forEach(el => {
+                            el.textContent = Number(data.favorites_count).toLocaleString('vi-VN');
+                        });
+                    }
                     this.renderList();
                 } else {
                     // Revert UI on failure
@@ -801,6 +811,34 @@
                     }
                 }
             });
+
+            // Đồng bộ nút Thích trên trang Chi tiết bài đăng (.fav-detail-btn)
+            const detailBtns = document.querySelectorAll('.fav-detail-btn');
+            detailBtns.forEach(btn => {
+                const id = btn.getAttribute('data-fav-id');
+                const ownerId = btn.getAttribute('data-owner-id');
+                if (window.currentUserType === 'doanhnghiep' || (window.currentUserId && ownerId && String(ownerId) === String(window.currentUserId))) {
+                    btn.style.display = 'none';
+                    return;
+                }
+                btn.style.display = 'inline-flex';
+                const isFav = this.has(id);
+                const icon = btn.querySelector('i');
+                const text = btn.querySelector('.fav-action-text');
+                if (isFav) {
+                    btn.classList.add('bg-rose-50', 'text-rose-600', 'border-rose-300');
+                    btn.classList.remove('bg-white', 'text-slate-600', 'border-rose-200');
+                    if (icon) icon.className = 'fa-solid fa-heart text-rose-500 transition-colors';
+                    if (text) text.textContent = 'Đã yêu thích';
+                    btn.title = 'Bỏ yêu thích bài đăng';
+                } else {
+                    btn.classList.remove('bg-rose-50', 'text-rose-600', 'border-rose-300');
+                    btn.classList.add('bg-white', 'text-slate-600', 'border-rose-200');
+                    if (icon) icon.className = 'fa-regular fa-heart text-slate-400 group-hover:text-rose-500 transition-colors';
+                    if (text) text.textContent = 'Yêu thích';
+                    btn.title = 'Yêu thích bài đăng';
+                }
+            });
         },
 
         showToast(message, type = 'info') {
@@ -883,29 +921,45 @@
 
     function renderHomeNotifications(listRaw) {
         const list = listRaw.map(n => {
+            const data = (n.data && typeof n.data === 'object') ? n.data : {};
+            const title = n.title || data.title || 'Thông báo hệ thống';
+            const content = n.message || data.message || n.content || '';
+            const type = (n.type && !n.type.includes('\\')) ? n.type : (data.type || data.category || n.category || 'info');
+            const category = n.category || data.category || '';
+
             let iconBg = 'bg-blue-100 text-blue-600 border-blue-200';
             let icon = 'fa-bell';
             let badgeBg = 'bg-blue-50 text-blue-600 border-blue-100';
             let categoryName = 'Hệ thống';
 
-            if (n.type === 'success') {
+            if (type === 'success' || category === 'complaint_resolved') {
                 iconBg = 'bg-emerald-100 text-emerald-600 border-emerald-200';
                 icon = 'fa-check-circle';
                 badgeBg = 'bg-emerald-50 text-emerald-600 border-emerald-100';
                 categoryName = 'Đã duyệt';
-            } else if (n.type === 'error') {
+            } else if (type === 'error' || type === 'danger') {
                 iconBg = 'bg-rose-100 text-rose-600 border-rose-200';
                 icon = 'fa-circle-xmark';
                 badgeBg = 'bg-rose-50 text-rose-600 border-rose-100';
                 categoryName = 'Từ chối';
+            } else if (type === 'warning' || category === 'complaint_directive' || category === 'complaint_remind') {
+                iconBg = 'bg-amber-100 text-amber-600 border-amber-200';
+                icon = 'fa-triangle-exclamation';
+                badgeBg = 'bg-amber-50 text-amber-700 border-amber-100';
+                categoryName = 'Chỉ thị';
+            } else if (type === 'favorite') {
+                iconBg = 'bg-rose-100 text-rose-600 border-rose-200';
+                icon = 'fa-heart';
+                badgeBg = 'bg-rose-50 text-rose-600 border-rose-100';
+                categoryName = 'Yêu thích';
             }
 
             return {
                 id: n._id || n.id,
-                title: n.title,
-                content: n.message,
-                time: new Date(n.created_at).toLocaleString('vi-VN'),
-                type: n.type,
+                title: title,
+                content: content,
+                time: n.created_at ? new Date(n.created_at).toLocaleString('vi-VN') : '',
+                type: type,
                 isRead: n.is_read,
                 iconBg: iconBg,
                 icon: icon,

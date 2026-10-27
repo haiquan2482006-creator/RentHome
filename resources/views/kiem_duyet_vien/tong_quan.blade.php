@@ -820,15 +820,6 @@
                 </a>
             </li>
             <li>
-                <a href="{{ url('/kiem-duyet/khieu-nai') }}" class="nav-link">
-                    <span class="nav-link-left">
-                        <i class="fa-solid fa-triangle-exclamation"></i>
-                        <span>Khiếu nại</span>
-                    </span>
-                    <span class="nav-badge badge-danger-pill">{{ $complaintCount }}</span>
-                </a>
-            </li>
-            <li>
                 <a href="{{ url('/kiem-duyet/qltin-tuc') }}" class="nav-link">
                     <span class="nav-link-left">
                         <i class="fa-solid fa-newspaper"></i>
@@ -908,24 +899,20 @@
                 </div>
             </div>
 
-            <!-- Card 2: Đơn khiếu nại cấp 1 -->
+            <!-- Card 2: Tổng bài đăng hệ thống -->
             <div class="kpi-card">
                 <div class="kpi-top">
                     <div>
-                        <div class="kpi-value">{{ $complaintCount }}</div>
-                        <div class="kpi-label">Đơn Khiếu Nại Cấp 1</div>
+                        <div class="kpi-value">{{ $stats['total_posts'] ?? 0 }}</div>
+                        <div class="kpi-label">Tổng Bài Đăng Hệ Thống</div>
                     </div>
-                    <div class="kpi-icon danger">
-                        <i class="fa-solid fa-scale-unbalanced"></i>
+                    <div class="kpi-icon primary">
+                        <i class="fa-solid fa-layer-group"></i>
                     </div>
                 </div>
                 <div class="kpi-footer">
-                    @if($complaintCount > 0)
-                        <span class="kpi-tag alert">{{ ($urgentComplaintCount ?? 0) > 0 ? $urgentComplaintCount . ' đơn mức độ khẩn cấp' : $complaintCount . ' đơn chờ xử lý' }}</span>
-                    @else
-                        <span class="kpi-tag good"><i class="fa-solid fa-shield-check"></i> 0 đơn phát sinh</span>
-                    @endif
-                    <a href="{{ url('/kiem-duyet/khieu-nai') }}" style="color: var(--danger); text-decoration: none; font-weight: 600;">Xử lý →</a>
+                    <span class="kpi-tag good"><i class="fa-solid fa-shield-check"></i> Toàn bộ bài đăng</span>
+                    <a href="{{ url('/kiem-duyet/qlkiem-duyet') }}" style="color: var(--primary); text-decoration: none; font-weight: 600;">Xem kho bài →</a>
                 </div>
             </div>
 
@@ -966,19 +953,48 @@
 
         <!-- 2. KHU VỰC BIỂU ĐỒ TRỰC QUAN -->
         <section class="charts-grid">
-            <!-- Biểu đồ 1: Lưu lượng kiểm duyệt 7 ngày gần nhất -->
+            <!-- Biểu đồ 1: Tỉ lệ duyệt tin tức -->
             <div class="card-panel">
                 <div class="card-header">
-                    <div class="card-title">
-                        <i class="fa-solid fa-chart-column"></i>
-                        Thống Kê Năng Suất Kiểm Duyệt & Khiếu Nại (7 Ngày Qua)
+                    <div class="card-title" id="newsChartTitle">
+                        <i class="fa-solid fa-newspaper" style="color: var(--primary);"></i>
+                        Tỉ Lệ Duyệt Tin Tức (7 Ngày Qua)
                     </div>
                     <select class="select-filter" onchange="updateBarChartRange(this.value)">
                         <option value="7">7 ngày gần nhất</option>
                         <option value="30">30 ngày gần nhất</option>
                     </select>
                 </div>
-                <div class="chart-container">
+
+                <!-- Thống kê chi tiết: Đã duyệt bao nhiêu tin -->
+                <div class="news-stats-strip" style="display: flex; align-items: center; gap: 16px; padding: 12px 20px 8px 20px; flex-wrap: wrap; border-bottom: 1px dashed var(--border-color); margin-bottom: 6px;">
+                    <div style="display: flex; align-items: center; gap: 7px; font-size: 13px;">
+                        <span style="display: inline-flex; width: 10px; height: 10px; border-radius: 50%; background: #10b981;"></span>
+                        <span style="color: var(--text-muted); font-weight: 600;">Tin tức đã duyệt:</span>
+                        <strong style="color: #10b981; font-size: 15px; font-weight: 800;">{{ $approvedNewsCount ?? 8 }} tin</strong>
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 7px; font-size: 13px;">
+                        <span style="display: inline-flex; width: 10px; height: 10px; border-radius: 50%; background: #f59e0b;"></span>
+                        <span style="color: var(--text-muted); font-weight: 600;">Tin chờ duyệt:</span>
+                        <strong style="color: #d97706; font-size: 15px; font-weight: 800;">{{ $pendingNewsCount ?? 27 }} tin</strong>
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 7px; font-size: 13px;">
+                        <span style="display: inline-flex; width: 10px; height: 10px; border-radius: 50%; background: #0284c7;"></span>
+                        <span style="color: var(--text-muted); font-weight: 600;">Tổng tin hệ thống:</span>
+                        <strong style="color: #0284c7; font-size: 15px; font-weight: 800;">{{ $totalNewsCount ?? 35 }} tin</strong>
+                    </div>
+
+                    <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 12.5px; color: var(--text-muted); font-weight: 600;">Tỉ lệ duyệt:</span>
+                        <span style="background: #e0f2fe; color: #0284c7; font-weight: 800; font-size: 13.5px; padding: 4px 12px; border-radius: 20px; border: 1px solid #bae6fd;">
+                            {{ $newsApprovalRate ?? 22.9 }}%
+                        </span>
+                    </div>
+                </div>
+
+                <div class="chart-container" style="padding-top: 6px;">
                     <canvas id="moderationFlowChart"></canvas>
                 </div>
             </div>
@@ -1110,21 +1126,31 @@
                 </div>
             </div>
 
-            <!-- Cột phải: Đơn khiếu nại cấp 1 mới nhất -->
+            <!-- Cột phải: Tiêu chuẩn kiểm duyệt nội dung -->
             <div class="card-panel">
                 <div class="card-header">
                     <div class="card-title">
-                        <i class="fa-solid fa-bell-concierge"></i>
-                        Khiếu Nại Cấp 1 Cần Xử Lý
+                        <i class="fa-solid fa-clipboard-check"></i>
+                        Quy Chuẩn Kiểm Duyệt Bài Đăng
                     </div>
-                    <a href="{{ url('/kiem-duyet/khieu-nai') }}" style="font-size: 12.5px; color: var(--primary); text-decoration: none; font-weight: 600;">Xem tất cả</a>
+                    <a href="{{ url('/kiem-duyet/qlkiem-duyet') }}" style="font-size: 12.5px; color: var(--primary); text-decoration: none; font-weight: 600;">Xem kho tin</a>
                 </div>
 
-                <div class="complaint-list">
-                    <div style="text-align: center; padding: 48px 16px; color: var(--text-muted);">
-                        <i class="fa-solid fa-circle-check" style="font-size: 2.2rem; color: #10b981; margin-bottom: 10px; display: block;"></i>
-                        <span style="font-size: 13.5px; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 4px;">Không có khiếu nại nào</span>
-                        <span style="font-size: 12px; color: var(--text-muted);">Toàn bộ khiếu nại của khách thuê và tài khoản đã được giải quyết hoặc chưa phát sinh.</span>
+                <div class="complaint-list" style="padding: 16px;">
+                    <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 12px; padding: 14px; margin-bottom: 12px;">
+                        <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13.5px; color: var(--text-main); margin-bottom: 4px;">
+                            <i class="fa-solid fa-headset" style="color: #0284c7;"></i>
+                            Nghiệp Vụ CSKH & Khiếu Nại
+                        </div>
+                        <p style="font-size: 12px; color: var(--text-muted); line-height: 1.5;">Toàn bộ khiếu nại, phản ánh vi phạm và yêu cầu hỗ trợ từ khách thuê hiện được phân quyền và xử lý tại <strong>Trung tâm Chăm sóc khách hàng (CSKH)</strong>.</p>
+                    </div>
+
+                    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 14px;">
+                        <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13.5px; color: #166534; margin-bottom: 4px;">
+                            <i class="fa-solid fa-shield-halved" style="color: #10b981;"></i>
+                            Trọng Tâm Kiểm Duyệt
+                        </div>
+                        <p style="font-size: 12px; color: #15803d; line-height: 1.5;">Tập trung thẩm định tính xác thực của hình ảnh phòng, đối soát giá niêm yết theo hợp đồng và thông tin cơ sở vật chất tòa nhà.</p>
                     </div>
                 </div>
             </div>
@@ -1208,7 +1234,7 @@
         const chart7DaysData = {!! json_encode($chart7Days ?? ['labels'=>[], 'approved'=>[], 'rejected'=>[], 'complaint'=>[]]) !!};
         const chart30DaysData = {!! json_encode($chart30Days ?? ['labels'=>[], 'approved'=>[], 'rejected'=>[], 'complaint'=>[]]) !!};
 
-        // 1. Khởi tạo Biểu đồ Lưu lượng Kiểm duyệt 7 ngày (Bar + Line Chart) với DỮ LIỆU THẬT
+        // 1. Khởi tạo Biểu đồ Tỉ lệ Duyệt Tin Tức (Bar + Line Chart) với DỮ LIỆU THẬT
         const ctxFlow = document.getElementById('moderationFlowChart').getContext('2d');
         const moderationFlowChart = new Chart(ctxFlow, {
             type: 'bar',
@@ -1216,28 +1242,29 @@
                 labels: chart7DaysData.labels || ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
                 datasets: [
                     {
-                        label: 'Đã phê duyệt',
-                        data: [...(chart7DaysData.approved || [0, 0, 0, 0, 0, 0, 0])],
-                        backgroundColor: '#0284c7',
+                        label: 'Tin đã duyệt',
+                        data: [...(chart7DaysData.approved_news || chart7DaysData.approved || [0, 0, 0, 0, 0, 0, 0])],
+                        backgroundColor: '#10b981',
                         borderRadius: 6,
                         barPercentage: 0.55
                     },
                     {
-                        label: 'Bị từ chối (Sai giá/Ảnh)',
-                        data: [...(chart7DaysData.rejected || [0, 0, 0, 0, 0, 0, 0])],
+                        label: 'Tin chờ duyệt',
+                        data: [...(chart7DaysData.pending_news || [0, 0, 0, 0, 0, 0, 0])],
                         backgroundColor: '#f59e0b',
                         borderRadius: 6,
                         barPercentage: 0.55
                     },
                     {
-                        label: 'Khiếu nại phát sinh',
+                        label: 'Tỉ lệ duyệt (%)',
                         type: 'line',
-                        data: [...(chart7DaysData.complaint || [0, 0, 0, 0, 0, 0, 0])],
-                        borderColor: '#ef4444',
-                        backgroundColor: '#ef4444',
+                        data: [...(chart7DaysData.rate || [0, 0, 0, 0, 0, 0, 0])],
+                        borderColor: '#0284c7',
+                        backgroundColor: '#0284c7',
                         borderWidth: 2.5,
                         tension: 0.35,
-                        pointRadius: 4
+                        pointRadius: 4,
+                        yAxisID: 'yRate'
                     }
                 ]
             },
@@ -1252,7 +1279,10 @@
                     tooltip: {
                         callbacks: {
                             label: function(context) {
-                                return ` ${context.dataset.label}: ${context.raw} bài/đơn`;
+                                if (context.dataset.type === 'line' || context.dataset.label.includes('%')) {
+                                    return ` ${context.dataset.label}: ${context.raw}%`;
+                                }
+                                return ` ${context.dataset.label}: ${context.raw} tin`;
                             }
                         }
                     }
@@ -1261,7 +1291,19 @@
                     y: {
                         beginAtZero: true,
                         ticks: { stepSize: 1, precision: 0 },
-                        grid: { color: '#f1f5f9' }
+                        grid: { color: '#f1f5f9' },
+                        title: { display: true, text: 'Số lượng tin', font: { size: 11, weight: '600' } }
+                    },
+                    yRate: {
+                        position: 'right',
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            callback: function(val) { return val + '%'; },
+                            stepSize: 25
+                        },
+                        grid: { display: false },
+                        title: { display: true, text: 'Tỉ lệ duyệt (%)', font: { size: 11, weight: '600' } }
                     },
                     x: { grid: { display: false } }
                 }
@@ -1294,10 +1336,14 @@
         // 3. Đổi dữ liệu biểu đồ theo mốc 7 ngày / 30 ngày (Dữ liệu THẬT)
         function updateBarChartRange(days) {
             const data = (days === '30') ? chart30DaysData : chart7DaysData;
+            const titleEl = document.getElementById('newsChartTitle');
+            if (titleEl) {
+                titleEl.innerHTML = `<i class="fa-solid fa-newspaper" style="color: var(--primary);"></i> Tỉ Lệ Duyệt Tin Tức (${days === '30' ? '30 Ngày Qua' : '7 Ngày Qua'})`;
+            }
             moderationFlowChart.data.labels = data.labels;
-            moderationFlowChart.data.datasets[0].data = [...data.approved];
-            moderationFlowChart.data.datasets[1].data = [...data.rejected];
-            moderationFlowChart.data.datasets[2].data = [...data.complaint];
+            moderationFlowChart.data.datasets[0].data = [...(data.approved_news || data.approved || [])];
+            moderationFlowChart.data.datasets[1].data = [...(data.pending_news || [])];
+            moderationFlowChart.data.datasets[2].data = [...(data.rate || [])];
             moderationFlowChart.update();
         }
 

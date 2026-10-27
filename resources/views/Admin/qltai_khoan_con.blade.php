@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Quản Lý Tài Khoản Con (Nhân Viên) - RentHome Admin</title>
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -400,6 +401,11 @@
             background-color: #f3e8ff;
             color: #7e22ce;
             border: 1px solid #d8b4fe;
+        }
+        .role-badge-cskh {
+            background-color: #fff7ed;
+            color: #c2410c;
+            border: 1px solid #fed7aa;
         }
         .role-badge-ent {
             background-color: #e0f2fe;
@@ -986,18 +992,43 @@
 
     <main class="admin-main">
         @php
-            // Thống kê Doanh nghiệp / Nhân viên con
+            $isAccountLocked = function($acc) {
+                if (empty($acc)) return false;
+                $hasLockFlag = !empty($acc->is_locked) || in_array($acc->status ?? '', ['locked', 'khoa', 'vi_pham', 'banned', 'tam_khoa'], true);
+                if (!empty($acc->locked_until)) {
+                    try {
+                        $until = \Carbon\Carbon::parse($acc->locked_until);
+                        if (\Carbon\Carbon::now()->lessThan($until)) {
+                            return true;
+                        }
+                        return false;
+                    } catch (\Exception $e) {}
+                }
+                return $hasLockFlag;
+            };
+
+            // Danh sách tài khoản Doanh nghiệp (Nhân sự, CSKH, Kiểm duyệt)
             $subList = collect($subAccounts ?? []);
             $subTotal = $subList->count();
-            $subActive = $subList->filter(fn($a) => empty($a->is_locked) && ($a->status ?? 'active') === 'active')->count();
-            $subLocked = $subList->filter(fn($a) => !empty($a->is_locked) || ($a->status ?? '') === 'locked')->count();
-            $buildingsCount = count($allBuildings ?? []);
+            $subLocked = $subList->filter(fn($a) => $isAccountLocked($a))->count();
 
-            // Thống kê Khách hàng cá nhân
+            // Danh sách tài khoản Khách hàng cá nhân
             $custList = collect($customerAccounts ?? []);
             $custTotal = $custList->count();
-            $custActive = $custList->filter(fn($c) => empty($c->is_locked) && ($c->status ?? 'active') === 'active')->count();
-            $custLocked = $custList->filter(fn($c) => !empty($c->is_locked) || ($c->status ?? '') === 'locked' || ($c->status ?? '') === 'khoa')->count();
+            $custLocked = $custList->filter(fn($c) => $isAccountLocked($c))->count();
+
+            // 4 mục hiển thị tổng số theo đúng yêu cầu:
+            // 1. Tổng các tài khoản (tất cả các tài khoản hiện có trừ admin)
+            $totalAllAccounts = $subTotal + $custTotal;
+
+            // 2. Tổng tài khoản thuộc doanh nghiệp (trừ admin)
+            $totalEnterpriseAccounts = $subTotal;
+
+            // 3. Tổng tài khoản cá nhân
+            $totalPersonalAccounts = $custTotal;
+
+            // 4. Tổng tài khoản bị khóa
+            $totalLockedAccounts = $subLocked + $custLocked;
         @endphp
 
         <!-- Page Title & Header -->
@@ -1016,45 +1047,53 @@
             </div>
         </div>
 
-        <!-- 4 Thẻ Thống Kê KPI Tổng Quan -->
+        <!-- 4 Thẻ Thống Kê Tổng Quan -->
         <div class="stats-grid">
+            <!-- 1. Tổng các tài khoản (tất cả các tài khoản hiện có trừ admin) -->
             <div class="stat-card">
                 <div class="stat-icon" id="stat-box-total" style="background-color: rgba(2, 132, 199, 0.1); color: var(--brand-primary);">
-                    <i class="fa-solid fa-users-gear" id="stat-icon-total"></i>
+                    <i class="fa-solid fa-users" id="stat-icon-total"></i>
                 </div>
                 <div>
-                    <div class="stat-val" id="stat-total-accounts">{{ $subTotal }}</div>
-                    <div class="stat-label" id="stat-label-total">Tổng Tài Khoản Con</div>
+                    <div class="stat-val" id="stat-total-accounts">{{ $totalAllAccounts }}</div>
+                    <div class="stat-label" id="stat-label-total">Tổng Các Tài Khoản</div>
+                    <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">(Tất cả tài khoản hiện có trừ Admin)</div>
                 </div>
             </div>
 
+            <!-- 2. Tổng tài khoản thuộc doanh nghiệp (trừ admin) -->
             <div class="stat-card">
-                <div class="stat-icon" id="stat-box-active" style="background-color: var(--accent-emerald-bg); color: var(--accent-emerald);">
-                    <i class="fa-solid fa-user-check" id="stat-icon-active"></i>
+                <div class="stat-icon" id="stat-box-enterprise" style="background-color: var(--accent-emerald-bg); color: var(--accent-emerald);">
+                    <i class="fa-solid fa-building-user" id="stat-icon-enterprise"></i>
                 </div>
                 <div>
-                    <div class="stat-val" id="stat-active-accounts">{{ $subActive }}</div>
-                    <div class="stat-label" id="stat-label-active">Đang Hoạt Động</div>
+                    <div class="stat-val" id="stat-enterprise-accounts" style="color: var(--accent-emerald);">{{ $totalEnterpriseAccounts }}</div>
+                    <div class="stat-label" id="stat-label-enterprise">TK Thuộc Doanh Nghiệp</div>
+                    <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">(Trừ Admin)</div>
                 </div>
             </div>
 
+            <!-- 3. Tổng tài khoản cá nhân -->
             <div class="stat-card">
+                <div class="stat-icon" id="stat-box-personal" style="background-color: var(--accent-purple-bg); color: var(--accent-purple);">
+                    <i class="fa-solid fa-user-group" id="stat-icon-personal"></i>
+                </div>
+                <div>
+                    <div class="stat-val" id="stat-personal-accounts" style="color: var(--accent-purple);">{{ $totalPersonalAccounts }}</div>
+                    <div class="stat-label" id="stat-label-personal">Tổng Tài Khoản Cá Nhân</div>
+                    <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">(Khách thuê / Cá nhân)</div>
+                </div>
+            </div>
+
+            <!-- 4. Tổng tài khoản bị khóa -->
+            <div class="stat-card" id="stat-card-fourth" style="border-left: 4px solid var(--accent-red);">
                 <div class="stat-icon" id="stat-box-locked" style="background-color: var(--accent-red-bg); color: var(--accent-red);">
                     <i class="fa-solid fa-user-lock" id="stat-icon-locked"></i>
                 </div>
                 <div>
-                    <div class="stat-val" id="stat-locked-accounts">{{ $subLocked }}</div>
-                    <div class="stat-label" id="stat-label-locked">Đang Tạm Khóa</div>
-                </div>
-            </div>
-
-            <div class="stat-card" id="stat-card-fourth">
-                <div class="stat-icon" id="stat-box-fourth" style="background-color: var(--accent-purple-bg); color: var(--accent-purple);">
-                    <i class="fa-solid fa-city" id="stat-icon-fourth"></i>
-                </div>
-                <div>
-                    <div class="stat-val" id="stat-total-buildings">{{ $buildingsCount }}</div>
-                    <div class="stat-label" id="stat-label-fourth">Tòa Nhà Trong Hệ Thống</div>
+                    <div class="stat-val" id="stat-locked-accounts" style="color: var(--accent-red);">{{ $totalLockedAccounts }}</div>
+                    <div class="stat-label" id="stat-label-locked">Tổng Tài Khoản Bị Khóa</div>
+                    <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">(Tất cả tài khoản bị khóa)</div>
                 </div>
             </div>
         </div>
@@ -1114,7 +1153,6 @@
                                 <th>Liên Hệ</th>
                                 <th>Tòa Nhà Phụ Trách</th>
                                 <th>Vai Trò</th>
-                                <th>Hiệu Suất (KPI)</th>
                                 <th>Trạng Thái</th>
                                 <th style="text-align: right;">Thao Tác</th>
                             </tr>
@@ -1139,10 +1177,20 @@
                                         || str_contains($srLower, 'kiểm duyệt')
                                         || str_contains($srLower, 'kiem duyet');
 
+                                    $isCskhAccount = !empty($acc->is_cskh)
+                                        || (method_exists($acc, 'isCskh') && $acc->isCskh())
+                                        || in_array($r, ['chăm sóc kh', 'chamsockh', 'cskh', 'cham_soc_kh'], true)
+                                        || str_contains($srLower, 'chăm sóc')
+                                        || str_contains($srLower, 'cskh');
+
                                     if ($isModAccount) {
                                         $roleLabel = 'Kiểm duyệt';
                                         $roleBadgeClass = 'role-badge-mod';
                                         $roleIcon = 'fa-solid fa-user-shield';
+                                    } elseif ($isCskhAccount) {
+                                        $roleLabel = 'Chăm sóc KH';
+                                        $roleBadgeClass = 'role-badge-cskh';
+                                        $roleIcon = 'fa-solid fa-headset';
                                     } elseif ($r === 'admin' || str_contains($srLower, 'admin') || str_contains($srLower, 'quản trị')) {
                                         $roleLabel = 'Quản trị viên';
                                         $roleBadgeClass = 'role-badge-admin';
@@ -1183,6 +1231,10 @@
                                                 <span class="badge-bld-tag" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; font-weight: 600; font-size: 0.775rem; padding: 4px 10px; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px;" title="Kiểm duyệt viên phụ trách toàn hệ thống">
                                                     <i class="fa-solid fa-shield-halved" style="color: #0284c7; font-size: 11px;"></i> Toàn hệ thống (Chỉ kiểm duyệt)
                                                 </span>
+                                            @elseif($isCskhAccount)
+                                                <span class="badge-bld-tag" style="background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; font-weight: 600; font-size: 0.775rem; padding: 4px 10px; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px;" title="Chăm sóc khách hàng phụ trách toàn hệ thống">
+                                                    <i class="fa-solid fa-headset" style="color: #ea580c; font-size: 11px;"></i> Toàn hệ thống (Hỗ trợ CSKH)
+                                                </span>
                                             @elseif(!empty($bldDetails) && count($bldDetails) > 0)
                                                 <div style="display: flex; flex-wrap: wrap; gap: 4px;">
                                                     @foreach($bldDetails as $bd)
@@ -1205,22 +1257,22 @@
                                         </span>
                                     </td>
                                     <td>
-                                        <div class="kpi-container">
-                                            <div class="kpi-item">
-                                                <i class="fa-solid fa-signs-post" style="color: var(--brand-primary); width: 14px;"></i>
-                                                <span>Bài đăng: <span class="kpi-val">{{ $acc->posts_count ?? 0 }}</span></span>
-                                            </div>
-                                            <div class="kpi-item">
-                                                <i class="fa-solid fa-handshake" style="color: var(--accent-emerald); width: 14px;"></i>
-                                                <span>Hợp đồng: <span class="kpi-val" style="color: var(--accent-emerald);">{{ $acc->contracts_count ?? 0 }}</span></span>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td>
                                         @if($isLocked)
                                             <span class="status-pill status-pill-locked">
                                                 <i class="fa-solid fa-lock"></i> Đã khóa
                                             </span>
+                                            @if(!empty($acc->locked_until))
+                                                @php
+                                                    $isIndef = false;
+                                                    try {
+                                                        $diffYears = \Carbon\Carbon::now()->diffInYears(\Carbon\Carbon::parse($acc->locked_until));
+                                                        if ($diffYears >= 50) $isIndef = true;
+                                                    } catch (\Exception $e) {}
+                                                @endphp
+                                                <div style="font-size: 0.7rem; color: #dc2626; margin-top: 3px; font-weight: 700;">
+                                                    {{ $isIndef ? '(Đến khi mở lại)' : '(Mở: ' . \Carbon\Carbon::parse($acc->locked_until)->format('d/m/Y') . ')' }}
+                                                </div>
+                                            @endif
                                         @else
                                             <span class="status-pill status-pill-active">
                                                 <i class="fa-solid fa-circle-check"></i> Hoạt động
@@ -1232,8 +1284,12 @@
                                             <button type="button" class="btn-act" onclick="openEditModal('{{ $accId }}')" title="Sửa thông tin / Phân quyền lại / Đổi mật khẩu">
                                                 <i class="fa-solid fa-pen-to-square"></i>
                                             </button>
-                                            <button type="button" class="btn-act btn-lock" onclick="toggleLockAccount('{{ $accId }}')" title="{{ $isLocked ? 'Mở khóa tài khoản' : 'Khóa tài khoản' }}">
-                                                <i class="fa-solid {{ $isLocked ? 'fa-unlock' : 'fa-lock' }}"></i>
+                                            <button type="button" 
+                                                    class="btn-act {{ $isLocked ? 'btn-unlock' : 'btn-lock' }}" 
+                                                    id="btn-lock-{{ $accId }}"
+                                                    onclick="openLockUserModal('{{ $accId }}', '{{ addslashes($displayName) }}', {{ $isLocked ? 'true' : 'false' }})" 
+                                                    title="{{ $isLocked ? 'Mở khóa tài khoản' : 'Khóa tài khoản' }}">
+                                                <i class="fa-solid {{ $isLocked ? 'fa-lock-open' : 'fa-lock' }}" id="lock-icon-{{ $accId }}"></i>
                                             </button>
                                             <button type="button" class="btn-act btn-delete" onclick="deleteAccount('{{ $accId }}')" title="Xóa tài khoản con">
                                                 <i class="fa-regular fa-trash-can"></i>
@@ -1243,7 +1299,7 @@
                                 </tr>
                             @empty
                                 <tr id="empty-row-initial">
-                                    <td colspan="7" class="empty-placeholder">
+                                    <td colspan="6" class="empty-placeholder">
                                         <i class="fa-solid fa-users-slash"></i>
                                         <p style="font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">Chưa có tài khoản con nào</p>
                                         <p style="font-size: 0.825rem;">Nhấn nút "Tạo Tài Khoản Con" phía trên để tạo tài khoản nhân viên (nv1, nv2...) cho doanh nghiệp.</p>
@@ -1251,7 +1307,7 @@
                                 </tr>
                             @endforelse
                             <tr id="sub-accounts-no-results" style="display: none;">
-                                <td colspan="7" class="empty-placeholder" style="padding: 35px 20px;">
+                                <td colspan="6" class="empty-placeholder" style="padding: 35px 20px;">
                                     <i class="fa-solid fa-magnifying-glass"></i>
                                     <p style="font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">Không tìm thấy nhân viên phù hợp</p>
                                     <p style="font-size: 0.825rem;">Vui lòng kiểm tra lại từ khóa tìm kiếm.</p>
@@ -1336,8 +1392,12 @@
                                     </td>
                                     <td>
                                         <div class="action-btns">
-                                            <button type="button" class="btn-act btn-lock" onclick="toggleLockCustomer('{{ $cId }}')" title="{{ $isLocked ? 'Mở khóa tài khoản khách hàng' : 'Tạm khóa tài khoản khách hàng' }}">
-                                                <i class="fa-solid {{ $isLocked ? 'fa-unlock' : 'fa-lock' }}"></i>
+                                            <button type="button" 
+                                                    class="btn-act {{ $isLocked ? 'btn-unlock' : 'btn-lock' }}" 
+                                                    id="btn-lock-cust-{{ $cId }}"
+                                                    onclick="openLockUserModal('{{ $cId }}', '{{ addslashes($displayName) }}', {{ $isLocked ? 'true' : 'false' }})" 
+                                                    title="{{ $isLocked ? 'Mở khóa tài khoản khách hàng' : 'Tạm khóa tài khoản khách hàng' }}">
+                                                <i class="fa-solid {{ $isLocked ? 'fa-lock-open' : 'fa-lock' }}" id="lock-icon-cust-{{ $cId }}"></i>
                                             </button>
                                             <button type="button" class="btn-act btn-delete" onclick="deleteCustomer('{{ $cId }}')" title="Xóa tài khoản khách hàng">
                                                 <i class="fa-regular fa-trash-can"></i>
@@ -1561,17 +1621,8 @@
         // ================== LOGIC CHUYỂN ĐỔI 2 TAB (DOANH NGHIỆP / CÁ NHÂN) ==================
         let currentActiveTab = 'enterprise';
 
-        const statsConfig = {
+        const tabConfig = {
             enterprise: {
-                total: {{ $subTotal ?? 0 }},
-                active: {{ $subActive ?? 0 }},
-                locked: {{ $subLocked ?? 0 }},
-                fourth: {{ $buildingsCount ?? 0 }},
-                showFourth: true,
-                labelTotal: 'Tổng Tài Khoản Con',
-                labelFourth: 'Tòa Nhà Trong Hệ Thống',
-                iconTotal: 'fa-solid fa-users-gear',
-                iconFourth: 'fa-solid fa-city',
                 cardTitle: 'Danh Sách Tài Khoản Con Của Doanh Nghiệp',
                 cardIcon: 'fa-solid fa-building-user',
                 statusText: 'Hiển thị nhân viên / tài khoản con doanh nghiệp',
@@ -1579,15 +1630,6 @@
                 showCreateBtn: true
             },
             personal: {
-                total: {{ $custTotal ?? 0 }},
-                active: {{ $custActive ?? 0 }},
-                locked: {{ $custLocked ?? 0 }},
-                fourth: 0,
-                showFourth: false,
-                labelTotal: 'Tổng Khách Hàng',
-                labelFourth: '',
-                iconTotal: 'fa-solid fa-users',
-                iconFourth: '',
                 cardTitle: 'Danh Sách Tài Khoản Cá Nhân (Khách Hàng)',
                 cardIcon: 'fa-solid fa-users',
                 statusText: 'Hiển thị toàn bộ tài khoản khách hàng cá nhân',
@@ -1623,41 +1665,16 @@
                 paneEnt.style.display = 'none';
             }
 
-            // 2. Cập nhật các ô thống kê KPI, tiêu đề bảng và nút Tạo tài khoản con
-            const cfg = statsConfig[tabName];
-            if (cfg) {
-                document.getElementById('stat-total-accounts').textContent = cfg.total;
-                document.getElementById('stat-active-accounts').textContent = cfg.active;
-                document.getElementById('stat-locked-accounts').textContent = cfg.locked;
+            // 2. Cập nhật tiêu đề bảng, chỉ dẫn trạng thái và nút Tạo tài khoản con
+            const cfg = tabConfig[tabName] || tabConfig.enterprise;
+            document.getElementById('cardTitleText').textContent = cfg.cardTitle;
+            document.getElementById('cardTitleIcon').className = cfg.cardIcon;
+            document.getElementById('tabStatusText').textContent = cfg.statusText;
+            document.getElementById('tabDotIcon').style.color = cfg.dotColor;
 
-                document.getElementById('stat-label-total').textContent = cfg.labelTotal;
-                document.getElementById('stat-icon-total').className = cfg.iconTotal;
-
-                // Thẻ thống kê thứ 4: Ẩn khi sang mục cá nhân (xóa thống kê tài khoản tự đăng ký), hiện khi ở doanh nghiệp
-                const cardFourth = document.getElementById('stat-card-fourth');
-                if (cardFourth) {
-                    if (cfg.showFourth) {
-                        cardFourth.style.display = 'flex';
-                        const valFourth = document.getElementById('stat-total-buildings');
-                        const labelFourth = document.getElementById('stat-label-fourth');
-                        const iconFourth = document.getElementById('stat-icon-fourth');
-                        if (valFourth) valFourth.textContent = cfg.fourth;
-                        if (labelFourth) labelFourth.textContent = cfg.labelFourth;
-                        if (iconFourth) iconFourth.className = cfg.iconFourth;
-                    } else {
-                        cardFourth.style.display = 'none';
-                    }
-                }
-
-                document.getElementById('cardTitleText').textContent = cfg.cardTitle;
-                document.getElementById('cardTitleIcon').className = cfg.cardIcon;
-                document.getElementById('tabStatusText').textContent = cfg.statusText;
-                document.getElementById('tabDotIcon').style.color = cfg.dotColor;
-
-                const createBtnBox = document.getElementById('headerBtnCreateContainer');
-                if (createBtnBox) {
-                    createBtnBox.style.display = cfg.showCreateBtn ? 'block' : 'none';
-                }
+            const createBtnBox = document.getElementById('headerBtnCreateContainer');
+            if (createBtnBox) {
+                createBtnBox.style.display = cfg.showCreateBtn ? 'block' : 'none';
             }
 
             // 3. Áp dụng lại bộ lọc tìm kiếm cho bảng mới mở
@@ -1949,12 +1966,40 @@
                 || ['kiemduyet', 'moderator', 'kiem_duyet'].includes((acc.role || '').toLowerCase())
                 || (acc.staff_role || '').toLowerCase().includes('kiểm duyệt');
 
+            const isCskh = acc.is_cskh
+                || ['chăm sóc kh', 'chamsockh', 'cskh', 'cham_soc_kh'].includes((acc.role || '').toLowerCase())
+                || (acc.staff_role || '').toLowerCase().includes('chăm sóc')
+                || (acc.staff_role || '').toLowerCase().includes('cskh');
+
             const bldContainer = document.getElementById('buildingSectionContainer');
             const modNotice = document.getElementById('moderatorBuildingNotice');
 
-            if (isMod) {
+            if (isMod || isCskh) {
                 if (bldContainer) bldContainer.style.display = 'none';
-                if (modNotice) modNotice.style.display = 'block';
+                if (modNotice) {
+                    modNotice.style.display = 'block';
+                    if (isCskh) {
+                        modNotice.innerHTML = `
+                            <div style="display: flex; align-items: center; gap: 10px; color: #334155;">
+                                <i class="fa-solid fa-headset" style="color: #ea580c; font-size: 1.25rem;"></i>
+                                <div>
+                                    <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">Toàn hệ thống (Chăm sóc khách hàng)</div>
+                                    <div style="font-size: 0.775rem; color: var(--text-secondary); margin-top: 2px;">Tài khoản Chăm sóc khách hàng trực tổng đài và xử lý khiếu nại trên toàn hệ thống, không quản lý tòa nhà cụ thể.</div>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        modNotice.innerHTML = `
+                            <div style="display: flex; align-items: center; gap: 10px; color: #334155;">
+                                <i class="fa-solid fa-shield-halved" style="color: #0284c7; font-size: 1.25rem;"></i>
+                                <div>
+                                    <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">Toàn hệ thống (Chỉ kiểm duyệt)</div>
+                                    <div style="font-size: 0.775rem; color: var(--text-secondary); margin-top: 2px;">Tài khoản Kiểm duyệt viên làm nhiệm vụ duyệt bài đăng và xử lý khiếu nại trên toàn hệ thống, không trực tiếp quản lý tòa nhà.</div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
                 selectedBuildingIds = [];
             } else {
                 if (bldContainer) bldContainer.style.display = 'block';
@@ -2007,23 +2052,40 @@
                 (existingAcc.staff_role || '').toLowerCase().includes('kiểm duyệt')
             );
 
+            const isCskh = existingAcc && (
+                existingAcc.is_cskh ||
+                ['chăm sóc kh', 'chamsockh', 'cskh', 'cham_soc_kh'].includes((existingAcc.role || '').toLowerCase()) ||
+                (existingAcc.staff_role || '').toLowerCase().includes('chăm sóc') ||
+                (existingAcc.staff_role || '').toLowerCase().includes('cskh')
+            );
+
             const name = document.getElementById('acc_name').value.trim();
             const email = document.getElementById('acc_email').value.trim();
             const phone = document.getElementById('acc_phone').value.trim();
             const password = document.getElementById('acc_password').value;
 
-            // Tòa nhà phụ trách: Nếu là Kiểm duyệt viên thì luôn là [], nếu là Sales thì lấy theo danh sách đã chọn
-            let assignedBuildings = isMod ? [] : selectedBuildingIds.filter(b => b !== 'all' && b !== '*');
+            // Tòa nhà phụ trách: Nếu là Kiểm duyệt viên hoặc CSKH thì luôn là [], nếu là Sales thì lấy theo danh sách đã chọn
+            let assignedBuildings = (isMod || isCskh) ? [] : selectedBuildingIds.filter(b => b !== 'all' && b !== '*');
 
             // Permissions cố định toàn bộ 4 quyền cốt lõi
             const permissions = ['manage_posts', 'manage_contacts', 'manage_contracts', 'manage_invoices'];
+
+            let roleToSave = 'nhansu';
+            let staffRoleToSave = 'Nhân sự';
+            if (isMod) {
+                roleToSave = 'kiemduyet';
+                staffRoleToSave = 'Kiểm duyệt viên';
+            } else if (isCskh) {
+                roleToSave = 'chăm sóc kh';
+                staffRoleToSave = 'Chăm sóc KH';
+            }
 
             const payload = {
                 name,
                 email,
                 phone,
-                role: isMod ? 'kiemduyet' : 'nhansu',
-                staff_role: isMod ? 'Kiểm duyệt viên' : 'Nhân sự',
+                role: roleToSave,
+                staff_role: staffRoleToSave,
                 assigned_buildings: assignedBuildings,
                 permissions: permissions
             };
@@ -2068,28 +2130,12 @@
             }
         }
 
-        // Toggle Khóa / Mở khóa
-        async function toggleLockAccount(accId) {
-            if (!confirm('Bạn có chắc chắn muốn thay đổi trạng thái khóa/mở khóa tài khoản này?')) return;
-
-            try {
-                const res = await fetch(`/api/sub-accounts/${accId}/toggle-lock`, {
-                    method: 'POST',
-                    headers: {
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    }
-                });
-                const data = await res.json();
-                if (data.success) {
-                    showToast(data.message || 'Cập nhật trạng thái thành công!', 'success');
-                    setTimeout(() => location.reload(), 700);
-                } else {
-                    showToast(data.message || data.error || 'Có lỗi xảy ra!', 'error');
-                }
-            } catch (err) {
-                console.error(err);
-                showToast('Lỗi kết nối máy chủ!', 'error');
+        // Toggle Khóa / Mở khóa (Ủy quyền mở Modal Khóa Dùng Chung)
+        function toggleLockAccount(accId, userName = 'Nhân viên', isLocked = false) {
+            if (typeof openLockUserModal === 'function') {
+                openLockUserModal(accId, userName, isLocked);
+            } else {
+                console.error('Modal lock user chưa được nạp!');
             }
         }
 
@@ -2118,5 +2164,8 @@
             }
         }
     </script>
+
+    <!-- Component Modal Khóa Tài Khoản Dùng Chung (Đồng bộ UI/UX Khách thuê & Nhân viên) -->
+    @include('components.modal-lock-user')
 </body>
 </html>

@@ -107,7 +107,7 @@
                     style="background-image: url('{{ $themeSettings['banner_url'] }}');">
                 </div>
                 <div class="hero-bg-slide absolute inset-0 bg-cover bg-center opacity-0"
-                    style="background-image: url('https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1920&q=80');">
+                    data-bg="url('https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1920&q=80')">
                 </div>
             @else
                 <div class="hero-bg-slide absolute inset-0 bg-cover bg-center opacity-100"
@@ -115,16 +115,16 @@
                 </div>
             @endif
             <div class="hero-bg-slide absolute inset-0 bg-cover bg-center opacity-0"
-                style="background-image: url('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1920&q=80');">
+                data-bg="url('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1920&q=80')">
             </div>
             <div class="hero-bg-slide absolute inset-0 bg-cover bg-center opacity-0"
-                style="background-image: url('https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1920&q=80');">
+                data-bg="url('https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1920&q=80')">
             </div>
             <div class="hero-bg-slide absolute inset-0 bg-cover bg-center opacity-0"
-                style="background-image: url('https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=1920&q=80');">
+                data-bg="url('https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=1920&q=80')">
             </div>
             <div class="hero-bg-slide absolute inset-0 bg-cover bg-center opacity-0"
-                style="background-image: url('https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1920&q=80');">
+                data-bg="url('https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1920&q=80')">
             </div>
 
             <!-- Lớp phủ cố định giúp chữ luôn rõ nét -->
@@ -342,7 +342,8 @@
 
         <!-- Property Grid -->
         <div id="real-posts-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <!-- Dữ liệu nhà cho thuê sẽ được load bằng Javascript (fetchRealPosts) -->
+            <!-- Hiển thị Skeleton Loading trong lúc Javascript gọi API fetchRealPosts -->
+            @include('components.skeleton-card', ['count' => 6])
         </div>
 
         <div class="mt-12 text-center" id="load-more-container">
@@ -414,7 +415,7 @@
             <div class="relative">
                 <div class="rounded-3xl overflow-hidden shadow-2xl border-4 border-white">
                     <img src="https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80"
-                        alt="Không gian sống tuyệt đẹp" class="w-full h-auto object-cover">
+                        loading="lazy" alt="Không gian sống tuyệt đẹp" class="w-full h-auto object-cover">
                 </div>
                 <!-- Floating Card Badge -->
                 <div
@@ -455,7 +456,7 @@
             <article
                 class="group relative rounded-3xl overflow-hidden min-h-[460px] lg:min-h-[540px] flex flex-col justify-between p-8 sm:p-10 shadow-card hover:shadow-2xl transition-all duration-500 border border-slate-200/80">
                 <img src="https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=1200&q=80"
-                    alt="Xu hướng thuê căn hộ"
+                    loading="lazy" alt="Xu hướng thuê căn hộ"
                     class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
                 <div
                     class="absolute inset-0 bg-gradient-to-b from-slate-950/70 via-slate-950/30 to-slate-950/90 group-hover:from-slate-950/80 transition-all">
@@ -501,7 +502,7 @@
                 <article
                     class="group relative rounded-3xl overflow-hidden min-h-[255px] flex flex-col justify-between p-7 shadow-card hover:shadow-2xl transition-all duration-500 border border-slate-200/80">
                     <img src="https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80"
-                        alt="Đại đô thị mới"
+                        loading="lazy" alt="Đại đô thị mới"
                         class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
                     <div
                         class="absolute inset-0 bg-gradient-to-b from-slate-950/75 via-slate-950/30 to-slate-950/85 group-hover:from-slate-950/85 transition-all">
@@ -534,7 +535,7 @@
                 <article
                     class="group relative rounded-3xl overflow-hidden min-h-[255px] flex flex-col justify-between p-7 shadow-card hover:shadow-2xl transition-all duration-500 border border-slate-200/80">
                     <img src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80"
-                        alt="Luật nhà ở"
+                        loading="lazy" alt="Luật nhà ở"
                         class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
                     <div
                         class="absolute inset-0 bg-gradient-to-b from-slate-950/75 via-slate-950/30 to-slate-950/85 group-hover:from-slate-950/85 transition-all">
@@ -566,7 +567,7 @@
                 <article
                     class="group relative rounded-3xl overflow-hidden min-h-[255px] flex flex-col justify-between p-7 shadow-card hover:shadow-2xl transition-all duration-500 border border-slate-200/80">
                     <img src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80"
-                        alt="Nhà trọ sinh viên"
+                        loading="lazy" alt="Nhà trọ sinh viên"
                         class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
                     <div
                         class="absolute inset-0 bg-gradient-to-b from-slate-950/75 via-slate-950/30 to-slate-950/85 group-hover:from-slate-950/85 transition-all">
@@ -599,7 +600,7 @@
                 <article
                     class="group relative rounded-3xl overflow-hidden min-h-[255px] flex flex-col justify-between p-7 shadow-card hover:shadow-2xl transition-all duration-500 border border-slate-200/80">
                     <img src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80"
-                        alt="Mặt bằng giá thuê mới"
+                        loading="lazy" alt="Mặt bằng giá thuê mới"
                         class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
                     <div
                         class="absolute inset-0 bg-gradient-to-b from-slate-950/75 via-slate-950/30 to-slate-950/85 group-hover:from-slate-950/85 transition-all">
@@ -1074,7 +1075,7 @@
 
         async function fetchFeaturedPosts() {
             try {
-                const response = await fetch('/api/posts/featured');
+                const response = await fetch('/api/posts/featured?_t=' + Date.now(), { cache: 'no-store' });
                 if (response.ok) {
                     const data = await response.json();
                     return Array.isArray(data) ? data : [];
@@ -1092,7 +1093,7 @@
             const container = document.getElementById('real-posts-container');
             if (!container) return;
             try {
-                const response = await fetch('/api/posts/approved');
+                const response = await fetch('/api/posts/approved?_t=' + Date.now(), { cache: 'no-store' });
                 if (response.ok) {
                     const data = await response.json();
                     const posts = data.posts || [];
@@ -1122,11 +1123,52 @@
             const postsToShow = allRealPosts.slice(0, currentDisplayCount);
             
             postsToShow.forEach(post => {
-                                                const userName = post.user ? (post.user.account_name || post.user.username) : 'Người dùng';
-                        const userType = post.user ? ((post.user.role === 'doanhnghiep' || post.user.role === 'enterprise') ? 'Doanh nghiệp' : 'Cá nhân') : 'Cá nhân';
-                        const userBadgeClass = (post.user && (post.user.role === 'doanhnghiep' || post.user.role === 'enterprise')) ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-slate-50 text-slate-500 border border-slate-200';
-                        const userIconColor = (post.user && (post.user.role === 'doanhnghiep' || post.user.role === 'enterprise')) ? 'text-blue-500 bg-blue-50' : 'text-slate-500 bg-slate-100';
-                        const userIcon = (post.user && (post.user.role === 'doanhnghiep' || post.user.role === 'enterprise')) ? 'fa-building' : 'fa-user';
+                        const userName = post.user ? (post.user.ten_hien_thi || post.user.ho_ten || post.user.account_name || post.user.username || 'Người dùng') : 'Người dùng';
+                        // Phân loại vai trò tài khoản đăng bài: Admin / Nhân sự / Doanh nghiệp / Cá nhân
+                        let userType = 'Cá nhân';
+                        let userBadgeClass = 'bg-slate-50 text-slate-500 border border-slate-200';
+                        let userIconColor = 'text-slate-500 bg-slate-100';
+                        let userIcon = 'fa-user';
+
+                        const isStaffUser = Boolean(
+                            (post.account_role && ['nhansu', 'staff', 'sub_account', 'nhan_su', 'nhan su'].includes(String(post.account_role).toLowerCase())) ||
+                            (post.staff_id && String(post.staff_id).trim() !== '') ||
+                            (post.user && (
+                                ['nhansu', 'staff', 'sub_account', 'nhan_su', 'nhan su'].includes(String(post.user.role || '').toLowerCase()) ||
+                                Boolean(post.user.parent_id) ||
+                                (post.user.staff_role && String(post.user.staff_role).toLowerCase().includes('nhân sự'))
+                            ))
+                        );
+
+                        const isAdminUser = Boolean(
+                            post.user && (post.user.role === 'admin' || post.user.is_admin)
+                        );
+
+                        const isEnterpriseUser = Boolean(
+                            !isStaffUser && post.user && (post.user.role === 'doanhnghiep' || post.user.role === 'enterprise') && !post.user.parent_id
+                        );
+
+                        if (isAdminUser) {
+                            userType = 'Ban Quản Trị';
+                            userBadgeClass = 'bg-amber-50 text-amber-700 border border-amber-200';
+                            userIconColor = 'text-amber-600 bg-amber-50';
+                            userIcon = 'fa-shield-halved';
+                        } else if (isStaffUser) {
+                            userType = 'Nhân sự';
+                            userBadgeClass = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+                            userIconColor = 'text-emerald-600 bg-emerald-50';
+                            userIcon = 'fa-user-tie';
+                        } else if (isEnterpriseUser) {
+                            userType = 'Doanh nghiệp';
+                            userBadgeClass = 'bg-blue-50 text-blue-600 border border-blue-100';
+                            userIconColor = 'text-blue-500 bg-blue-50';
+                            userIcon = 'fa-building';
+                        } else {
+                            userType = 'Cá nhân';
+                            userBadgeClass = 'bg-slate-50 text-slate-500 border border-slate-200';
+                            userIconColor = 'text-slate-500 bg-slate-100';
+                            userIcon = 'fa-user';
+                        }
                         // ĐOẠN CODE MỚI
                         let imgUrl = post.display_image || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80';
                         let unitText = 'đ/tháng';
@@ -1161,7 +1203,7 @@
                         html += `
                             <div class="bg-white rounded-3xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-xl transition-all duration-300 group relative">
                                 <div class="relative aspect-[4/3] overflow-hidden">
-                                    <img src="${imgUrl}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                                    <img src="${imgUrl}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                                     
                                     ${favButtonHtml}
 
@@ -1183,9 +1225,13 @@
                                             <i class="fa-solid fa-location-dot w-4 text-center"></i>
                                             <span>${address}</span>
                                         </div>
-                                        <div class="flex items-center gap-2">
-                                            <i class="fa-solid fa-ruler-combined w-4 text-center"></i>
-                                            <span>${post.area} m²</span>
+                                        <div class="flex items-center gap-3.5 text-xs text-slate-500 font-medium pt-1">
+                                            <span class="flex items-center gap-1.5" title="Lượt xem thực tế">
+                                                <i class="fa-solid fa-eye text-slate-400"></i> ${Number(post.views || 0).toLocaleString('vi-VN')}
+                                            </span>
+                                            <span class="flex items-center gap-1.5" title="Lượt yêu thích">
+                                                <i class="fa-solid fa-heart text-rose-500"></i> <span data-fav-counter-id="${postId}">${Number(post.favorites_count || post.likes || 0).toLocaleString('vi-VN')}</span>
+                                            </span>
                                         </div>
                                     </div>
                                     <div class="flex items-center justify-between pt-4 mt-4 border-t border-slate-100 mb-4">
@@ -1300,7 +1346,7 @@
 
                     <!-- Image Frame -->
                     <div class="relative aspect-[4/3] overflow-hidden">
-                        <img src="${post.image}" alt="${post.title}"
+                        <img src="${post.image}" loading="lazy" alt="${post.title}"
                             class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                         <div class="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent"></div>
                         <span class="absolute top-4 left-4 px-3 py-1 rounded-full bg-amber-500 text-white font-extrabold text-[11px] uppercase tracking-wider shadow-md flex items-center gap-1">
@@ -1478,9 +1524,21 @@
         }
 
         
-        // Crossfade background transition mỗi 3.5 giây
+        // Crossfade background transition mỗi 3.5 giây (Lazy-loaded)
         let currentSlide = 0;
         const slides = document.querySelectorAll('.hero-bg-slide');
+
+        function loadSlideBg(slide) {
+            if (slide && slide.dataset.bg && !slide.style.backgroundImage) {
+                slide.style.backgroundImage = slide.dataset.bg;
+            }
+        }
+
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                slides.forEach(s => loadSlideBg(s));
+            }, 1000);
+        });
 
         function nextSlide() {
             if (!slides || slides.length === 0) return;
@@ -1488,6 +1546,7 @@
             slides[currentSlide].classList.add('opacity-0');
 
             currentSlide = (currentSlide + 1) % slides.length;
+            loadSlideBg(slides[currentSlide]);
 
             slides[currentSlide].classList.remove('opacity-0');
             slides[currentSlide].classList.add('opacity-100');
@@ -1784,6 +1843,7 @@
                     <!-- Left: Featured Main News Card (Extra Large Frame) -->
                     <article class="group relative rounded-3xl overflow-hidden min-h-[460px] lg:min-h-[540px] flex flex-col justify-between p-8 sm:p-10 shadow-card hover:shadow-2xl transition-all duration-500 border border-slate-200/80">
                         <img src="${featured.image_url || 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=1200&q=80'}"
+                            loading="lazy"
                             alt="${featured.title}"
                             class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                             onerror="this.src='https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=1200&q=80'">
@@ -1826,6 +1886,7 @@
                         ${smallArticles.map(art => `
                             <article class="group relative rounded-3xl overflow-hidden min-h-[255px] flex flex-col justify-between p-7 shadow-card hover:shadow-2xl transition-all duration-500 border border-slate-200/80">
                                 <img src="${art.image_url || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80'}"
+                                    loading="lazy"
                                     alt="${art.title}"
                                     class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                                     onerror="this.src='https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80'">
@@ -1867,6 +1928,12 @@
             renderFeaturedPostsSection();
             fetchRealPosts();
             fetchApprovedNews();
+        });
+
+        // Tự động làm mới dữ liệu lượt xem và lượt thích thật khi người dùng nhấn xem bài đăng và thoát/quay lại
+        window.addEventListener('pageshow', function(event) {
+            fetchRealPosts();
+            renderFeaturedPostsSection();
         });
     </script>
 </body>

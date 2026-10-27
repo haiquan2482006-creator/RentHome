@@ -231,10 +231,12 @@ class ContractController extends Controller
                 'note'               => $noteDescription,
             ]);
 
-            // 2. Cập nhật trạng thái của phòng thành 'đã cho thuê'
+            // 2. Cập nhật trạng thái của phòng thành 'đã cho thuê' và tự động gỡ khỏi Slider Nổi Bật
             if ($post) {
                 $post->status = 'đã cho thuê';
                 $post->is_rented = true;
+                $post->is_featured = false;
+                $post->featured_at = null;
                 $post->save();
             }
 

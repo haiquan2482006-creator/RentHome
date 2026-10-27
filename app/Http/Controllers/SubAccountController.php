@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 class SubAccountController extends Controller
 {
@@ -44,14 +45,33 @@ class SubAccountController extends Controller
      */
     private function getCustomerAccounts()
     {
-        return User::where(function($q) {
+        $excludedRoles = [
+            'admin', 'Admin',
+            'doanhnghiep', 'enterprise',
+            'staff', 'sub_account',
+            'kiemduyet', 'moderator', 'kiem_duyet',
+            'nhansu', 'nhan su', 'nhan_su',
+            'cskh', 'chamsockh', 'cham_soc_kh', 'chăm sóc kh', 'chăm sóc khách hàng', 'cham soc kh'
+        ];
+
+        return User::where(function($q) use ($excludedRoles) {
                 $q->where('role', 'canhan')
                   ->orWhere('role', 'user')
                   ->orWhere('role', 'khach')
-                  ->orWhere(function($subQ) {
-                      $subQ->whereNotIn('role', ['admin', 'doanhnghiep', 'enterprise', 'staff', 'sub_account', 'kiemduyet', 'moderator', 'nhansu', 'nhan su', 'nhan_su'])
+                  ->orWhereNull('role')
+                  ->orWhere(function($subQ) use ($excludedRoles) {
+                      $subQ->whereNotIn('role', $excludedRoles)
                            ->whereNull('parent_id');
                   });
+            })
+            ->whereNotIn('role', $excludedRoles)
+            ->where(function ($q) {
+                $q->whereNull('staff_role')->orWhere(function($srQ) {
+                    $srQ->where('staff_role', 'not like', '%chăm sóc%')
+                        ->where('staff_role', 'not like', '%cskh%')
+                        ->where('staff_role', 'not like', '%nhân sự%')
+                        ->where('staff_role', 'not like', '%kiểm duyệt%');
+                });
             })
             ->where(function($q) {
                 $q->whereNull('is_deleted')->orWhere('is_deleted', false);
@@ -80,6 +100,12 @@ class SubAccountController extends Controller
                   ->orWhere('role', 'moderator')
                   ->orWhere('role', 'doanhnghiep')
                   ->orWhere('role', 'enterprise')
+                  ->orWhere('role', 'cskh')
+                  ->orWhere('role', 'chamsockh')
+                  ->orWhere('role', 'cham_soc_kh')
+                  ->orWhere('role', 'chăm sóc kh')
+                  ->orWhere('staff_role', 'like', '%chăm sóc%')
+                  ->orWhere('staff_role', 'like', '%cskh%')
                   ->orWhereNotNull('parent_id');
             })
             ->where(function($q) use ($currentUserId) {
@@ -114,6 +140,12 @@ class SubAccountController extends Controller
                 || str_contains(mb_strtolower($account->staff_role ?? ''), 'kiểm duyệt')
                 || str_contains(mb_strtolower($account->staff_role ?? ''), 'kiem duyet');
 
+            // Kiểm tra xem tài khoản có phải là Chăm sóc khách hàng không
+            $isCskh = (method_exists($account, 'isCskh') && $account->isCskh())
+                || in_array(strtolower($account->role ?? ''), ['chăm sóc kh', 'chamsockh', 'cskh', 'cham_soc_kh'], true)
+                || str_contains(mb_strtolower($account->staff_role ?? ''), 'chăm sóc')
+                || str_contains(mb_strtolower($account->staff_role ?? ''), 'cskh');
+
             if ($isModerator) {
                 // Tự động làm sạch dữ liệu nếu Kiểm duyệt viên bị gán nhầm tòa nhà trong DB
                 if (!empty($account->assigned_buildings) || !empty($account->building_ids)) {
@@ -125,11 +157,35 @@ class SubAccountController extends Controller
                 }
 
                 $account->is_moderator = true;
+                $account->is_cskh = false;
                 $account->is_all_buildings = false;
                 $account->assigned_buildings = [];
                 $account->assigned_buildings_details = collect([]);
+            } elseif ($isCskh) {
+                // Tự động làm sạch dữ liệu nếu CSKH bị gán nhầm tòa nhà trong DB
+                if (!empty($account->assigned_buildings) || !empty($account->building_ids)) {
+                    try {
+                        $account->assigned_buildings = [];
+                        $account->building_ids = [];
+                        $account->save();
+                    } catch (\Throwable $e) {}
+                }
+
+                $account->is_moderator = false;
+                $account->is_cskh = true;
+                $account->is_all_buildings = false;
+                $account->assigned_buildings = [];
+                $account->assigned_buildings_details = collect([]);
+
+                // KPI bổ sung nếu là CSKH: Số khiếu nại / liên hệ đã xử lý
+                $account->tickets_count = \App\Models\Complaint::where(function($q) use ($staffId) {
+                    $q->where('handled_by', $staffId)
+                      ->orWhere('resolver_id', $staffId)
+                      ->orWhere('status', 'resolved');
+                })->count();
             } else {
                 $account->is_moderator = false;
+                $account->is_cskh = false;
                 $account->is_all_buildings = false;
 
                 // Strict Matching: Chỉ lấy tòa nhà nếu ID khớp chính xác với manager_id hoặc nằm trong manager_ids / user_ids, hoặc trong assigned_buildings
@@ -185,7 +241,13 @@ class SubAccountController extends Controller
 
             // Chuẩn hóa chức vụ hiển thị
             if (empty($account->staff_role) || in_array($account->staff_role, ['Nhân viên', 'Doanh nghiệp'], true)) {
-                $account->staff_role = $isModerator ? 'Kiểm duyệt viên' : 'Nhân sự';
+                if ($isCskh) {
+                    $account->staff_role = 'Chăm sóc KH';
+                } elseif ($isModerator) {
+                    $account->staff_role = 'Kiểm duyệt viên';
+                } else {
+                    $account->staff_role = 'Nhân sự';
+                }
             }
 
             // Không gán mật khẩu mẫu nếu chưa có
@@ -277,17 +339,24 @@ class SubAccountController extends Controller
                 || str_contains(mb_strtolower((string)$rawStaffRole), 'kiểm duyệt')
                 || str_contains(mb_strtolower((string)$rawStaffRole), 'kiem duyet');
 
+            $isCskh = in_array(strtolower((string)$rawRole), ['chăm sóc kh', 'chamsockh', 'cskh', 'cham_soc_kh'], true)
+                || str_contains(mb_strtolower((string)$rawStaffRole), 'chăm sóc')
+                || str_contains(mb_strtolower((string)$rawStaffRole), 'cskh');
+
             if ($isModerator) {
                 $roleInput = 'kiemduyet';
                 $staffRole = !empty($rawStaffRole) ? $rawStaffRole : 'Kiểm duyệt viên';
+            } elseif ($isCskh) {
+                $roleInput = 'chăm sóc kh';
+                $staffRole = !empty($rawStaffRole) ? $rawStaffRole : 'Chăm sóc KH';
             } else {
                 // Tài khoản con do admin tạo mặc định là nhân sự
                 $roleInput = 'nhansu';
                 $staffRole = (!empty($rawStaffRole) && !in_array($rawStaffRole, ['Doanh nghiệp', 'doanhnghiep', 'Nhân viên'], true)) ? $rawStaffRole : 'Nhân sự';
             }
 
-            // Tòa nhà phân công: Kiểm duyệt viên tuyệt đối là [], nhân viên lọc sạch 'all' / '*'
-            if ($isModerator) {
+            // Tòa nhà phân công: Kiểm duyệt viên và CSKH tuyệt đối là [], nhân viên lọc sạch 'all' / '*'
+            if ($isModerator || $isCskh) {
                 $assignedBuildings = [];
             } else {
                 $rawAssigned = (array)($request->input('assigned_buildings', []));
@@ -322,9 +391,9 @@ class SubAccountController extends Controller
                 'is_deleted'         => false,
             ]);
 
-            // Đồng bộ sang Building: Gán manager_id nếu tài khoản KHÔNG phải kiểm duyệt viên và có chọn tòa nhà
+            // Đồng bộ sang Building: Gán manager_id nếu tài khoản KHÔNG phải kiểm duyệt viên / CSKH và có chọn tòa nhà
             $staffId = (string)($subAccount->_id ?? $subAccount->id);
-            if (!$isModerator && !empty($assignedBuildings)) {
+            if (!$isModerator && !$isCskh && !empty($assignedBuildings)) {
                 Building::whereIn('_id', $assignedBuildings)->get()->each(function($bld) use ($staffId) {
                     $mIds = is_array($bld->manager_ids) ? $bld->manager_ids : [];
                     if (!in_array($staffId, $mIds, true)) {
@@ -403,9 +472,20 @@ class SubAccountController extends Controller
                 || str_contains(mb_strtolower($subAccount->staff_role ?? ''), 'kiểm duyệt')
                 || str_contains(mb_strtolower($request->input('staff_role') ?? ''), 'kiểm duyệt');
 
+            $isCskh = (method_exists($subAccount, 'isCskh') && $subAccount->isCskh())
+                || in_array(strtolower($subAccount->role ?? ''), ['chăm sóc kh', 'chamsockh', 'cskh', 'cham_soc_kh'], true)
+                || in_array(strtolower($request->input('role') ?? ''), ['chăm sóc kh', 'chamsockh', 'cskh', 'cham_soc_kh'], true)
+                || str_contains(mb_strtolower($subAccount->staff_role ?? ''), 'chăm sóc')
+                || str_contains(mb_strtolower($request->input('staff_role') ?? ''), 'chăm sóc')
+                || str_contains(mb_strtolower($subAccount->staff_role ?? ''), 'cskh')
+                || str_contains(mb_strtolower($request->input('staff_role') ?? ''), 'cskh');
+
             if ($isModerator) {
                 $subAccount->role = 'kiemduyet';
                 $subAccount->staff_role = !empty($validated['staff_role']) ? $validated['staff_role'] : ($subAccount->staff_role ?: 'Kiểm duyệt viên');
+            } elseif ($isCskh) {
+                $subAccount->role = 'chăm sóc kh';
+                $subAccount->staff_role = !empty($validated['staff_role']) ? $validated['staff_role'] : ($subAccount->staff_role ?: 'Chăm sóc KH');
             } else {
                 // Tài khoản do admin tạo / cập nhật: chuyển từ doanh nghiệp sang nhansu / Nhân sự
                 $inputRole = $request->input('role');
@@ -424,8 +504,8 @@ class SubAccountController extends Controller
             }
 
             $cleanAssigned = [];
-            if ($isModerator) {
-                // Kiểm duyệt viên: Tuyệt đối không phân công tòa nhà
+            if ($isModerator || $isCskh) {
+                // Kiểm duyệt viên & CSKH: Tuyệt đối không phân công tòa nhà
                 $subAccount->assigned_buildings = [];
                 $subAccount->building_ids = [];
             } else {
@@ -457,8 +537,8 @@ class SubAccountController extends Controller
 
             // Đồng bộ sang Building: Gán / hủy manager_id chính xác cho đúng nhân viên
             $staffId = (string)($subAccount->_id ?? $subAccount->id);
-            if ($isModerator) {
-                // Đảm bảo không có tòa nhà nào giữ ID của kiểm duyệt viên
+            if ($isModerator || $isCskh) {
+                // Đảm bảo không có tòa nhà nào giữ ID của kiểm duyệt viên / CSKH
                 Building::where('manager_id', $staffId)->update(['manager_id' => null]);
                 Building::all()->each(function($bld) use ($staffId) {
                     $modified = false;
@@ -538,46 +618,80 @@ class SubAccountController extends Controller
     /**
      * Khóa hoặc mở khóa tài khoản con
      */
-    public function toggleLock($id)
+    public function toggleLock(Request $request, $id)
     {
         if (!$this->checkPermission()) {
             return response()->json(['error' => 'Chỉ tài khoản Ban Quản Trị / Doanh nghiệp RentHome mới có quyền thao tác.'], 403);
         }
 
-        $subAccount = User::find($id);
-        if (!$subAccount || !$subAccount->isSubAccount()) {
-            return response()->json(['error' => 'Không tìm thấy tài khoản con!'], 404);
+        $subAccount = User::where('_id', $id)->orWhere('id', $id)->first();
+        if (!$subAccount) {
+            return response()->json(['error' => 'Không tìm thấy tài khoản!'], 404);
         }
 
-        $isCurrentlyLocked = ($subAccount->is_locked === true || $subAccount->status === 'locked');
-        $subAccount->is_locked = !$isCurrentlyLocked;
-        $subAccount->status = $isCurrentlyLocked ? 'active' : 'locked';
-        $subAccount->locked_at = $isCurrentlyLocked ? null : now()->format('d/m/Y H:i');
+        if ($subAccount->isAdmin() || $subAccount->role === 'admin') {
+            return response()->json(['error' => 'Không thể khóa tài khoản Ban Quản Trị!'], 403);
+        }
+
+        $isCurrentlyLocked = ($subAccount->is_locked === true || in_array($subAccount->status, ['locked', 'khoa', 'vi_pham', 'banned']));
+        if ($isCurrentlyLocked && $subAccount->locked_until && now()->gte($subAccount->locked_until)) {
+            $isCurrentlyLocked = false;
+        }
+
+        $newLockState = !$isCurrentlyLocked;
+        $subAccount->is_locked = $newLockState;
+        $subAccount->status = $newLockState ? 'locked' : 'active';
+        $subAccount->locked_at = $newLockState ? Carbon::now() : null;
+
+        if ($newLockState) {
+            $lockReason = $request->input('lock_reason', $request->input('reason', 'Tài khoản vi phạm quy định làm việc.'));
+            $lockDuration = $request->input('lock_duration');
+            $isIndefinite = ($lockDuration === 'indefinite' || (int)$lockDuration >= 9999);
+            if ($isIndefinite) {
+                $subAccount->locked_until = Carbon::now()->addYears(100);
+            } elseif ($lockDuration) {
+                $subAccount->locked_until = Carbon::now()->addDays((int)$lockDuration);
+            } else {
+                $subAccount->locked_until = Carbon::now()->addYears(100);
+            }
+            $subAccount->lock_reason = $lockReason;
+        } else {
+            $subAccount->locked_until = null;
+            $subAccount->lock_reason = null;
+        }
         $subAccount->save();
 
-        $actionText = $isCurrentlyLocked ? 'Mở khóa' : 'Khóa';
+        $actionText = $newLockState ? 'Khóa' : 'Mở khóa';
+        $accName = $subAccount->account_name ?: ($subAccount->username ?: $subAccount->email);
 
         // Ghi log khóa / mở khóa tài khoản con
         AdminActivity::log(
-            $isCurrentlyLocked ? 'unlock' : 'lock',
+            $newLockState ? 'lock' : 'unlock',
             'account',
-            "{$actionText} tài khoản con nhân viên",
-            "Admin đã {$actionText} quyền truy cập của tài khoản nhân viên: {$subAccount->account_name} ({$subAccount->email}).",
-            $subAccount
+            "{$actionText} tài khoản nhân viên",
+            "Admin đã {$actionText} quyền truy cập của tài khoản nhân viên: {$accName} ({$subAccount->email}).",
+            $subAccount,
+            [
+                'reason' => $subAccount->lock_reason,
+                'locked_until' => $subAccount->locked_until,
+                'user_id' => (string)($subAccount->_id ?? $subAccount->id)
+            ]
         );
 
         return response()->json([
             'success' => true,
-            'message' => "Đã {$actionText} tài khoản con thành công!",
+            'message' => "Đã {$actionText} tài khoản thành công!",
             'is_locked' => $subAccount->is_locked,
-            'status' => $subAccount->status
+            'status' => $subAccount->status,
+            'locked_until' => $subAccount->locked_until ? Carbon::parse($subAccount->locked_until)->format('d/m/Y H:i') : null,
+            'lock_reason' => $subAccount->lock_reason,
         ]);
     }
 
     /**
      * Khóa hoặc mở khóa tài khoản khách hàng cá nhân
      */
-    public function toggleLockCustomer($id)
+    public function toggleLockCustomer(Request $request, $id)
     {
         if (!$this->checkPermission()) {
             return response()->json(['error' => 'Chỉ tài khoản Ban Quản Trị / Doanh nghiệp RentHome mới có quyền thao tác.'], 403);
@@ -593,17 +707,36 @@ class SubAccountController extends Controller
         }
 
         $isCurrentlyLocked = ($customer->is_locked === true || $customer->status === 'locked' || $customer->status === 'khoa');
-        $customer->is_locked = !$isCurrentlyLocked;
-        $customer->status = $isCurrentlyLocked ? 'active' : 'locked';
-        $customer->locked_at = $isCurrentlyLocked ? null : now()->format('d/m/Y H:i');
+        if ($isCurrentlyLocked && $customer->locked_until && now()->gte($customer->locked_until)) {
+            $isCurrentlyLocked = false;
+        }
+
+        $newLockState = !$isCurrentlyLocked;
+        $customer->is_locked = $newLockState;
+        $customer->status = $newLockState ? 'locked' : 'active';
+        $customer->locked_at = $newLockState ? Carbon::now() : null;
+
+        if ($newLockState) {
+            $lockReason = $request->input('lock_reason', $request->input('reason', 'Tài khoản vi phạm tiêu chuẩn cộng đồng.'));
+            $lockDuration = $request->input('lock_duration');
+            if ($lockDuration === 'indefinite' || (int)$lockDuration >= 9999) {
+                $customer->locked_until = Carbon::now()->addYears(100);
+            } elseif ($lockDuration) {
+                $customer->locked_until = Carbon::now()->addDays((int)$lockDuration);
+            }
+            $customer->lock_reason = $lockReason;
+        } else {
+            $customer->locked_until = null;
+            $customer->lock_reason = null;
+        }
         $customer->save();
 
-        $actionText = $isCurrentlyLocked ? 'Mở khóa' : 'Khóa';
+        $actionText = $newLockState ? 'Khóa' : 'Mở khóa';
         $custName = $customer->account_name ?? $customer->username ?? $customer->email;
 
         // Ghi log khóa / mở khóa khách hàng
         AdminActivity::log(
-            $isCurrentlyLocked ? 'unlock' : 'lock',
+            $newLockState ? 'lock' : 'unlock',
             'account',
             "{$actionText} tài khoản khách hàng",
             "Admin đã {$actionText} tài khoản người dùng: {$custName} ({$customer->email}).",
@@ -614,7 +747,9 @@ class SubAccountController extends Controller
             'success' => true,
             'message' => "Đã {$actionText} tài khoản khách hàng thành công!",
             'is_locked' => $customer->is_locked,
-            'status' => $customer->status
+            'status' => $customer->status,
+            'locked_until' => $customer->locked_until ? Carbon::parse($customer->locked_until)->format('d/m/Y H:i') : null,
+            'lock_reason' => $customer->lock_reason,
         ]);
     }
 

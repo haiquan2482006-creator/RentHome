@@ -40,7 +40,7 @@ class OperationManagementController extends Controller
             });
         }
 
-        $contracts = $contractsQuery->latest()->get();
+        $contracts = $contractsQuery->with(['post.user', 'post.building', 'owner', 'tenant'])->latest()->get();
 
         $now = Carbon::now();
         $today = $now->day;
@@ -330,7 +330,7 @@ class OperationManagementController extends Controller
         $pendingApprovalCount = $rooms->where('status', 'pending_approval')->count();
         $dueRooms = $rooms->where('status', 'unpaid')->values();
 
-        $roomsQuery = Post::where(function ($q) {
+        $roomsQuery = Post::with(['user', 'building'])->where(function ($q) {
             $q->whereNull('is_deleted')->orWhere('is_deleted', false);
         })->where('status', '!=', 'đã cho thuê')->where(function($q) {
             $q->whereNull('is_rented')->orWhere('is_rented', false);
@@ -487,7 +487,7 @@ class OperationManagementController extends Controller
             });
         }
 
-        $contracts = $contractsQuery->latest()->get();
+        $contracts = $contractsQuery->with(['post.user', 'post.building', 'owner', 'tenant'])->latest()->get();
 
         $now = Carbon::now();
         $currentMonthStr = 'Tháng ' . $now->format('m/Y');

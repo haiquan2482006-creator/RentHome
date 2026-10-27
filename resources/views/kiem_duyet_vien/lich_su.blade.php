@@ -571,17 +571,6 @@
                 </a>
             </li>
             <li>
-                <a href="{{ url('/kiem-duyet/khieu-nai') }}" class="nav-link">
-                    <span class="nav-link-left">
-                        <i class="fa-solid fa-triangle-exclamation"></i>
-                        <span>Khiếu nại</span>
-                    </span>
-                    @if($cCount > 0)
-                        <span class="nav-badge badge-danger-pill">{{ $cCount }}</span>
-                    @endif
-                </a>
-            </li>
-            <li>
                 <a href="{{ url('/kiem-duyet/qltin-tuc') }}" class="nav-link">
                     <span class="nav-link-left">
                         <i class="fa-solid fa-newspaper"></i>

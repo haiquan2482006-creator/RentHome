@@ -538,8 +538,11 @@
                 <i><img src="{{asset('img/logo.png')}}" alt="logo"></i>
             </div>
             <div class="logo-details">
-                <span class="brand-name">RentHome<span class="admin-badge">Admin</span></span>
-                <span class="brand-subtext">Hệ thống quản trị</span>
+                @php
+                    $isCskhUser = Auth::check() && method_exists(Auth::user(), 'isCskh') && Auth::user()->isCskh();
+                @endphp
+                <span class="brand-name">RentHome<span class="admin-badge">{{ $isCskhUser ? 'CSKH' : 'Admin' }}</span></span>
+                <span class="brand-subtext">{{ $isCskhUser ? 'Trung tâm CSKH' : 'Hệ thống quản trị' }}</span>
             </div>
 
             <!-- Nút Thu Gọn / Mở Rộng Sidebar -->
@@ -550,113 +553,171 @@
 
         <!-- Danh sách Menu -->
         <nav class="sidebar-menu">
-            <div class="menu-title">Quản lý Doanh nghiệp</div>
-
-            <!-- 1. Tổng quan hệ thống Admin -->
-            <a href="{{ url('Admin') }}" class="nav-link {{ (request()->is('Admin') || request()->is('admin') || request()->is('Admin/overview*') || request()->is('admin/overview*')) ? 'active' : '' }}" title="Tổng quan hệ thống">
-                <i class="fa-solid fa-chart-pie"></i>
-                <span>Tổng quan</span>
-            </a>
-
-            <!-- 2. Quản lý Bất Động Sản & Tòa Nhà -->
-            <a href="{{ url('qltoa_nha') }}" class="nav-link {{ request()->is('qltoa_nha*') || request()->is('Admin/toa-nha*') || request()->is('Admin/chi-tiet-toa-nha*') || request()->is('admin/chi-tiet-toa-nha*') || request()->is('quan-ly-toa-nha*') ? 'active' : '' }}" title="Quản lý BĐS & Tòa Nhà">
-                <i class="fa-solid fa-city" style="color: #38bdf8;"></i>
-                <span>Quản lý Tòa nhà</span>
-            </a>
-
-            <!-- 3. Quản lý Tài chính & Kế toán (Mới bổ sung theo Yêu Cầu 1) -->
             @php
-                $isFinanceActive = request()->is('*tai-chinh*') || request()->is('*duyet-chuyen-khoan*') || request()->is('*cong-no-nhan-vien*') || request()->is('*duyet-hoan-coc*') || request()->is('*refund*') || request()->is('*finance*');
-                $isBankActive = request()->is('*duyet-chuyen-khoan*') || request()->is('*bank-transfer*');
-                $isDebtActive = request()->is('*cong-no-nhan-vien*') || request()->is('*staff-debt*');
-                $isRefundActive = request()->is('*duyet-hoan-coc*') || request()->is('*refund-request*') || request()->is('*hoan-coc*');
-                
-                $badgePendingCount = 0;
-                $badgeDebtCount = 0;
-                $badgeRefundCount = 0;
+                // Đếm tin nhắn liên hệ chờ xử lý
+                $badgeContactPendingCount = 0;
                 try {
-                    $badgePendingCount = \App\Models\Invoice::where('payment_method', 'bank_transfer')
-                        ->where(function($q) {
-                            $q->where('status', 'pending_approval')->orWhere('payment_status', 'pending_approval');
-                        })->count();
-                    $badgeDebtCount = \App\Models\Invoice::where('payment_method', 'cash')
-                        ->where(function($q) {
-                            $q->where('status', 'paid')->orWhere('payment_status', 'paid');
-                        })
-                        ->where(function($q) {
-                            $q->where('is_remitted_to_admin', false)->orWhere('is_remitted_to_admin', 0)->orWhereNull('is_remitted_to_admin');
-                        })->count();
-                    $badgeRefundCount = \App\Models\Contract::where('status', 'pending_refund')->count();
+                    $badgeContactPendingCount = \App\Models\ContactMessage::where('status', 'pending')->count();
                 } catch (\Exception $e) {}
-                
-                $totalPendingFinance = $badgePendingCount + $badgeRefundCount;
+                $isContactActive = request()->is('*khach-hang-lien-he*') || request()->is('*contact-message*') || request()->is('Admin/khach-hang-lien-he*');
+
+                // Đếm khiếu nại chờ xử lý
+                $badgeComplaintPendingCount = 0;
+                try {
+                    $badgeComplaintPendingCount = \App\Models\Complaint::where('status', 'pending')->count();
+                } catch (\Exception $e) {}
+                $isComplaintActive = request()->is('cskh/khieu-nai*') || request()->is('*khieu-nai*') || request()->is('*complaint*') || request()->is('Admin/khieu-nai*');
+
+                // Đếm khiếu nại Cấp 2 (Leo thang) chưa xử lý dành cho Admin
+                $badgeEscalatedCount = 0;
+                try {
+                    $badgeEscalatedCount = \App\Models\SupportTicket::where(function ($q) {
+                            $q->where('is_escalated', true)
+                              ->orWhere('is_escalated', 1)
+                              ->orWhere('is_escalated', 'true')
+                              ->orWhere('is_escalated', '1');
+                        })
+                        ->where('status', '!=', 'resolved')
+                        ->count();
+                } catch (\Exception $e) {}
+                $isEscalatedActive = request()->is('admin/khieu-nai-cap-2*') || request()->is('Admin/khieu-nai-cap-2*') || request()->is('Admin/khieu_nai_cap_2*');
             @endphp
-            <div class="nav-dropdown {{ $isFinanceActive ? 'open' : '' }}" id="finance-nav-dropdown">
-                <button type="button" class="nav-link nav-dropdown-toggle {{ $isFinanceActive ? 'active' : '' }}" onclick="toggleFinanceDropdown(event)" title="Tài chính & Kế toán">
-                    <i class="fa-solid fa-wallet" style="color: {{ $isFinanceActive ? '#ffffff' : '#10b981' }};"></i>
-                    <span>Tài chính & Kế toán</span>
-                    @if($totalPendingFinance > 0)
-                        <span class="menu-badge badge-amber" style="margin-right: 4px;">{{ $totalPendingFinance }}</span>
+
+            @if($isCskhUser)
+                <!-- ==================== MENU DÀNH RIÊNG CHO CHĂM SÓC KHÁCH HÀNG (CSKH) ==================== -->
+                <div class="menu-title">Chăm sóc khách hàng</div>
+
+                <!-- 1. Quản lý Khiếu nại -->
+                <a href="{{ url('/cskh/khieu-nai') }}" class="nav-link {{ $isComplaintActive ? 'active' : '' }}" title="Quản lý Khiếu nại">
+                    <i class="fa-solid fa-triangle-exclamation" style="color: {{ $isComplaintActive ? '#ffffff' : '#f59e0b' }};"></i>
+                    <span>Quản lý Khiếu nại</span>
+                    @if($badgeComplaintPendingCount > 0)
+                        <span class="menu-badge badge-amber" style="background-color: #f59e0b; color: #ffffff; border: 1px solid #d97706; box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);" title="{{ $badgeComplaintPendingCount }} đơn khiếu nại chưa xử lý">{{ $badgeComplaintPendingCount }}</span>
                     @endif
-                    <i class="fa-solid fa-chevron-down nav-arrow"></i>
-                </button>
-                <div class="nav-submenu">
-                    <!-- Sub-menu 1: Duyệt chuyển khoản -->
-                    <a href="{{ route('admin.finance.bank_transfers') }}" class="nav-sublink {{ $isBankActive ? 'active' : '' }}" title="Duyệt chuyển khoản">
-                        <i class="fa-solid fa-building-columns"></i>
-                        <span>Duyệt chuyển khoản</span>
-                        @if($badgePendingCount > 0)
-                            <span class="menu-badge badge-amber">{{ $badgePendingCount }}</span>
+                </a>
+
+                <!-- 2. Thông báo hệ thống -->
+                <a href="{{ url('thong_bao') }}" class="nav-link {{ request()->is('thong_bao*') || request()->is('Admin/thong-bao*') ? 'active' : '' }}" title="Thông báo">
+                    <i class="fa-solid fa-bell" style="color: #f59e0b;"></i>
+                    <span>Thông báo</span>
+                </a>
+            @else
+                <!-- ==================== MENU ĐẦY ĐỦ CHO QUẢN TRỊ VIÊN (ADMIN) ==================== -->
+                <div class="menu-title">Quản lý Doanh nghiệp</div>
+
+                <!-- 1. Tổng quan hệ thống Admin -->
+                <a href="{{ url('Admin') }}" class="nav-link {{ (request()->is('Admin') || request()->is('admin') || request()->is('Admin/overview*') || request()->is('admin/overview*')) ? 'active' : '' }}" title="Tổng quan hệ thống">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span>Tổng quan</span>
+                </a>
+
+                <!-- 2. Quản lý Bất Động Sản & Tòa Nhà -->
+                <a href="{{ url('qltoa_nha') }}" class="nav-link {{ request()->is('qltoa_nha*') || request()->is('Admin/toa-nha*') || request()->is('Admin/chi-tiet-toa-nha*') || request()->is('admin/chi-tiet-toa-nha*') || request()->is('quan-ly-toa-nha*') ? 'active' : '' }}" title="Quản lý BĐS & Tòa Nhà">
+                    <i class="fa-solid fa-city" style="color: #38bdf8;"></i>
+                    <span>Quản lý Tòa nhà</span>
+                </a>
+
+                <!-- 3. Quản lý Tài chính & Kế toán -->
+                @php
+                    $isFinanceActive = request()->is('*tai-chinh*') || request()->is('*duyet-chuyen-khoan*') || request()->is('*cong-no-nhan-vien*') || request()->is('*duyet-hoan-coc*') || request()->is('*refund*') || request()->is('*finance*');
+                    $isBankActive = request()->is('*duyet-chuyen-khoan*') || request()->is('*bank-transfer*');
+                    $isDebtActive = request()->is('*cong-no-nhan-vien*') || request()->is('*staff-debt*');
+                    $isRefundActive = request()->is('*duyet-hoan-coc*') || request()->is('*refund-request*') || request()->is('*hoan-coc*');
+                    
+                    $badgePendingCount = 0;
+                    $badgeDebtCount = 0;
+                    $badgeRefundCount = 0;
+                    try {
+                        $badgePendingCount = \App\Models\Invoice::where('payment_method', 'bank_transfer')
+                            ->where(function($q) {
+                                $q->where('status', 'pending_approval')->orWhere('payment_status', 'pending_approval');
+                            })->count();
+                        $badgeDebtCount = \App\Models\Invoice::where('payment_method', 'cash')
+                            ->where(function($q) {
+                                $q->where('status', 'paid')->orWhere('payment_status', 'paid');
+                            })
+                            ->where(function($q) {
+                                $q->where('is_remitted_to_admin', false)->orWhere('is_remitted_to_admin', 0)->orWhereNull('is_remitted_to_admin');
+                            })->count();
+                        $badgeRefundCount = \App\Models\Contract::where('status', 'pending_refund')->count();
+                    } catch (\Exception $e) {}
+                    
+                    $totalPendingFinance = $badgePendingCount + $badgeRefundCount;
+                @endphp
+                <div class="nav-dropdown {{ $isFinanceActive ? 'open' : '' }}" id="finance-nav-dropdown">
+                    <button type="button" class="nav-link nav-dropdown-toggle {{ $isFinanceActive ? 'active' : '' }}" onclick="toggleFinanceDropdown(event)" title="Tài chính & Kế toán">
+                        <i class="fa-solid fa-wallet" style="color: {{ $isFinanceActive ? '#ffffff' : '#10b981' }};"></i>
+                        <span>Tài chính & Kế toán</span>
+                        @if($totalPendingFinance > 0)
+                            <span class="menu-badge badge-amber" style="margin-right: 4px;">{{ $totalPendingFinance }}</span>
                         @endif
-                    </a>
-                    <!-- Sub-menu 2: Công nợ nhân viên -->
-                    <a href="{{ route('admin.finance.staff_debts') }}" class="nav-sublink {{ $isDebtActive ? 'active' : '' }}" title="Công nợ nhân viên">
-                        <i class="fa-solid fa-hand-holding-dollar"></i>
-                        <span>Công nợ nhân viên</span>
-                        @if($badgeDebtCount > 0)
-                            <span class="menu-badge badge-emerald">{{ $badgeDebtCount }}</span>
-                        @endif
-                    </a>
-                    <!-- Sub-menu 3: Duyệt Hoàn Cọc (Kịch bản B) -->
-                    <a href="{{ route('admin.finance.refund_requests') }}" class="nav-sublink {{ $isRefundActive ? 'active' : '' }}" title="Duyệt Hoàn Cọc">
-                        <i class="fa-solid fa-money-bill-transfer"></i>
-                        <span>Duyệt Hoàn Cọc</span>
-                        @if($badgeRefundCount > 0)
-                            <span class="menu-badge badge-rose">{{ $badgeRefundCount }}</span>
-                        @endif
-                    </a>
+                        <i class="fa-solid fa-chevron-down nav-arrow"></i>
+                    </button>
+                    <div class="nav-submenu">
+                        <a href="{{ route('admin.finance.bank_transfers') }}" class="nav-sublink {{ $isBankActive ? 'active' : '' }}" title="Duyệt chuyển khoản">
+                            <i class="fa-solid fa-building-columns"></i>
+                            <span>Duyệt chuyển khoản</span>
+                            @if($badgePendingCount > 0)
+                                <span class="menu-badge badge-amber">{{ $badgePendingCount }}</span>
+                            @endif
+                        </a>
+                        <a href="{{ route('admin.finance.staff_debts') }}" class="nav-sublink {{ $isDebtActive ? 'active' : '' }}" title="Công nợ nhân viên">
+                            <i class="fa-solid fa-hand-holding-dollar"></i>
+                            <span>Công nợ nhân viên</span>
+                            @if($badgeDebtCount > 0)
+                                <span class="menu-badge badge-emerald">{{ $badgeDebtCount }}</span>
+                            @endif
+                        </a>
+                        <a href="{{ route('admin.finance.refund_requests') }}" class="nav-sublink {{ $isRefundActive ? 'active' : '' }}" title="Duyệt Hoàn Cọc">
+                            <i class="fa-solid fa-money-bill-transfer"></i>
+                            <span>Duyệt Hoàn Cọc</span>
+                            @if($badgeRefundCount > 0)
+                                <span class="menu-badge badge-rose">{{ $badgeRefundCount }}</span>
+                            @endif
+                        </a>
+                    </div>
                 </div>
-            </div>
 
-            <!-- 4. Quản lý tài khoản con / Nhân viên -->
-            <a href="{{ url('qltai_khoan_con') }}" class="nav-link {{ request()->is('qltai_khoan_con*') || request()->is('Admin/tai-khoan-con*') ? 'active' : '' }}" title="Tài khoản con & Phân quyền">
-                <i class="fa-solid fa-users-gear" style="color: #2dd4bf;"></i>
-                <span>Nhân viên & Phân quyền</span>
-            </a>
+                <!-- 4. Quản lý tài khoản con / Nhân viên -->
+                <a href="{{ url('qltai_khoan_con') }}" class="nav-link {{ request()->is('qltai_khoan_con*') || request()->is('Admin/tai-khoan-con*') ? 'active' : '' }}" title="Tài khoản con & Phân quyền">
+                    <i class="fa-solid fa-users-gear" style="color: #2dd4bf;"></i>
+                    <span>Nhân viên & Phân quyền</span>
+                </a>
 
-            <!-- 5. Quản lý Tài khoản cá nhân / Khách thuê -->
-            <a href="{{ url('qltaikhoan_ca_nhan') }}" class="nav-link {{ request()->is('qltaikhoan_ca_nhan*') || request()->is('Admin/tai-khoan-ca-nhan*') || request()->is('qltaikhoan-ca-nhan*') ? 'active' : '' }}" title="Tài khoản cá nhân (Khách thuê)">
-                <i class="fa-solid fa-users" style="color: #0ea5e9;"></i>
-                <span>Tài khoản Khách thuê</span>
-            </a>
+                <!-- 5. Quản lý Tài khoản cá nhân / Khách thuê -->
+                <a href="{{ url('qltaikhoan_ca_nhan') }}" class="nav-link {{ request()->is('qltaikhoan_ca_nhan*') || request()->is('Admin/tai-khoan-ca-nhan*') || request()->is('qltaikhoan-ca-nhan*') ? 'active' : '' }}" title="Tài khoản cá nhân (Khách thuê)">
+                    <i class="fa-solid fa-users" style="color: #0ea5e9;"></i>
+                    <span>Tài khoản Khách thuê</span>
+                </a>
 
-            <!-- 4. Chỉnh sửa giao diện website -->
-            <a href="{{ url('sua_giao_dien') }}" class="nav-link {{ request()->is('sua_giao_dien') ? 'active' : '' }}" title="Quản lý giao diện">
-                <i class="fa-solid fa-palette" style="color: #ec4899;"></i>
-                <span>Cấu hình giao diện</span>
-            </a>
 
-            <!-- 5. Lịch sử tài khoản -->
-            <a href="{{ url('lich_su') }}" class="nav-link {{ request()->is('lich_su*') || request()->is('Admin/lich-su*') ? 'active' : '' }}" title="Lịch sử">
-                <i class="fa-solid fa-clock-rotate-left" style="color: #8b5cf6;"></i>
-                <span>Lịch sử</span>
-            </a>
+                <!-- 7.1. Khiếu nại nghiêm trọng (Leo thang - Tòa án Admin) -->
+                <a href="{{ route('admin.tickets.escalated') }}" class="nav-link {{ $isEscalatedActive ? 'active' : '' }}" title="Khiếu nại nghiêm trọng">
+                    <i class="fa-solid fa-gavel" style="color: {{ $isEscalatedActive ? '#ffffff' : '#dc2626' }};"></i>
+                    <span>Khiếu nại nghiêm trọng</span>
+                    @if($badgeEscalatedCount > 0)
+                        <span class="menu-badge badge-rose" style="background-color: #dc2626; color: #ffffff; border: 1px solid #b91c1c; box-shadow: 0 0 10px rgba(220, 38, 38, 0.4);" title="{{ $badgeEscalatedCount }} khiếu nại nghiêm trọng cần Admin giải quyết">{{ $badgeEscalatedCount }}</span>
+                    @endif
+                </a>
 
-            <!-- 6. Quản lý Thông báo -->
-            <a href="{{ url('thong_bao') }}" class="nav-link {{ request()->is('thong_bao*') || request()->is('Admin/thong-bao*') ? 'active' : '' }}" title="Thông báo">
-                <i class="fa-solid fa-bell" style="color: #f59e0b;"></i>
-                <span>Thông báo</span>
-            </a>
+                <!-- 8. Chỉnh sửa giao diện website -->
+                <a href="{{ url('sua_giao_dien') }}" class="nav-link {{ request()->is('sua_giao_dien') ? 'active' : '' }}" title="Quản lý giao diện">
+                    <i class="fa-solid fa-palette" style="color: #ec4899;"></i>
+                    <span>Cấu hình giao diện</span>
+                </a>
+
+                <!-- 9. Lịch sử tài khoản -->
+                <a href="{{ url('lich_su') }}" class="nav-link {{ request()->is('lich_su*') || request()->is('Admin/lich-su*') ? 'active' : '' }}" title="Lịch sử">
+                    <i class="fa-solid fa-clock-rotate-left" style="color: #8b5cf6;"></i>
+                    <span>Lịch sử</span>
+                </a>
+
+                <!-- 10. Quản lý Thông báo -->
+                <a href="{{ url('thong_bao') }}" class="nav-link {{ request()->is('thong_bao*') || request()->is('Admin/thong-bao*') ? 'active' : '' }}" title="Thông báo">
+                    <i class="fa-solid fa-bell" style="color: #f59e0b;"></i>
+                    <span>Thông báo</span>
+                </a>
+            @endif
         </nav>
     </div>
 
@@ -666,6 +727,9 @@
             @php
                 $adminUser = Auth::user();
                 $adminName = $adminUser ? ($adminUser->account_name ?? $adminUser->username ?? 'Admin') : 'Admin';
+                if ($adminUser && method_exists($adminUser, 'isCskh') && $adminUser->isCskh() && empty($adminUser->account_name)) {
+                    $adminName = 'Chăm sóc khách hàng';
+                }
                 $adminEmail = $adminUser->email ?? 'admin2006@gmail.com';
                 $adminInitials = strtoupper(mb_substr($adminName, 0, 2, 'UTF-8'));
             @endphp

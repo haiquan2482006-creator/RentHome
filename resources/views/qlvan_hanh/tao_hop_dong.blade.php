@@ -3,7 +3,8 @@
     $activeStatuses = ['active', 'approved'];
 
     if (empty($availableRooms) && empty($posts)) {
-        $postsQuery = \App\Models\Post::whereIn('status', $activeStatuses)
+        $postsQuery = \App\Models\Post::with(['user', 'building'])
+            ->whereIn('status', $activeStatuses)
             ->where(function ($q) {
                 $q->whereNull('is_deleted')->orWhere('is_deleted', false);
             })

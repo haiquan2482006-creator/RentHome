@@ -1107,8 +1107,30 @@
                                 <td>
                                     <div id="status-pill-container-{{ $uId }}">
                                         @if($isLocked)
-                                            <span class="status-pill status-pill-locked" title="{{ $u->lock_reason ?: 'Vi phạm tiêu chuẩn cộng đồng' }}">
-                                                <i class="fa-solid fa-lock"></i> Đã khóa / Vi phạm
+                                            @php
+                                                $pillTitle = $u->lock_reason ?: 'Vi phạm tiêu chuẩn cộng đồng';
+                                                $formattedUntil = null;
+                                                $isIndefinite = false;
+                                                if (!empty($u->locked_until)) {
+                                                    try {
+                                                        $untilCarbon = \Carbon\Carbon::parse($u->locked_until);
+                                                        if (abs($untilCarbon->diffInYears(now())) > 50 || $untilCarbon->diffInYears(now()) > 50 || $untilCarbon->greaterThan(now()->addYears(50))) {
+                                                            $isIndefinite = true;
+                                                            $pillTitle .= ' (Đến khi mở lại - Thủ công)';
+                                                        } else {
+                                                            $formattedUntil = $untilCarbon->format('d/m/Y H:i');
+                                                            $pillTitle .= ' (Thời gian mở khóa: ' . $formattedUntil . ')';
+                                                        }
+                                                    } catch (\Exception $e) {}
+                                                }
+                                            @endphp
+                                            <span class="status-pill status-pill-locked" title="{{ $pillTitle }}">
+                                                <i class="fa-solid fa-lock"></i> Đã khóa
+                                                @if($isIndefinite)
+                                                    <small style="display:block; font-size: 10px; font-weight: normal; opacity: 0.9;">Đến khi mở lại</small>
+                                                @elseif($formattedUntil)
+                                                    <small style="display:block; font-size: 10px; font-weight: normal; opacity: 0.9;">Mở: {{ $formattedUntil }}</small>
+                                                @endif
                                             </span>
                                         @else
                                             <span class="status-pill status-pill-active">
@@ -1665,15 +1687,27 @@
                 const { value: formValues, isConfirmed } = await Swal.fire({
                     title: 'Khóa tài khoản này?',
                     html: `
-                        <div style="text-align: left; font-size: 0.9rem; color: #475569; margin-bottom: 12px;">
+                        <div style="text-align: left; font-size: 0.9rem; color: #475569; margin-bottom: 14px;">
                             Bạn có chắc chắn muốn khóa tài khoản <strong>"${userName}"</strong>?<br>
                             <span style="color: #dc2626; font-weight: 700;">Người dùng sẽ không thể đăng nhập vào hệ thống.</span>
                         </div>
-                        <div style="text-align: left;">
+                        <div style="text-align: left; margin-bottom: 12px;">
                             <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #334155; margin-bottom: 4px;">
-                                Lý do khóa tài khoản:
+                                Lý do khóa tài khoản: <span style="color: #dc2626;">*</span>
                             </label>
                             <input id="swal-input-reason" class="swal2-input" style="margin: 0; width: 100%; font-size: 0.875rem;" placeholder="Nhập lý do (ví dụ: Vi phạm quy định, lừa đảo, spam...)">
+                        </div>
+                        <div style="text-align: left;">
+                            <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #334155; margin-bottom: 4px;">
+                                Thời gian khóa: <span style="color: #dc2626;">*</span>
+                            </label>
+                            <select id="swal-input-duration" name="lock_duration" class="swal2-select" style="margin: 0; width: 100%; font-size: 0.875rem; display: block; height: 42px; border: 1px solid #d1d5db; border-radius: 8px; padding: 0 12px; background-color: #ffffff;">
+                                <option value="1">Khóa 1 ngày</option>
+                                <option value="3">Khóa 3 ngày</option>
+                                <option value="7" selected>Khóa 7 ngày</option>
+                                <option value="30">Khóa 30 ngày (1 tháng)</option>
+                                <option value="indefinite">Khóa đến khi mở lại (Thủ công)</option>
+                            </select>
                         </div>
                     `,
                     icon: 'warning',
@@ -1683,19 +1717,32 @@
                     confirmButtonText: '<i class="fa-solid fa-lock"></i> Xác nhận khóa tài khoản',
                     cancelButtonText: 'Hủy bỏ',
                     reverseButtons: true,
+                    didOpen: () => {
+                        const input = document.getElementById('swal-input-reason');
+                        if (input) input.focus();
+                    },
                     preConfirm: () => {
                         const reason = document.getElementById('swal-input-reason').value.trim();
-                        return reason || 'Tài khoản vi phạm quy định tiêu chuẩn cộng đồng.';
+                        const duration = document.getElementById('swal-input-duration').value;
+                        if (!reason) {
+                            Swal.showValidationMessage('Vui lòng nhập lý do khóa tài khoản.');
+                            return false;
+                        }
+                        if (!duration) {
+                            Swal.showValidationMessage('Vui lòng chọn thời gian khóa.');
+                            return false;
+                        }
+                        return { lock_reason: reason, lock_duration: duration };
                     }
                 });
 
-                if (isConfirmed) {
+                if (isConfirmed && formValues) {
                     executeToggleLock(userId, true, formValues);
                 }
             }
         }
 
-        async function executeToggleLock(userId, shouldLock, reason) {
+        async function executeToggleLock(userId, shouldLock, lockData) {
             Swal.fire({
                 title: 'Đang xử lý...',
                 text: 'Vui lòng chờ trong giây lát...',
@@ -1704,6 +1751,23 @@
             });
 
             try {
+                let bodyPayload = {};
+                if (shouldLock) {
+                    if (typeof lockData === 'object' && lockData !== null) {
+                        bodyPayload = {
+                            lock_reason: lockData.lock_reason || lockData.reason || '',
+                            reason: lockData.lock_reason || lockData.reason || '',
+                            lock_duration: lockData.lock_duration || 7
+                        };
+                    } else {
+                        bodyPayload = {
+                            lock_reason: lockData || '',
+                            reason: lockData || '',
+                            lock_duration: 7
+                        };
+                    }
+                }
+
                 const response = await fetch(`/api/admin/personal-accounts/${userId}/toggle-lock`, {
                     method: 'POST',
                     headers: {
@@ -1711,16 +1775,17 @@
                         'Accept': 'application/json',
                         'X-CSRF-TOKEN': csrfToken
                     },
-                    body: JSON.stringify({ reason: reason })
+                    body: JSON.stringify(bodyPayload)
                 });
 
                 const data = await response.json();
-                if (!data.success) {
-                    throw new Error(data.message || 'Xử lý thất bại.');
+                if (!response.ok || !data.success) {
+                    const errorMsg = data.message || (data.errors ? Object.values(data.errors).flat().join('<br>') : 'Xử lý thất bại.');
+                    throw new Error(errorMsg);
                 }
 
                 // Cập nhật giao diện trên hàng của bảng
-                updateUserRowLockState(userId, data.is_locked, reason);
+                updateUserRowLockState(userId, data.is_locked, data.lock_reason, data.locked_until);
 
                 // Cập nhật số tài khoản vi phạm trên thẻ thống kê
                 if (data.total_violations !== undefined) {
@@ -1734,7 +1799,7 @@
                     icon: 'success',
                     title: 'Thành công!',
                     text: data.message,
-                    timer: 2000,
+                    timer: 2500,
                     showConfirmButton: false
                 });
 
@@ -1748,13 +1813,13 @@
                 Swal.fire({
                     icon: 'error',
                     title: 'Thao tác thất bại',
-                    text: error.message || 'Đã xảy ra lỗi kết nối.',
+                    html: error.message || 'Đã xảy ra lỗi kết nối.',
                     confirmButtonColor: '#0284c7'
                 });
             }
         }
 
-        function updateUserRowLockState(userId, isLocked, reason) {
+        function updateUserRowLockState(userId, isLocked, reason, lockedUntil) {
             const row = document.getElementById(`user-row-${userId}`);
             if (!row) return;
 
@@ -1764,9 +1829,21 @@
             const pillContainer = document.getElementById(`status-pill-container-${userId}`);
             if (pillContainer) {
                 if (isLocked) {
+                    let lockTitle = reason || 'Vi phạm tiêu chuẩn cộng đồng';
+                    let subtitle = '';
+                    if (lockedUntil) {
+                        const isIndef = (lockedUntil === 'indefinite' || lockedUntil === 'Đến khi mở lại' || lockedUntil.includes('mở lại'));
+                        if (isIndef) {
+                            lockTitle += ' (Đến khi mở lại - Thủ công)';
+                            subtitle = '<small style="display:block; font-size: 10px; font-weight: normal; opacity: 0.9;">Đến khi mở lại</small>';
+                        } else {
+                            lockTitle += ` (Thời gian mở khóa: ${lockedUntil})`;
+                            subtitle = `<small style="display:block; font-size: 10px; font-weight: normal; opacity: 0.9;">Mở: ${lockedUntil}</small>`;
+                        }
+                    }
                     pillContainer.innerHTML = `
-                        <span class="status-pill status-pill-locked" title="${reason || 'Vi phạm tiêu chuẩn cộng đồng'}">
-                            <i class="fa-solid fa-lock"></i> Đã khóa / Vi phạm
+                        <span class="status-pill status-pill-locked" title="${lockTitle}">
+                            <i class="fa-solid fa-lock"></i> Đã khóa ${subtitle}
                         </span>
                     `;
                 } else {
@@ -1782,13 +1859,16 @@
             const btnLock = document.getElementById(`btn-lock-${userId}`);
             const iconLock = document.getElementById(`lock-icon-${userId}`);
             if (btnLock && iconLock) {
+                const displayName = row.getAttribute('data-name') || 'người dùng';
                 if (isLocked) {
                     btnLock.className = 'btn-act btn-unlock';
                     btnLock.title = 'Mở khóa tài khoản';
+                    btnLock.onclick = () => confirmToggleLock(userId, displayName, true);
                     iconLock.className = 'fa-solid fa-lock-open';
                 } else {
                     btnLock.className = 'btn-act btn-lock';
                     btnLock.title = 'Khóa tài khoản vi phạm';
+                    btnLock.onclick = () => confirmToggleLock(userId, displayName, false);
                     iconLock.className = 'fa-solid fa-lock';
                 }
             }

@@ -3,10 +3,14 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\FrontendController;
 
 Route::get('/', function () {
     return view('Home');
 });
+
+Route::post('/bao-cao-tin', [FrontendController::class, 'submitKhieuNai'])->name('submit.khieu_nai');
+
 
 Route::get('/baidang', function (\Illuminate\Http\Request $request) {
     $postId = $request->query('id');
@@ -30,6 +34,8 @@ Route::get('/chi-tiet-phong/{id}', function ($id) {
 Route::get('/chitietbaidang/{id}', [\App\Http\Controllers\PostController::class, 'show'])->name('post.detail');
 
 Route::post('/bai-dang/{id}/lien-he', [\App\Http\Controllers\ContactController::class, 'store'])->name('contact.store');
+Route::post('/bai-dang/{id}/khieu-nai', [\App\Http\Controllers\ComplaintController::class, 'storeCustomerComplaint'])->name('complaints.store');
+Route::post('/cskh/complaints/submit', [\App\Http\Controllers\ComplaintController::class, 'storeCustomerComplaint']);
 Route::get('/thong-bao-lien-he', [\App\Http\Controllers\ContactController::class, 'index'])->middleware('auth')->name('contact.index');
 Route::get('/lich-su-lien-he', function () {
     if (!\Illuminate\Support\Facades\Auth::check()) {
@@ -477,7 +483,8 @@ $handleTaoHopDong = function (\Illuminate\Http\Request $request) {
     $user = \Illuminate\Support\Facades\Auth::user();
     $activeStatuses = ['active', 'approved'];
 
-    $postsQuery = \App\Models\Post::whereIn('status', $activeStatuses)
+    $postsQuery = \App\Models\Post::with(['user', 'building'])
+        ->whereIn('status', $activeStatuses)
         ->where(function ($q) {
             $q->whereNull('is_deleted')->orWhere('is_deleted', false);
         })
@@ -834,9 +841,19 @@ Route::get('/qltaikhoan-ca-nhan', [\App\Http\Controllers\PersonalAccountControll
 Route::get('/admin/customers/{id}/details', [\App\Http\Controllers\PersonalAccountController::class, 'showDetails'])->name('admin.customers.details');
 Route::get('/Admin/customers/{id}/details', [\App\Http\Controllers\PersonalAccountController::class, 'showDetails']);
 Route::get('/api/admin/personal-accounts/{id}', [\App\Http\Controllers\PersonalAccountController::class, 'showDetails'])->name('api.admin.personal_accounts.show');
+Route::post('/admin/users/{id}/lock', [\App\Http\Controllers\PersonalAccountController::class, 'toggleLock'])->name('admin.users.lock');
+Route::post('/Admin/users/{id}/lock', [\App\Http\Controllers\PersonalAccountController::class, 'toggleLock']);
 Route::post('/api/admin/personal-accounts/{id}/toggle-lock', [\App\Http\Controllers\PersonalAccountController::class, 'toggleLock'])->name('api.admin.personal_accounts.toggle_lock');
 Route::delete('/api/admin/personal-accounts/{id}', [\App\Http\Controllers\PersonalAccountController::class, 'destroy'])->name('api.admin.personal_accounts.destroy');
 Route::post('/api/admin/personal-accounts/{id}/takedown-posts', [\App\Http\Controllers\PersonalAccountController::class, 'takedownPosts'])->name('api.admin.personal_accounts.takedown_posts');
+
+// ==================== QUẢN LÝ BÀI ĐĂNG NỔI BẬT (ADMIN) ====================
+Route::get('/Admin/bai-dang-noi-bat', [\App\Http\Controllers\PostController::class, 'adminFeaturedPosts'])->name('admin.featured_posts');
+Route::get('/admin/bai-dang-noi-bat', [\App\Http\Controllers\PostController::class, 'adminFeaturedPosts']);
+Route::get('/Admin/bai_dang_noi_bat', [\App\Http\Controllers\PostController::class, 'adminFeaturedPosts']);
+Route::get('/admin/bai_dang_noi_bat', [\App\Http\Controllers\PostController::class, 'adminFeaturedPosts']);
+Route::post('/admin/posts/{id}/toggle-featured', [\App\Http\Controllers\PostController::class, 'toggleFeatured'])->name('admin.posts.toggle_featured');
+Route::post('/Admin/posts/{id}/toggle-featured', [\App\Http\Controllers\PostController::class, 'toggleFeatured']);
 
 Route::get('/Overview', function (\Illuminate\Http\Request $request) {
     if (!Auth::check()) {
@@ -861,6 +878,14 @@ Route::middleware(['auth'])->group(function () {
         return redirect('/kiem-duyet/tong-quan');
     })->name('moderator.home');
 
+    Route::get('/kiem_duyet', function () {
+        return redirect('/kiem-duyet/tong-quan');
+    });
+
+    Route::get('/kiem_duyet/tong_quan', function () {
+        return redirect('/kiem-duyet/tong-quan');
+    });
+
     Route::get('/kiem-duyet/tong-quan', function () {
         $user = Auth::user();
         if (!$user->isModerator() && $user->role !== 'admin') {
@@ -880,7 +905,7 @@ Route::middleware(['auth'])->group(function () {
         $complaintCount = \App\Models\Complaint::where('status', 'pending')->count();
 
         // 1. Phân loại ngày duyệt bài & từ chối bài thực tế
-        $allPosts = \App\Models\Post::all();
+        $allPosts = \App\Models\Post::with(['user', 'building'])->get();
         $allComplaints = \App\Models\Complaint::all();
         $postActivities = \App\Models\AdminActivity::where('category', 'post')->get();
 
@@ -935,6 +960,43 @@ Route::middleware(['auth'])->group(function () {
             }
         }
 
+        // Thống kê tin tức (NewsArticle) cho Kiểm duyệt viên
+        $totalNewsCount = \App\Models\NewsArticle::count();
+        $approvedNewsCount = \App\Models\NewsArticle::where('status', 'approved')->count();
+        $pendingNewsCount = \App\Models\NewsArticle::where('status', 'pending')->count();
+        $rejectedNewsCount = \App\Models\NewsArticle::where('status', 'rejected')->count();
+        $newsApprovalRate = $totalNewsCount > 0 ? round(($approvedNewsCount / $totalNewsCount) * 100, 1) : 0;
+
+        $allNews = \App\Models\NewsArticle::all();
+        $newsApprovedByDate = [];
+        $newsPendingByDate = [];
+        $approvedNewsToday = 0;
+
+        foreach ($allNews as $n) {
+            $st = strtolower(trim((string)($n->status ?? '')));
+            if ($st === 'approved') {
+                $d = null;
+                if (!empty($n->moderated_at)) {
+                    $d = \Carbon\Carbon::parse($n->moderated_at)->format('Y-m-d');
+                } elseif (!empty($n->updated_at)) {
+                    $d = \Carbon\Carbon::parse($n->updated_at)->format('Y-m-d');
+                } elseif (!empty($n->created_at)) {
+                    $d = \Carbon\Carbon::parse($n->created_at)->format('Y-m-d');
+                }
+                if ($d) {
+                    $newsApprovedByDate[$d] = ($newsApprovedByDate[$d] ?? 0) + 1;
+                    if ($d === $todayStr) {
+                        $approvedNewsToday++;
+                    }
+                }
+            } elseif ($st === 'pending') {
+                $d = !empty($n->created_at) ? \Carbon\Carbon::parse($n->created_at)->format('Y-m-d') : null;
+                if ($d) {
+                    $newsPendingByDate[$d] = ($newsPendingByDate[$d] ?? 0) + 1;
+                }
+            }
+        }
+
         $complaintsByDate = [];
         $urgentComplaintCount = 0;
         foreach ($allComplaints as $c) {
@@ -949,10 +1011,13 @@ Route::middleware(['auth'])->group(function () {
 
         $dayNames = [1 => 'T2', 2 => 'T3', 3 => 'T4', 4 => 'T5', 5 => 'T6', 6 => 'T7', 0 => 'CN'];
         $chart7Days = [
-            'labels'    => [],
-            'approved'  => [],
-            'rejected'  => [],
-            'complaint' => [],
+            'labels'        => [],
+            'approved_news' => [],
+            'pending_news'  => [],
+            'rate'          => [],
+            'approved'      => [],
+            'rejected'      => [],
+            'complaint'     => [],
         ];
 
         for ($i = 6; $i >= 0; $i--) {
@@ -960,17 +1025,29 @@ Route::middleware(['auth'])->group(function () {
             $dStr = $d->format('Y-m-d');
             $dayLabel = $dayNames[$d->dayOfWeek] . ' (' . $d->format('d/m') . ')';
 
+            $apprN = $newsApprovedByDate[$dStr] ?? 0;
+            $pendN = $newsPendingByDate[$dStr] ?? 0;
+            $totN = $apprN + $pendN;
+            $dayRate = $totN > 0 ? round(($apprN / $totN) * 100) : ($apprN > 0 ? 100 : 0);
+
             $chart7Days['labels'][] = $dayLabel;
+            $chart7Days['approved_news'][] = $apprN;
+            $chart7Days['pending_news'][] = $pendN;
+            $chart7Days['rate'][] = $dayRate;
+
             $chart7Days['approved'][] = $postsApprovedByDate[$dStr] ?? 0;
             $chart7Days['rejected'][] = $postsRejectedByDate[$dStr] ?? 0;
             $chart7Days['complaint'][] = $complaintsByDate[$dStr] ?? 0;
         }
 
         $chart30Days = [
-            'labels'    => ['Tuần 1', 'Tuần 2', 'Tuần 3', 'Tuần 4'],
-            'approved'  => [0, 0, 0, 0],
-            'rejected'  => [0, 0, 0, 0],
-            'complaint' => [0, 0, 0, 0],
+            'labels'        => ['Tuần 1', 'Tuần 2', 'Tuần 3', 'Tuần 4'],
+            'approved_news' => [0, 0, 0, 0],
+            'pending_news'  => [0, 0, 0, 0],
+            'rate'          => [0, 0, 0, 0],
+            'approved'      => [0, 0, 0, 0],
+            'rejected'      => [0, 0, 0, 0],
+            'complaint'     => [0, 0, 0, 0],
         ];
 
         for ($dayAgo = 0; $dayAgo < 30; $dayAgo++) {
@@ -986,9 +1063,17 @@ Route::middleware(['auth'])->group(function () {
                 $weekIndex = 2;
             }
 
+            $chart30Days['approved_news'][$weekIndex] += ($newsApprovedByDate[$dStr] ?? 0);
+            $chart30Days['pending_news'][$weekIndex] += ($newsPendingByDate[$dStr] ?? 0);
+
             $chart30Days['approved'][$weekIndex] += ($postsApprovedByDate[$dStr] ?? 0);
             $chart30Days['rejected'][$weekIndex] += ($postsRejectedByDate[$dStr] ?? 0);
             $chart30Days['complaint'][$weekIndex] += ($complaintsByDate[$dStr] ?? 0);
+        }
+
+        for ($w = 0; $w < 4; $w++) {
+            $wTot = $chart30Days['approved_news'][$w] + $chart30Days['pending_news'][$w];
+            $chart30Days['rate'][$w] = $wTot > 0 ? round(($chart30Days['approved_news'][$w] / $wTot) * 100) : ($chart30Days['approved_news'][$w] > 0 ? 100 : 0);
         }
 
         $totalReviewed = $approvedCount + $rejectedCount;
@@ -1000,6 +1085,10 @@ Route::middleware(['auth'])->group(function () {
             'rejected_posts'     => $rejectedCount,
             'total_posts'        => $totalCount,
             'pending_complaints' => $complaintCount,
+            'total_news'         => $totalNewsCount,
+            'approved_news'      => $approvedNewsCount,
+            'pending_news'       => $pendingNewsCount,
+            'news_approval_rate' => $newsApprovalRate,
         ];
 
         $pendingPosts = \App\Models\Post::whereIn('status', $pendingStatuses)->with(['user', 'building'])->orderBy('created_at', 'desc')->take(10)->get();
@@ -1017,7 +1106,13 @@ Route::middleware(['auth'])->group(function () {
             'approvedToday',
             'approvalRate',
             'urgentComplaintCount',
-            'recentComplaints'
+            'recentComplaints',
+            'totalNewsCount',
+            'approvedNewsCount',
+            'pendingNewsCount',
+            'rejectedNewsCount',
+            'newsApprovalRate',
+            'approvedNewsToday'
         ));
     })->name('moderator.dashboard');
 
@@ -1060,24 +1155,10 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::get('/kiem-duyet/khieu-nai', function () {
-        $user = Auth::user();
-        if (!$user->isModerator() && $user->role !== 'admin') {
-            return redirect('/')->with('error', 'Chỉ tài khoản Kiểm duyệt viên mới có quyền truy cập.');
-        }
-        $pendingCount = \App\Models\Post::where('status', 'pending')->count();
-        $complaintCount = \App\Models\Complaint::where('status', 'pending')->count();
-        $complaints = \App\Models\Complaint::with('user')->orderBy('created_at', 'desc')->get();
-        $stats = [
-            'pending_complaints'  => $complaintCount,
-            'resolved_complaints' => \App\Models\Complaint::where('status', 'resolved')->count(),
-            'total_complaints'    => \App\Models\Complaint::count(),
-            'pending_posts'       => $pendingCount
-        ];
-        return view('kiem_duyet_vien.khieu_nai', compact('pendingCount', 'complaintCount', 'complaints', 'stats'));
-    })->name('moderator.complaints');
-
+        return redirect('/cskh/khieu-nai');
+    });
     Route::get('/kiem-duyet/qlkhieu-nai-cap1', function () {
-        return redirect('/kiem-duyet/khieu-nai');
+        return redirect('/cskh/khieu-nai');
     });
 
     Route::get('/kiem-duyet/qltin-tuc', function () {
@@ -1415,6 +1496,11 @@ Route::get('/dangbai', function(){
 
 // APIs for Posts
 Route::post('/api/posts', [\App\Http\Controllers\PostController::class, 'store'])->name('posts.store');
+Route::get('/posts/{id}/edit', function($id) {
+    return redirect('/dangbai?edit=' . $id);
+})->name('posts.edit');
+Route::match(['put', 'patch', 'post'], '/api/posts/{id}', [\App\Http\Controllers\PostController::class, 'update'])->name('posts.update');
+Route::match(['put', 'patch', 'post'], '/posts/{id}', [\App\Http\Controllers\PostController::class, 'update']);
 Route::get('/api/posts/approved', [\App\Http\Controllers\PostController::class, 'getApproved'])->name('posts.approved');
 Route::get('/api/posts/featured', [\App\Http\Controllers\PostController::class, 'getFeatured'])->name('posts.featured');
 Route::post('/api/posts/{id}/unlink', [\App\Http\Controllers\PostController::class, 'unlink'])->middleware('auth')->name('posts.unlink');
@@ -1479,3 +1565,100 @@ Route::post('/api/sub-accounts/{id}/toggle-lock', [\App\Http\Controllers\SubAcco
 // ========================================================
 Route::post('/ai/chat', [\App\Http\Controllers\AiChatController::class, 'sendMessage'])->name('ai.chat');
 Route::post('/ai/reset', [\App\Http\Controllers\AiChatController::class, 'resetChat'])->name('ai.reset');
+
+// ========================================================
+// Quản lý Khách hàng liên hệ (Ticket Management - Dành cho Admin)
+// ========================================================
+Route::get('/Admin/khach-hang-lien-he', [\App\Http\Controllers\AdminContactMessageController::class, 'index'])->name('admin.contact_messages.index');
+Route::get('/admin/khach-hang-lien-he', [\App\Http\Controllers\AdminContactMessageController::class, 'index']);
+Route::patch('/admin/khach-hang-lien-he/{id}/status', [\App\Http\Controllers\AdminContactMessageController::class, 'updateStatus'])->name('admin.contact_messages.update_status');
+Route::get('/admin/khach-hang-lien-he/{id}', [\App\Http\Controllers\AdminContactMessageController::class, 'show'])->name('admin.contact_messages.show');
+Route::delete('/admin/khach-hang-lien-he/{id}', [\App\Http\Controllers\AdminContactMessageController::class, 'destroy'])->name('admin.contact_messages.destroy');
+Route::post('/api/contact-messages', [\App\Http\Controllers\AdminContactMessageController::class, 'store'])->name('contact_messages.store');
+ 
+// ========================================================
+// Routes Kênh Chăm Sóc Khách Hàng (Role: cham_soc_kh / CSKH)
+// ========================================================
+Route::middleware(['auth'])->prefix('cskh')->group(function () {
+    Route::get('/khieu-nai', [\App\Http\Controllers\ComplaintController::class, 'index'])->name('cskh.complaints');
+    Route::get('/khieu_nai', function (\Illuminate\Http\Request $request) {
+        $qs = http_build_query($request->all());
+        return redirect('/cskh/khieu-nai' . ($qs ? '?' . $qs : ''));
+    });
+    Route::get('/khieu nai', function (\Illuminate\Http\Request $request) {
+        $qs = http_build_query($request->all());
+        return redirect('/cskh/khieu-nai' . ($qs ? '?' . $qs : ''));
+    });
+    Route::get('/qlkhieu-nai', function () {
+        return redirect('/cskh/khieu-nai');
+    });
+    Route::post('/complaints/{id}/resolve', [\App\Http\Controllers\ComplaintController::class, 'resolve'])->name('cskh.complaints.resolve');
+    Route::delete('/complaints/{id}', [\App\Http\Controllers\ComplaintController::class, 'destroy'])->name('cskh.complaints.destroy');
+    Route::get('/tickets/{id}/chat', [\App\Http\Controllers\ComplaintController::class, 'getTicketChat'])->name('cskh.tickets.chat');
+    Route::post('/tickets/{id}/reply', [\App\Http\Controllers\ComplaintController::class, 'replyTicket'])->name('cskh.tickets.reply');
+    Route::post('/tickets/{id}/escalate', [\App\Http\Controllers\ComplaintController::class, 'escalateTicket'])->name('cskh.tickets.escalate');
+    Route::post('/tickets/{id}/reject', [\App\Http\Controllers\ComplaintController::class, 'rejectTicket'])->name('cskh.ticket.reject');
+    Route::post('/complaints/{id}/reject', [\App\Http\Controllers\ComplaintController::class, 'rejectTicket'])->name('cskh.complaints.reject');
+
+    // Trung Tâm Thông Báo Kênh CSKH
+    Route::get('/thong-bao', [\App\Http\Controllers\CSKHController::class, 'notifications'])->name('cskh.notifications');
+    Route::get('/thong_bao', function () {
+        return redirect()->route('cskh.notifications');
+    });
+    Route::post('/notifications/{id}/read', [\App\Http\Controllers\CSKHController::class, 'markNotificationAsRead'])->name('cskh.notifications.read');
+    Route::post('/notifications/mark-all-read', [\App\Http\Controllers\CSKHController::class, 'markAllNotificationsAsRead'])->name('cskh.notifications.mark_all_read');
+    Route::delete('/notifications/{id}', [\App\Http\Controllers\CSKHController::class, 'deleteNotification'])->name('cskh.notifications.destroy');
+    Route::delete('/notifications/clear-read', [\App\Http\Controllers\CSKHController::class, 'clearReadNotifications'])->name('cskh.notifications.clear_read');
+    Route::get('/api/notifications/unread-count', [\App\Http\Controllers\CSKHController::class, 'getUnreadCount'])->name('cskh.notifications.unread_count');
+});
+
+// Chuyển hướng các URL cũ về Route CSKH mới
+Route::get('/Admin/khieu-nai', function () {
+    return redirect('/cskh/khieu-nai');
+});
+Route::get('/admin/khieu-nai', function () {
+    return redirect('/cskh/khieu-nai');
+});
+
+// API Khiếu nại (CSKH & Admin)
+Route::post('/api/cskh/complaints/{id}/resolve', [\App\Http\Controllers\ComplaintController::class, 'resolve'])->middleware('auth')->name('api.cskh.complaints.resolve');
+Route::get('/api/cskh/complaints/{id}', [\App\Http\Controllers\ComplaintController::class, 'show'])->middleware('auth')->name('api.cskh.complaints.show');
+Route::delete('/api/cskh/complaints/{id}', [\App\Http\Controllers\ComplaintController::class, 'destroy'])->middleware('auth')->name('api.cskh.complaints.destroy');
+Route::post('/api/cskh/tickets/{id}/escalate', [\App\Http\Controllers\ComplaintController::class, 'escalateTicket'])->middleware('auth')->name('api.cskh.tickets.escalate');
+Route::post('/api/cskh/tickets/{id}/reject', [\App\Http\Controllers\ComplaintController::class, 'rejectTicket'])->middleware('auth')->name('api.cskh.tickets.reject');
+
+// API Chat & Phản hồi Ticket
+Route::get('/api/cskh/tickets/{id}/chat', [\App\Http\Controllers\ComplaintController::class, 'getTicketChat'])->middleware('auth')->name('api.cskh.tickets.chat');
+Route::post('/api/cskh/tickets/{id}/reply', [\App\Http\Controllers\ComplaintController::class, 'replyTicket'])->middleware('auth')->name('api.cskh.tickets.reply');
+Route::get('/api/cskh/complaints/{id}/chat', [\App\Http\Controllers\ComplaintController::class, 'getTicketChat'])->middleware('auth');
+Route::post('/api/cskh/complaints/{id}/reply', [\App\Http\Controllers\ComplaintController::class, 'replyTicket'])->middleware('auth');
+
+Route::get('/api/admin/complaints/{id}', [\App\Http\Controllers\ComplaintController::class, 'show'])->middleware('auth');
+Route::post('/api/admin/complaints/{id}/resolve', [\App\Http\Controllers\ComplaintController::class, 'resolve'])->middleware('auth');
+Route::delete('/api/admin/complaints/{id}', [\App\Http\Controllers\ComplaintController::class, 'destroy'])->middleware('auth');
+Route::post('/api/admin/tickets/{id}/reject', [\App\Http\Controllers\AdminController::class, 'rejectTicket'])->middleware('auth')->name('api.admin.tickets.reject');
+
+// ========================================================
+// KHIẾU NẠI CẤP 2 (ESCALATED TICKETS) - DÀNH CHO ADMIN
+// ========================================================
+Route::middleware(['auth'])->group(function () {
+    Route::get('/admin/khieu-nai-cap-2', [\App\Http\Controllers\AdminController::class, 'escalatedTickets'])->name('admin.tickets.escalated');
+    Route::get('/Admin/khieu-nai-cap-2', [\App\Http\Controllers\AdminController::class, 'escalatedTickets']);
+    Route::get('/Admin/khieu_nai_cap_2', [\App\Http\Controllers\AdminController::class, 'escalatedTickets']);
+    
+    // Các API hành động đặc quyền của Admin
+    Route::post('/admin/tickets/{id}/hide-post', [\App\Http\Controllers\AdminController::class, 'hidePost'])->name('admin.tickets.hide_post');
+    Route::post('/Admin/tickets/{id}/hide-post', [\App\Http\Controllers\AdminController::class, 'hidePost']);
+    
+    Route::post('/admin/tickets/{id}/lock-staff', [\App\Http\Controllers\AdminController::class, 'lockStaff'])->name('admin.tickets.lock_staff');
+    Route::post('/Admin/tickets/{id}/lock-staff', [\App\Http\Controllers\AdminController::class, 'lockStaff']);
+
+    Route::post('/admin/tickets/{id}/resolve', [\App\Http\Controllers\AdminController::class, 'resolveTicket'])->name('admin.tickets.resolve');
+    Route::post('/Admin/tickets/{id}/resolve', [\App\Http\Controllers\AdminController::class, 'resolveTicket']);
+
+    Route::post('/admin/tickets/{id}/reject', [\App\Http\Controllers\AdminController::class, 'rejectTicket'])->name('admin.ticket.reject');
+    Route::post('/Admin/tickets/{id}/reject', [\App\Http\Controllers\AdminController::class, 'rejectTicket']);
+
+    Route::get('/admin/tickets/{id}/detail', [\App\Http\Controllers\AdminController::class, 'getTicketDetail'])->name('admin.tickets.detail');
+    Route::get('/Admin/tickets/{id}/detail', [\App\Http\Controllers\AdminController::class, 'getTicketDetail']);
+});

@@ -7,6 +7,7 @@ use App\Models\Notification;
 use App\Models\Contract;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 
 class UserDashboardController extends Controller
 {
@@ -53,16 +54,28 @@ class UserDashboardController extends Controller
             $totalViews = (clone $query)->sum('views') ?? 0;
             $totalLikes = (clone $query)->sum('likes') ?? 0;
         } elseif ($user->isEnterprise() || $user->isAdmin()) {
-            $activePostsCount = Post::where(function ($q) {
-                    $q->whereIn('status', ['active', 'approved', 'đã cho thuê', 'rented', 'dang_thue'])
-                      ->orWhere('is_rented', true);
-                })
-                ->whereNotIn('status', ['pending', 'rejected', 'deleted'])
-                ->count();
-            $pendingPostsCount = Post::where('status', 'pending')->count();
-            $totalViews = Post::sum('views') ?? 0;
-            $totalLikes = Post::sum('likes') ?? 0;
-            $totalBuildingsCount = \App\Models\Building::count();
+            $globalStats = Cache::remember('enterprise_global_stats', 300, function () {
+                $activeCount = Post::where(function ($q) {
+                        $q->whereIn('status', ['active', 'approved', 'đã cho thuê', 'rented', 'dang_thue'])
+                          ->orWhere('is_rented', true);
+                    })
+                    ->whereNotIn('status', ['pending', 'rejected', 'deleted'])
+                    ->count();
+
+                return [
+                    'activePostsCount'    => $activeCount,
+                    'pendingPostsCount'   => Post::where('status', 'pending')->count(),
+                    'totalViews'          => (int)(Post::sum('views') ?? 0),
+                    'totalLikes'          => (int)(Post::sum('likes') ?? 0),
+                    'totalBuildingsCount' => \App\Models\Building::count(),
+                ];
+            });
+
+            $activePostsCount = $globalStats['activePostsCount'];
+            $pendingPostsCount = $globalStats['pendingPostsCount'];
+            $totalViews = $globalStats['totalViews'];
+            $totalLikes = $globalStats['totalLikes'];
+            $totalBuildingsCount = $globalStats['totalBuildingsCount'];
         } else {
             $query = Post::where(function($q) use ($userId) {
                 $q->where('user_id', $userId)
@@ -175,7 +188,7 @@ class UserDashboardController extends Controller
         $posts->transform(function ($post) use ($activeContractPostIds) {
             $postId = (string)($post->_id ?? $post->id);
             $isRented = ($post->is_rented === true 
-                || in_array($post->status, ['đã cho thuê', 'rented', 'dang_thue'])
+                || in_array($post->status, ['đã cho thuê', 'rented', 'dang_thue', 'đang thuê', 'da_cho_thue'])
                 || in_array($postId, $activeContractPostIds));
                 
             $post->is_rented = $isRented;
@@ -208,6 +221,21 @@ class UserDashboardController extends Controller
         }
 
         $posts = $query->orderBy('updated_at', 'desc')->get();
+
+        $activeContractPostIds = Contract::whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly'])
+            ->pluck('post_id')
+            ->filter()
+            ->toArray();
+
+        $posts->transform(function ($post) use ($activeContractPostIds) {
+            $postId = (string)($post->_id ?? $post->id);
+            $isRented = ($post->is_rented === true 
+                || in_array($post->status, ['đã cho thuê', 'rented', 'dang_thue', 'đang thuê'])
+                || in_array($postId, $activeContractPostIds));
+                
+            $post->is_rented = $isRented;
+            return $post;
+        });
             
         return response()->json(['success' => true, 'posts' => $posts]);
     }

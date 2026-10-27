@@ -6,6 +6,8 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
+use Carbon\Carbon;
 
 class AuthController extends Controller
 {
@@ -33,13 +35,54 @@ class AuthController extends Controller
             : ['username' => $loginInput, 'password' => $password];
 
         if (Auth::attempt($authFields)) {
-            $request->session()->regenerate();
             $user = Auth::user();
 
-            if ($user->is_locked || $user->status === 'locked') {
-                Auth::logout();
-                return back()->withErrors(['login_error' => 'Tài khoản của bạn đã bị khóa! Vui lòng liên hệ Ban Quản Trị.']);
+            // Tự động cho phép đăng nhập lại & mở khóa nếu đã hết thời gian khóa
+            if ($user->locked_until && now()->greaterThanOrEqualTo($user->locked_until)) {
+                $user->is_locked = false;
+                $user->status = 'active';
+                $user->locked_until = null;
+                $user->lock_reason = null;
+                $user->save();
             }
+
+            // BƯỚC 3: Sửa logic cảnh báo đăng nhập (LoginCheck)
+            if ($user->locked_until && now()->lessThan($user->locked_until)) {
+                // Đăng xuất ngay lập tức
+                Auth::logout();
+                $request->session()->invalidate();
+                
+                $lyDo = $user->lock_reason ?: 'Vi phạm tiêu chuẩn cộng đồng.';
+                
+                // Nếu thời gian khóa còn lớn hơn 50 năm -> Hiểu là khóa vô thời hạn (đến khi mở lại)
+                $isIndefinite = abs(Carbon::parse($user->locked_until)->diffInYears(now())) > 50 
+                    || Carbon::parse($user->locked_until)->diffInYears(now()) > 50
+                    || Carbon::parse($user->locked_until)->greaterThan(now()->addYears(50));
+
+                if ($isIndefinite) {
+                    $errorMessage = "Tài khoản của bạn đã bị khóa đến khi được mở lại bởi Quản trị viên. Lý do: {$lyDo}. Vui lòng liên hệ Ban Quản Trị để được hỗ trợ.";
+                } else {
+                    $thoiGianMoKhoa = Carbon::parse($user->locked_until)->format('d/m/Y H:i');
+                    $errorMessage = "Tài khoản của bạn đã bị khóa. Thời gian mở khóa: {$thoiGianMoKhoa}. Lý do: {$lyDo}. Khi hết thời gian trên, bạn có thể đăng nhập bình thường.";
+                }
+                
+                // Bắn lỗi quay lại trang đăng nhập
+                throw ValidationException::withMessages([
+                    'email' => $errorMessage,
+                ]);
+            }
+
+            // Kiểm tra trường hợp tài khoản bị khóa không có locked_until
+            if ($user->is_locked || in_array($user->status, ['locked', 'khoa', 'vi_pham', 'banned'])) {
+                Auth::logout();
+                $request->session()->invalidate();
+                $lyDo = $user->lock_reason ?: 'Vi phạm tiêu chuẩn cộng đồng.';
+                throw ValidationException::withMessages([
+                    'email' => "Tài khoản của bạn đã bị khóa đến khi được mở lại bởi Quản trị viên. Lý do: {$lyDo}. Vui lòng liên hệ Ban Quản Trị để được hỗ trợ.",
+                ]);
+            }
+
+            $request->session()->regenerate();
 
             if ($user->role === 'admin') {
                 return redirect()->intended('/Admin')->with('success', 'Xin chào Admin! Đăng nhập thành công vào trang quản trị.');
@@ -47,6 +90,12 @@ class AuthController extends Controller
 
             if ($user->isModerator() || $user->role === 'kiemduyet' || $user->role === 'moderator') {
                 return redirect()->intended('/kiem-duyet/tong-quan')->with('success', 'Xin chào ' . ($user->account_name ?: 'Kiểm duyệt viên') . '! Đăng nhập thành công vào Kênh Kiểm Duyệt.');
+            }
+
+            // 2.2 Nhân viên Chăm sóc khách hàng (CSKH) -> Chuyển thẳng về Trung tâm CSKH & Khiếu nại
+            if ((method_exists($user, 'isCskh') && $user->isCskh()) || in_array($user->role, ['chăm sóc kh', 'chamsockh', 'cskh', 'cham_soc_kh'])) {
+                $request->session()->forget('url.intended');
+                return redirect('/cskh/khieu-nai')->with('success', 'Xin chào ' . ($user->account_name ?: 'Chăm sóc khách hàng') . '! Đăng nhập thành công vào Trung tâm CSKH.');
             }
 
             // 3. Tài khoản con (nhân sự / nhân viên phụ trách) -> Chuyển về Trang chủ (Home)

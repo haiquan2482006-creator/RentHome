@@ -331,6 +331,7 @@
                         <div class="relative shrink-0">
                             <div id="room-img-wrapper-{{ $room->id }}" class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border {{ $room->status === 'unpaid' ? 'border-rose-300 ring-2 ring-rose-100' : 'border-slate-200' }} bg-slate-100 shadow-sm shrink-0">
                                 <img src="{{ $roomImg }}" 
+                                     loading="lazy"
                                      alt="{{ $room->name ?? $room->room_name ?? 'Ảnh phòng' }}" 
                                      class="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                                      onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80';">
@@ -523,7 +524,7 @@
                          data-status="available">
                         <div class="flex items-start gap-4">
                             <div class="relative w-20 h-20 rounded-2xl overflow-hidden shrink-0 border border-slate-200 bg-slate-200">
-                                <img src="{{ $availImg }}" alt="{{ $avail->title }}" class="w-full h-full object-cover">
+                                <img src="{{ $availImg }}" loading="lazy" alt="{{ $avail->title }}" class="w-full h-full object-cover">
                                 <span class="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[9px] font-extrabold uppercase">
                                     Trống
                                 </span>

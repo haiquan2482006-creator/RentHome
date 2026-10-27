@@ -63,7 +63,7 @@
         $user = \Illuminate\Support\Facades\Auth::user();
         $isStaff = $user && ($user->isSubAccount() || $user->isStaff() || in_array($user->role ?? '', ['nhansu', 'nhan su', 'nhan_su', 'sub_account', 'staff']));
         $isEnterprise = $user && ($user->isEnterprise() || in_array($user->role ?? '', ['doanhnghiep', 'enterprise'])) && !$isStaff;
-        $userName = $user ? ($isStaff ? ($user->account_name ?? $user->username ?? 'Nhân sự') : ($isEnterprise ? ($user->representative ?? $user->account_name ?? $user->company_name ?? $user->username ?? 'Doanh nghiệp') : ($user->account_name ?? $user->username ?? 'Người dùng'))) : 'Người dùng';
+        $userName = $user ? ($isStaff ? ($user->ten_hien_thi ?: ($user->ho_ten ?: ($user->account_name ?: ($user->username ?: 'Nhân sự')))) : ($isEnterprise ? ($user->representative ?? $user->account_name ?? $user->company_name ?? $user->username ?? 'Doanh nghiệp') : ($user->ten_hien_thi ?: ($user->ho_ten ?: ($user->account_name ?: ($user->username ?: 'Người dùng')))))) : 'Người dùng';
     @endphp
 
     @include('partials.sidebar-user')
@@ -154,7 +154,7 @@
                         <!-- Thông tin cá nhân cơ bản -->
                         <div class="flex flex-col items-center sm:items-start text-center sm:text-left">
                             <div class="flex flex-wrap items-center justify-center sm:justify-start gap-3">
-                                <h2 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">{{ $userName }}</h2>
+                                <h2 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">{{ $user->ten_hien_thi ?? ($user->ho_ten ?? $userName) }}</h2>
                                 @if($isStaff)
                                     <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border-emerald-200 text-xs font-bold border">
                                         <i class="fa-solid fa-user-tie"></i> Tài khoản Nhân sự
@@ -328,14 +328,23 @@
                             <label class="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
                                 <i class="fa-solid fa-user-tag text-slate-400"></i> Tên hiển thị
                             </label>
-                            <input type="text" name="username" value="{{ $user->username ?? '' }}" disabled class="editable-input w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200/80 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium text-slate-800 placeholder-slate-400 disabled:opacity-75 disabled:cursor-not-allowed">
+                            <input type="text" name="ten_hien_thi" value="{{ $user->ten_hien_thi ?? ($user->username ?? '') }}" disabled placeholder="Ví dụ: Hải RentHome" class="editable-input w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200/80 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium text-slate-800 placeholder-slate-400 disabled:opacity-75 disabled:cursor-not-allowed">
+                            <p class="text-xs text-slate-400 mt-1 flex items-start gap-1.5 leading-snug">
+                                <i class="fa-solid fa-circle-info text-[11px] text-slate-400 mt-0.5 shrink-0"></i>
+                                <span>Tên thương hiệu/nghệ danh sẽ hiển thị ra ngoài trang chủ cho khách hàng thấy.</span>
+                            </p>
                         </div>
 
                         <div class="space-y-2">
-                            <label class="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
-                                <i class="fa-solid fa-signature text-slate-400"></i> Họ tên
+                            <label class="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center justify-between">
+                                <span class="flex items-center gap-2"><i class="fa-solid fa-signature text-slate-400"></i> Họ tên</span>
+                                <span class="text-[11px] font-semibold text-slate-400 flex items-center gap-1"><i class="fa-solid fa-lock text-[10px]"></i> Cố định</span>
                             </label>
-                            <input type="text" name="account_name" value="{{ $user->account_name ?? '' }}" disabled class="editable-input w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200/80 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium text-slate-800 placeholder-slate-400 disabled:opacity-75 disabled:cursor-not-allowed">
+                            <input type="text" name="ho_ten" value="{{ $user->ho_ten ?? ($user->account_name ?? '') }}" readonly class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-200/80 text-slate-500 font-medium cursor-not-allowed select-none">
+                            <p class="text-xs text-slate-400 mt-1 flex items-start gap-1.5 leading-snug">
+                                <i class="fa-solid fa-shield-halved text-[11px] text-slate-400 mt-0.5 shrink-0"></i>
+                                <span>Dùng để đối soát CCCD, in hợp đồng và tính lương. Liên hệ Admin nếu cần thay đổi.</span>
+                            </p>
                         </div>
 
                         <div class="space-y-2">

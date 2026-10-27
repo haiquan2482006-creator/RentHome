@@ -542,6 +542,7 @@
                         <tbody id="roomsTableBody" class="divide-y divide-slate-100">
                             @forelse($rooms as $room)
                                 @php
+                                    $post = $room;
                                     $rId = (string)($room->id ?? $room->_id);
 
                                     // Chuẩn hóa đường dẫn ảnh của Phòng từ Collection images (MongoDB)
@@ -585,7 +586,7 @@
                                     }
                                 @endphp
 
-                                <tr class="room-row hover:bg-slate-50/90 transition-colors"
+                                <tr class="room-row {{ $isRented ? 'opacity-40 bg-slate-100/70 border-l-4 border-l-amber-500 cursor-not-allowed select-none' : 'hover:bg-slate-50/90' }} transition-colors"
                                     data-occupancy="{{ $occKey }}"
                                     data-moderation="{{ $modKey }}">
 
@@ -675,26 +676,61 @@
                                     <!-- Cột 7: Nút hành động -->
                                     <td class="p-4 text-right whitespace-nowrap">
                                         <div class="flex items-center justify-end gap-2">
-                                            <a href="{{ url('/baidang/' . $rId) }}" target="_blank" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-sky-100 text-slate-700 hover:text-sky-700 flex items-center justify-center transition-colors" title="Xem bài đăng thực tế trên web">
-                                                <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
-                                            </a>
-                                            <a href="{{ url('dangbai?edit=' . $rId) }}" class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white flex items-center justify-center transition-colors" title="Chỉnh sửa thông tin & giá phòng">
-                                                <i class="fa-solid fa-pen text-xs"></i>
-                                            </a>
-                                            @if($isRented)
-                                                <button disabled type="button" class="w-8 h-8 rounded-lg bg-amber-50 text-amber-300 opacity-50 cursor-not-allowed flex items-center justify-center transition-colors" title="Không thể thao tác khi đang có khách thuê">
-                                                    <i class="fa-solid fa-right-left text-xs"></i>
+                                            @if($post->status == 'hidden' || $rawRoomStatus == 'hidden' || $modKey === 'rejected' || !empty($post->admin_directive))
+                                                @php
+                                                    $penaltyReasonText = $post->admin_directive 
+                                                        ?? ($post->tickets->where('type', 'khieu_nai')->latest()->first()->reply_message 
+                                                        ?? ($post->reject_reason 
+                                                        ?? 'Không có thông báo chi tiết.'));
+                                                @endphp
+                                                <!-- 1. Nút Xem Lệnh Phạt (Mở modal đọc chỉ thị của Admin) -->
+                                                <button type="button" 
+                                                    onclick="openPenaltyModal('{{ $rId }}', '{{ addslashes($post->title ?? ($unitNameCap . ' #' . strtoupper(substr($rId, -5)))) }}', '{{ addslashes($penaltyReasonText) }}', '{{ $post->rejected_at ? \Carbon\Carbon::parse($post->rejected_at)->format('H:i d/m/Y') : ($post->updated_at ? $post->updated_at->format('H:i d/m/Y') : '') }}')"
+                                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 text-xs font-bold transition-all shadow-2xs hover:shadow-sm cursor-pointer group"
+                                                    title="Xem Lệnh Phạt & Chỉ Thị Của Admin">
+                                                    <i class="fa-solid fa-gavel text-xs group-hover:scale-110 transition-transform"></i>
+                                                    <span>Xem Lệnh Phạt</span>
                                                 </button>
-                                                <button disabled type="button" class="w-8 h-8 rounded-lg bg-rose-50 text-rose-300 opacity-50 cursor-not-allowed flex items-center justify-center transition-colors" title="Không thể thao tác khi đang có khách thuê">
+
+                                                <!-- 2. Nút Sửa lỗi & Xin duyệt lại (Icon cờ lê hoặc reload, màu vàng cam) -->
+                                                <a href="{{ route('posts.edit', $post->id ?? $rId) }}" 
+                                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white border border-amber-600 text-xs font-bold transition-all shadow-2xs hover:shadow-sm cursor-pointer hover:scale-[1.02]"
+                                                    title="Sửa lỗi vi phạm và gửi yêu cầu xin duyệt lại">
+                                                    <i class="fa-solid fa-wrench text-xs"></i>
+                                                    <span>Sửa lỗi & Xin duyệt lại</span>
+                                                </a>
+
+                                                <button type="button" onclick="deleteRoom('{{ $rId }}')" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-rose-600 text-slate-500 hover:text-white flex items-center justify-center transition-colors cursor-pointer" title="Xóa vĩnh viễn bài đăng">
                                                     <i class="fa-solid fa-trash-can text-xs"></i>
                                                 </button>
                                             @else
-                                                <button type="button" onclick="openTransferModal('{{ $rId }}', '{{ addslashes($room->title ?? ($unitNameCap . ' #' . strtoupper(substr($rId, -5)))) }}')" class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-500 hover:text-white flex items-center justify-center transition-colors cursor-pointer" title="Chuyển sang tòa nhà khác">
-                                                    <i class="fa-solid fa-right-left text-xs"></i>
-                                                </button>
-                                                <button type="button" onclick="deleteRoom('{{ $rId }}')" class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white flex items-center justify-center transition-colors cursor-pointer" title="Xóa vĩnh viễn bài đăng">
-                                                    <i class="fa-solid fa-trash-can text-xs"></i>
-                                                </button>
+                                                <a href="{{ url('/baidang/' . $rId) }}" target="_blank" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-sky-100 text-slate-700 hover:text-sky-700 flex items-center justify-center transition-colors" title="Xem bài đăng thực tế trên web">
+                                                    <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+                                                </a>
+                                                @if($isRented)
+                                                    <button disabled type="button" class="w-8 h-8 rounded-lg bg-slate-100 text-slate-400 opacity-60 cursor-not-allowed flex items-center justify-center transition-colors" title="Bài đăng đang có người thuê, không thể cập nhật hoặc sửa đổi">
+                                                        <i class="fa-solid fa-lock text-xs"></i>
+                                                    </button>
+                                                @else
+                                                    <a href="{{ url('dangbai?edit=' . $rId) }}" class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white flex items-center justify-center transition-colors" title="Chỉnh sửa thông tin & giá phòng">
+                                                        <i class="fa-solid fa-pen text-xs"></i>
+                                                    </a>
+                                                @endif
+                                                @if($isRented)
+                                                    <button disabled type="button" class="w-8 h-8 rounded-lg bg-amber-50 text-amber-300 opacity-50 cursor-not-allowed flex items-center justify-center transition-colors" title="Không thể thao tác khi đang có khách thuê">
+                                                        <i class="fa-solid fa-right-left text-xs"></i>
+                                                    </button>
+                                                    <button disabled type="button" class="w-8 h-8 rounded-lg bg-rose-50 text-rose-300 opacity-50 cursor-not-allowed flex items-center justify-center transition-colors" title="Không thể thao tác khi đang có khách thuê">
+                                                        <i class="fa-solid fa-trash-can text-xs"></i>
+                                                    </button>
+                                                @else
+                                                    <button type="button" onclick="openTransferModal('{{ $rId }}', '{{ addslashes($room->title ?? ($unitNameCap . ' #' . strtoupper(substr($rId, -5)))) }}')" class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-500 hover:text-white flex items-center justify-center transition-colors cursor-pointer" title="Chuyển sang tòa nhà khác">
+                                                        <i class="fa-solid fa-right-left text-xs"></i>
+                                                    </button>
+                                                    <button type="button" onclick="deleteRoom('{{ $rId }}')" class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white flex items-center justify-center transition-colors cursor-pointer" title="Xóa vĩnh viễn bài đăng">
+                                                        <i class="fa-solid fa-trash-can text-xs"></i>
+                                                    </button>
+                                                @endif
                                             @endif
                                         </div>
                                     </td>
@@ -830,6 +866,71 @@
                 <button type="button" id="btnConfirmTransfer" onclick="submitTransferRoom()" class="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold shadow-sm flex items-center gap-2 transition-all">
                     <i class="fa-solid fa-right-left"></i> Xác nhận chuyển cơ sở
                 </button>
+            </div>
+        </div>
+    </div>
+
+    @php
+        if (!isset($post) || empty($post)) {
+            $post = (isset($rooms) && method_exists($rooms, 'first')) ? ($rooms->first() ?? new \App\Models\Post()) : new \App\Models\Post();
+        }
+    @endphp
+
+    <!-- ================= MODAL: XEM LỆNH PHẠT & CHỈ THỊ CỦA ADMIN ================= -->
+    <div id="penaltyModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4 transition-all">
+        <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-200">
+            <!-- Header Modal -->
+            <div class="px-6 py-5 bg-gradient-to-r from-rose-50 to-orange-50 border-b border-rose-100 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center shadow-sm shrink-0">
+                        <i class="fa-solid fa-gavel text-base"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-extrabold text-slate-900">Lệnh Phạt & Chỉ Thị Của Admin</h3>
+                        <p class="text-xs text-rose-600 font-semibold flex items-center gap-1">
+                            <i class="fa-solid fa-triangle-exclamation text-[10px]"></i> Bài đăng đang ở trạng thái bị gỡ / từ chối
+                        </p>
+                    </div>
+                </div>
+                <button type="button" onclick="closePenaltyModal()" class="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+
+            <!-- Body Modal -->
+            <div class="p-6 space-y-4">
+                <!-- Thông tin bài đăng -->
+                <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                    <div class="flex items-center justify-between text-xs text-slate-500">
+                        <span class="font-bold">Mã bài đăng: <span id="penaltyPostCode" class="text-slate-900 font-mono font-extrabold"></span></span>
+                        <span id="penaltyTime" class="text-[11px] text-slate-400"></span>
+                    </div>
+                    <div class="text-xs font-bold text-slate-800 line-clamp-1" id="penaltyPostTitle"></div>
+                </div>
+
+                <!-- Khối hiển thị chỉ thị của Admin -->
+                <div>
+                    <label class="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">
+                        NỘI DUNG VI PHẠM & CHỈ THỊ XỬ LÝ:
+                    </label>
+                    <div class="p-4 rounded-xl bg-red-50 border border-red-200 text-xs text-red-950 font-medium leading-relaxed whitespace-pre-line" id="penaltyDirectiveContent">{{ $post->admin_directive ?? ($post->tickets->where('type', 'khieu_nai')->latest()->first()->reply_message ?? 'Không có thông báo chi tiết.') }}</div>
+                </div>
+
+                <!-- Hướng dẫn xin duyệt lại -->
+                <div class="p-3.5 rounded-xl bg-yellow-50 border border-yellow-200 flex items-start gap-2.5 text-[11.5px] text-yellow-900 leading-relaxed font-medium">
+                    <i class="fa-solid fa-circle-info text-yellow-600 text-sm mt-0.5 shrink-0"></i>
+                    <span>Nhân viên Sale vui lòng chỉnh sửa lại các thông tin/hình ảnh chưa phù hợp theo đúng chỉ thị. Sau khi lưu, bài viết sẽ tự động chuyển sang trạng thái <strong>Chờ kiểm duyệt</strong> để Admin duyệt lại.</span>
+                </div>
+            </div>
+
+            <!-- Footer Modal -->
+            <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
+                <button type="button" onclick="closePenaltyModal()" class="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold transition-colors">
+                    Đóng
+                </button>
+                <a href="#" id="btnPenaltyEditRedirect" class="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold shadow-sm flex items-center gap-2 transition-all">
+                    <i class="fa-solid fa-wrench"></i> Sửa lỗi & Xin duyệt lại ngay
+                </a>
             </div>
         </div>
     </div>
@@ -1027,11 +1128,41 @@
             }
         }
 
+        // ================= LOGIC XEM LỆNH PHẠT & SỬA LỖI XIN DUYỆT LẠI =================
+        function openPenaltyModal(postId, title, directive, time) {
+            const codeEl = document.getElementById('penaltyPostCode');
+            const titleEl = document.getElementById('penaltyPostTitle');
+            const contentEl = document.getElementById('penaltyDirectiveContent');
+            const timeEl = document.getElementById('penaltyTime');
+            const editBtn = document.getElementById('btnPenaltyEditRedirect');
+
+            if (codeEl) codeEl.innerText = '#' + (postId && postId.length > 5 ? postId.substr(-5).toUpperCase() : (postId || '').toUpperCase());
+            if (titleEl) titleEl.innerText = title || 'Bài đăng';
+            if (contentEl) contentEl.innerText = directive || 'Bài đăng có vi phạm quy định do Ban Quản Trị chỉ định. Vui lòng kiểm tra và sửa đổi theo quy định.';
+            if (timeEl) timeEl.innerText = time ? ('Lúc: ' + time) : '';
+            if (editBtn) editBtn.href = '/posts/' + postId + '/edit';
+
+            const modal = document.getElementById('penaltyModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+        }
+
+        function closePenaltyModal() {
+            const modal = document.getElementById('penaltyModal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        }
+
         // Đóng modal khi bấm phím Escape
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 closeTransferModal();
                 closeLightbox();
+                closePenaltyModal();
             }
         });
 

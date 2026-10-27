@@ -67,6 +67,11 @@
     $badgeText = ($isEnterprise && !$isSubAccount) ? 'Doanh Nghiệp RentHome' : 'Quản Lý Tòa Nhà';
     $subTitle = ($isEnterprise && !$isSubAccount) ? 'RentHome Quản Trị' : 'Tài Khoản Phân Quyền';
     $preselectedBuildingId = request()->query('building_id', '');
+    $editPostIdParam = request()->query('edit', '');
+    $editingPost = null;
+    if ($editPostIdParam) {
+        $editingPost = \App\Models\Post::where('_id', $editPostIdParam)->first() ?: \App\Models\Post::find($editPostIdParam);
+    }
 @endphp
 
     <!-- Modal Container -->
@@ -486,11 +491,27 @@
         let editPostId = null;
 
         document.addEventListener('DOMContentLoaded', () => {
+            @if($editingPost)
+                try {
+                    const serverPost = @json($editingPost);
+                    serverPost.id = serverPost._id || serverPost.id;
+                    sessionStorage.setItem('edit_post_data', JSON.stringify(serverPost));
+                } catch (e) {
+                    console.error('Lỗi nạp bài đăng cần sửa:', e);
+                }
+            @endif
             const editDataRaw = sessionStorage.getItem('edit_post_data');
             if (editDataRaw) {
                 try {
                     const post = JSON.parse(editDataRaw);
-                    editPostId = post.id;
+                    const isRented = Boolean(post.is_rented === true || post.status === 'đã cho thuê' || post.status === 'rented' || post.status === 'dang_thue' || post.status === 'đang thuê');
+                    if (isRented) {
+                        sessionStorage.removeItem('edit_post_data');
+                        alert('Bài đăng này đang có người thuê, không được phép chỉnh sửa hoặc cập nhật!');
+                        window.location.href = '/Overview';
+                        return;
+                    }
+                    editPostId = post.id || post._id;
                     
                     if(post.price) {
                         const priceInput = document.getElementById('post-price');

@@ -777,7 +777,7 @@
                     'message'     => $comp->content ?: 'Khách hàng vừa gửi đơn khiếu nại/phản ánh về bài đăng hoặc vi phạm quy định.',
                     'time'        => $comp->created_at ? $comp->created_at->format('d/m/Y H:i') : 'Mới đây',
                     'is_unread'   => !$isRead,
-                    'action_url'  => url('/kiem-duyet/khieu-nai?id=' . $cId),
+                    'action_url'  => url('/cskh/khieu-nai?id=' . $cId),
                     'action_text' => 'Xem khiếu nại',
                 ];
             }
@@ -855,17 +855,6 @@
                     </span>
                     @if($pendingBadge > 0)
                         <span class="nav-badge badge-warning-pill">{{ $pendingBadge }}</span>
-                    @endif
-                </a>
-            </li>
-            <li>
-                <a href="{{ url('/kiem-duyet/khieu-nai') }}" class="nav-link">
-                    <span class="nav-link-left">
-                        <i class="fa-solid fa-triangle-exclamation"></i>
-                        <span>Khiếu nại</span>
-                    </span>
-                    @if($complaintBadge > 0)
-                        <span class="nav-badge badge-danger-pill">{{ $complaintBadge }}</span>
                     @endif
                 </a>
             </li>

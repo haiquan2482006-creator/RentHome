@@ -14,23 +14,39 @@ class Post extends Model
         'floor', 'floor_number', 'bedroom', 'bathroom',
         'province', 'district', 'ward', 'address', 'building_id', 'display_image',
         'property_type', 'account_role', 'amenities', 'images', 'status',
-        'approved_at', 'approved_by', 'rejected_at', 'rejected_by', 'reject_reason',
-        'views', 'view_count'
+        'approved_at', 'approved_by', 'rejected_at', 'rejected_by', 'reject_reason', 'admin_directive',
+        'views', 'view_count', 'favorites_count', 'likes',
+        'is_featured', 'featured_at'
     ];
 
     protected $attributes = [
         'views' => 0,
+        'favorites_count' => 0,
+        'is_featured' => false,
     ];
 
     protected $casts = [
         'amenities' => 'array',
         'images' => 'array',
         'views' => 'integer',
+        'favorites_count' => 'integer',
+        'is_featured' => 'boolean',
+        'featured_at' => 'datetime',
     ];
+
+    public function getIsFeaturedAttribute($value)
+    {
+        return (bool)($value ?? false);
+    }
 
     public function getViewsAttribute($value)
     {
         return (int)($value ?? 0);
+    }
+
+    public function getFavoritesCountAttribute($value)
+    {
+        return max(0, (int)($value ?? ($this->attributes['likes'] ?? 0)));
     }
 
     public function user()
@@ -45,7 +61,7 @@ class Post extends Model
     }
 
     // Accessor trả về URL ảnh hiển thị duy nhất
-    protected $appends = ['display_image', 'all_images'];
+    protected $appends = ['display_image', 'all_images', 'favorites_count'];
 
     public function getDisplayImageAttribute()
     {
@@ -91,6 +107,20 @@ class Post extends Model
     public function contacts()
     {
         return $this->hasMany(Contact::class, 'post_id', '_id');
+    }
+
+    public function tickets()
+    {
+        return $this->hasMany(SupportTicket::class, 'post_id');
+    }
+
+    public function getTicketsAttribute()
+    {
+        $id = (string)($this->_id ?? $this->id);
+        return SupportTicket::where(function($q) use ($id) {
+            $q->where('post_id', $id)
+              ->orWhere('target_id', $id);
+        })->get();
     }
 
     public function getAllImagesAttribute()

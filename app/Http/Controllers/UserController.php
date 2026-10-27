@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\Image;
+use App\Models\SupportTicket;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -24,57 +25,78 @@ class UserController extends Controller
         $user = Auth::user();
         $uId = (string)($user->_id ?? $user->id);
 
-        // 1. Cập nhật thông tin Doanh nghiệp hoặc Cá nhân
-        if ($user->isEnterprise() || $user->role === 'doanhnghiep') {
-            if ($request->has('representative')) {
-                $user->representative = $request->input('representative');
-                $user->account_name = $request->input('representative');
-            }
-            if ($request->has('company_name')) {
-                $user->company_name = $request->input('company_name');
-            }
-            if ($request->has('business_license_date')) {
-                $user->business_license_date = $request->input('business_license_date');
-            }
-            if ($request->has('representative_id_card')) {
-                $user->representative_id_card = $request->input('representative_id_card');
-                $user->cccd_number = $request->input('representative_id_card');
-            }
-            if ($request->has('representative_id_date')) {
-                $user->representative_id_date = $request->input('representative_id_date');
-            }
-            if ($request->has('representative_id_place')) {
-                $user->representative_id_place = $request->input('representative_id_place');
-            }
-            if ($request->has('website')) {
-                $user->website = $request->input('website');
-            }
-            if ($request->has('hotline')) {
-                $user->hotline = $request->input('hotline');
-            }
-            if ($request->has('company_description')) {
-                $user->company_description = $request->input('company_description');
-            }
-        } else {
-            if ($request->has('account_name')) {
-                $user->account_name = $request->input('account_name');
-            }
+        // BẢO MẬT (Chống Broken Access Control):
+        // Lọc bỏ tuyệt đối 'ho_ten' và 'account_name' khỏi dữ liệu cập nhật từ request của người dùng/nhân sự.
+        // Kể cả khi người dùng dùng F12 xóa thuộc tính 'readonly' trên trình duyệt để gửi kèm 'ho_ten' hoặc 'account_name',
+        // Backend lọc sạch bằng $request->except(['ho_ten', 'account_name']) và tuyệt đối không ghi đè vào Database.
+        $safeData = $request->except(['ho_ten', 'account_name', 'email', 'role', 'status', 'is_locked', 'is_deleted', 'parent_id', 'permissions']);
+
+        // 1. Cập nhật Tên hiển thị (ten_hien_thi / Nickname thương hiệu)
+        if (isset($safeData['ten_hien_thi'])) {
+            $val = trim((string)$safeData['ten_hien_thi']);
+            $user->ten_hien_thi = $val;
+            $user->username = $val;
+        } elseif (isset($safeData['username'])) {
+            $val = trim((string)$safeData['username']);
+            $user->ten_hien_thi = $val;
+            $user->username = $val;
         }
 
-        if ($request->has('phone')) {
-            $user->phone = $request->input('phone');
+        // 2. Cập nhật thông tin Doanh nghiệp hoặc Cá nhân
+        if ($user->isEnterprise() || $user->role === 'doanhnghiep') {
+            if (isset($safeData['representative'])) {
+                $user->representative = $safeData['representative'];
+                $user->account_name = $safeData['representative'];
+                $user->ho_ten = $safeData['representative'];
+            }
+            if (isset($safeData['company_name'])) {
+                $user->company_name = $safeData['company_name'];
+            }
+            if (isset($safeData['business_license_date'])) {
+                $user->business_license_date = $safeData['business_license_date'];
+            }
+            if (isset($safeData['representative_id_card'])) {
+                $user->representative_id_card = $safeData['representative_id_card'];
+                $user->cccd_number = $safeData['representative_id_card'];
+            }
+            if (isset($safeData['representative_id_date'])) {
+                $user->representative_id_date = $safeData['representative_id_date'];
+            }
+            if (isset($safeData['representative_id_place'])) {
+                $user->representative_id_place = $safeData['representative_id_place'];
+            }
+            if (isset($safeData['website'])) {
+                $user->website = $safeData['website'];
+            }
+            if (isset($safeData['hotline'])) {
+                $user->hotline = $safeData['hotline'];
+            }
+            if (isset($safeData['company_description'])) {
+                $user->company_description = $safeData['company_description'];
+            }
+        } else {
+            // KHÓA CỨNG: Tuyệt đối không cập nhật ho_ten hoặc account_name cho tài khoản Nhân sự / Cá nhân tại đây.
+            // Thông tin này dùng đối soát CCCD, in hợp đồng và tính lương - chỉ Admin mới có quyền cập nhật.
         }
-        if ($request->has('bank_name')) {
-            $user->bank_name = $request->input('bank_name');
+
+        // 3. Cập nhật các thông tin liên hệ và ngân hàng an toàn
+        if (isset($safeData['phone'])) {
+            $user->phone = $safeData['phone'];
         }
-        if ($request->has('bank_account')) {
-            $user->bank_account = $request->input('bank_account');
+        if (isset($safeData['address'])) {
+            $user->address = $safeData['address'];
         }
-        if ($request->has('bank_owner')) {
-            $user->bank_owner = $request->input('bank_owner');
+        if (isset($safeData['bank_name'])) {
+            $user->bank_name = $safeData['bank_name'];
         }
-        if ($request->has('tax_code')) {
-            $user->tax_code = $request->input('tax_code');
+        if (isset($safeData['bank_account'])) {
+            $user->bank_account = $safeData['bank_account'];
+        }
+        if (isset($safeData['bank_owner'])) {
+            $user->bank_owner = $safeData['bank_owner'];
+        }
+        if (isset($safeData['tax_code'])) {
+            $user->tax_code = $safeData['tax_code'];
         }
 
         // 2. Xử lý tải lên Ảnh đại diện (Avatar) -> Lưu trực tiếp vào MongoDB collection images
