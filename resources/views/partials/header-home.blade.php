@@ -947,6 +947,16 @@
                 icon = 'fa-triangle-exclamation';
                 badgeBg = 'bg-amber-50 text-amber-700 border-amber-100';
                 categoryName = 'Chỉ thị';
+            } else if (category === 'building_assigned' || type === 'building_assigned') {
+                iconBg = 'bg-purple-100 text-purple-600 border-purple-200';
+                icon = 'fa-city';
+                badgeBg = 'bg-purple-50 text-purple-700 border-purple-200';
+                categoryName = 'Phân công tòa nhà';
+            } else if (type === 'building' || category === 'toanha') {
+                iconBg = 'bg-sky-100 text-sky-600 border-sky-200';
+                icon = 'fa-building-circle-check';
+                badgeBg = 'bg-sky-50 text-sky-700 border-sky-200';
+                categoryName = 'Cập nhật tòa nhà';
             } else if (type === 'favorite') {
                 iconBg = 'bg-rose-100 text-rose-600 border-rose-200';
                 icon = 'fa-heart';
@@ -964,7 +974,8 @@
                 iconBg: iconBg,
                 icon: icon,
                 badgeBg: badgeBg,
-                categoryName: categoryName
+                categoryName: categoryName,
+                actionUrl: n.action_url || (data && data.action_url) || (n.building_id ? `/quan-ly-toa-nha/${n.building_id}?ref=buildings` : null)
             };
         });
 
@@ -994,8 +1005,10 @@
                     badgeHtml = `<span class="px-1.5 py-0.2 rounded-full bg-blue-100 text-blue-700 border border-blue-200 font-bold text-[9px]">Tin nhắn</span>`;
                 }
 
+                const itemTargetUrl = n.actionUrl || notifItemUrl;
+
                 return `
-                    <a href="${notifItemUrl}" class="p-3 hover:bg-slate-50 transition-colors cursor-pointer flex items-start gap-3 block ${!n.isRead ? 'bg-rose-50/30' : ''}">
+                    <a href="${itemTargetUrl}" class="p-3 hover:bg-slate-50 transition-colors cursor-pointer flex items-start gap-3 block ${!n.isRead ? 'bg-rose-50/30' : ''}">
                         <div class="w-7 h-7 rounded-lg ${n.iconBg} flex items-center justify-center shrink-0 text-xs mt-0.5">
                             <i class="fa-solid ${n.icon}"></i>
                         </div>

@@ -1418,7 +1418,16 @@ Route::middleware(['auth'])->group(function () {
         $post->reject_reason = $reason;
         $post->rejected_at = now();
         $post->rejected_by = (string)($user->_id ?? $user->id);
+        $post->building_id = null; // Gỡ bài đăng khỏi tòa nhà khi bị từ chối
         $post->save();
+
+        try {
+            \App\Models\Room::where('post_id', (string)($post->_id ?? $post->id))
+                ->orWhere('_id', (string)($post->_id ?? $post->id))
+                ->update(['building_id' => null]);
+        } catch (\Exception $e) {
+            // Không chặn luồng nếu collection Room không tồn tại
+        }
 
         // 1. Lưu lịch sử hành động từ chối bài vào AdminActivity
         \App\Models\AdminActivity::log(
@@ -1496,8 +1505,13 @@ Route::get('/dangbai', function(){
 
 // APIs for Posts
 Route::post('/api/posts', [\App\Http\Controllers\PostController::class, 'store'])->name('posts.store');
-Route::get('/posts/{id}/edit', function($id) {
-    return redirect('/dangbai?edit=' . $id);
+Route::get('/posts/{id}/edit', function(\Illuminate\Http\Request $request, $id) {
+    $buildingId = $request->query('building_id', '');
+    $url = '/dangbai?edit=' . $id;
+    if ($buildingId) {
+        $url .= '&building_id=' . $buildingId;
+    }
+    return redirect($url);
 })->name('posts.edit');
 Route::match(['put', 'patch', 'post'], '/api/posts/{id}', [\App\Http\Controllers\PostController::class, 'update'])->name('posts.update');
 Route::match(['put', 'patch', 'post'], '/posts/{id}', [\App\Http\Controllers\PostController::class, 'update']);
@@ -1552,6 +1566,8 @@ Route::get('/admin/chi-tiet-toa-nha/{id}', [\App\Http\Controllers\BuildingContro
 
 // Quản lý Danh sách Bài đăng & Phòng dành cho ĐỐI TÁC / NHÂN VIÊN (File: qlbai_dang/BuildingDetail.blade.php)
 Route::get('/quan-ly-toa-nha/{id}', [\App\Http\Controllers\BuildingController::class, 'show'])->name('partner.buildings.room_management');
+Route::get('/quan_ly_toa_nha/{id}', [\App\Http\Controllers\BuildingController::class, 'show']);
+Route::get('/quan ly toa nha/{id}', [\App\Http\Controllers\BuildingController::class, 'show']);
 
 // APIs for Sub-Accounts (Quản lý tài khoản con của Doanh nghiệp RentHome)
 Route::get('/api/sub-accounts', [\App\Http\Controllers\SubAccountController::class, 'index'])->middleware('auth')->name('sub_accounts.index');

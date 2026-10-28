@@ -14,6 +14,7 @@ class Post extends Model
         'floor', 'floor_number', 'bedroom', 'bathroom',
         'province', 'district', 'ward', 'address', 'building_id', 'display_image',
         'property_type', 'account_role', 'amenities', 'images', 'status',
+        'payment_requirement',
         'approved_at', 'approved_by', 'rejected_at', 'rejected_by', 'reject_reason', 'admin_directive',
         'views', 'view_count', 'favorites_count', 'likes',
         'is_featured', 'featured_at'
@@ -49,6 +50,17 @@ class Post extends Model
         return max(0, (int)($value ?? ($this->attributes['likes'] ?? 0)));
     }
 
+    public function getPropertyTypeAttribute($value)
+    {
+        if (!empty($value)) {
+            return $value;
+        }
+        if ($this->building && !empty($this->building->type)) {
+            return $this->building->type;
+        }
+        return 'nha_rieng';
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);
@@ -61,7 +73,7 @@ class Post extends Model
     }
 
     // Accessor trả về URL ảnh hiển thị duy nhất
-    protected $appends = ['display_image', 'all_images', 'favorites_count'];
+    protected $appends = ['display_image', 'all_images', 'favorites_count', 'formatted_price_unit'];
 
     public function getDisplayImageAttribute()
     {
@@ -162,5 +174,27 @@ class Post extends Model
             $urls[] = $this->display_image;
         }
         return $urls;
+    }
+
+    public function getFormattedPriceUnitAttribute()
+    {
+        $u = strtolower(trim((string)($this->price_unit ?? 'thang')));
+        $map = [
+            'thang'      => '/ tháng',
+            'tháng'      => '/ tháng',
+            '2_nam'      => '/ 2 năm',
+            '2 nam'      => '/ 2 năm',
+            '3_nam'      => '/ 3 năm',
+            '3 nam'      => '/ 3 năm',
+            '5_nam'      => '/ 5 năm',
+            '5 nam'      => '/ 5 năm',
+            'tren_5_nam' => '/ trên 5 năm',
+            'tren 5 nam' => '/ trên 5 năm',
+            'nam'        => '/ năm',
+            'năm'        => '/ năm',
+            'm2'         => '/ m²',
+            'tong'       => '',
+        ];
+        return $map[$u] ?? ($u ? '/' . $u : '/ tháng');
     }
 }

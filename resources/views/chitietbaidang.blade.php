@@ -116,9 +116,11 @@
                         // Chuẩn hóa mảng $typeMap hỗ trợ cả chữ hoa và chữ thường
                         $typeMap = [
                             'nha_o'               => 'Nhà ở',
+                            'nha_rieng'           => 'Nhà ở / Nhà riêng lẻ',
+                            'nha_nguyen_can'      => 'Nhà nguyên căn',
                             'phong_tro'           => 'Phòng trọ',
                             'nha_tro'             => 'Phòng trọ',
-                            'can_ho'              => 'Căn hộ',
+                            'can_ho'              => 'Căn hộ / Chung cư mini',
                             'can_ho_dich_vu'      => 'Căn hộ dịch vụ',
                             'chung_cu_mini'       => 'Chung cư mini',
                             'chung_cu'            => 'Chung cư',
@@ -129,8 +131,6 @@
                             'sleepbox'            => 'Ký túc xá / Sleepbox',
                             'dat_nen'             => 'Đất nền',
                             'dat_phan_lo'         => 'Đất phân lô',
-                            'nha_rieng'           => 'Nhà riêng',
-                            'nha_nguyen_can'      => 'Nhà nguyên căn',
                             'cum_nha_lien_ke'     => 'Cụm nhà liền kề',
                             'biet_thu'            => 'Biệt thự',
                         ];
@@ -401,6 +401,14 @@
                         $rawUnit = strtolower(trim((string)($post->price_unit ?? 'thang')));
                         if (in_array($rawUnit, ['thang', 'tháng'])) {
                             $displayUnit = '/ tháng';
+                        } elseif (in_array($rawUnit, ['2_nam', '2 nam', '2 năm'])) {
+                            $displayUnit = '/ 2 năm';
+                        } elseif (in_array($rawUnit, ['3_nam', '3 nam', '3 năm'])) {
+                            $displayUnit = '/ 3 năm';
+                        } elseif (in_array($rawUnit, ['5_nam', '5 nam', '5 năm'])) {
+                            $displayUnit = '/ 5 năm';
+                        } elseif (in_array($rawUnit, ['tren_5_nam', 'tren 5 nam', 'trên 5 năm'])) {
+                            $displayUnit = '/ trên 5 năm';
                         } elseif (in_array($rawUnit, ['nam', 'năm'])) {
                             $displayUnit = '/ năm';
                         } elseif (in_array($rawUnit, ['m2', 'm²'])) {
@@ -491,6 +499,21 @@
                             </span>
                             <span class="text-xl sm:text-2xl font-black text-slate-800 tracking-tight whitespace-nowrap">
                                 {{ $isLienKe ? ($floorVal . ' tầng') : ('Tầng ' . $floorVal) }}
+                            </span>
+                        </div>
+                        @endif
+
+                        @if(!empty($post->payment_requirement))
+                        <!-- Divider -->
+                        <div class="w-px h-10 bg-slate-200 hidden sm:block"></div>
+
+                        <!-- Yêu cầu thanh toán / Đặt cọc -->
+                        <div class="flex flex-col min-w-fit">
+                            <span class="text-xs text-amber-600 font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                                <i class="fa-solid fa-hand-holding-dollar text-amber-500 text-xs"></i> Yêu cầu thanh toán / Cọc
+                            </span>
+                            <span class="text-sm sm:text-base font-extrabold text-slate-800 tracking-tight">
+                                {{ $post->payment_requirement }}
                             </span>
                         </div>
                         @endif
@@ -1070,7 +1093,7 @@
                             <h3 class="text-slate-900 font-bold text-sm mb-2 line-clamp-2 group-hover:text-brand-600 transition-colors leading-snug">{{ $sbPost->title }}</h3>
                             <div class="mt-auto">
                                 <div class="flex items-center justify-between mt-3 mb-2">
-                                    <span class="text-brand-600 font-black text-base">{{ number_format($sbPost->price, 0, ',', '.') }} {{ $sbPost->price_unit }}</span>
+                                    <span class="text-brand-600 font-black text-base">{{ number_format($sbPost->price, 0, ',', '.') }} {{ $sbPost->formatted_price_unit }}</span>
                                     <span class="text-slate-600 font-bold text-xs">{{ $sbPost->area }} m&sup2;</span>
                                 </div>
                                 <div class="text-slate-500 text-xs flex items-center justify-between border-t border-slate-100 pt-2.5 mt-2">
@@ -1122,8 +1145,32 @@
                 $sameBuildingPosts->pluck('id')->map(fn($id) => (string)$id)->toArray()
             )));
 
+            // Chuẩn hóa nhóm phân loại chính xác để Bất động sản cùng loại CHỈ hiển thị đúng phân khúc
+            $currentType = strtolower(trim((string)($post->property_type ?: ($b->type ?? 'nha_rieng'))));
+            
+            // Định nghĩa các nhóm phân loại bất động sản đồng nhất
+            $houseGroup = ['nha_o', 'nha_rieng', 'nha_nguyen_can'];
+            $apartmentGroup = ['can_ho', 'can_ho_dich_vu', 'chung_cu_mini', 'chung_cu'];
+            $townhouseGroup = ['cum_nha_lien_ke', 'biet_thu'];
+            $roomGroup = ['phong_tro', 'nha_tro', 'ky_tuc_xa', 'sleepbox'];
+            $landGroup = ['dat_nen', 'dat_phan_lo', 'mat_bang', 'mat_bang_kinh_doanh', 'van_phong'];
+
+            if (in_array($currentType, $houseGroup)) {
+                $targetTypes = $houseGroup;
+            } elseif (in_array($currentType, $apartmentGroup)) {
+                $targetTypes = $apartmentGroup;
+            } elseif (in_array($currentType, $townhouseGroup)) {
+                $targetTypes = $townhouseGroup;
+            } elseif (in_array($currentType, $roomGroup)) {
+                $targetTypes = $roomGroup;
+            } elseif (in_array($currentType, $landGroup)) {
+                $targetTypes = $landGroup;
+            } else {
+                $targetTypes = [$currentType];
+            }
+
             $relatedPosts = \App\Models\Post::with(['user', 'building'])
-                ->where('property_type', $post->property_type)
+                ->whereIn('property_type', $targetTypes)
                 ->whereNotIn('_id', $excludeIds)
                 ->whereIn('status', ['approved', 'active'])
                 ->latest()
@@ -1133,6 +1180,27 @@
                     return !in_array((string)$rp->_id, $excludeIds) && !in_array((string)($rp->id ?? ''), $excludeIds);
                 })
                 ->take(10);
+
+            $cardTypeMap = [
+                'nha_o'               => 'Nhà ở',
+                'nha_rieng'           => 'Nhà riêng',
+                'nha_nguyen_can'      => 'Nguyên căn',
+                'phong_tro'           => 'Phòng trọ',
+                'nha_tro'             => 'Phòng trọ',
+                'can_ho'              => 'Căn hộ',
+                'can_ho_dich_vu'      => 'Căn hộ dịch vụ',
+                'chung_cu_mini'       => 'Chung cư mini',
+                'chung_cu'            => 'Chung cư',
+                'mat_bang'            => 'Mặt bằng',
+                'mat_bang_kinh_doanh' => 'Mặt bằng',
+                'van_phong'           => 'Văn phòng',
+                'ky_tuc_xa'           => 'Ký túc xá',
+                'sleepbox'            => 'Sleepbox',
+                'dat_nen'             => 'Đất nền',
+                'dat_phan_lo'         => 'Đất nền',
+                'cum_nha_lien_ke'     => 'Cụm liền kề',
+                'biet_thu'            => 'Biệt thự',
+            ];
         @endphp
 
         @if($relatedPosts->count() > 0)
@@ -1158,7 +1226,7 @@
                 @foreach($relatedPosts as $rPost)
                 @php
                     $rImg = $resolveThumb($rPost);
-                    $rType = $typeMap[strtolower($rPost->property_type ?? '')] ?? ($typeMap[$rPost->property_type ?? ''] ?? 'Bất động sản');
+                    $rType = $cardTypeMap[strtolower($rPost->property_type ?? '')] ?? ($typeMap[strtolower($rPost->property_type ?? '')] ?? 'Bất động sản');
                 @endphp
                 <a href="{{ url('/chitietbaidang/' . $rPost->_id) }}" class="min-w-[280px] sm:min-w-[300px] max-w-[300px] flex-none snap-start bg-white rounded-md border border-slate-200/60 shadow-sm hover:shadow-md transition-all group overflow-hidden flex flex-col h-full hover:-translate-y-0.5">
                     <div class="relative aspect-[4/3] overflow-hidden bg-slate-100">
@@ -1171,7 +1239,7 @@
                         <h3 class="text-slate-900 font-bold text-sm mb-2 line-clamp-2 group-hover:text-brand-600 transition-colors">{{ $rPost->title }}</h3>
                         <div class="mt-auto">
                             <div class="flex items-center justify-between mt-3 mb-2">
-                                <span class="text-brand-600 font-black text-base">{{ number_format($rPost->price, 0, ',', '.') }} {{ $rPost->price_unit }}</span>
+                                <span class="text-brand-600 font-black text-base">{{ number_format($rPost->price, 0, ',', '.') }} {{ $rPost->formatted_price_unit }}</span>
                                 <span class="text-slate-500 font-medium text-xs">{{ $rPost->area }} m&sup2;</span>
                             </div>
                             <div class="text-slate-500 text-xs flex items-center gap-1.5 truncate">

@@ -395,7 +395,7 @@
                         <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
                             Trung Tâm Thông Báo CSKH
                             @if(isset($unreadCount) && $unreadCount > 0)
-                                <span class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-rose-500 text-white">
+                                <span id="headerNotifBadge" class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-rose-500 text-white">
                                     {{ $unreadCount }} mới
                                 </span>
                             @endif
@@ -645,6 +645,16 @@
                         if (newBadge) newBadge.remove();
                         const checkBtn = card.querySelector('button[onclick*="markNotifRead"]');
                         if (checkBtn) checkBtn.remove();
+                        const title = card.querySelector('h3');
+                        if (title) {
+                            title.classList.remove('font-black', 'text-slate-900');
+                            title.classList.add('font-bold', 'text-slate-700');
+                        }
+                        const desc = card.querySelector('p.break-words');
+                        if (desc) {
+                            desc.classList.remove('font-medium', 'text-slate-700');
+                            desc.classList.add('text-slate-500');
+                        }
                     }
                     updateSidebarBadge();
                 }
@@ -653,45 +663,53 @@
             }
         }
 
-        // Đánh dấu tất cả là đã đọc
+        // Đánh dấu tất cả là đã đọc (Thực hiện ngay lập tức, không popup xác nhận & không popup hoàn tất)
         async function markAllAsRead() {
-            const confirm = await Swal.fire({
-                title: 'Đánh dấu tất cả là đã đọc?',
-                text: 'Toàn bộ các thông báo trong danh sách sẽ được chuyển sang trạng thái đã đọc.',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#0284c7',
-                cancelButtonColor: '#64748b',
-                confirmButtonText: 'Đồng ý',
-                cancelButtonText: 'Hủy'
+            // Cập nhật ngay toàn bộ giao diện thành đã đọc
+            const cards = document.querySelectorAll('#cskh-notif-container .notif-card');
+            cards.forEach(card => {
+                card.classList.remove('border-sky-300/80', 'bg-sky-50/20', 'ring-1', 'ring-sky-300/40');
+                card.classList.add('border-slate-200');
+
+                const pulseBadge = card.querySelector('.animate-pulse');
+                if (pulseBadge) pulseBadge.remove();
+
+                const checkBtn = card.querySelector('button[onclick*="markNotifRead"]');
+                if (checkBtn) checkBtn.remove();
+
+                const title = card.querySelector('h3');
+                if (title) {
+                    title.classList.remove('font-black', 'text-slate-900');
+                    title.classList.add('font-bold', 'text-slate-700');
+                }
+
+                const desc = card.querySelector('p.break-words');
+                if (desc) {
+                    desc.classList.remove('font-medium', 'text-slate-700');
+                    desc.classList.add('text-slate-500');
+                }
             });
 
-            if (confirm.isConfirmed) {
-                Swal.showLoading();
-                try {
-                    const res = await fetch(`/cskh/notifications/mark-all-read`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': csrfToken,
-                            'Accept': 'application/json'
-                        }
-                    });
-                    const data = await res.json();
-                    if (data.success) {
-                        Swal.fire({
-                            title: 'Thành công!',
-                            text: data.message,
-                            icon: 'success',
-                            timer: 1200,
-                            showConfirmButton: false
-                        }).then(() => {
-                            window.location.reload();
-                        });
+            // Xóa badge số lượng thông báo mới ở Header và Sidebar
+            const headerBadge = document.getElementById('headerNotifBadge');
+            if (headerBadge) headerBadge.remove();
+
+            const sidebarBadge = document.getElementById('sidebarNotifBadge');
+            if (sidebarBadge) sidebarBadge.style.display = 'none';
+
+            // Gửi request API nền đánh dấu tất cả đã đọc vào CSDL
+            try {
+                await fetch(`/cskh/notifications/mark-all-read`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Accept': 'application/json'
                     }
-                } catch (e) {
-                    Swal.fire('Lỗi', 'Không thể hoàn tất thao tác.', 'error');
-                }
+                });
+                updateSidebarBadge();
+            } catch (e) {
+                console.error('Lỗi khi đánh dấu tất cả đã đọc:', e);
             }
         }
 
@@ -776,7 +794,7 @@
             }
         }
 
-        // Cập nhật số lượng unread trên Sidebar
+        // Cập nhật số lượng unread trên Sidebar & Header
         async function updateSidebarBadge() {
             try {
                 const res = await fetch('/cskh/api/notifications/unread-count');
@@ -789,6 +807,16 @@
                             badge.style.display = 'inline-block';
                         } else {
                             badge.style.display = 'none';
+                        }
+                    }
+
+                    const headerBadge = document.getElementById('headerNotifBadge');
+                    if (headerBadge) {
+                        if (data.unread_notifications > 0) {
+                            headerBadge.textContent = `${data.unread_notifications} mới`;
+                            headerBadge.style.display = 'inline-flex';
+                        } else {
+                            headerBadge.remove();
                         }
                     }
                 }

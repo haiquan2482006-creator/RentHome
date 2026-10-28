@@ -631,6 +631,7 @@ class PersonalAccountController extends Controller
             $post->reject_reason = 'Admin đã gỡ bài vi phạm: ' . $reason;
             $post->rejected_at = now();
             $post->rejected_by = (string)(Auth::id() ?? 'admin');
+            $post->building_id = null;
             $post->save();
         }
 

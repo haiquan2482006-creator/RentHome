@@ -206,7 +206,11 @@
                         
                         let imgUrl = post.display_image || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80';
                         let unitText = 'đ/tháng';
-                        if (post.price_unit === 'nam') unitText = 'đ/năm';
+                        if (post.price_unit === '2_nam') unitText = 'đ/2 năm';
+                        else if (post.price_unit === '3_nam') unitText = 'đ/3 năm';
+                        else if (post.price_unit === '5_nam') unitText = 'đ/5 năm';
+                        else if (post.price_unit === 'tren_5_nam') unitText = 'đ/trên 5 năm';
+                        else if (post.price_unit === 'nam') unitText = 'đ/năm';
                         else if (post.price_unit === 'm2') unitText = 'đ/m²';
                         else if (post.price_unit === 'tong') unitText = 'VNĐ';
                         const price = new Intl.NumberFormat('vi-VN').format(post.price) + ' ' + unitText;

@@ -1839,6 +1839,7 @@
                                     'price_formatted' => $priceFormatted,
                                     'price' => $priceFormatted,
                                     'deposit' => !empty($post->deposit) ? (number_format($post->deposit, 0, ',', '.') . ' VNĐ') : 'Thỏa thuận',
+                                    'payment_requirement' => $post->payment_requirement ?? null,
                                     'bedroom' => (int)($post->bedroom ?? ($post->bedrooms ?? 1)),
                                     'bathroom' => (int)($post->bathroom ?? ($post->bathrooms ?? 1)),
                                     'is_land' => $isLand,
@@ -2062,6 +2063,10 @@
                         <div class="info-row">
                             <span class="info-label">Tiền đặt cọc:</span>
                             <span class="info-val" id="insDeposit"></span>
+                        </div>
+                        <div class="info-row" id="insPayReqRow" style="display: none;">
+                            <span class="info-label">Yêu cầu thanh toán / Cọc:</span>
+                            <span class="info-val" id="insPayReq" style="font-weight: 700; color: #b45309;"></span>
                         </div>
                         <div class="info-row">
                             <span class="info-label">Diện tích & Tầng:</span>
@@ -2375,6 +2380,18 @@
             document.getElementById('insRoomCode').innerText = data.room_code;
             document.getElementById('insPrice').innerText = data.price_formatted || data.price;
             document.getElementById('insDeposit').innerText = data.deposit;
+
+            const payReqRow = document.getElementById('insPayReqRow');
+            const payReqVal = document.getElementById('insPayReq');
+            if (payReqRow && payReqVal) {
+                if (data.payment_requirement) {
+                    payReqRow.style.display = 'flex';
+                    payReqVal.innerText = data.payment_requirement;
+                } else {
+                    payReqRow.style.display = 'none';
+                }
+            }
+
             document.getElementById('insAreaFloor').innerText = `${data.area} • ${data.floor}`;
 
             const bedBathRow = document.getElementById('insBedBathRow');

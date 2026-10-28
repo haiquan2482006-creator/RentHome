@@ -9,6 +9,7 @@ use App\Models\Contact;
 use App\Models\Notification;
 use App\Models\User;
 use App\Models\Invoice;
+use App\Models\Building;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -118,36 +119,73 @@ class ContractController extends Controller
                 }
             }
 
+            // Kiểm tra cấu hình Tòa nhà / Phòng có thu phí dịch vụ hay không
+            $building = null;
+            if ($post) {
+                $building = $post->building;
+                if (!$building && !empty($post->building_id) && class_exists(Building::class)) {
+                    $building = Building::find($post->building_id);
+                }
+            }
+
+            $isNoServiceFee = false;
+            if ($building) {
+                $hasServiceExplicit = isset($building->has_service_pricing) && $building->has_service_pricing !== null
+                    ? (bool)$building->has_service_pricing
+                    : (isset($building->has_service_fee) && $building->has_service_fee !== null ? (bool)$building->has_service_fee : null);
+
+                $bElec = (float)($building->electricity_price ?? 0);
+                $bWater = (float)($building->water_price ?? 0);
+                $bService = (float)($building->service_fee ?? 0);
+
+                // Nếu cơ sở tắt tính phí dịch vụ, hoặc giá điện = 0/null, hoặc toàn bộ đơn giá điện nước dịch vụ = 0
+                if ($hasServiceExplicit === false || $bElec <= 0 || ($bElec <= 0 && $bWater <= 0 && $bService <= 0)) {
+                    $isNoServiceFee = true;
+                }
+            } else {
+                $reqElec = $cleanNumber($request->input('electricity_price'));
+                if ($reqElec <= 0) {
+                    $isNoServiceFee = true;
+                }
+            }
+
             $rawRentPrice = $cleanNumber($request->input('rent_price'));
             $rawDeposit = $cleanNumber($request->input('deposit'));
-            $internetPrice = $cleanNumber($request->input('internet_price'));
-            $garbagePrice = $cleanNumber($request->input('service_fee', $request->input('garbage_price')));
-            $parkingPrice = $cleanNumber($request->input('parking_fee'));
-            $rawMonthlyService = $internetPrice + $garbagePrice + $parkingPrice;
+            $internetPrice = $isNoServiceFee ? 0 : $cleanNumber($request->input('internet_price'));
+            $garbagePrice = $isNoServiceFee ? 0 : $cleanNumber($request->input('service_fee', $request->input('garbage_price')));
+            $parkingPrice = $isNoServiceFee ? 0 : $cleanNumber($request->input('parking_fee'));
+            $rawMonthlyService = $isNoServiceFee ? 0 : ($internetPrice + $garbagePrice + $parkingPrice);
 
             $startDateStr = $request->input('start_date', date('Y-m-d'));
             $startDate = Carbon::parse($startDateStr);
             $startDay = (int)$startDate->day;
 
-            // Xử lý tính toán Lẻ ngày (Pro-rated):
-            // - Nếu khách vào ngày 01: Trọn 1 tháng
-            // - Nếu khách vào giữa tháng (vd: ngày 15/10): Số ngày = 30 - startDay + 1 = 16 ngày
-            //   Tiền phòng kỳ đầu = [Tiền phòng / 30] x 16 ngày
-            //   Tiền dịch vụ kỳ đầu = [Dịch vụ cố định / 30] x 16 ngày
+            $paymentCycle = (int)($request->input('payment_cycle', 1) ?: 1);
+            if (!in_array($paymentCycle, [1, 3, 6, 12])) {
+                $paymentCycle = 1;
+            }
+
+            $serviceNote = $isNoServiceFee
+                ? ' (Cơ sở này không thu phí dịch vụ tập trung. Khách thuê tự thanh toán điện/nước theo đồng hồ riêng).'
+                : ' (Điện nước ghi nhận chỉ số đầu: ' . (int)$request->input('electricity_start', 0) . ' số điện, ' . (int)$request->input('water_start', 0) . ' khối nước; thành tiền = 0 VNĐ).';
+
+            // Xử lý tính toán Lẻ ngày (Pro-rated) theo chu kỳ thu tiền nhà:
             if ($startDay === 1) {
                 $isProrated = false;
                 $stayDays = 30;
-                $rentPriceFirstMonth = $rawRentPrice;
+                $rentPriceFirstMonth = (float)($rawRentPrice * $paymentCycle);
                 $serviceFirstMonth = $rawMonthlyService;
-                $periodDescription = 'Kỳ đầu tiên (Trọn tháng ' . $startDate->format('m/Y') . ')';
-                $noteDescription = 'Hóa đơn thanh toán lần đầu: Tiền cọc & Trọn tháng ' . $startDate->format('m/Y') . ' tiền phòng khi nhận nhà. (Điện nước ghi nhận chỉ số đầu: ' . (int)$request->input('electricity_start', 0) . ' số điện, ' . (int)$request->input('water_start', 0) . ' khối nước; thành tiền = 0 VNĐ).';
+                $nextRentDate = $startDate->copy()->addMonths($paymentCycle)->toDateString();
+                $periodDescription = 'Kỳ đầu tiên (' . ($paymentCycle > 1 ? $paymentCycle . ' tháng: ' . $startDate->format('m/Y') . ' - ' . $startDate->copy()->addMonths($paymentCycle - 1)->format('m/Y') : 'Trọn tháng ' . $startDate->format('m/Y')) . ')';
+                $noteDescription = 'Hóa đơn thanh toán lần đầu: Tiền cọc & Tiền phòng kỳ đầu (' . $paymentCycle . ' tháng) khi nhận nhà.' . $serviceNote;
             } else {
                 $isProrated = true;
                 $stayDays = max(1, 30 - $startDay + 1);
-                $rentPriceFirstMonth = (float)round(($rawRentPrice / 30) * $stayDays);
+                $rentPriceFirstMonth = (float)round(($rawRentPrice / 30) * $stayDays) + (float)($rawRentPrice * max(0, $paymentCycle - 1));
                 $serviceFirstMonth = (float)round(($rawMonthlyService / 30) * $stayDays);
-                $periodDescription = 'Kỳ đầu tiên (Lẻ ' . $stayDays . ' ngày: ' . $startDate->format('d/m') . ' - ' . $startDate->copy()->endOfMonth()->format('d/m/Y') . ')';
-                $noteDescription = 'Hóa đơn thanh toán lần đầu: Tiền cọc & Tiền phòng lẻ ' . $stayDays . ' ngày của tháng ' . $startDate->format('m/Y') . ' [Công thức: (' . number_format($rawRentPrice) . 'đ / 30 ngày) x ' . $stayDays . ' ngày]. (Điện nước ghi nhận chỉ số đầu: ' . (int)$request->input('electricity_start', 0) . ' số điện, ' . (int)$request->input('water_start', 0) . ' khối nước; thành tiền = 0 VNĐ).';
+                $nextRentDate = $startDate->copy()->startOfMonth()->addMonths($paymentCycle)->toDateString();
+                $periodDescription = 'Kỳ đầu tiên (Lẻ ' . $stayDays . ' ngày: ' . $startDate->format('d/m') . ' - ' . $startDate->copy()->endOfMonth()->format('d/m/Y') . ($paymentCycle > 1 ? ' + ' . ($paymentCycle - 1) . ' tháng tiếp theo' : '') . ')';
+                $noteDescription = 'Hóa đơn thanh toán lần đầu: Tiền cọc & Tiền phòng kỳ đầu (' . $paymentCycle . ' tháng, gồm lẻ ' . $stayDays . ' ngày của tháng ' . $startDate->format('m/Y') . ').' . $serviceNote;
             }
 
             $contractData = [
@@ -182,7 +220,8 @@ class ContractController extends Controller
                 'license_plates'         => $request->input('license_plates'),
                 'cccd_images'            => $cccdFiles,
                 'contract_documents'     => $docFiles,
-                'payment_cycle'          => $request->input('payment_cycle', '1 tháng'),
+                'payment_cycle'          => $paymentCycle,
+                'next_rent_date'         => $nextRentDate,
                 'billing_date'           => $request->input('billing_date', 'Mùng 5'),
                 'payment_limit_days'     => $request->input('payment_limit_days', '5 ngày'),
                 'late_penalty_fee'       => $request->input('late_penalty_fee', '20.000 VNĐ / ngày'),
@@ -192,6 +231,21 @@ class ContractController extends Controller
                 'status'                 => 'pending_deposit', // Chờ thanh toán cọc & hóa đơn lần đầu để kích hoạt chính thức
                 'payment_status'         => 'unpaid',
             ];
+
+            // BƯỚC 2: Rào chắn bảo mật ép kiểu (Force override) các trường liên quan về null hoặc 0
+            if ($isNoServiceFee) {
+                $contractData['electricity_start'] = null;
+                $contractData['water_start'] = null;
+                $contractData['electricity_price'] = 0;
+                $contractData['water_price'] = 0;
+                $contractData['water_price_block'] = 0;
+                $contractData['water_price_person'] = 0;
+                $contractData['water_people_count'] = 0;
+                $contractData['internet_price'] = 0;
+                $contractData['garbage_price'] = 0;
+                $contractData['service_fee'] = 0;
+                $contractData['parking_fee'] = 0;
+            }
 
             $contract = Contract::create($contractData);
 
@@ -219,15 +273,17 @@ class ContractController extends Controller
                 'rent_price'         => $rentPriceFirstMonth,
                 'deposit'            => $depositAmount,
                 'electricity_amount' => $electricityAmount,
-                'electricity_old'    => (float)($contract->electricity_start ?? 0),
-                'electricity_new'    => (float)($contract->electricity_start ?? 0),
+                'electricity_old'    => $isNoServiceFee ? null : (float)($contract->electricity_start ?? 0),
+                'electricity_new'    => $isNoServiceFee ? null : (float)($contract->electricity_start ?? 0),
                 'water_amount'       => $waterAmount,
-                'water_old'          => (float)($contract->water_start ?? 0),
-                'water_new'          => (float)($contract->water_start ?? 0),
+                'water_old'          => $isNoServiceFee ? null : (float)($contract->water_start ?? 0),
+                'water_new'          => $isNoServiceFee ? null : (float)($contract->water_start ?? 0),
                 'service_amount'     => $serviceFirstMonth,
                 'total_amount'       => $totalFirstMonth,
                 'status'             => 'unpaid',
                 'payment_status'     => 'unpaid',
+                'type'               => 'first_month',
+                'rent_cycle_applied' => true, // Đã tính sẵn chu kỳ đầu vào next_rent_date khi tạo hợp đồng, chặn nhảy đúp chu kỳ
                 'note'               => $noteDescription,
             ]);
 

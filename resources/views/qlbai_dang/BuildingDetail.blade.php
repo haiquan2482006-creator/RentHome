@@ -135,6 +135,12 @@
         // 4. XỬ LÝ DANH SÁCH PHÒNG (LỚP RUỘT) & HỢP ĐỒNG ĐANG THUÊ
         $rooms = $rooms ?? ($posts ?? collect());
         $roomItems = $rooms instanceof \Illuminate\Pagination\LengthAwarePaginator ? collect($rooms->items()) : collect($rooms);
+        // Loại bỏ triệt để các bài đăng bị từ chối / đã xóa để không hiển thị trong trang chi tiết tòa nhà
+        $roomItems = $roomItems->reject(function($r) {
+            $st = strtolower($r->status ?? '');
+            return in_array($st, ['rejected', 'tu_choi', 'từ chối', 'deleted']) || !empty($r->is_deleted);
+        })->values();
+        $rooms = $roomItems;
 
         if (!isset($activeContractPostIds) || !isset($activeContractMap)) {
             $roomIds = $roomItems->map(fn($r) => (string)($r->_id ?? $r->id))->filter()->toArray();
@@ -514,7 +520,7 @@
                         <option value="">Tất cả trạng thái tin</option>
                         <option value="approved">Đang hiển thị (Đã duyệt)</option>
                         <option value="pending">Chờ kiểm duyệt</option>
-                        <option value="rejected">Bị từ chối / Đã ẩn</option>
+                        <option value="hidden">Đã ẩn / Tạm khóa</option>
                     </select>
 
                     <!-- Nút Thêm phòng mới -->
@@ -579,8 +585,8 @@
 
                                     if (in_array($rawRoomStatus, ['pending', 'cho_duyet', 'chờ duyệt', 'waiting'])) {
                                         $modKey = 'pending';
-                                    } elseif (in_array($rawRoomStatus, ['rejected', 'tu_choi', 'từ chối', 'hidden', 'inactive', 'locked'])) {
-                                        $modKey = 'rejected';
+                                    } elseif (in_array($rawRoomStatus, ['hidden', 'inactive', 'locked'])) {
+                                        $modKey = 'hidden';
                                     } else {
                                         $modKey = 'approved';
                                     }
@@ -633,7 +639,7 @@
                                         <div class="font-extrabold text-rose-600 text-sm">
                                             {{ number_format($room->price ?? 0, 0, ',', '.') }} đ
                                         </div>
-                                        <div class="text-[11px] text-slate-400 font-medium">/ tháng</div>
+                                        <div class="text-[11px] text-slate-400 font-medium">{{ $room->formatted_price_unit ?? '/ tháng' }}</div>
                                     </td>
 
                                     <!-- Cột 5: Tình trạng lấp đầy (Đang trống / Đang thuê) -->
@@ -662,9 +668,9 @@
                                             <span class="px-3 py-1 rounded-full bg-amber-50 text-amber-700 font-bold text-xs inline-flex items-center gap-1.5 border border-amber-200">
                                                 <i class="fa-solid fa-clock text-[10px]"></i> Chờ kiểm duyệt
                                             </span>
-                                        @elseif($modKey === 'rejected')
-                                            <span class="px-3 py-1 rounded-full bg-rose-50 text-rose-700 font-bold text-xs inline-flex items-center gap-1.5 border border-rose-200">
-                                                <i class="fa-solid fa-ban text-[10px]"></i> Từ chối / Đã ẩn
+                                        @elseif($modKey === 'hidden')
+                                            <span class="px-3 py-1 rounded-full bg-slate-100 text-slate-700 font-bold text-xs inline-flex items-center gap-1.5 border border-slate-300">
+                                                <i class="fa-solid fa-eye-slash text-[10px]"></i> Đã ẩn
                                             </span>
                                         @else
                                             <span class="px-3 py-1 rounded-full bg-sky-50 text-sky-700 font-bold text-xs inline-flex items-center gap-1.5 border border-sky-200">
@@ -676,7 +682,7 @@
                                     <!-- Cột 7: Nút hành động -->
                                     <td class="p-4 text-right whitespace-nowrap">
                                         <div class="flex items-center justify-end gap-2">
-                                            @if($post->status == 'hidden' || $rawRoomStatus == 'hidden' || $modKey === 'rejected' || !empty($post->admin_directive))
+                                            @if($post->status == 'hidden' || $rawRoomStatus == 'hidden' || $modKey === 'hidden' || !empty($post->admin_directive))
                                                 @php
                                                     $penaltyReasonText = $post->admin_directive 
                                                         ?? ($post->tickets->where('type', 'khieu_nai')->latest()->first()->reply_message 
@@ -693,7 +699,7 @@
                                                 </button>
 
                                                 <!-- 2. Nút Sửa lỗi & Xin duyệt lại (Icon cờ lê hoặc reload, màu vàng cam) -->
-                                                <a href="{{ route('posts.edit', $post->id ?? $rId) }}" 
+                                                <a href="{{ route('posts.edit', ['id' => $post->id ?? $rId, 'building_id' => $building->_id ?? $building->id]) }}" 
                                                     class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white border border-amber-600 text-xs font-bold transition-all shadow-2xs hover:shadow-sm cursor-pointer hover:scale-[1.02]"
                                                     title="Sửa lỗi vi phạm và gửi yêu cầu xin duyệt lại">
                                                     <i class="fa-solid fa-wrench text-xs"></i>
@@ -712,7 +718,7 @@
                                                         <i class="fa-solid fa-lock text-xs"></i>
                                                     </button>
                                                 @else
-                                                    <a href="{{ url('dangbai?edit=' . $rId) }}" class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white flex items-center justify-center transition-colors" title="Chỉnh sửa thông tin & giá phòng">
+                                                    <a href="{{ url('dangbai?edit=' . $rId . '&building_id=' . ($building->_id ?? $building->id)) }}" class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white flex items-center justify-center transition-colors" title="Chỉnh sửa thông tin & giá phòng">
                                                         <i class="fa-solid fa-pen text-xs"></i>
                                                     </a>
                                                 @endif
@@ -1140,7 +1146,7 @@
             if (titleEl) titleEl.innerText = title || 'Bài đăng';
             if (contentEl) contentEl.innerText = directive || 'Bài đăng có vi phạm quy định do Ban Quản Trị chỉ định. Vui lòng kiểm tra và sửa đổi theo quy định.';
             if (timeEl) timeEl.innerText = time ? ('Lúc: ' + time) : '';
-            if (editBtn) editBtn.href = '/posts/' + postId + '/edit';
+            if (editBtn) editBtn.href = '/posts/' + postId + '/edit?building_id={{ $building->_id ?? $building->id }}';
 
             const modal = document.getElementById('penaltyModal');
             if (modal) {

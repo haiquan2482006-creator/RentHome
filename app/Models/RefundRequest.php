@@ -23,6 +23,7 @@ class RefundRequest extends Model
         'tenant_bank_holder',
         'total_debt',
         'deposit',
+        'unused_rent_refund',
         'refund_amount',
         'damage_fee',
         'damage_reason',

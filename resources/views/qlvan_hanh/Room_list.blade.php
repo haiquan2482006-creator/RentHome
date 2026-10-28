@@ -226,10 +226,10 @@
                     @endif
                     <div class="h-8 w-px bg-slate-700/80"></div>
                     <div class="flex items-center gap-2.5">
-                        <span class="w-3.5 h-3.5 rounded-full bg-slate-400 shadow-sm"></span>
+                        <span class="w-3.5 h-3.5 rounded-full bg-sky-400 shadow-sm"></span>
                         <div>
-                            <p class="text-[10px] text-slate-300 uppercase font-extrabold">Còn Trống</p>
-                            <p class="text-lg font-black text-slate-200" id="statAvailableCount">{{ count($availableRooms ?? []) }} Phòng</p>
+                            <p class="text-[10px] text-sky-200 uppercase font-extrabold">Đang Cho Thuê</p>
+                            <p class="text-lg font-black text-sky-300" id="statTotalRooms">{{ count($rooms) }} Phòng</p>
                         </div>
                     </div>
                 </div>
@@ -260,10 +260,7 @@
                         <span>Khách đã CK - Chờ duyệt (Chấm Vàng: {{ $pendingApprovalCount }})</span>
                     </button>
                 @endif
-                <button onclick="filterRooms('available')" id="filter-available" class="filter-btn px-3.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition-all flex items-center gap-1.5">
-                    <span class="w-2.5 h-2.5 rounded-full bg-slate-400 inline-block shadow-sm"></span>
-                    <span>Còn Trống ({{ count($availableRooms ?? []) }})</span>
-                </button>
+
             </div>
 
             <!-- Ô tìm kiếm mã phòng / tên khách -->
@@ -487,7 +484,8 @@
                                     'water_people_count'     => (int)($room->water_people_count ?? 1),
                                     'internet_price'         => (float)($room->internet_price ?? 0),
                                     'garbage_price'          => (float)($room->garbage_price ?? 0),
-                                    'payment_cycle'          => $room->payment_cycle ?? '1 tháng',
+                                    'no_service_fee'         => $room->contract_details['no_service_fee'] ?? false,
+                                    'payment_cycle'          => is_numeric($room->payment_cycle) ? (((int)$room->payment_cycle === 12) ? '1 năm/lần' : ((int)$room->payment_cycle . ' tháng/lần')) : ($room->payment_cycle ?? '1 tháng/lần'),
                                     'bill_date'              => $room->bill_date ?? 5,
                                     'payment_limit_days'     => $room->payment_limit_days ?? '5 ngày',
                                     'late_penalty_fee'       => $room->late_penalty_fee ?? '20.000 VNĐ / ngày',
@@ -511,50 +509,7 @@
                 </div>
             @endif
 
-            @if(isset($availableRooms) && count($availableRooms) > 0)
-                @foreach($availableRooms as $avail)
-                    @php
-                        $availCode = $avail->room_number ?? ($avail->title ?? 'PH-' . substr((string)($avail->_id ?? $avail->id), -4));
-                        $availPrice = (float)($avail->price ?? 0);
-                        $availImg = $avail->display_image ?: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80';
-                        $availAddress = $avail->address ?: 'RentHome';
-                    @endphp
-                    <div id="card-avail-{{ $availCode }}" 
-                         class="room-card available border border-dashed border-slate-300 bg-slate-50/70 rounded-3xl overflow-hidden shadow-xs hover:shadow-md transition-all p-6 flex flex-col lg:flex-row justify-between gap-6 relative"
-                         data-status="available">
-                        <div class="flex items-start gap-4">
-                            <div class="relative w-20 h-20 rounded-2xl overflow-hidden shrink-0 border border-slate-200 bg-slate-200">
-                                <img src="{{ $availImg }}" loading="lazy" alt="{{ $avail->title }}" class="w-full h-full object-cover">
-                                <span class="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[9px] font-extrabold uppercase">
-                                    Trống
-                                </span>
-                            </div>
-                            <div class="space-y-1">
-                                <div class="flex items-center gap-2">
-                                    <h4 class="text-base font-extrabold text-slate-900">{{ $avail->title ?? ('Phòng ' . $availCode) }}</h4>
-                                    <span class="px-2 py-0.5 rounded-md bg-slate-200 text-slate-700 text-[10px] font-bold">Mã: {{ $availCode }}</span>
-                                </div>
-                                <p class="text-xs text-slate-500 font-medium"><i class="fa-solid fa-location-dot text-rose-500 mr-1"></i> {{ $availAddress }}</p>
-                                <p class="text-xs font-bold text-brand-600">Giá niêm yết: {{ number_format($availPrice) }} đ/tháng</p>
-                            </div>
-                        </div>
 
-                        <div class="flex flex-col sm:flex-row items-center gap-3 shrink-0 self-center">
-                            <span class="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold flex items-center gap-1.5">
-                                <i class="fa-solid fa-door-open text-emerald-500"></i> Phòng trống sẵn sàng cho thuê
-                            </span>
-                            <a href="{{ url('/chi-tiet-phong/' . ($avail->_id ?? $avail->id)) }}" target="_blank"
-                               class="px-4 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5">
-                                <i class="fa-solid fa-arrow-up-right-from-square"></i> Xem bài đăng
-                            </a>
-                            <button onclick="openCreateContractModal()" 
-                               class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5">
-                                <i class="fa-solid fa-plus"></i> Tạo hợp đồng mới
-                            </button>
-                        </div>
-                    </div>
-                @endforeach
-            @endif
 
         </div>
 
@@ -1042,28 +997,39 @@
                         </div>
 
                         <!-- ĐIỀU 3: PHÍ DỊCH VỤ ĐI KÈM -->
-                        <div>
-                            <p class="font-bold text-slate-950">Điều 3. Phí dịch vụ đi kèm</p>
-                            <p class="mt-1 indent-6">
-                                Ngoài tiền thuê phòng cố định hàng tháng, Bên B có nghĩa vụ thanh toán đầy đủ các chi phí dịch vụ thực tế phát sinh định kỳ gồm:
-                            </p>
-                            <ul class="list-disc pl-6 space-y-1 mt-1 text-slate-800">
-                                <li>
-                                    <strong>Tiền điện tiêu thụ:</strong> 
-                                    <strong id="vcElecPrice" class="font-semibold text-slate-950">--</strong> 
-                                    (<span id="vcElecStart" class="text-slate-600 font-mono">Chỉ số ban đầu: 0 kWh</span>).
-                                </li>
-                                <li>
-                                    <strong id="vcWaterTypeLabel">Tiền nước sinh hoạt:</strong> 
-                                    <strong id="vcWaterPrice" class="font-semibold text-slate-950">--</strong> 
-                                    (<span id="vcWaterSubInfo" class="text-slate-600 font-mono">Chỉ số ban đầu: 0 m³</span>).
-                                </li>
-                                <li>
-                                    <strong>Phí Internet và Rác sinh hoạt:</strong> 
-                                    <strong id="vcInternetGarbagePrice" class="font-semibold text-slate-950">--</strong> 
-                                    (Internet/Wifi: <span id="vcInternetPrice">--</span>, Rác sinh hoạt: <span id="vcGarbagePrice">--</span>).
-                                </li>
-                            </ul>
+                        <div id="vcServiceSection">
+                            <p class="font-bold text-slate-950" id="vcServiceTitle">Điều 3. Phí dịch vụ đi kèm</p>
+
+                            <!-- KHỐI 1: Khi cơ sở / bài đăng KHÔNG thu phí dịch vụ -->
+                            <div id="vcNoServiceBlock" class="hidden mt-1 text-slate-800">
+                                <p class="indent-6 leading-relaxed">
+                                    Cơ sở này không thu phí dịch vụ tập trung. Bên B (Khách thuê) tự ký hợp đồng và trực tiếp thanh toán tiền điện, nước sinh hoạt theo chỉ số công tơ/đồng hồ riêng với các đơn vị cung cấp theo biểu giá quy định của Nhà nước. Bên A không thu thêm bất kỳ khoản phí dịch vụ nào.
+                                </p>
+                            </div>
+
+                            <!-- KHỐI 2: Khi CÓ thu phí dịch vụ thông thường -->
+                            <div id="vcHasServiceBlock">
+                                <p class="mt-1 indent-6">
+                                    Ngoài tiền thuê phòng cố định hàng tháng, Bên B có nghĩa vụ thanh toán đầy đủ các chi phí dịch vụ thực tế phát sinh định kỳ gồm:
+                                </p>
+                                <ul class="list-disc pl-6 space-y-1 mt-1 text-slate-800">
+                                    <li>
+                                        <strong>Tiền điện tiêu thụ:</strong> 
+                                        <strong id="vcElecPrice" class="font-semibold text-slate-950">--</strong> 
+                                        (<span id="vcElecStart" class="text-slate-600 font-mono">Chỉ số ban đầu: 0 kWh</span>).
+                                    </li>
+                                    <li>
+                                        <strong id="vcWaterTypeLabel">Tiền nước sinh hoạt:</strong> 
+                                        <strong id="vcWaterPrice" class="font-semibold text-slate-950">--</strong> 
+                                        (<span id="vcWaterSubInfo" class="text-slate-600 font-mono">Chỉ số ban đầu: 0 m³</span>).
+                                    </li>
+                                    <li>
+                                        <strong>Phí Internet và Rác sinh hoạt:</strong> 
+                                        <strong id="vcInternetGarbagePrice" class="font-semibold text-slate-950">--</strong> 
+                                        (Internet/Wifi: <span id="vcInternetPrice">--</span>, Rác sinh hoạt: <span id="vcGarbagePrice">--</span>).
+                                    </li>
+                                </ul>
+                            </div>
                         </div>
 
                         <!-- ĐIỀU 4: CAM KẾT THANH TOÁN -->
@@ -1893,54 +1859,81 @@
                 document.getElementById('vcDuration').innerText = (info.duration_months || 12) + ' tháng';
             }
 
-            // 3. Đơn giá Điện & Nước
-            const elecPriceVal = info.electricity_price && info.electricity_price > 0 ? (formatContractVnd(info.electricity_price) + '/số') : '3.500đ/số';
-            const elecStartVal = info.electricity_start !== undefined && info.electricity_start !== null ? info.electricity_start : 0;
-            if (document.getElementById('vcElecPrice')) {
-                document.getElementById('vcElecPrice').innerText = elecPriceVal;
-            }
-            if (document.getElementById('vcElecStart')) {
-                document.getElementById('vcElecStart').innerText = `Chỉ số ban đầu: ${elecStartVal} kWh`;
-            }
+            // 3. Đơn giá Điện & Nước & Phí Dịch Vụ
+            const elecPriceNum = parseFloat(String(info.electricity_price || 0).replace(/[^\d.]/g, '')) || 0;
+            const waterBlockNum = parseFloat(String(info.water_price_block || 0).replace(/[^\d.]/g, '')) || 0;
+            const waterPersonNum = parseFloat(String(info.water_price_person || 0).replace(/[^\d.]/g, '')) || 0;
+            const internetNum = parseFloat(String(info.internet_price || 0).replace(/[^\d.]/g, '')) || 0;
+            const garbageNum = parseFloat(String(info.garbage_price || 0).replace(/[^\d.]/g, '')) || 0;
 
-            // Nước theo khối hoặc theo người
-            const waterType = info.water_calculation_type || 'khoi';
-            if (waterType === 'nguoi') {
-                if (document.getElementById('vcWaterTypeLabel')) {
-                    document.getElementById('vcWaterTypeLabel').innerText = 'Tiền nước sinh hoạt (Theo người):';
-                }
-                const waterPersonVal = info.water_price_person && info.water_price_person > 0 ? (formatContractVnd(info.water_price_person) + '/người/tháng') : '100.000đ/người';
-                if (document.getElementById('vcWaterPrice')) {
-                    document.getElementById('vcWaterPrice').innerText = waterPersonVal;
-                }
-                if (document.getElementById('vcWaterSubInfo')) {
-                    document.getElementById('vcWaterSubInfo').innerText = `Số người ở: ${info.water_people_count || 1} người`;
-                }
+            const isNoServiceFee = Boolean(
+                info.no_service_fee === true || 
+                info.no_service_fee === 'true' ||
+                info.no_service_fee === 1 ||
+                (elecPriceNum <= 0 && waterBlockNum <= 0 && waterPersonNum <= 0 && internetNum <= 0 && garbageNum <= 0)
+            );
+
+            const titleEl = document.getElementById('vcServiceTitle');
+            const noServiceBlock = document.getElementById('vcNoServiceBlock');
+            const hasServiceBlock = document.getElementById('vcHasServiceBlock');
+
+            if (isNoServiceFee) {
+                if (titleEl) titleEl.innerText = 'Điều 3. Quy định về chi phí điện, nước và dịch vụ sinh hoạt';
+                if (noServiceBlock) noServiceBlock.classList.remove('hidden');
+                if (hasServiceBlock) hasServiceBlock.classList.add('hidden');
             } else {
-                if (document.getElementById('vcWaterTypeLabel')) {
-                    document.getElementById('vcWaterTypeLabel').innerText = 'Tiền nước sinh hoạt (Theo khối):';
-                }
-                const waterBlockVal = info.water_price_block && info.water_price_block > 0 ? (formatContractVnd(info.water_price_block) + '/khối (m³)') : '25.000đ/khối';
-                if (document.getElementById('vcWaterPrice')) {
-                    document.getElementById('vcWaterPrice').innerText = waterBlockVal;
-                }
-                if (document.getElementById('vcWaterSubInfo')) {
-                    document.getElementById('vcWaterSubInfo').innerText = `Chỉ số ban đầu: ${info.water_start || 0} m³`;
-                }
-            }
+                if (titleEl) titleEl.innerText = 'Điều 3. Phí dịch vụ đi kèm';
+                if (noServiceBlock) noServiceBlock.classList.add('hidden');
+                if (hasServiceBlock) hasServiceBlock.classList.remove('hidden');
 
-            // 4. Phí Dịch Vụ Cố Định (Internet + Rác) & Chu Kỳ
-            const internetVal = info.internet_price && info.internet_price > 0 ? (formatContractVnd(info.internet_price) + '/tháng') : '100.000đ/tháng';
-            const garbageVal = info.garbage_price && info.garbage_price > 0 ? (formatContractVnd(info.garbage_price) + '/tháng') : '30.000đ/tháng';
-            if (document.getElementById('vcInternetPrice')) {
-                document.getElementById('vcInternetPrice').innerText = internetVal;
-            }
-            if (document.getElementById('vcGarbagePrice')) {
-                document.getElementById('vcGarbagePrice').innerText = garbageVal;
-            }
-            if (document.getElementById('vcInternetGarbagePrice')) {
-                const totalService = (parseFloat(String(info.internet_price || 0).replace(/[^\d.]/g, '')) || 0) + (parseFloat(String(info.garbage_price || 0).replace(/[^\d.]/g, '')) || 0);
-                document.getElementById('vcInternetGarbagePrice').innerText = totalService > 0 ? (formatContractVnd(totalService) + '/tháng') : (internetVal + ' + Rác: ' + garbageVal);
+                const elecPriceVal = elecPriceNum > 0 ? (formatContractVnd(elecPriceNum) + '/số') : '3.500đ/số';
+                const elecStartVal = info.electricity_start !== undefined && info.electricity_start !== null ? info.electricity_start : 0;
+                if (document.getElementById('vcElecPrice')) {
+                    document.getElementById('vcElecPrice').innerText = elecPriceVal;
+                }
+                if (document.getElementById('vcElecStart')) {
+                    document.getElementById('vcElecStart').innerText = `Chỉ số ban đầu: ${elecStartVal} kWh`;
+                }
+
+                // Nước theo khối hoặc theo người
+                const waterType = info.water_calculation_type || 'khoi';
+                if (waterType === 'nguoi') {
+                    if (document.getElementById('vcWaterTypeLabel')) {
+                        document.getElementById('vcWaterTypeLabel').innerText = 'Tiền nước sinh hoạt (Theo người):';
+                    }
+                    const waterPersonVal = waterPersonNum > 0 ? (formatContractVnd(waterPersonNum) + '/người/tháng') : '100.000đ/người';
+                    if (document.getElementById('vcWaterPrice')) {
+                        document.getElementById('vcWaterPrice').innerText = waterPersonVal;
+                    }
+                    if (document.getElementById('vcWaterSubInfo')) {
+                        document.getElementById('vcWaterSubInfo').innerText = `Số người ở: ${info.water_people_count || 1} người`;
+                    }
+                } else {
+                    if (document.getElementById('vcWaterTypeLabel')) {
+                        document.getElementById('vcWaterTypeLabel').innerText = 'Tiền nước sinh hoạt (Theo khối):';
+                    }
+                    const waterBlockVal = waterBlockNum > 0 ? (formatContractVnd(waterBlockNum) + '/khối (m³)') : '25.000đ/khối';
+                    if (document.getElementById('vcWaterPrice')) {
+                        document.getElementById('vcWaterPrice').innerText = waterBlockVal;
+                    }
+                    if (document.getElementById('vcWaterSubInfo')) {
+                        document.getElementById('vcWaterSubInfo').innerText = `Chỉ số ban đầu: ${info.water_start || 0} m³`;
+                    }
+                }
+
+                // 4. Phí Dịch Vụ Cố Định (Internet + Rác) & Chu Kỳ
+                const internetVal = internetNum > 0 ? (formatContractVnd(internetNum) + '/tháng') : '100.000đ/tháng';
+                const garbageVal = garbageNum > 0 ? (formatContractVnd(garbageNum) + '/tháng') : '30.000đ/tháng';
+                if (document.getElementById('vcInternetPrice')) {
+                    document.getElementById('vcInternetPrice').innerText = internetVal;
+                }
+                if (document.getElementById('vcGarbagePrice')) {
+                    document.getElementById('vcGarbagePrice').innerText = garbageVal;
+                }
+                if (document.getElementById('vcInternetGarbagePrice')) {
+                    const totalService = internetNum + garbageNum;
+                    document.getElementById('vcInternetGarbagePrice').innerText = totalService > 0 ? (formatContractVnd(totalService) + '/tháng') : (internetVal + ' + Rác: ' + garbageVal);
+                }
             }
 
             const billDateVal = info.bill_date ? `Mùng ${info.bill_date} hàng tháng` : (info.billing_date || 'Mùng 5 hàng tháng');
@@ -1948,7 +1941,14 @@
                 document.getElementById('vcBillDate').innerText = billDateVal;
             }
             if (document.getElementById('vcPaymentCycle')) {
-                document.getElementById('vcPaymentCycle').innerText = (info.payment_cycle || '1 tháng') + ` (Hạn trả: ${info.payment_limit_days || '5 ngày'})`;
+                let cycleText = info.payment_cycle || '1 tháng/lần';
+                if (/^\d+$/.test(String(cycleText).trim())) {
+                    const cNum = parseInt(cycleText, 10);
+                    cycleText = (cNum === 12) ? '1 năm/lần' : `${cNum} tháng/lần`;
+                } else if (!String(cycleText).includes('tháng') && !String(cycleText).includes('năm')) {
+                    cycleText = `${cycleText} tháng/lần`;
+                }
+                document.getElementById('vcPaymentCycle').innerText = cycleText + ` (Hạn trả: ${info.payment_limit_days || '5 ngày'})`;
             }
             if (document.getElementById('vcPenaltyBadge')) {
                 document.getElementById('vcPenaltyBadge').innerText = `Phạt trễ hạn: ${info.late_penalty_fee || '20.000 VNĐ / ngày'}`;

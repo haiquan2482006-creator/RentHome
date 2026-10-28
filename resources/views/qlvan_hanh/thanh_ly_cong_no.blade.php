@@ -1311,6 +1311,11 @@
                                 <span>Khấu trừ tiền cọc (contracts):</span>
                                 <strong id="sum_deposit">- 0 đ</strong>
                             </div>
+
+                            <div class="summary-line" id="row_sum_unused_rent" style="display: none; font-size: 0.85rem; color: #059669;">
+                                <span><i class="fa-solid fa-arrow-rotate-left"></i> Hoàn tiền phòng đóng trước chưa ở:</span>
+                                <strong id="sum_unused_rent">- 0 đ</strong>
+                            </div>
                         </div>
 
                         <!-- HỘP RẼ NHÁNH KỊCH BẢN DYNAMIC -->
@@ -1697,15 +1702,45 @@
             let stayDays = parseInt(document.getElementById('calc_stay_days').value) || 1;
             stayDays = Math.max(1, Math.min(31, stayDays));
 
-            // 1. Tiền phòng lẻ = (Giá phòng / 30) * Số ngày ở lẻ của tháng cuối
+            // 1. Tiền phòng lẻ hoặc Hoàn tiền phòng đóng trước chưa ở
             let proratedRent = 0;
-            if (isProrated) {
-                proratedRent = Math.round((rentPrice / 30) * stayDays);
-                document.getElementById('calc_prorated_formula').value = `(${formatMoney(rentPrice)} / 30) x ${stayDays} ngày`;
-            } else {
-                proratedRent = rentPrice;
-                stayDays = 30;
-                document.getElementById('calc_prorated_formula').value = `Trọn cả tháng (${formatMoney(rentPrice)} đ)`;
+            let unusedRentRefund = 0;
+            let isPrepaidCycle = false;
+
+            const checkoutDateVal = document.getElementById('calc_checkout_date').value;
+            const checkoutDateObj = checkoutDateVal ? new Date(checkoutDateVal) : new Date();
+            const nextRentDateStr = d.next_rent_date;
+
+            if (nextRentDateStr) {
+                const nextRentDateObj = new Date(nextRentDateStr);
+                if (checkoutDateObj < nextRentDateObj) {
+                    isPrepaidCycle = true;
+                    proratedRent = 0;
+
+                    // Ngày thừa trong tháng trả phòng
+                    const cDay = checkoutDateObj.getDate() || 1;
+                    const unusedDays = Math.max(0, 30 - cDay);
+                    const unusedDaysAmt = Math.round((rentPrice / 30) * unusedDays);
+
+                    // Tháng nguyên tiếp theo trước next_rent_date
+                    const mDiff = (nextRentDateObj.getFullYear() - checkoutDateObj.getFullYear()) * 12 + (nextRentDateObj.getMonth() - checkoutDateObj.getMonth()) - 1;
+                    const unusedMonths = Math.max(0, mDiff);
+                    const unusedMonthsAmt = unusedMonths * rentPrice;
+
+                    unusedRentRefund = unusedDaysAmt + unusedMonthsAmt;
+                    document.getElementById('calc_prorated_formula').value = `Đã đóng trước đến ${nextRentDateStr} (Không nợ tiền phòng)`;
+                }
+            }
+
+            if (!isPrepaidCycle) {
+                if (isProrated) {
+                    proratedRent = Math.round((rentPrice / 30) * stayDays);
+                    document.getElementById('calc_prorated_formula').value = `(${formatMoney(rentPrice)} / 30) x ${stayDays} ngày`;
+                } else {
+                    proratedRent = rentPrice;
+                    stayDays = 30;
+                    document.getElementById('calc_prorated_formula').value = `Trọn cả tháng (${formatMoney(rentPrice)} đ)`;
+                }
             }
             document.getElementById('calc_prorated_rent_text').innerText = formatMoney(proratedRent) + ' VNĐ';
 
@@ -1754,8 +1789,11 @@
             // ==========================================
             const totalDebt = proratedRent + elecAmount + waterAmount + servicesAmount + damageFee;
 
-            // CHÊNH LỆCH = Tổng nợ - Tiền cọc
-            const netAmount = totalDebt - depositAmount;
+            // TỔNG ĐỐI TRỪ/HOÀN = Cọc + Tiền phòng đóng trước chưa ở
+            const totalCredits = depositAmount + unusedRentRefund;
+
+            // CHÊNH LỆCH = Tổng nợ - Tổng đối trừ
+            const netAmount = totalDebt - totalCredits;
 
             // Cập nhật Cột phải Live Summary
             document.getElementById('sum_prorated_rent').innerText = '+ ' + formatMoney(proratedRent) + ' đ';
@@ -1765,6 +1803,16 @@
             document.getElementById('sum_damage').innerText = '+ ' + formatMoney(damageFee) + ' đ';
             document.getElementById('sum_total_debt').innerText = formatMoney(totalDebt) + ' VNĐ';
             document.getElementById('sum_deposit').innerText = '- ' + formatMoney(depositAmount) + ' VNĐ';
+
+            const unusedRow = document.getElementById('row_sum_unused_rent');
+            if (unusedRow) {
+                if (unusedRentRefund > 0) {
+                    unusedRow.style.display = 'flex';
+                    document.getElementById('sum_unused_rent').innerText = '- ' + formatMoney(unusedRentRefund) + ' VNĐ';
+                } else {
+                    unusedRow.style.display = 'none';
+                }
+            }
 
             // Lưu cache tính toán hiện tại
             currentSettlementCalculation = {

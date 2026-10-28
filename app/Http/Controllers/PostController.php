@@ -55,6 +55,7 @@ class PostController extends Controller
             'floor_number' => 'nullable|numeric',
             'bedroom' => 'nullable|numeric',
             'bathroom' => 'nullable|numeric',
+            'payment_requirement' => 'nullable|string|max:500',
             'property_type' => 'nullable|string',
             'description' => 'nullable|string',
             'account_role' => 'nullable|string',
@@ -114,6 +115,13 @@ class PostController extends Controller
 
         $floorVal = $request->filled('floor') ? (int)$request->input('floor') : ($request->filled('floor_number') ? (int)$request->input('floor_number') : null);
 
+        $propType = $validatedData['property_type'] ?? null;
+        if ($building && !empty($building->type)) {
+            $propType = $building->type;
+        } elseif (empty($propType)) {
+            $propType = 'nha_rieng';
+        }
+
         $dataToSave = [
             'user_id' => (string)Auth::id(),
             'author_id' => (string)Auth::id(),
@@ -127,11 +135,12 @@ class PostController extends Controller
             'floor_number' => $floorVal,
             'bedroom' => $request->filled('bedroom') ? (int)$request->input('bedroom') : null,
             'bathroom' => $request->filled('bathroom') ? (int)$request->input('bathroom') : null,
+            'payment_requirement' => $request->has('payment_requirement') ? (trim((string)$request->input('payment_requirement')) ?: null) : null,
             'province' => $building ? $building->province : null,
             'district' => $building ? $building->district : null,
             'ward' => $building ? $building->ward : null,
             'address' => $building ? ($building->address_detail ?: $building->address) : null,
-            'property_type' => $validatedData['property_type'] ?? 'nha_o',
+            'property_type' => $propType,
             'description' => $validatedData['description'] ?? '',
             'account_role' => $validatedData['account_role'] ?? 'doanhnghiep',
             'building_id' => $buildingId,
@@ -696,6 +705,9 @@ class PostController extends Controller
         if (!empty($targetBuilding->address_detail) || !empty($targetBuilding->address)) {
             $post->address = $targetBuilding->address_detail ?: $targetBuilding->address;
         }
+        if (!empty($targetBuilding->type)) {
+            $post->property_type = $targetBuilding->type;
+        }
         $post->save();
 
         // 5. Đồng bộ bản ghi trong collection rooms (nếu có)
@@ -777,6 +789,7 @@ class PostController extends Controller
         }
 
         $post->building_id = null;
+        $post->property_type = 'nha_rieng';
         $post->save();
 
         return response()->json([

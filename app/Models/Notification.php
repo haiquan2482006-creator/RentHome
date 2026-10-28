@@ -104,4 +104,85 @@ class Notification extends Model
         $this->read_at = now();
         $this->save();
     }
+
+    /**
+     * Gửi thông báo khi Admin phân công 1 tòa nhà (vỏ) cho tài khoản nhân sự đang hoạt động
+     *
+     * @param User|string $staff Đối tượng User hoặc ID nhân sự
+     * @param Building $building Tòa nhà được phân công
+     * @return Notification|null
+     */
+    public static function sendBuildingAssignedNotification($staff, $building)
+    {
+        if (!$staff || !$building) {
+            return null;
+        }
+
+        if (is_string($staff) || is_numeric($staff)) {
+            $staff = User::find($staff);
+        }
+
+        if (!$staff) {
+            return null;
+        }
+
+        // Kiểm tra nhân sự có đang hoạt động hay không (chưa bị khóa, chưa bị xóa)
+        $isLocked = !empty($staff->is_locked) || in_array(strtolower((string)($staff->status ?? '')), ['locked', 'inactive', 'khoa', 'khoá', 'bị khóa', 'bi_khoa']);
+        $isDeleted = !empty($staff->is_deleted);
+        if ($isLocked || $isDeleted) {
+            return null;
+        }
+
+        // Không gửi cho kiểm duyệt viên hoặc CSKH (chỉ áp dụng cho nhân sự quản lý tòa nhà)
+        $staffRole = strtolower($staff->role ?? '');
+        if (in_array($staffRole, ['kiemduyet', 'moderator', 'kiem_duyet', 'cskh', 'cham_soc_kh', 'chamsockh'])) {
+            return null;
+        }
+
+        $bId = (string)($building->_id ?? $building->id);
+        $staffId = (string)($staff->_id ?? $staff->id);
+        $buildingName = $building->name ?? 'Tòa nhà / BĐS';
+
+        // Chống gửi trùng lặp thông báo phân công cùng 1 tòa nhà trong vòng 2 phút
+        $existing = self::where('user_id', $staffId)
+            ->where('building_id', $bId)
+            ->where('category', 'building_assigned')
+            ->where('created_at', '>=', now()->subMinutes(2))
+            ->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        $addressParts = array_filter([$building->address_detail, $building->ward, $building->district, $building->province]);
+        $addressDetail = trim(implode(', ', $addressParts));
+        $addrText = $addressDetail ? " ({$addressDetail})" : "";
+
+        $title = "Bạn vừa được phân công quản lý tòa nhà: {$buildingName}";
+        $message = "Ban Quản Trị đã phân công cho bạn quản lý cơ sở / tòa nhà: {$buildingName}{$addrText}. Bạn có thể tiếp nhận và bắt đầu đăng bài, quản lý các căn phòng của tòa nhà ngay bây giờ.";
+        $actionUrl = url('/quan-ly-toa-nha/' . $bId . '?ref=buildings');
+
+        return self::create([
+            'user_id'         => $staffId,
+            'notifiable_id'   => $staffId,
+            'notifiable_type' => User::class,
+            'building_id'     => $bId,
+            'target_id'       => $bId,
+            'title'           => $title,
+            'message'         => $message,
+            'action_url'      => $actionUrl,
+            'type'            => 'building',
+            'category'        => 'building_assigned',
+            'is_read'         => false,
+            'read_at'         => null,
+            'data'            => [
+                'title'       => $title,
+                'message'     => $message,
+                'action_url'  => $actionUrl,
+                'building_id' => $bId,
+                'category'    => 'building_assigned',
+                'type'        => 'building',
+            ]
+        ]);
+    }
 }

@@ -115,6 +115,36 @@
     // Phí Gửi xe
     $defaultParkingPriceRaw = old('parking_fee', $room->parking_fee ?? ($building->parking_fee ?? ''));
     $defaultParkingPrice = (is_numeric($defaultParkingPriceRaw) && $defaultParkingPriceRaw > 0) ? number_format($defaultParkingPriceRaw, 0, ',', '.') : ((string)$defaultParkingPriceRaw === '0' ? '0' : (string)$defaultParkingPriceRaw);
+
+    // Kiểm tra cấu hình Tòa nhà / Cơ sở có thu phí dịch vụ hay không
+    $isNoServiceFee = false;
+    if ($building) {
+        $hasServiceExplicit = isset($building->has_service_pricing) && $building->has_service_pricing !== null
+            ? (bool)$building->has_service_pricing
+            : (isset($building->has_service_fee) && $building->has_service_fee !== null ? (bool)$building->has_service_fee : null);
+
+        $bElec = (float)($building->electricity_price ?? 0);
+        $bWater = (float)($building->water_price ?? 0);
+        $bService = (float)($building->service_fee ?? 0);
+
+        if ($hasServiceExplicit === false || $bElec <= 0 || ($bElec <= 0 && $bWater <= 0 && $bService <= 0)) {
+            $isNoServiceFee = true;
+        }
+    } elseif ($room) {
+        $rElec = (float)($room->electricity_price ?? 0);
+        if ($rElec <= 0) {
+            $isNoServiceFee = true;
+        }
+    }
+
+    if ($isNoServiceFee) {
+        $defaultElecPrice = '0';
+        $defaultWaterPriceBlock = '';
+        $defaultWaterPricePerson = '';
+        $defaultInternetPrice = '0';
+        $defaultServicePrice = '0';
+        $defaultParkingPrice = '0';
+    }
 @endphp
 <!DOCTYPE html>
 <html lang="vi" class="scroll-smooth">
@@ -252,7 +282,6 @@
                 
                 <!-- TRƯỜNG ẨN ĐÓNG VAI TRÒ FLAG ĐÁNH DẤU NGUỒN FORM (KHÁCH LIÊN HỆ HAY KHÁCH VÃNG LAI) -->
                 <input type="hidden" name="contact_id" id="fContactIdFlag" value="{{ $contact_id ?? ($selectedContactId ?? '') }}">
-                <input type="hidden" name="water_calculation_type" id="fWaterMode" value="khoi">
                 
                 <!-- PHẦN 1: THÔNG TIN BÊN THUÊ & PHÒNG THUÊ -->
                 <div class="bg-slate-50 p-5 sm:p-6 rounded-2xl border border-slate-200 space-y-4">
@@ -374,6 +403,19 @@
                                             $b = \App\Models\Building::find($post->building_id);
                                         }
 
+                                        $optHasServiceExplicit = null;
+                                        if ($b) {
+                                            if (isset($b->has_service_pricing) && $b->has_service_pricing !== null) {
+                                                $optHasServiceExplicit = (bool)$b->has_service_pricing;
+                                            } elseif (isset($b->has_service_fee) && $b->has_service_fee !== null) {
+                                                $optHasServiceExplicit = (bool)$b->has_service_fee;
+                                            }
+                                        }
+                                        $optElec = (float)($b->electricity_price ?? ($post->electricity_price ?? 0));
+                                        $optWater = (float)($b->water_price ?? ($post->water_price ?? 0));
+                                        $optService = (float)($b->service_fee ?? ($post->service_fee ?? 0));
+                                        $optIsNoServiceFee = ($b && $optHasServiceExplicit === false) || ($optElec <= 0) || ($optElec <= 0 && $optWater <= 0 && $optService <= 0);
+
                                         $postTitle = $post->title ?? $post->name ?? ('Bài đăng #' . $postId);
                                         $priceVal = $post->price ?? null;
                                         $priceFormatted = (isset($priceVal) && is_numeric($priceVal)) ? number_format($priceVal) . 'đ/tháng' : ($priceVal ?? '');
@@ -388,6 +430,7 @@
                                             data-service="{{ $b->service_fee ?? '' }}"
                                             data-internet="{{ $b->internet_fee ?? '' }}"
                                             data-parking="{{ $b->parking_fee ?? '' }}"
+                                            data-no-service-fee="{{ $optIsNoServiceFee ? '1' : '0' }}"
                                             @if($isRoomMatch) selected @endif>
                                         {{ $postTitle }} @if($priceFormatted) - {{ $priceFormatted }} @endif @if($location) ({{ $location }}) @endif
                                     </option>
@@ -475,92 +518,109 @@
                         <i class="fa-solid fa-bolt-lightning text-amber-500 text-base"></i> 2. Cấu Hình Đơn Giá Điện & Nước Thỏa Thuận
                     </h3>
 
-                    <!-- CẤU HÌNH ĐIỆN -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block font-bold text-slate-800 mb-1.5">
-                                Giá Điện (VNĐ/số) <span class="text-rose-500">*</span>
-                            </label>
-                            <div class="relative">
-                                <input type="text" id="fElecPrice" name="electricity_price" value="{{ $defaultElecPrice }}" placeholder="Nhập giá điện (VD: 3000 hoặc 3.500)" required class="w-full pl-3.5 pr-12 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-amber-500 focus:border-amber-500 focus:outline-none shadow-xs transition-all">
-                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none">đ/số</span>
-                            </div>
-                            <div class="text-xs text-slate-500 mt-1 font-medium">
-                                Hiển thị: <span id="fElecPriceDisplay" class="font-bold text-slate-800">{{ $defaultElecPrice ?: '0' }}</span> VNĐ / số
-                            </div>
-                            <span class="text-[11px] text-slate-400 mt-0.5 block">* Cấu hình sẽ được lưu vào hợp đồng để hệ thống tự động tính tiền điện</span>
+                    <!-- ALERT KHI TÒA NHÀ / CƠ SỞ KHÔNG THU PHÍ DỊCH VỤ -->
+                    <div id="noServiceFeeAlert" class="{{ $isNoServiceFee ? '' : 'hidden' }} p-4 rounded-2xl bg-amber-50 border border-amber-200/90 text-amber-900 flex items-start gap-3 shadow-xs transition-all">
+                        <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-700 flex items-center justify-center text-base shrink-0 mt-0.5">
+                            <i class="fa-solid fa-bolt"></i>
                         </div>
-
                         <div>
-                            <label class="block font-bold text-slate-800 mb-1.5">Số điện ban đầu (Chỉ số bàn giao) <span class="text-rose-500">*</span></label>
-                            <input type="number" id="fElecStart" name="electricity_start" value="{{ old('electricity_start', $room->electricity_start ?? '') }}" placeholder="Nhập chỉ số điện bàn giao ban đầu" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-bold text-slate-900 bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none shadow-xs">
-                            <span class="text-[11px] text-slate-500 mt-1 block">* Chỉ số trên đồng hồ công tơ tại thời điểm ký kết</span>
+                            <h4 class="font-bold text-xs sm:text-sm text-amber-950 flex items-center gap-1.5">
+                                ⚡ Cơ sở này không thu phí dịch vụ tập trung. Khách thuê tự thanh toán điện/nước theo đồng hồ riêng.
+                            </h4>
+                            <p class="text-xs text-amber-800/90 mt-0.5 font-medium">
+                                Hợp đồng này sẽ không ghi nhận chỉ số ban đầu và đơn giá điện, nước. Các hóa đơn hàng tháng sẽ không bao gồm tiền điện/nước.
+                            </p>
                         </div>
                     </div>
 
-                    <!-- CẤU HÌNH NƯỚC (NÚT CHỌN TOGGLE: TÍNH KHỐI / TÍNH NGƯỜI) -->
-                    <div class="pt-3 space-y-3 border-t border-slate-200">
-                        <!-- Trường ẩn lưu hình thức tính nước gửi lên backend -->
-                        <input type="hidden" id="fWaterMode" name="water_calculation_type" value="{{ $isWaterNguoi ? 'nguoi' : 'khoi' }}">
-
-                        <div class="flex flex-wrap items-center justify-between gap-3">
-                            <label class="font-extrabold text-slate-900 text-xs sm:text-sm flex items-center gap-2">
-                                <i class="fa-solid fa-droplet text-skybrand-600"></i> Giá Nước Thỏa Thuận (Chọn hình thức tính):
-                            </label>
-                            <div class="flex flex-col items-start sm:items-end">
-                                <div class="inline-flex rounded-xl bg-slate-200 p-1 font-bold text-xs shadow-inner">
-                                    <button type="button" id="btnModeKhoi" onclick="switchWaterForm('khoi')" class="px-4 py-1.5 rounded-lg {{ !$isWaterNguoi ? 'bg-emerald-600 text-white shadow-sm' : ($room ? 'opacity-50 cursor-not-allowed pointer-events-none bg-slate-100 text-slate-400' : 'text-slate-700 hover:text-slate-900') }} transition-all">
-                                        <i class="fa-solid fa-cube"></i> Tính Theo Khối
-                                    </button>
-                                    <button type="button" id="btnModeNguoi" onclick="switchWaterForm('nguoi')" class="px-4 py-1.5 rounded-lg {{ $isWaterNguoi ? 'bg-emerald-600 text-white shadow-sm' : ($room ? 'opacity-50 cursor-not-allowed pointer-events-none bg-slate-100 text-slate-400' : 'text-slate-700 hover:text-slate-900') }} transition-all">
-                                        <i class="fa-solid fa-users"></i> Tính Theo Người
-                                    </button>
+                    <div id="secElecWaterInputs" class="{{ $isNoServiceFee ? 'hidden ' : '' }}space-y-4">
+                        <!-- CẤU HÌNH ĐIỆN -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block font-bold text-slate-800 mb-1.5">
+                                    Giá Điện (VNĐ/số) <span class="text-rose-500">*</span>
+                                </label>
+                                <div class="relative">
+                                    <input type="text" id="fElecPrice" name="electricity_price" value="{{ $defaultElecPrice }}" placeholder="Nhập giá điện (VD: 3000 hoặc 3.500)" {{ $isNoServiceFee ? 'disabled' : 'required' }} class="w-full pl-3.5 pr-12 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-amber-500 focus:border-amber-500 focus:outline-none shadow-xs transition-all">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none">đ/số</span>
                                 </div>
-                                <p id="waterModeWarning" class="{{ $room ? '' : 'hidden' }} mt-1.5">
-                                    <span class="text-[11px] text-rose-500 font-medium italic"><i class="fa-solid fa-lock text-[10px]"></i> Phương thức tính nước được khóa cố định theo hạ tầng của tòa nhà này.</span>
-                                </p>
+                                <div class="text-xs text-slate-500 mt-1 font-medium">
+                                    Hiển thị: <span id="fElecPriceDisplay" class="font-bold text-slate-800">{{ $defaultElecPrice ?: '0' }}</span> VNĐ / số
+                                </div>
+                                <span class="text-[11px] text-slate-400 mt-0.5 block">* Cấu hình sẽ được lưu vào hợp đồng để hệ thống tự động tính tiền điện</span>
+                            </div>
+
+                            <div>
+                                <label class="block font-bold text-slate-800 mb-1.5">Số điện ban đầu (Chỉ số bàn giao) <span class="text-rose-500">*</span></label>
+                                <input type="number" id="fElecStart" name="electricity_start" value="{{ old('electricity_start', $room->electricity_start ?? '') }}" placeholder="Nhập chỉ số điện bàn giao ban đầu" {{ $isNoServiceFee ? 'disabled' : 'required' }} class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-bold text-slate-900 bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none shadow-xs">
+                                <span class="text-[11px] text-slate-500 mt-1 block">* Chỉ số trên đồng hồ công tơ tại thời điểm ký kết</span>
                             </div>
                         </div>
 
-                        <!-- SUB-FORM 1: TÍNH THEO KHỐI -->
-                        <div id="subWaterKhoi" class="{{ $isWaterNguoi ? 'hidden ' : '' }}grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-4 rounded-2xl border border-slate-200">
-                            <div>
-                                <label class="block font-bold text-slate-800 mb-1">
-                                    Số tiền (VNĐ/khối) <span class="text-rose-500">*</span>
-                                </label>
-                                <div class="relative">
-                                    <input type="text" id="fWaterPriceKhoi" name="water_price_block" value="{{ $defaultWaterPriceBlock }}" placeholder="Nhập giá nước (VD: 25000 hoặc 25.000)" class="w-full pl-3.5 pr-14 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-sky-500 focus:border-sky-500 focus:outline-none">
-                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none">đ/khối</span>
-                                </div>
-                                <div class="text-xs text-slate-500 mt-1 font-medium">
-                                    Hiển thị: <span id="fWaterKhoiDisplay" class="font-bold text-slate-800">{{ $defaultWaterPriceBlock ?: '0' }}</span> VNĐ / khối
-                                </div>
-                            </div>
-                            <div>
-                                <label class="block font-bold text-slate-800 mb-1">Số nước ban đầu (Chỉ số bàn giao)</label>
-                                <input type="number" id="fWaterStart" name="water_start" value="{{ old('water_start', $room->water_start ?? '') }}" placeholder="Nhập chỉ số nước ban đầu" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm font-bold text-slate-900 bg-white">
-                                <span class="text-[11px] text-slate-500 mt-1 block">* Chỉ số trên đồng hồ nước tại thời điểm ký kết</span>
-                            </div>
-                        </div>
+                        <!-- CẤU HÌNH NƯỚC (NÚT CHỌN TOGGLE: TÍNH KHỐI / TÍNH NGƯỜI) -->
+                        <div class="pt-3 space-y-3 border-t border-slate-200">
+                            <!-- Trường ẩn lưu hình thức tính nước gửi lên backend -->
+                            <input type="hidden" id="fWaterMode" name="water_calculation_type" value="{{ $isWaterNguoi ? 'nguoi' : 'khoi' }}">
 
-                        <!-- SUB-FORM 2: TÍNH THEO NGƯỜI -->
-                        <div id="subWaterNguoi" class="{{ !$isWaterNguoi ? 'hidden ' : '' }}grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-4 rounded-2xl border border-slate-200">
-                            <div>
-                                <label class="block font-bold text-slate-800 mb-1">
-                                    Số tiền (VNĐ/người) <span class="text-rose-500">*</span>
+                            <div class="flex flex-wrap items-center justify-between gap-3">
+                                <label class="font-extrabold text-slate-900 text-xs sm:text-sm flex items-center gap-2">
+                                    <i class="fa-solid fa-droplet text-skybrand-600"></i> Giá Nước Thỏa Thuận (Chọn hình thức tính):
                                 </label>
-                                <div class="relative">
-                                    <input type="text" id="fWaterPriceNguoi" name="water_price_person" value="{{ $defaultWaterPricePerson }}" placeholder="Nhập giá nước (VD: 100000 hoặc 100.000)" class="w-full pl-3.5 pr-16 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-sky-500 focus:border-sky-500 focus:outline-none">
-                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none">đ/người</span>
-                                </div>
-                                <div class="text-xs text-slate-500 mt-1 font-medium">
-                                    Hiển thị: <span id="fWaterNguoiDisplay" class="font-bold text-slate-800">{{ $defaultWaterPricePerson ?: '0' }}</span> VNĐ / người
+                                <div class="flex flex-col items-start sm:items-end">
+                                    <div class="inline-flex rounded-xl bg-slate-200 p-1 font-bold text-xs shadow-inner">
+                                        <button type="button" id="btnModeKhoi" onclick="switchWaterForm('khoi')" class="px-4 py-1.5 rounded-lg {{ !$isWaterNguoi ? 'bg-emerald-600 text-white shadow-sm' : ($room ? 'opacity-50 cursor-not-allowed pointer-events-none bg-slate-100 text-slate-400' : 'text-slate-700 hover:text-slate-900') }} transition-all" {{ ($room && $isWaterNguoi) ? 'disabled' : '' }}>
+                                            <i class="fa-solid fa-cube"></i> Tính Theo Khối
+                                        </button>
+                                        <button type="button" id="btnModeNguoi" onclick="switchWaterForm('nguoi')" class="px-4 py-1.5 rounded-lg {{ $isWaterNguoi ? 'bg-emerald-600 text-white shadow-sm' : ($room ? 'opacity-50 cursor-not-allowed pointer-events-none bg-slate-100 text-slate-400' : 'text-slate-700 hover:text-slate-900') }} transition-all" {{ ($room && !$isWaterNguoi) ? 'disabled' : '' }}>
+                                            <i class="fa-solid fa-users"></i> Tính Theo Người
+                                        </button>
+                                    </div>
+                                    <p id="waterModeWarning" class="{{ $room ? '' : 'hidden' }} mt-1.5">
+                                        <span class="text-[11px] text-rose-500 font-medium italic"><i class="fa-solid fa-lock text-[10px]"></i> Phương thức tính nước được khóa cố định theo hạ tầng của tòa nhà này.</span>
+                                    </p>
                                 </div>
                             </div>
-                            <div>
-                                <label class="block font-bold text-slate-800 mb-1">Số người ở đăng ký</label>
-                                <input type="number" id="fWaterPeopleCount" name="water_people_count" value="{{ old('water_people_count', '1') }}" placeholder="Số người ở" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm font-bold text-slate-900 bg-white">
-                                <span class="text-[11px] text-slate-500 mt-1 block">* Dùng để nhân với đơn giá nước theo người mỗi tháng</span>
+
+                            <!-- SUB-FORM 1: TÍNH THEO KHỐI -->
+                            <div id="subWaterKhoi" class="{{ $isWaterNguoi ? 'hidden ' : '' }}grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-4 rounded-2xl border border-slate-200">
+                                <div>
+                                    <label class="block font-bold text-slate-800 mb-1">
+                                        Số tiền (VNĐ/khối) <span class="text-rose-500">*</span>
+                                    </label>
+                                    <div class="relative">
+                                        <input type="text" id="fWaterPriceKhoi" name="water_price_block" value="{{ $defaultWaterPriceBlock }}" placeholder="Nhập giá nước (VD: 25000 hoặc 25.000)" {{ $isNoServiceFee ? 'disabled' : '' }} class="w-full pl-3.5 pr-14 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-sky-500 focus:border-sky-500 focus:outline-none">
+                                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none">đ/khối</span>
+                                    </div>
+                                    <div class="text-xs text-slate-500 mt-1 font-medium">
+                                        Hiển thị: <span id="fWaterKhoiDisplay" class="font-bold text-slate-800">{{ $defaultWaterPriceBlock ?: '0' }}</span> VNĐ / khối
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block font-bold text-slate-800 mb-1">Số nước ban đầu (Chỉ số bàn giao)</label>
+                                    <input type="number" id="fWaterStart" name="water_start" value="{{ old('water_start', $room->water_start ?? '') }}" placeholder="Nhập chỉ số nước ban đầu" {{ $isNoServiceFee ? 'disabled' : '' }} class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm font-bold text-slate-900 bg-white">
+                                    <span class="text-[11px] text-slate-500 mt-1 block">* Chỉ số trên đồng hồ nước tại thời điểm ký kết</span>
+                                </div>
+                            </div>
+
+                            <!-- SUB-FORM 2: TÍNH THEO NGƯỜI -->
+                            <div id="subWaterNguoi" class="{{ !$isWaterNguoi ? 'hidden ' : '' }}grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-4 rounded-2xl border border-slate-200">
+                                <div>
+                                    <label class="block font-bold text-slate-800 mb-1">
+                                        Số tiền (VNĐ/người) <span class="text-rose-500">*</span>
+                                    </label>
+                                    <div class="relative">
+                                        <input type="text" id="fWaterPriceNguoi" name="water_price_person" value="{{ $defaultWaterPricePerson }}" placeholder="Nhập giá nước (VD: 100000 hoặc 100.000)" {{ $isNoServiceFee ? 'disabled' : '' }} class="w-full pl-3.5 pr-16 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-sky-500 focus:border-sky-500 focus:outline-none">
+                                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none">đ/người</span>
+                                    </div>
+                                    <div class="text-xs text-slate-500 mt-1 font-medium">
+                                        Hiển thị: <span id="fWaterNguoiDisplay" class="font-bold text-slate-800">{{ $defaultWaterPricePerson ?: '0' }}</span> VNĐ / người
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block font-bold text-slate-800 mb-1">Số người ở đăng ký</label>
+                                    <input type="number" id="fWaterPeopleCount" name="water_people_count" value="{{ old('water_people_count', '1') }}" placeholder="Số người ở" {{ $isNoServiceFee ? 'disabled' : '' }} class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm font-bold text-slate-900 bg-white">
+                                    <span class="text-[11px] text-slate-500 mt-1 block">* Dùng để nhân với đơn giá nước theo người mỗi tháng</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -572,14 +632,29 @@
                         <i class="fa-solid fa-bell-concierge text-purple-600 text-base"></i> 3. Phí Dịch Vụ Cố Định Hàng Tháng
                     </h3>
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- ALERT PHÍ DỊCH VỤ CỐ ĐỊNH = 0 -->
+                    <div id="noServiceFeeAlertSec3" class="{{ $isNoServiceFee ? '' : 'hidden' }} p-4 rounded-2xl bg-amber-50 border border-amber-200/90 text-amber-900 flex items-start gap-3 shadow-xs transition-all">
+                        <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-700 flex items-center justify-center text-base shrink-0 mt-0.5">
+                            <i class="fa-solid fa-bell-concierge"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-xs sm:text-sm text-amber-950 flex items-center gap-1.5">
+                                Không áp dụng các khoản phí dịch vụ cố định
+                            </h4>
+                            <p class="text-xs text-amber-800/90 mt-0.5 font-medium">
+                                Cơ sở không thu tiền Internet, Vệ sinh hay Gửi xe tập trung hàng tháng (Đơn giá = 0 VNĐ).
+                            </p>
+                        </div>
+                    </div>
+
+                    <div id="secServiceFeeInputs" class="{{ $isNoServiceFee ? 'hidden ' : '' }}grid grid-cols-1 md:grid-cols-3 gap-4">
                         <!-- 1. Internet -->
                         <div>
                             <label class="block font-bold text-slate-800 mb-1.5">
                                 Internet / Wifi (VNĐ/tháng)
                             </label>
                             <div class="relative">
-                                <input type="text" id="fInternetPrice" name="internet_price" value="{{ $defaultInternetPrice }}" placeholder="VD: 100.000" class="w-full pl-3.5 pr-16 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none shadow-xs transition-all">
+                                <input type="text" id="fInternetPrice" name="internet_price" value="{{ $defaultInternetPrice }}" placeholder="VD: 100.000" {{ $isNoServiceFee ? 'disabled' : '' }} class="w-full pl-3.5 pr-16 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none shadow-xs transition-all">
                                 <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none">đ/tháng</span>
                             </div>
                             <div class="text-xs text-slate-500 mt-1 font-medium">
@@ -593,7 +668,7 @@
                                 Phí dịch vụ chung / Vệ sinh
                             </label>
                             <div class="relative">
-                                <input type="text" id="fServicePrice" name="service_fee" value="{{ $defaultServicePrice }}" placeholder="VD: 50.000" class="w-full pl-3.5 pr-16 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none shadow-xs transition-all">
+                                <input type="text" id="fServicePrice" name="service_fee" value="{{ $defaultServicePrice }}" placeholder="VD: 50.000" {{ $isNoServiceFee ? 'disabled' : '' }} class="w-full pl-3.5 pr-16 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none shadow-xs transition-all">
                                 <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none">đ/phòng</span>
                             </div>
                             <div class="text-xs text-slate-500 mt-1 font-medium">
@@ -607,7 +682,7 @@
                                 Phí Gửi Xe (VNĐ/xe)
                             </label>
                             <div class="relative">
-                                <input type="text" id="fParkingPrice" name="parking_fee" value="{{ $defaultParkingPrice }}" placeholder="VD: 100.000" class="w-full pl-3.5 pr-14 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none shadow-xs transition-all">
+                                <input type="text" id="fParkingPrice" name="parking_fee" value="{{ $defaultParkingPrice }}" placeholder="VD: 100.000" {{ $isNoServiceFee ? 'disabled' : '' }} class="w-full pl-3.5 pr-14 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none shadow-xs transition-all">
                                 <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none">đ/xe</span>
                             </div>
                             <div class="text-xs text-slate-500 mt-1 font-medium">
@@ -625,12 +700,12 @@
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div>
-                            <label class="block font-bold text-slate-800 mb-1.5">Chu kỳ thanh toán</label>
-                            <select id="fCycle" name="payment_cycle" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none shadow-xs">
-                                <option value="1 tháng" {{ old('payment_cycle', '1 tháng') == '1 tháng' ? 'selected' : '' }}>1 tháng (Hàng tháng)</option>
-                                <option value="3 tháng" {{ old('payment_cycle') == '3 tháng' ? 'selected' : '' }}>3 tháng (Theo quý)</option>
-                                <option value="6 tháng" {{ old('payment_cycle') == '6 tháng' ? 'selected' : '' }}>6 tháng (Nửa năm)</option>
-                                <option value="1 năm" {{ old('payment_cycle') == '1 năm' ? 'selected' : '' }}>1 năm (Theo năm)</option>
+                            <label class="block font-bold text-slate-800 mb-1.5">Chu kỳ thu tiền nhà <span class="text-rose-500">*</span></label>
+                            <select id="fCycle" name="payment_cycle" onchange="calcFirstInvoicePreview()" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none shadow-xs">
+                                <option value="1" {{ (string)old('payment_cycle', '1') === '1' ? 'selected' : '' }}>1 tháng</option>
+                                <option value="3" {{ (string)old('payment_cycle') === '3' ? 'selected' : '' }}>3 tháng</option>
+                                <option value="6" {{ (string)old('payment_cycle') === '6' ? 'selected' : '' }}>6 tháng</option>
+                                <option value="12" {{ (string)old('payment_cycle') === '12' ? 'selected' : '' }}>1 năm</option>
                             </select>
                         </div>
 
@@ -969,8 +1044,9 @@
             const parking = parseNumberOnly(document.getElementById('fParkingPrice')?.value);
             const totalMonthlyService = wifi + service + parking;
 
+            const paymentCycle = parseInt(document.getElementById('fCycle')?.value, 10) || 1;
             let stayDays = 30;
-            let firstRent = rentPrice;
+            let firstRent = rentPrice * paymentCycle;
             let firstService = totalMonthlyService;
             const proratedBadge = document.getElementById('proratedBadge');
             const previewRentDaysTag = document.getElementById('previewRentDaysTag');
@@ -978,24 +1054,24 @@
 
             if (startDay === 1) {
                 stayDays = 30;
-                firstRent = rentPrice;
+                firstRent = rentPrice * paymentCycle;
                 firstService = totalMonthlyService;
                 if (proratedBadge) {
                     proratedBadge.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-400/30 shadow-xs";
-                    proratedBadge.innerHTML = '<i class="fa-solid fa-circle-check"></i> Trọn 1 tháng';
+                    proratedBadge.innerHTML = `<i class="fa-solid fa-circle-check"></i> Trọn ${paymentCycle} tháng`;
                 }
-                if (previewRentDaysTag) previewRentDaysTag.textContent = "Trọn tháng";
-                if (previewRentFormula) previewRentFormula.textContent = "Trọn vẹn 1 tháng";
+                if (previewRentDaysTag) previewRentDaysTag.textContent = paymentCycle > 1 ? `${paymentCycle} tháng` : "Trọn tháng";
+                if (previewRentFormula) previewRentFormula.textContent = paymentCycle > 1 ? `${paymentCycle} tháng × ${formatThousands(rentPrice)}đ` : "Trọn vẹn 1 tháng";
             } else {
                 stayDays = Math.max(1, 30 - startDay + 1);
-                firstRent = Math.round((rentPrice / 30) * stayDays);
+                firstRent = Math.round((rentPrice / 30) * stayDays) + (rentPrice * Math.max(0, paymentCycle - 1));
                 firstService = Math.round((totalMonthlyService / 30) * stayDays);
                 if (proratedBadge) {
                     proratedBadge.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-400/30 shadow-xs";
-                    proratedBadge.innerHTML = `<i class="fa-solid fa-scissors"></i> Tính Lẻ ${stayDays} Ngày (Pro-rated)`;
+                    proratedBadge.innerHTML = `<i class="fa-solid fa-scissors"></i> Tính Lẻ ${stayDays} Ngày ${paymentCycle > 1 ? '+ ' + (paymentCycle - 1) + ' tháng' : ''}`;
                 }
-                if (previewRentDaysTag) previewRentDaysTag.textContent = `Lẻ ${stayDays} ngày`;
-                if (previewRentFormula) previewRentFormula.textContent = `[${formatThousands(rentPrice)}đ / 30] × ${stayDays} ngày`;
+                if (previewRentDaysTag) previewRentDaysTag.textContent = `Lẻ ${stayDays} ngày` + (paymentCycle > 1 ? ` + ${paymentCycle - 1}th` : '');
+                if (previewRentFormula) previewRentFormula.textContent = `[${formatThousands(rentPrice)}đ / 30] × ${stayDays} ngày` + (paymentCycle > 1 ? ` + ${paymentCycle - 1} tháng` : '');
             }
 
             const totalFirst = deposit + firstRent + firstService;
@@ -1014,13 +1090,32 @@
         }
 
         // Switch water calculation mode (hỗ trợ khóa cứng phương thức theo cấu hình tòa nhà)
-        function switchWaterForm(mode, isLocked = false) {
+        function switchWaterForm(mode, isLocked = null) {
             const btnKhoi = document.getElementById('btnModeKhoi');
             const btnNguoi = document.getElementById('btnModeNguoi');
             const subKhoi = document.getElementById('subWaterKhoi');
             const subNguoi = document.getElementById('subWaterNguoi');
             const waterModeInput = document.getElementById('fWaterMode');
             const warningEl = document.getElementById('waterModeWarning');
+            const roomSelect = document.getElementById('fRoom');
+
+            // Xác định trạng thái khóa:
+            // - Nếu isLocked được truyền tường minh (true/false) thì dùng trực tiếp
+            // - Nếu không truyền (ví dụ khi user bấm nút toggle trên giao diện), tự kiểm tra xem phòng có đang được chọn không
+            let locked = isLocked;
+            if (locked === null || locked === undefined) {
+                locked = Boolean(roomSelect && roomSelect.value && roomSelect.value !== '');
+            }
+
+            // Nếu đang bị khóa bởi hạ tầng tòa nhà: ép buộc mode phải là mode cố định của tòa nhà
+            if (locked && roomSelect && roomSelect.value && roomSelect.value !== '') {
+                const selectedOpt = roomSelect.options[roomSelect.selectedIndex];
+                if (selectedOpt) {
+                    const waterType = (selectedOpt.getAttribute('data-water-type') || '').toLowerCase();
+                    const isNguoi = waterType.includes('person') || waterType.includes('nguoi');
+                    mode = isNguoi ? 'nguoi' : 'khoi';
+                }
+            }
 
             if (waterModeInput) waterModeInput.value = mode;
 
@@ -1034,8 +1129,8 @@
                     btnKhoi.disabled = false;
                 }
                 if (btnNguoi) {
-                    btnNguoi.className = isLocked ? inactiveLockedClass : inactiveNormalClass;
-                    btnNguoi.disabled = isLocked;
+                    btnNguoi.className = locked ? inactiveLockedClass : inactiveNormalClass;
+                    btnNguoi.disabled = locked;
                 }
                 if (subKhoi) subKhoi.classList.remove('hidden');
                 if (subNguoi) subNguoi.classList.add('hidden');
@@ -1045,15 +1140,15 @@
                     btnNguoi.disabled = false;
                 }
                 if (btnKhoi) {
-                    btnKhoi.className = isLocked ? inactiveLockedClass : inactiveNormalClass;
-                    btnKhoi.disabled = isLocked;
+                    btnKhoi.className = locked ? inactiveLockedClass : inactiveNormalClass;
+                    btnKhoi.disabled = locked;
                 }
                 if (subNguoi) subNguoi.classList.remove('hidden');
                 if (subKhoi) subKhoi.classList.add('hidden');
             }
 
             if (warningEl) {
-                if (isLocked) {
+                if (locked) {
                     warningEl.classList.remove('hidden');
                 } else {
                     warningEl.classList.add('hidden');
@@ -1106,18 +1201,80 @@
             const rentPriceInput = document.getElementById('fRentPrice');
             const depositInput = document.getElementById('fDeposit');
 
+            // Bật/tắt chế độ Không thu phí dịch vụ (Điện, nước, internet, vệ sinh, xe)
+            function applyServiceFeeMode(isNoFee) {
+                const alertSec2 = document.getElementById('noServiceFeeAlert');
+                const inputsSec2 = document.getElementById('secElecWaterInputs');
+                const alertSec3 = document.getElementById('noServiceFeeAlertSec3');
+                const inputsSec3 = document.getElementById('secServiceFeeInputs');
+
+                const elecPriceInput = document.getElementById('fElecPrice');
+                const elecStartInput = document.getElementById('fElecStart');
+                const waterPriceKhoiInput = document.getElementById('fWaterPriceKhoi');
+                const waterStartInput = document.getElementById('fWaterStart');
+                const waterPriceNguoiInput = document.getElementById('fWaterPriceNguoi');
+                const waterPeopleCountInput = document.getElementById('fWaterPeopleCount');
+                const internetPriceInput = document.getElementById('fInternetPrice');
+                const servicePriceInput = document.getElementById('fServicePrice');
+                const parkingPriceInput = document.getElementById('fParkingPrice');
+
+                if (isNoFee) {
+                    if (alertSec2) alertSec2.classList.remove('hidden');
+                    if (inputsSec2) inputsSec2.classList.add('hidden');
+                    if (alertSec3) alertSec3.classList.remove('hidden');
+                    if (inputsSec3) inputsSec3.classList.add('hidden');
+
+                    if (elecPriceInput) { elecPriceInput.required = false; elecPriceInput.disabled = true; elecPriceInput.value = '0'; }
+                    if (elecStartInput) { elecStartInput.required = false; elecStartInput.disabled = true; elecStartInput.value = ''; }
+                    if (waterPriceKhoiInput) { waterPriceKhoiInput.disabled = true; waterPriceKhoiInput.value = ''; }
+                    if (waterStartInput) { waterStartInput.disabled = true; waterStartInput.value = ''; }
+                    if (waterPriceNguoiInput) { waterPriceNguoiInput.disabled = true; waterPriceNguoiInput.value = ''; }
+                    if (waterPeopleCountInput) { waterPeopleCountInput.disabled = true; waterPeopleCountInput.value = ''; }
+                    if (internetPriceInput) { internetPriceInput.disabled = true; internetPriceInput.value = '0'; }
+                    if (servicePriceInput) { servicePriceInput.disabled = true; servicePriceInput.value = '0'; }
+                    if (parkingPriceInput) { parkingPriceInput.disabled = true; parkingPriceInput.value = '0'; }
+                } else {
+                    if (alertSec2) alertSec2.classList.add('hidden');
+                    if (inputsSec2) inputsSec2.classList.remove('hidden');
+                    if (alertSec3) alertSec3.classList.add('hidden');
+                    if (inputsSec3) inputsSec3.classList.remove('hidden');
+
+                    if (elecPriceInput) { elecPriceInput.required = true; elecPriceInput.disabled = false; }
+                    if (elecStartInput) { elecStartInput.required = true; elecStartInput.disabled = false; }
+                    if (waterPriceKhoiInput) waterPriceKhoiInput.disabled = false;
+                    if (waterStartInput) waterStartInput.disabled = false;
+                    if (waterPriceNguoiInput) waterPriceNguoiInput.disabled = false;
+                    if (waterPeopleCountInput) waterPeopleCountInput.disabled = false;
+                    if (internetPriceInput) internetPriceInput.disabled = false;
+                    if (servicePriceInput) servicePriceInput.disabled = false;
+                    if (parkingPriceInput) parkingPriceInput.disabled = false;
+                }
+
+                updateFieldDisplay('fElecPrice', 'fElecPriceDisplay');
+                updateFieldDisplay('fWaterPriceKhoi', 'fWaterKhoiDisplay');
+                updateFieldDisplay('fWaterPriceNguoi', 'fWaterNguoiDisplay');
+                updateFieldDisplay('fInternetPrice', 'fInternetPriceDisplay');
+                updateFieldDisplay('fServicePrice', 'fServicePriceDisplay');
+                updateFieldDisplay('fParkingPrice', 'fParkingPriceDisplay');
+            }
+
             // Đồng bộ dữ liệu phòng khi chọn bài đăng (force: bắt buộc ghi đè khi người dùng chủ động chọn phòng mới)
             function syncRoomData(force = false) {
                 if (!roomSelect) return;
 
                 // Xử lý trường hợp "Không chọn phòng nào" (value rỗng): mở khóa lại cả 2 nút và ẩn thông báo khóa
                 if (!roomSelect.value || roomSelect.value === '') {
+                    applyServiceFeeMode(false);
                     switchWaterForm('khoi', false);
                     return;
                 }
 
                 const selectedOpt = roomSelect.options[roomSelect.selectedIndex];
                 if (!selectedOpt) return;
+
+                // Kiểm tra xem phòng/cơ sở này có cấu hình Không thu phí dịch vụ không
+                const isNoFee = selectedOpt.getAttribute('data-no-service-fee') === '1';
+                applyServiceFeeMode(isNoFee);
 
                 // 1. Đồng bộ Giá thuê & Tiền cọc
                 if (selectedOpt.dataset.price) {
@@ -1131,6 +1288,12 @@
                         depositInput.value = formatThousands(numPrice);
                         updateFieldDisplay('fDeposit', 'fDepositDisplay');
                     }
+                }
+
+                // Nếu cơ sở không thu phí dịch vụ, không kế thừa đơn giá điện nước và kết thúc đồng bộ
+                if (isNoFee) {
+                    calcFirstInvoicePreview();
+                    return;
                 }
 
                 // 2. Kế thừa Bảng giá dịch vụ Lớp Vỏ (Tòa nhà)
@@ -1252,6 +1415,7 @@
             if (roomSelect) {
                 roomSelect.addEventListener('change', () => {
                     if (!roomSelect.value || roomSelect.value === '') {
+                        applyServiceFeeMode(false);
                         switchWaterForm('khoi', false);
                     } else {
                         syncRoomData(true);

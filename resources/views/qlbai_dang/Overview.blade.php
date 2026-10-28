@@ -177,14 +177,11 @@
                                                       ->count();
         }
 
-        // Đếm số lượng bài đăng chờ duyệt & tổng lượt xem của tài khoản hiện tại
-        $userPendingPostsCount = 0;
-        $totalUserViews = 0;
+        // Đếm số lượng bài đăng chờ duyệt của tài khoản hiện tại cho badge
         $approvedPosts = collect();
-
+        $userPendingPostsCount = 0;
         if ($currentUser) {
             $cUserId = (string)($currentUser->_id ?? $currentUser->id);
-            $approvedPostsQuery = \App\Models\Post::with(['building', 'user']);
 
             if ($isSubAccount) {
                 $assignedIds = (array) ($currentUser->assigned_buildings ?? []);
@@ -196,20 +193,6 @@
                               ->orWhere('staff_id', $cUserId)
                               ->orWhere('author_id', $cUserId);
                         })->count();
-
-                    $totalUserViews = (int)\App\Models\Post::where(function($q) use ($assignedIds, $cUserId) {
-                        $q->whereIn('building_id', $assignedIds)
-                          ->orWhere('user_id', $cUserId)
-                          ->orWhere('staff_id', $cUserId)
-                          ->orWhere('author_id', $cUserId);
-                    })->sum('views');
-
-                    $approvedPostsQuery->where(function($q) use ($assignedIds, $cUserId) {
-                        $q->whereIn('building_id', $assignedIds)
-                          ->orWhere('user_id', $cUserId)
-                          ->orWhere('staff_id', $cUserId)
-                          ->orWhere('author_id', $cUserId);
-                    });
                 } else {
                     $parentId = (string)($currentUser->parent_id ?: $cUserId);
                     $userPendingPostsCount = \App\Models\Post::where('status', 'pending')
@@ -219,24 +202,9 @@
                               ->orWhere('staff_id', $cUserId)
                               ->orWhere('author_id', $cUserId);
                         })->count();
-
-                    $totalUserViews = (int)\App\Models\Post::where(function($q) use ($parentId, $cUserId) {
-                        $q->where('parent_id', $parentId)
-                          ->orWhere('user_id', $cUserId)
-                          ->orWhere('staff_id', $cUserId)
-                          ->orWhere('author_id', $cUserId);
-                    })->sum('views');
-
-                    $approvedPostsQuery->where(function($q) use ($parentId, $cUserId) {
-                        $q->where('parent_id', $parentId)
-                          ->orWhere('user_id', $cUserId)
-                          ->orWhere('staff_id', $cUserId)
-                          ->orWhere('author_id', $cUserId);
-                    });
                 }
             } elseif ($isEnterprise || $isAdmin) {
                 $userPendingPostsCount = \App\Models\Post::where('status', 'pending')->count();
-                $totalUserViews = (int)\App\Models\Post::sum('views');
             } else {
                 $userPendingPostsCount = \App\Models\Post::where('status', 'pending')
                     ->where(function($q) use ($cUserId) {
@@ -244,24 +212,7 @@
                           ->orWhere('staff_id', $cUserId)
                           ->orWhere('author_id', $cUserId);
                     })->count();
-
-                $totalUserViews = (int)\App\Models\Post::where(function($q) use ($cUserId) {
-                    $q->where('user_id', $cUserId)
-                      ->orWhere('staff_id', $cUserId)
-                      ->orWhere('author_id', $cUserId);
-                })->sum('views');
-
-                $approvedPostsQuery->where(function($q) use ($cUserId) {
-                    $q->where('user_id', $cUserId)
-                      ->orWhere('staff_id', $cUserId)
-                      ->orWhere('author_id', $cUserId);
-                });
             }
-
-            $approvedPosts = $approvedPostsQuery->where(function ($q) {
-                $q->whereIn('status', ['active', 'approved', 'đã cho thuê', 'rented', 'dang_thue'])
-                  ->orWhere('is_rented', true);
-            })->whereNotIn('status', ['pending', 'rejected', 'deleted'])->orderBy('created_at', 'desc')->get();
         }
     @endphp
 
@@ -607,7 +558,7 @@
                                 </tr>
                             </thead>
                             <tbody id="active-posts-tbody" class="divide-y divide-slate-100 text-slate-700 font-medium">
-                                @forelse($approvedPosts as $post)
+                                @forelse(($approvedPosts ?? []) as $post)
                                     @php
                                         $imgUrl = $post->display_image ?: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=300&q=80';
                                         $priceFormatted = number_format($post->price) . ' đ';
@@ -655,7 +606,7 @@
                                         </td>
                                     </tr>
                                 @empty
-                                    <tr><td colspan="6" class="p-8 text-center text-slate-400 font-medium"><i class="fa-solid fa-box-open text-3xl mb-2 block"></i>Không có bài đăng nào đang hiển thị.</td></tr>
+                                    <tr><td colspan="6" class="p-8 text-center text-slate-400 font-medium"><i class="fa-solid fa-spinner fa-spin text-2xl mb-2 block text-brand-500"></i>Đang tải danh sách bài đăng...</td></tr>
                                 @endforelse
                             </tbody>
                         </table>
@@ -1480,6 +1431,11 @@
                                 icon = 'fa-heart';
                                 badgeBg = 'bg-rose-50 text-rose-600 border-rose-100';
                                 categoryName = 'Yêu thích';
+                            } else if (category === 'building_assigned' || type === 'building_assigned') {
+                                iconBg = 'bg-purple-100 text-purple-600 border-purple-200';
+                                icon = 'fa-city';
+                                badgeBg = 'bg-purple-50 text-purple-700 border-purple-200';
+                                categoryName = 'Phân công tòa nhà';
                             } else if (type === 'building' || category === 'toanha') {
                                 iconBg = 'bg-sky-100 text-sky-600 border-sky-200';
                                 icon = 'fa-building-circle-check';
@@ -2384,19 +2340,25 @@
 
         // Tự động load dữ liệu ngay khi vừa F5
         window.addEventListener('DOMContentLoaded', () => {
-            b_fetchProvinces(); // Load data for locations in modal
             const urlParams = new URLSearchParams(window.location.search);
-            let tabParam = urlParams.get('tab') || 'overview'; 
-            if (tabParam === 'pending') tabParam = 'pending-posts';
-            if (tabParam === 'active') tabParam = 'active-posts';
-            if (tabParam === 'history') tabParam = 'history-posts';
+            let rawTab = urlParams.get('tab') || 'overview'; 
+            let tabParam = rawTab.replace(/_/g, '-');
+            if (tabParam === 'pending' || tabParam === 'pending-posts') tabParam = 'pending-posts';
+            else if (tabParam === 'active' || tabParam === 'active-posts') tabParam = 'active-posts';
+            else if (tabParam === 'history' || tabParam === 'history-posts') tabParam = 'history-posts';
+            else if (tabParam === 'notification' || tabParam === 'notifications') tabParam = 'notifications';
+            else if (tabParam === 'building' || tabParam === 'buildings') tabParam = 'buildings';
+            else if (tabParam === 'sub-account' || tabParam === 'sub-accounts') tabParam = 'sub-accounts';
+            else if (tabParam === 'moderation') tabParam = 'moderation';
+            else tabParam = 'overview';
             
-            // Chạy trigger giả lập việc user click vào tab để load dữ liệu
+            // Chạy trigger để kích hoạt tab mong muốn
             switchTab(tabParam);
             
-            // Gọi chạy ngầm các tab khác để lấy số lượng (Badge đếm số)
-            if(tabParam !== 'pending-posts') fetchPendingPosts();
-            if(tabParam !== 'history-posts') fetchHistoryPosts();
+            // Cập nhật ngầm badge chờ duyệt nếu đang ở tab khác ngoài overview (vì overview đã tự gọi)
+            if (tabParam !== 'pending-posts' && tabParam !== 'overview') {
+                fetchPendingPosts();
+            }
         });
         // Toggle Sidebar Navigation on Mobile
         function toggleSidebar() {
@@ -2410,8 +2372,11 @@
             }
         }
 
-        // Modal Tạo Tòa Nhà
+        // Modal Tạo Tòa Nhà (Lazy-load danh mục tỉnh thành chỉ khi mở modal)
         function openCreateBuildingModal() {
+            if (typeof b_provincesList === 'undefined' || !b_provincesList || b_provincesList.length === 0) {
+                b_fetchProvinces();
+            }
             document.getElementById('createBuildingModal').classList.remove('hidden');
             document.getElementById('createBuildingModal').classList.add('flex');
         }
@@ -2578,57 +2543,65 @@ function fetchActivePosts() {
             } else {
                 window.allPosts = window.allPosts || {};
                 html = data.posts.map(post => {
-                window.allPosts[post.id || post._id] = post;
-                const imgUrl = (post.display_image || '').replace(/\/storage\/\/storage\//g, '/storage/').replace(/\/storage\/storage\//g, '/storage/') || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=300&q=80';
-                const price = new Intl.NumberFormat('vi-VN').format(post.price) + ' đ';
-                const isRented = Boolean(post.is_rented === true || post.status === 'đã cho thuê' || post.status === 'rented' || post.status === 'dang_thue' || post.status === 'đang thuê');
-                return `
-                    <tr class="transition-all ${isRented ? 'opacity-40 bg-slate-100/70 border-l-4 border-l-amber-500 cursor-not-allowed select-none' : 'hover:bg-slate-50'}">
-                        <td class="p-4 font-bold text-slate-900">${post.id || post._id}</td>
-                        <td class="p-4">
-                            <div class="flex items-center gap-3">
-                                <img src="${imgUrl}" class="w-10 h-10 rounded-lg object-cover border border-slate-200 shadow-xs ${isRented ? 'grayscale-[50%]' : ''}" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=300&q=80';">
-                                <div>
-                                    <p class="font-bold text-slate-900 flex items-center gap-2">
-                                        ${post.title}
-                                        ${isRented ? '<span class="text-[9px] bg-amber-100 text-amber-800 font-extrabold px-1.5 py-0.5 rounded border border-amber-200 uppercase tracking-wider">Đang thuê</span>' : ''}
-                                    </p>
-                                    <p class="text-[10px] text-slate-400">${post.location || post.address || 'Đang cập nhật'}</p>
+                    window.allPosts[post.id || post._id] = post;
+                    const pUnitMap = { 'thang': '/tháng', '2_nam': '/2 năm', '3_nam': '/3 năm', '5_nam': '/5 năm', 'tren_5_nam': '/trên 5 năm', 'nam': '/năm', 'm2': '/m²', 'tong': '' };
+                    const pUnitStr = pUnitMap[post.price_unit] || (post.formatted_price_unit || '/tháng');
+                    const price = new Intl.NumberFormat('vi-VN').format(post.price) + ' đ ' + pUnitStr;
+                    const isRented = Boolean(post.is_rented === true || post.status === 'đã cho thuê' || post.status === 'rented' || post.status === 'dang_thue' || post.status === 'đang thuê');
+                    const imgUrl = post.display_image || (post.images && post.images.length > 0 ? (typeof post.images[0] === 'string' ? post.images[0] : (post.images[0].url || '')) : '') || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=300&q=80';
+                    return `
+                        <tr class="transition-all ${isRented ? 'opacity-40 bg-slate-100/70 border-l-4 border-l-amber-500 cursor-not-allowed select-none' : 'hover:bg-slate-50'}">
+                            <td class="p-4 font-bold text-slate-900">${post.id || post._id}</td>
+                            <td class="p-4">
+                                <div class="flex items-center gap-3">
+                                    <img src="${imgUrl}" class="w-10 h-10 rounded-lg object-cover border border-slate-200 shadow-xs ${isRented ? 'grayscale-[50%]' : ''}" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=300&q=80';">
+                                    <div>
+                                        <p class="font-bold text-slate-900 flex items-center gap-2">
+                                            ${post.title}
+                                            ${isRented ? '<span class="text-[9px] bg-amber-100 text-amber-800 font-extrabold px-1.5 py-0.5 rounded border border-amber-200 uppercase tracking-wider">Đang thuê</span>' : ''}
+                                        </p>
+                                        <p class="text-[10px] text-slate-400">${post.location || post.address || 'Đang cập nhật'}</p>
+                                    </div>
                                 </div>
-                            </div>
-                        </td>
-                        <td class="p-4 font-bold ${isRented ? 'text-slate-600' : 'text-brand-600'}">${price}</td>
-                        <td class="p-4">
-                            ${isRented ? `
-                                <span class="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 font-extrabold text-[10px] inline-flex items-center gap-1.5 border border-amber-200 shadow-2xs">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-amber-600 inline-block animate-pulse"></span> Đang thuê
-                                </span>
-                            ` : `
-                                <span class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[10px] inline-flex items-center gap-1.5">
-                                    <i class="fa-solid fa-circle-check"></i> Đang hiển thị
-                                </span>
-                            `}
-                        </td>
-                        <td class="p-4 text-center font-bold text-slate-600">${post.views || 0}</td>
-                        <td class="p-4 text-right">
-                            ${isRented ? `
-                                <button type="button" disabled class="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-400 font-bold text-xs cursor-not-allowed inline-flex items-center gap-1.5 border border-slate-200/80 shadow-none opacity-80" title="Bài đăng đang có người thuê, không thể cập nhật hoặc xóa">
-                                    <i class="fa-solid fa-lock text-[10px]"></i> Đang thuê (Khóa)
-                                </button>
-                            ` : `
-                                <button onclick="editPost('${post.id || post._id}')" class="px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-xs transition-colors" title="Cập nhật bài đăng">
-                                    <i class="fa-solid fa-pen mr-1"></i> Cập nhật
-                                </button>
-                            `}
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+                            </td>
+                            <td class="p-4 font-bold ${isRented ? 'text-slate-600' : 'text-brand-600'}">${price}</td>
+                            <td class="p-4">
+                                ${isRented ? `
+                                    <span class="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 font-extrabold text-[10px] inline-flex items-center gap-1.5 border border-amber-200 shadow-2xs">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-amber-600 inline-block animate-pulse"></span> Đang thuê
+                                    </span>
+                                ` : `
+                                    <span class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[10px] inline-flex items-center gap-1.5">
+                                        <i class="fa-solid fa-circle-check"></i> Đang hiển thị
+                                    </span>
+                                `}
+                            </td>
+                            <td class="p-4 text-center font-bold text-slate-600">${post.views || 0}</td>
+                            <td class="p-4 text-right">
+                                ${isRented ? `
+                                    <button type="button" disabled class="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-400 font-bold text-xs cursor-not-allowed inline-flex items-center gap-1.5 border border-slate-200/80 shadow-none opacity-80" title="Bài đăng đang có người thuê, không thể cập nhật hoặc xóa">
+                                        <i class="fa-solid fa-lock text-[10px]"></i> Đang thuê (Khóa)
+                                    </button>
+                                ` : `
+                                    <button onclick="editPost('${post.id || post._id}')" class="px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-xs transition-colors" title="Cập nhật bài đăng">
+                                        <i class="fa-solid fa-pen mr-1"></i> Cập nhật
+                                    </button>
+                                `}
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
             }
             
             if (tbodyOverview) tbodyOverview.innerHTML = html;
             if (tbodyTab) tbodyTab.innerHTML = html;
-        }).catch(err => console.error("Lỗi lấy tin hiển thị:", err));
+        })
+        .catch(err => {
+            console.error("Lỗi lấy tin hiển thị:", err);
+            const errHtml = `<tr><td colspan="6" class="p-8 text-center text-rose-500 font-medium"><i class="fa-solid fa-triangle-exclamation text-3xl mb-2 block"></i>Có lỗi khi tải danh sách. Vui lòng tải lại trang.</td></tr>`;
+            if (tbodyOverview) tbodyOverview.innerHTML = errHtml;
+            if (tbodyTab) tbodyTab.innerHTML = errHtml;
+        });
 }
 
 function filterActivePostsTable(query) {
@@ -2678,8 +2651,10 @@ function fetchPendingPosts() {
 
             tbody.innerHTML = data.posts.map(post => {
                 window.allPosts[post.id || post._id] = post;
-                const imgUrl = (post.display_image || '').replace(/\/storage\/\/storage\//g, '/storage/').replace(/\/storage\/storage\//g, '/storage/') || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=300&q=80';
-                const price = new Intl.NumberFormat('vi-VN').format(post.price) + ' đ';
+                const pUnitMap = { 'thang': '/tháng', '2_nam': '/2 năm', '3_nam': '/3 năm', '5_nam': '/5 năm', 'tren_5_nam': '/trên 5 năm', 'nam': '/năm', 'm2': '/m²', 'tong': '' };
+                const pUnitStr = pUnitMap[post.price_unit] || (post.formatted_price_unit || '/tháng');
+                const price = new Intl.NumberFormat('vi-VN').format(post.price) + ' đ ' + pUnitStr;
+                const imgUrl = post.display_image || (post.images && post.images.length > 0 ? (typeof post.images[0] === 'string' ? post.images[0] : (post.images[0].url || '')) : '') || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=300&q=80';
                 return `
                     <tr class="hover:bg-slate-50 transition-colors">
                         <td class="p-4 font-bold text-slate-900">${post.id || post._id}</td>
@@ -2706,7 +2681,12 @@ function fetchPendingPosts() {
                     </tr>
                 `;
             }).join('');
-        }).catch(err => console.error("Lỗi lấy tin chờ duyệt:", err));
+        })
+        .catch(err => {
+            console.error("Lỗi lấy tin chờ duyệt:", err);
+            const tbody = document.getElementById('pending-posts-tbody');
+            if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-rose-500 font-medium"><i class="fa-solid fa-triangle-exclamation text-3xl mb-2 block"></i>Có lỗi khi tải danh sách. Vui lòng thử lại.</td></tr>`;
+        });
 }
 
 // ==================== API FETCH: LỊCH SỬ (HISTORY) ====================
@@ -2731,10 +2711,12 @@ function fetchHistoryPosts() {
             }
 
             tbody.innerHTML = allHistory.map(post => {
-                const imgUrl = (post.display_image || '').replace(/\/storage\/\/storage\//g, '/storage/').replace(/\/storage\/storage\//g, '/storage/') || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=300&q=80';
-                const price = new Intl.NumberFormat('vi-VN').format(post.price) + ' đ';
+                const pUnitMap = { 'thang': '/tháng', '2_nam': '/2 năm', '3_nam': '/3 năm', '5_nam': '/5 năm', 'tren_5_nam': '/trên 5 năm', 'nam': '/năm', 'm2': '/m²', 'tong': '' };
+                const pUnitStr = pUnitMap[post.price_unit] || (post.formatted_price_unit || '/tháng');
+                const price = new Intl.NumberFormat('vi-VN').format(post.price) + ' đ ' + pUnitStr;
                 const isRented = Boolean(post.is_rented === true || post.status === 'đã cho thuê' || post.status === 'rented' || post.status === 'dang_thue' || post.status === 'đang thuê');
                 const isApproved = (post.status === 'active' || post.status === 'approved');
+                const imgUrl = post.display_image || (post.images && post.images.length > 0 ? (typeof post.images[0] === 'string' ? post.images[0] : (post.images[0].url || '')) : '') || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=300&q=80';
                 
                 const badge = isRented
                     ? `<span class="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 font-extrabold text-[10px] inline-flex items-center gap-1.5 border border-amber-200 shadow-2xs"><span class="w-1.5 h-1.5 rounded-full bg-amber-600 inline-block animate-pulse"></span> Đang thuê</span>`
@@ -2775,7 +2757,12 @@ function fetchHistoryPosts() {
                     </tr>
                 `;
             }).join('');
-        }).catch(err => console.error("Lỗi lấy lịch sử:", err));
+        })
+        .catch(err => {
+            console.error("Lỗi lấy lịch sử:", err);
+            const tbody = document.getElementById('history-posts-tbody');
+            if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-rose-500 font-medium"><i class="fa-solid fa-triangle-exclamation text-3xl mb-2 block"></i>Có lỗi khi tải lịch sử. Vui lòng thử lại.</td></tr>`;
+        });
 }
 
         function editPost(id) {

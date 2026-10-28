@@ -50,6 +50,7 @@ class Invoice extends Model
         'admin_approved_at',     // thời gian admin duyệt chuyển khoản
         'admin_approved_by',     // admin duyệt
         'rejection_reason',      // lý do từ chối nếu bill không hợp lệ
+        'rent_cycle_applied',    // cờ boolean: đã xử lý cộng chu kỳ ngày thu tiền tiếp theo
     ];
 
     public function contract()

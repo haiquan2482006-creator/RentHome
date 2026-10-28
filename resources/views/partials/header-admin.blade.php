@@ -554,32 +554,59 @@
         <!-- Danh sách Menu -->
         <nav class="sidebar-menu">
             @php
-                // Đếm tin nhắn liên hệ chờ xử lý
-                $badgeContactPendingCount = 0;
-                try {
-                    $badgeContactPendingCount = \App\Models\ContactMessage::where('status', 'pending')->count();
-                } catch (\Exception $e) {}
+                $adminBadges = \Illuminate\Support\Facades\Cache::remember('admin_sidebar_badges', 20, function () {
+                    $contact = 0;
+                    $complaint = 0;
+                    $escalated = 0;
+                    $pending = 0;
+                    $debt = 0;
+                    $refund = 0;
+                    try {
+                        $contact = \App\Models\ContactMessage::where('status', 'pending')->count();
+                    } catch (\Exception $e) {}
+                    try {
+                        $complaint = \App\Models\Complaint::where('status', 'pending')->count();
+                    } catch (\Exception $e) {}
+                    try {
+                        $escalated = \App\Models\SupportTicket::where(function ($q) {
+                                $q->where('is_escalated', true)
+                                  ->orWhere('is_escalated', 1)
+                                  ->orWhere('is_escalated', 'true')
+                                  ->orWhere('is_escalated', '1');
+                            })
+                            ->where('status', '!=', 'resolved')
+                            ->count();
+                    } catch (\Exception $e) {}
+                    try {
+                        $pending = \App\Models\Invoice::where('payment_method', 'bank_transfer')
+                            ->where(function($q) {
+                                $q->where('status', 'pending_approval')->orWhere('payment_status', 'pending_approval');
+                            })->count();
+                        $debt = \App\Models\Invoice::where('payment_method', 'cash')
+                            ->where(function($q) {
+                                $q->where('status', 'paid')->orWhere('payment_status', 'paid');
+                            })
+                            ->where(function($q) {
+                                $q->where('is_remitted_to_admin', false)->orWhere('is_remitted_to_admin', 0)->orWhereNull('is_remitted_to_admin');
+                            })->count();
+                        $refund = \App\Models\Contract::where('status', 'pending_refund')->count();
+                    } catch (\Exception $e) {}
+
+                    return [
+                        'contact' => $contact,
+                        'complaint' => $complaint,
+                        'escalated' => $escalated,
+                        'pending' => $pending,
+                        'debt' => $debt,
+                        'refund' => $refund,
+                    ];
+                });
+
+                $badgeContactPendingCount = $adminBadges['contact'] ?? 0;
+                $badgeComplaintPendingCount = $adminBadges['complaint'] ?? 0;
+                $badgeEscalatedCount = $adminBadges['escalated'] ?? 0;
                 $isContactActive = request()->is('*khach-hang-lien-he*') || request()->is('*contact-message*') || request()->is('Admin/khach-hang-lien-he*');
-
-                // Đếm khiếu nại chờ xử lý
-                $badgeComplaintPendingCount = 0;
-                try {
-                    $badgeComplaintPendingCount = \App\Models\Complaint::where('status', 'pending')->count();
-                } catch (\Exception $e) {}
                 $isComplaintActive = request()->is('cskh/khieu-nai*') || request()->is('*khieu-nai*') || request()->is('*complaint*') || request()->is('Admin/khieu-nai*');
-
-                // Đếm khiếu nại Cấp 2 (Leo thang) chưa xử lý dành cho Admin
-                $badgeEscalatedCount = 0;
-                try {
-                    $badgeEscalatedCount = \App\Models\SupportTicket::where(function ($q) {
-                            $q->where('is_escalated', true)
-                              ->orWhere('is_escalated', 1)
-                              ->orWhere('is_escalated', 'true')
-                              ->orWhere('is_escalated', '1');
-                        })
-                        ->where('status', '!=', 'resolved')
-                        ->count();
-                } catch (\Exception $e) {}
                 $isEscalatedActive = request()->is('admin/khieu-nai-cap-2*') || request()->is('Admin/khieu-nai-cap-2*') || request()->is('Admin/khieu_nai_cap_2*');
             @endphp
 
@@ -624,24 +651,9 @@
                     $isDebtActive = request()->is('*cong-no-nhan-vien*') || request()->is('*staff-debt*');
                     $isRefundActive = request()->is('*duyet-hoan-coc*') || request()->is('*refund-request*') || request()->is('*hoan-coc*');
                     
-                    $badgePendingCount = 0;
-                    $badgeDebtCount = 0;
-                    $badgeRefundCount = 0;
-                    try {
-                        $badgePendingCount = \App\Models\Invoice::where('payment_method', 'bank_transfer')
-                            ->where(function($q) {
-                                $q->where('status', 'pending_approval')->orWhere('payment_status', 'pending_approval');
-                            })->count();
-                        $badgeDebtCount = \App\Models\Invoice::where('payment_method', 'cash')
-                            ->where(function($q) {
-                                $q->where('status', 'paid')->orWhere('payment_status', 'paid');
-                            })
-                            ->where(function($q) {
-                                $q->where('is_remitted_to_admin', false)->orWhere('is_remitted_to_admin', 0)->orWhereNull('is_remitted_to_admin');
-                            })->count();
-                        $badgeRefundCount = \App\Models\Contract::where('status', 'pending_refund')->count();
-                    } catch (\Exception $e) {}
-                    
+                    $badgePendingCount = $adminBadges['pending'] ?? 0;
+                    $badgeDebtCount = $adminBadges['debt'] ?? 0;
+                    $badgeRefundCount = $adminBadges['refund'] ?? 0;
                     $totalPendingFinance = $badgePendingCount + $badgeRefundCount;
                 @endphp
                 <div class="nav-dropdown {{ $isFinanceActive ? 'open' : '' }}" id="finance-nav-dropdown">
@@ -687,7 +699,7 @@
                 <!-- 5. Quản lý Tài khoản cá nhân / Khách thuê -->
                 <a href="{{ url('qltaikhoan_ca_nhan') }}" class="nav-link {{ request()->is('qltaikhoan_ca_nhan*') || request()->is('Admin/tai-khoan-ca-nhan*') || request()->is('qltaikhoan-ca-nhan*') ? 'active' : '' }}" title="Tài khoản cá nhân (Khách thuê)">
                     <i class="fa-solid fa-users" style="color: #0ea5e9;"></i>
-                    <span>Tài khoản Khách thuê</span>
+                    <span>Tài khoản người dùng </span>
                 </a>
 
 

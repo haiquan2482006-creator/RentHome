@@ -167,7 +167,12 @@
                     $badgeBg = 'bg-teal-50 text-teal-700 border border-teal-200';
                     $badgeText = 'Hệ thống';
 
-                    if (str_contains($category, 'contract') || str_contains($type, 'contract') || str_contains(strtolower($n->title), 'hợp đồng')) {
+                    if (str_contains($category, 'building') || str_contains($type, 'building') || str_contains(strtolower($n->title), 'tòa nhà')) {
+                        $iconClass = 'fa-solid fa-city';
+                        $iconBg = 'bg-purple-100 text-purple-700 border border-purple-200';
+                        $badgeBg = 'bg-purple-50 text-purple-700 border border-purple-200';
+                        $badgeText = 'Tòa nhà';
+                    } elseif (str_contains($category, 'contract') || str_contains($type, 'contract') || str_contains(strtolower($n->title), 'hợp đồng')) {
                         $iconClass = 'fa-solid fa-file-signature';
                         $iconBg = 'bg-teal-100 text-teal-700 border border-teal-200';
                         $badgeBg = 'bg-teal-50 text-teal-700 border border-teal-200';
@@ -340,7 +345,7 @@
                                             $actionUrl = null;
                                         }
                                     } else {
-                                        $actionLabel = 'Xem chi tiết';
+                                        $actionLabel = (str_contains($category, 'building') || !empty($n->building_id)) ? 'Quản lý tòa nhà' : 'Xem chi tiết';
                                     }
                                 @endphp
 

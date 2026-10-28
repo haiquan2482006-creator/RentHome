@@ -7,6 +7,7 @@ use App\Models\Building;
 use App\Models\Post;
 use App\Models\Contract;
 use App\Models\AdminActivity;
+use App\Models\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -394,7 +395,7 @@ class SubAccountController extends Controller
             // Đồng bộ sang Building: Gán manager_id nếu tài khoản KHÔNG phải kiểm duyệt viên / CSKH và có chọn tòa nhà
             $staffId = (string)($subAccount->_id ?? $subAccount->id);
             if (!$isModerator && !$isCskh && !empty($assignedBuildings)) {
-                Building::whereIn('_id', $assignedBuildings)->get()->each(function($bld) use ($staffId) {
+                Building::whereIn('_id', $assignedBuildings)->get()->each(function($bld) use ($staffId, $subAccount) {
                     $mIds = is_array($bld->manager_ids) ? $bld->manager_ids : [];
                     if (!in_array($staffId, $mIds, true)) {
                         $mIds[] = $staffId;
@@ -409,6 +410,13 @@ class SubAccountController extends Controller
                         $bld->user_ids = array_values(array_unique($uIds));
                     }
                     $bld->save();
+
+                    // Gửi thông báo phân công tòa nhà cho nhân sự đang hoạt động
+                    try {
+                        Notification::sendBuildingAssignedNotification($subAccount, $bld);
+                    } catch (\Exception $e) {
+                        Log::warning('Lỗi gửi thông báo phân công tòa nhà: ' . $e->getMessage());
+                    }
                 });
             }
 
@@ -503,6 +511,7 @@ class SubAccountController extends Controller
                 }
             }
 
+            $previousAssigned = array_map('strval', (array)($subAccount->assigned_buildings ?? []));
             $cleanAssigned = [];
             if ($isModerator || $isCskh) {
                 // Kiểm duyệt viên & CSKH: Tuyệt đối không phân công tòa nhà
@@ -558,7 +567,9 @@ class SubAccountController extends Controller
                 if ($request->has('assigned_buildings')) {
                     // Tòa nhà mới được phân công
                     if (!empty($cleanAssigned)) {
-                        Building::whereIn('_id', $cleanAssigned)->get()->each(function($bld) use ($staffId) {
+                        $newlyAssignedIds = array_values(array_diff($cleanAssigned, $previousAssigned));
+
+                        Building::whereIn('_id', $cleanAssigned)->get()->each(function($bld) use ($staffId, $subAccount, $newlyAssignedIds) {
                             $mIds = is_array($bld->manager_ids) ? $bld->manager_ids : [];
                             if (!in_array($staffId, $mIds, true)) {
                                 $mIds[] = $staffId;
@@ -573,6 +584,16 @@ class SubAccountController extends Controller
                                 $bld->user_ids = array_values(array_unique($uIds));
                             }
                             $bld->save();
+
+                            // Gửi thông báo phân công tòa nhà nếu đây là tòa nhà vừa được phân công thêm
+                            $bldId = (string)($bld->_id ?? $bld->id);
+                            if (in_array($bldId, $newlyAssignedIds, true)) {
+                                try {
+                                    Notification::sendBuildingAssignedNotification($subAccount, $bld);
+                                } catch (\Exception $e) {
+                                    Log::warning('Lỗi gửi thông báo phân công tòa nhà: ' . $e->getMessage());
+                                }
+                            }
                         });
                     }
 
