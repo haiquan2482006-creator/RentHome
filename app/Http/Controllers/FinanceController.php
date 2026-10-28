@@ -144,6 +144,8 @@ class FinanceController extends Controller
         $invoice->is_remitted_to_admin = true; // Chuyển khoản ngân hàng trực tiếp vào tài khoản công ty
         $invoice->save();
 
+        \App\Services\InvoiceService::handleInvoicePaid($invoice);
+
         // 2. Kích hoạt hợp đồng nếu đang ở trạng thái chờ
         $contractId = (string)($invoice->contract_id ?? '');
         $contract = null;

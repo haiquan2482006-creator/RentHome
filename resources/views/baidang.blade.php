@@ -131,11 +131,14 @@
         </div>
 
         <div id="all-posts-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 lg:gap-8">
-            <!-- Loading Skeleton -->
-            <div class="col-span-full flex justify-center py-20">
-                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600"></div>
-            </div>
+            <!-- Loading Skeleton lúc mới vào trang -->
+            @include('components.skeleton-card', ['count' => 8])
         </div>
+
+        <!-- Template Skeleton dùng cho lúc filter tìm kiếm -->
+        <template id="skeleton-card-template">
+            @include('components.skeleton-card', ['count' => 8])
+        </template>
     </main>
 
     <script>
@@ -163,6 +166,11 @@
             fetchAllPosts();
         });
 
+        // Tự động làm mới dữ liệu lượt xem và lượt thích thật khi người dùng thoát/quay lại trang danh sách
+        window.addEventListener('pageshow', function(event) {
+            fetchAllPosts();
+        });
+
         async function fetchAllPosts() {
             const container = document.getElementById('all-posts-container');
             if (!container) return;
@@ -179,15 +187,19 @@
             if (type) params.append('type', type);
             if (location && location !== 'Tất cả địa điểm') params.append('location', location);
             if (price_range) params.append('price_range', price_range);
+            params.append('_t', Date.now());
             
             const queryString = params.toString();
-            const url = '/api/posts/approved' + (queryString ? '?' + queryString : '');
+            const url = '/api/posts/approved?' + queryString;
 
-            // Show loading
-            container.innerHTML = '<div class="col-span-full flex justify-center py-20"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600"></div></div>';
+            // Show loading skeleton khi bấm lọc
+            const skeletonTpl = document.getElementById('skeleton-card-template');
+            if (skeletonTpl) {
+                container.innerHTML = skeletonTpl.innerHTML;
+            }
 
             try {
-                const response = await fetch(url);
+                const response = await fetch(url, { cache: 'no-store' });
                 if (response.ok) {
                     const data = await response.json();
                     const posts = data.posts || [];
@@ -213,15 +225,60 @@
                     
                     let html = '';
                     posts.forEach(post => {
-                        const userName = post.user ? (post.user.account_name || post.user.username) : 'Người dùng';
-                        const userType = post.user ? ((post.user.role === 'doanhnghiep' || post.user.role === 'enterprise') ? 'Doanh nghiệp' : 'Cá nhân') : 'Cá nhân';
-                        const userBadgeClass = (post.user && (post.user.role === 'doanhnghiep' || post.user.role === 'enterprise')) ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-slate-50 text-slate-500 border border-slate-200';
-                        const userIconColor = (post.user && (post.user.role === 'doanhnghiep' || post.user.role === 'enterprise')) ? 'text-blue-500 bg-blue-50' : 'text-slate-500 bg-slate-100';
-                        const userIcon = (post.user && (post.user.role === 'doanhnghiep' || post.user.role === 'enterprise')) ? 'fa-building' : 'fa-user';
+                        const userName = post.user ? (post.user.ten_hien_thi || post.user.ho_ten || post.user.account_name || post.user.username || 'Người dùng') : 'Người dùng';
+                        // Phân loại vai trò tài khoản đăng bài: Admin / Nhân sự / Doanh nghiệp / Cá nhân
+                        let userType = 'Cá nhân';
+                        let userBadgeClass = 'bg-slate-50 text-slate-500 border border-slate-200';
+                        let userIconColor = 'text-slate-500 bg-slate-100';
+                        let userIcon = 'fa-user';
+
+                        const isStaffUser = Boolean(
+                            (post.account_role && ['nhansu', 'staff', 'sub_account', 'nhan_su', 'nhan su'].includes(String(post.account_role).toLowerCase())) ||
+                            (post.staff_id && String(post.staff_id).trim() !== '') ||
+                            (post.user && (
+                                ['nhansu', 'staff', 'sub_account', 'nhan_su', 'nhan su'].includes(String(post.user.role || '').toLowerCase()) ||
+                                Boolean(post.user.parent_id) ||
+                                (post.user.staff_role && String(post.user.staff_role).toLowerCase().includes('nhân sự'))
+                            ))
+                        );
+
+                        const isAdminUser = Boolean(
+                            post.user && (post.user.role === 'admin' || post.user.is_admin)
+                        );
+
+                        const isEnterpriseUser = Boolean(
+                            !isStaffUser && post.user && (post.user.role === 'doanhnghiep' || post.user.role === 'enterprise') && !post.user.parent_id
+                        );
+
+                        if (isAdminUser) {
+                            userType = 'Ban Quản Trị';
+                            userBadgeClass = 'bg-amber-50 text-amber-700 border border-amber-200';
+                            userIconColor = 'text-amber-600 bg-amber-50';
+                            userIcon = 'fa-shield-halved';
+                        } else if (isStaffUser) {
+                            userType = 'Nhân sự';
+                            userBadgeClass = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+                            userIconColor = 'text-emerald-600 bg-emerald-50';
+                            userIcon = 'fa-user-tie';
+                        } else if (isEnterpriseUser) {
+                            userType = 'Doanh nghiệp';
+                            userBadgeClass = 'bg-blue-50 text-blue-600 border border-blue-100';
+                            userIconColor = 'text-blue-500 bg-blue-50';
+                            userIcon = 'fa-building';
+                        } else {
+                            userType = 'Cá nhân';
+                            userBadgeClass = 'bg-slate-50 text-slate-500 border border-slate-200';
+                            userIconColor = 'text-slate-500 bg-slate-100';
+                            userIcon = 'fa-user';
+                        }
                         
                         let imgUrl = post.display_image || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80';
                         let unitText = 'đ/tháng';
-                        if (post.price_unit === 'nam') unitText = 'đ/năm';
+                        if (post.price_unit === '2_nam') unitText = 'đ/2 năm';
+                        else if (post.price_unit === '3_nam') unitText = 'đ/3 năm';
+                        else if (post.price_unit === '5_nam') unitText = 'đ/5 năm';
+                        else if (post.price_unit === 'tren_5_nam') unitText = 'đ/trên 5 năm';
+                        else if (post.price_unit === 'nam') unitText = 'đ/năm';
                         else if (post.price_unit === 'm2') unitText = 'đ/m²';
                         else if (post.price_unit === 'tong') unitText = 'VNĐ';
                         const price = new Intl.NumberFormat('vi-VN').format(post.price) + ' ' + unitText;
@@ -252,7 +309,7 @@
                         html += `
                             <div class="bg-white rounded-3xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-xl transition-all duration-300 group relative">
                                 <div class="relative aspect-[4/3] overflow-hidden">
-                                    <img src="${imgUrl}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                                    <img src="${imgUrl}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                                     
                                     ${favButtonHtml}
 
@@ -274,9 +331,13 @@
                                             <i class="fa-solid fa-location-dot w-4 text-center"></i>
                                             <span>${address}</span>
                                         </div>
-                                        <div class="flex items-center gap-2">
-                                            <i class="fa-solid fa-ruler-combined w-4 text-center"></i>
-                                            <span>${post.area} m²</span>
+                                        <div class="flex items-center gap-3.5 text-xs text-slate-500 font-medium pt-1">
+                                            <span class="flex items-center gap-1.5" title="Lượt xem thực tế">
+                                                <i class="fa-solid fa-eye text-slate-400"></i> ${Number(post.views || 0).toLocaleString('vi-VN')}
+                                            </span>
+                                            <span class="flex items-center gap-1.5" title="Lượt yêu thích">
+                                                <i class="fa-solid fa-heart text-rose-500"></i> <span data-fav-counter-id="${postId}">${Number(post.favorites_count || post.likes || 0).toLocaleString('vi-VN')}</span>
+                                            </span>
                                         </div>
                                     </div>
                                     <div class="flex items-center justify-between pt-4 mt-4 border-t border-slate-100 mb-4">

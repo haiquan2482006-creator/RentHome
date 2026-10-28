@@ -26,6 +26,8 @@ class User extends Authenticatable
         'status' => 'active',
         'is_locked' => false,
         'is_deleted' => false,
+        'locked_until' => null,
+        'lock_reason' => null,
     ];
 
     /**
@@ -35,10 +37,12 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'username',
+        'ten_hien_thi',
         'email',
         'phone',
         'password',
         'account_name',
+        'ho_ten',
         'company_name',
         'representative',
         'company_address',
@@ -51,6 +55,7 @@ class User extends Authenticatable
         'is_locked',
         'lock_reason',
         'locked_at',
+        'locked_until',
         'deleted_at',
         'deleted_by',
         
@@ -99,6 +104,8 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'locked_until' => 'datetime',
+            'locked_at' => 'datetime',
             'password' => 'hashed',
         ];
     }
@@ -147,6 +154,13 @@ class User extends Authenticatable
             || str_contains(mb_strtolower($this->staff_role ?? ''), 'kiem duyet');
     }
 
+    public function isCskh(): bool
+    {
+        return in_array($this->role, ['chăm sóc kh', 'chamsockh', 'cskh', 'cham_soc_kh'], true)
+            || str_contains(mb_strtolower($this->staff_role ?? ''), 'chăm sóc')
+            || str_contains(mb_strtolower($this->staff_role ?? ''), 'cskh');
+    }
+
     public function isEnterprise(): bool
     {
         return ($this->role === 'doanhnghiep' || $this->role === 'enterprise') && empty($this->parent_id);
@@ -157,7 +171,10 @@ class User extends Authenticatable
         if ($this->isModerator()) {
             return false;
         }
-        return in_array($this->role, ['sub_account', 'staff', 'nhansu', 'nhan su', 'nhan_su'], true) || !empty($this->parent_id);
+        return in_array($this->role, [
+            'sub_account', 'staff', 'nhansu', 'nhan su', 'nhan_su',
+            'chăm sóc kh', 'chamsockh', 'cskh', 'cham_soc_kh'
+        ], true) || (method_exists($this, 'isCskh') && $this->isCskh()) || !empty($this->parent_id);
     }
 
     public function isStaff(): bool
@@ -180,6 +197,9 @@ class User extends Authenticatable
 
     public function isIndividual(): bool
     {
+        if ($this->isCskh() || in_array($this->role, ['chăm sóc kh', 'chamsockh', 'cskh', 'cham_soc_kh'], true)) {
+            return false;
+        }
         return ($this->role === 'user' || $this->role === 'canhan' || (!$this->isAdmin() && !$this->isEnterprise() && !$this->isSubAccount() && !$this->isModerator()));
     }
 
@@ -227,18 +247,41 @@ class User extends Authenticatable
             ->first();
     }
 
+    public function getHoTenAttribute()
+    {
+        return $this->attributes['ho_ten'] ?? ($this->attributes['account_name'] ?? ($this->attributes['name'] ?? ''));
+    }
+
+    public function setHoTenAttribute($value)
+    {
+        $this->attributes['ho_ten'] = $value;
+        $this->attributes['account_name'] = $value;
+    }
+
+    public function getTenHienThiAttribute()
+    {
+        return $this->attributes['ten_hien_thi'] ?? ($this->attributes['username'] ?? '');
+    }
+
+    public function setTenHienThiAttribute($value)
+    {
+        $this->attributes['ten_hien_thi'] = $value;
+        $this->attributes['username'] = $value;
+    }
+
     public function getDisplayNameAttribute()
     {
         if ($this->isAdmin()) {
-            return $this->account_name ?: ($this->username ?: 'Ban Quản Trị Admin');
+            return $this->ten_hien_thi ?: ($this->ho_ten ?: ($this->account_name ?: ($this->username ?: 'Ban Quản Trị Admin')));
         }
         if ($this->isEnterprise()) {
-            return $this->company_name ?: ($this->account_name ?: 'RentHome');
+            return $this->company_name ?: ($this->representative ?: ($this->account_name ?: 'RentHome'));
         }
         if ($this->isSubAccount()) {
-            return ($this->account_name ?: $this->username ?: 'Nhân viên') . ' (RentHome)';
+            $name = $this->ten_hien_thi ?: ($this->ho_ten ?: ($this->account_name ?: ($this->username ?: 'Nhân viên')));
+            return $name . ' (RentHome)';
         }
-        return $this->account_name ?: ($this->username ?: 'Người dùng');
+        return $this->ten_hien_thi ?: ($this->ho_ten ?: ($this->account_name ?: ($this->username ?: 'Người dùng')));
     }
 
     /**

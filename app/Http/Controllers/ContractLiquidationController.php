@@ -309,6 +309,8 @@ class ContractLiquidationController extends Controller
             'internet_price'         => (float)($contract->internet_price ?? 0),
             'garbage_price'          => (float)($contract->garbage_price ?? ($contract->service_fee ?? 0)),
             'parking_fee'            => (float)($contract->parking_fee ?? 0),
+            'payment_cycle'          => (int)($contract->payment_cycle ?: 1),
+            'next_rent_date'         => !empty($contract->next_rent_date) ? Carbon::parse($contract->next_rent_date)->format('Y-m-d') : null,
             'status'                 => $contract->status,
             'checkout_request'       => $checkoutReq,
             'liquidation_details'    => $contract->liquidation_details ?? null,
@@ -428,6 +430,9 @@ class ContractLiquidationController extends Controller
                 $invoiceNote = "Hóa đơn chốt công nợ thanh lý hợp đồng {$contract->contract_code}. ";
                 $invoiceNote .= "Tổng nợ phát sinh: " . number_format($totalDebt) . "đ (Tiền phòng lẻ: " . number_format($calc['prorated_rent']) . "đ, Điện nước: " . number_format($calc['electricity_amount'] + $calc['water_amount']) . "đ, Bồi thường tài sản: " . number_format($damageFee) . "đ). ";
                 $invoiceNote .= "Khấu trừ toàn bộ tiền cọc: -" . number_format($depositAmount) . "đ. ";
+                if (!empty($calc['unused_rent_refund']) && $calc['unused_rent_refund'] > 0) {
+                    $invoiceNote .= "Khấu trừ hoàn trả tiền phòng đóng trước chưa ở: -" . number_format($calc['unused_rent_refund']) . "đ. ";
+                }
                 $invoiceNote .= "Số tiền khách cần thanh toán thêm: " . number_format($netAmount) . " VNĐ.";
                 if ($damageReason) {
                     $invoiceNote .= " Ghi chú bồi thường: {$damageReason}.";
@@ -523,6 +528,7 @@ class ContractLiquidationController extends Controller
                     'tenant_bank_holder'  => $bankHolder,
                     'total_debt'          => $totalDebt,
                     'deposit'             => $depositAmount,
+                    'unused_rent_refund'  => $calc['unused_rent_refund'] ?? 0,
                     'refund_amount'       => $refundAmount,
                     'damage_fee'          => $damageFee,
                     'damage_reason'       => $damageReason,
@@ -839,12 +845,42 @@ class ContractLiquidationController extends Controller
         $isProrated = isset($input['is_prorated']) ? (bool)$input['is_prorated'] : true;
         $stayDays = isset($input['stay_days']) ? max(1, (int)$input['stay_days']) : (int)$checkoutDate->day;
 
-        // 1. Tiền phòng lẻ = (Giá phòng / 30) * Số ngày ở lẻ của tháng cuối
-        if ($isProrated) {
-            $proratedRent = (float)round(($rentPrice / 30) * $stayDays);
+        // 1. Tiền phòng tháng cuối & Tiền phòng đóng trước chưa ở (Prepaid Cycle):
+        // Kiểm tra nếu ngày trả phòng diễn ra trước ngày đến hạn thu tiền tiếp theo (next_rent_date):
+        // Khách đã đóng tiền trước theo chu kỳ và chưa ở hết.
+        $nextRentDate = !empty($contract->next_rent_date) ? Carbon::parse($contract->next_rent_date) : null;
+        $isPrepaidCycle = false;
+        $unusedRentRefund = 0;
+        $unusedFullMonths = 0;
+        $unusedDays = 0;
+
+        if ($nextRentDate && $checkoutDate->startOfDay()->lessThan($nextRentDate->startOfDay())) {
+            $isPrepaidCycle = true;
+            // Vì khách đã thanh toán tiền phòng trước đó bao gồm cả tháng trả phòng, khách KHÔNG nợ tiền phòng tháng cuối:
+            $proratedRent = 0;
+
+            // a. Số ngày thừa chưa ở của tháng trả phòng
+            $checkoutDay = (int)$checkoutDate->day;
+            $unusedDays = max(0, 30 - $checkoutDay);
+            $unusedDaysAmount = (float)round(($rentPrice / 30) * $unusedDays);
+
+            // b. Số tháng trọn vẹn chưa ở tiếp theo trước next_rent_date
+            $startOfNextMonth = $checkoutDate->copy()->addMonth()->startOfMonth();
+            $nextRentMonth = $nextRentDate->copy()->startOfMonth();
+            if ($startOfNextMonth->lessThan($nextRentMonth)) {
+                $unusedFullMonths = (int)$startOfNextMonth->diffInMonths($nextRentMonth);
+            }
+            $unusedMonthsAmount = (float)($unusedFullMonths * $rentPrice);
+
+            $unusedRentRefund = $unusedDaysAmount + $unusedMonthsAmount;
         } else {
-            $proratedRent = $rentPrice;
-            $stayDays = 30;
+            // Không có tiền phòng đóng trước hoặc đã ở quá hạn: tính tiền phòng lẻ của tháng cuối
+            if ($isProrated) {
+                $proratedRent = (float)round(($rentPrice / 30) * $stayDays);
+            } else {
+                $proratedRent = $rentPrice;
+                $stayDays = 30;
+            }
         }
 
         // 2. Điện nước:
@@ -886,16 +922,19 @@ class ContractLiquidationController extends Controller
         // 3. Phí bồi thường hư hỏng (Damage Fee)
         $damageFee = isset($input['damage_fee']) ? max(0, (float)$input['damage_fee']) : 0;
 
-        // TỔNG NỢ KHÁCH PHẢI TRẢ = Tiền phòng lẻ + Điện + Nước + Dịch vụ + Bồi thường
+        // TỔNG NỢ PHÁT SINH = Tiền phòng lẻ + Điện + Nước + Dịch vụ + Bồi thường
         $totalDebt = $proratedRent + $elecCost + $waterCost + $servicesCost + $damageFee;
 
-        // CHÊNH LỆCH = Tổng nợ - Tiền cọc
-        $netAmount = $totalDebt - $depositAmount;
+        // TỔNG KHOẢN ĐỐI TRỪ/HOÀN LẠI = Tiền cọc + Tiền phòng đóng trước chưa ở
+        $totalCredits = $depositAmount + $unusedRentRefund;
+
+        // CHÊNH LỆCH = Tổng nợ - Tổng hoàn (Cọc + Tiền phòng trả trước)
+        $netAmount = $totalDebt - $totalCredits;
 
         // Rẽ nhánh:
-        // Kịch bản A: Tổng nợ > Cọc -> Khách phải đóng thêm
-        // Kịch bản B: Cọc > Tổng nợ -> Công ty hoàn tiền cho khách
-        // Kịch bản C: Tổng nợ == Cọc
+        // Kịch bản A: Tổng nợ > Tổng hoàn -> Khách phải đóng thêm
+        // Kịch bản B: Tổng hoàn > Tổng nợ -> Công ty hoàn tiền cho khách
+        // Kịch bản C: Tổng nợ == Tổng hoàn
         if ($netAmount > 0) {
             $scenario = 'A';
         } elseif ($netAmount < 0) {
@@ -925,6 +964,11 @@ class ContractLiquidationController extends Controller
             'damage_fee'            => $damageFee,
             'total_debt'            => $totalDebt,
             'deposit_amount'        => $depositAmount,
+            'is_prepaid_cycle'      => $isPrepaidCycle,
+            'unused_rent_refund'    => $unusedRentRefund,
+            'unused_full_months'    => $unusedFullMonths,
+            'unused_days'           => $unusedDays,
+            'total_credits'         => $totalCredits,
             'net_amount'            => $netAmount,
             'refund_amount'         => ($netAmount < 0) ? abs($netAmount) : 0,
             'scenario'              => $scenario,

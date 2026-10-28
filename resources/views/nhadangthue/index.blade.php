@@ -404,7 +404,7 @@
                                     'water_people_count' => $contract->water_people_count ?? 1,
                                     'internet_price' => $contract->internet_price ?? 0,
                                     'garbage_price' => $contract->garbage_price ?? 0,
-                                    'payment_cycle' => $contract->payment_cycle ?? '1 tháng',
+                                    'payment_cycle' => is_numeric($contract->payment_cycle) ? (((int)$contract->payment_cycle === 12) ? '1 năm/lần' : ((int)$contract->payment_cycle . ' tháng/lần')) : ($contract->payment_cycle ?? '1 tháng/lần'),
                                     'bill_date' => $contract->bill_date ?? ($contract->billing_date ? preg_replace('/[^\d]/', '', $contract->billing_date) : '10'),
                                     'payment_limit_days' => $contract->payment_limit_days ?? 5,
                                     'late_penalty_fee' => $contract->late_penalty_fee ?? '20.000 VNĐ / ngày',
@@ -1899,28 +1899,39 @@
                         </div>
 
                         <!-- ĐIỀU 3: PHÍ DỊCH VỤ ĐI KÈM -->
-                        <div>
-                            <p class="font-bold text-slate-950">Điều 3. Phí dịch vụ đi kèm</p>
-                            <p class="mt-1 indent-6">
-                                Ngoài tiền thuê cố định hàng tháng, Bên B có nghĩa vụ thanh toán đầy đủ các chi phí dịch vụ thực tế phát sinh định kỳ gồm:
-                            </p>
-                            <ul class="list-disc pl-6 space-y-1 mt-1 text-slate-800">
-                                <li>
-                                    <strong>Tiền điện sinh hoạt:</strong> 
-                                    <strong id="tcElecPrice" class="font-semibold text-slate-950">--</strong> 
-                                    (<span id="tcElecStart" class="text-slate-600 font-mono">Chỉ số đầu: 0 kWh</span>).
-                                </li>
-                                <li>
-                                    <strong id="tcWaterTypeLabel">Tiền nước sinh hoạt:</strong> 
-                                    <strong id="tcWaterPrice" class="font-semibold text-slate-950">--</strong> 
-                                    (<span id="tcWaterSubInfo" class="text-slate-600 font-mono">Chỉ số đầu: 0 m³</span>).
-                                </li>
-                                <li>
-                                    <strong>Phí Internet và Rác sinh hoạt:</strong> 
-                                    <strong id="tcInternetGarbagePrice" class="font-semibold text-slate-950">--</strong> 
-                                    (Internet/Wifi: <span id="tcInternetPrice">--</span>, Rác sinh hoạt: <span id="tcGarbagePrice">--</span>).
-                                </li>
-                            </ul>
+                        <div id="tcServiceSection">
+                            <p class="font-bold text-slate-950" id="tcServiceTitle">Điều 3. Phí dịch vụ đi kèm</p>
+
+                            <!-- KHỐI 1: Khi cơ sở / bài đăng KHÔNG thu phí dịch vụ -->
+                            <div id="tcNoServiceBlock" class="hidden mt-1 text-slate-800">
+                                <p class="indent-6 leading-relaxed">
+                                    Cơ sở này không thu phí dịch vụ tập trung. Bên B (Khách thuê) tự ký hợp đồng và trực tiếp thanh toán tiền điện, nước sinh hoạt theo chỉ số công tơ/đồng hồ riêng với các đơn vị cung cấp theo biểu giá quy định của Nhà nước. Bên A không thu thêm bất kỳ khoản phí dịch vụ nào.
+                                </p>
+                            </div>
+
+                            <!-- KHỐI 2: Khi CÓ thu phí dịch vụ thông thường -->
+                            <div id="tcHasServiceBlock">
+                                <p class="mt-1 indent-6">
+                                    Ngoài tiền thuê cố định hàng tháng, Bên B có nghĩa vụ thanh toán đầy đủ các chi phí dịch vụ thực tế phát sinh định kỳ gồm:
+                                </p>
+                                <ul class="list-disc pl-6 space-y-1 mt-1 text-slate-800">
+                                    <li>
+                                        <strong>Tiền điện sinh hoạt:</strong> 
+                                        <strong id="tcElecPrice" class="font-semibold text-slate-950">--</strong> 
+                                        (<span id="tcElecStart" class="text-slate-600 font-mono">Chỉ số đầu: 0 kWh</span>).
+                                    </li>
+                                    <li>
+                                        <strong id="tcWaterTypeLabel">Tiền nước sinh hoạt:</strong> 
+                                        <strong id="tcWaterPrice" class="font-semibold text-slate-950">--</strong> 
+                                        (<span id="tcWaterSubInfo" class="text-slate-600 font-mono">Chỉ số đầu: 0 m³</span>).
+                                    </li>
+                                    <li>
+                                        <strong>Phí Internet và Rác sinh hoạt:</strong> 
+                                        <strong id="tcInternetGarbagePrice" class="font-semibold text-slate-950">--</strong> 
+                                        (Internet/Wifi: <span id="tcInternetPrice">--</span>, Rác sinh hoạt: <span id="tcGarbagePrice">--</span>).
+                                    </li>
+                                </ul>
+                            </div>
                         </div>
 
                         <!-- ĐIỀU 4: CAM KẾT THANH TOÁN -->
@@ -2127,31 +2138,67 @@
             if (document.getElementById('tcDuration')) document.getElementById('tcDuration').innerText = (data.duration_months || 12) + ' tháng';
             if (document.getElementById('tcDates')) document.getElementById('tcDates').innerText = (data.start_date || '--') + ' - ' + (data.end_date || '--');
 
-            // Điều 3
-            if (document.getElementById('tcElecPrice')) document.getElementById('tcElecPrice').innerText = formatVnd(data.electricity_price) + ' / kWh';
-            if (document.getElementById('tcElecStart')) document.getElementById('tcElecStart').innerText = `Chỉ số đầu: ${data.electricity_start || 0} kWh`;
+            // Điều 3: Phí Dịch Vụ
+            const elecPriceNum = parseFloat(String(data.electricity_price || 0).replace(/[^\d.]/g, '')) || 0;
+            const waterBlockNum = parseFloat(String(data.water_price_block || 0).replace(/[^\d.]/g, '')) || 0;
+            const waterPersonNum = parseFloat(String(data.water_price_person || 0).replace(/[^\d.]/g, '')) || 0;
+            const internetNum = parseFloat(String(data.internet_price || 0).replace(/[^\d.]/g, '')) || 0;
+            const garbageNum = parseFloat(String(data.garbage_price || 0).replace(/[^\d.]/g, '')) || 0;
 
-            if (data.water_calculation_type === 'nguoi') {
-                if (document.getElementById('tcWaterTypeLabel')) document.getElementById('tcWaterTypeLabel').innerText = 'Tiền nước sinh hoạt (Theo người):';
-                if (document.getElementById('tcWaterPrice')) document.getElementById('tcWaterPrice').innerText = formatVnd(data.water_price_person) + ' / người / tháng';
-                if (document.getElementById('tcWaterSubInfo')) document.getElementById('tcWaterSubInfo').innerText = `Số người ở: ${data.water_people_count || 1} người`;
+            const isNoServiceFee = Boolean(
+                data.no_service_fee === true || 
+                data.no_service_fee === 'true' || 
+                data.no_service_fee === 1 ||
+                (elecPriceNum <= 0 && waterBlockNum <= 0 && waterPersonNum <= 0 && internetNum <= 0 && garbageNum <= 0)
+            );
+
+            const tcTitle = document.getElementById('tcServiceTitle');
+            const tcNoBlock = document.getElementById('tcNoServiceBlock');
+            const tcHasBlock = document.getElementById('tcHasServiceBlock');
+
+            if (isNoServiceFee) {
+                if (tcTitle) tcTitle.innerText = 'Điều 3. Quy định về chi phí điện, nước và dịch vụ sinh hoạt';
+                if (tcNoBlock) tcNoBlock.classList.remove('hidden');
+                if (tcHasBlock) tcHasBlock.classList.add('hidden');
             } else {
-                if (document.getElementById('tcWaterTypeLabel')) document.getElementById('tcWaterTypeLabel').innerText = 'Tiền nước sinh hoạt (Theo khối):';
-                if (document.getElementById('tcWaterPrice')) document.getElementById('tcWaterPrice').innerText = formatVnd(data.water_price_block) + ' / m³';
-                if (document.getElementById('tcWaterSubInfo')) document.getElementById('tcWaterSubInfo').innerText = `Chỉ số đầu: ${data.water_start || 0} m³`;
-            }
+                if (tcTitle) tcTitle.innerText = 'Điều 3. Phí dịch vụ đi kèm';
+                if (tcNoBlock) tcNoBlock.classList.add('hidden');
+                if (tcHasBlock) tcHasBlock.classList.remove('hidden');
 
-            const netPrice = formatVnd(data.internet_price);
-            const garbagePrice = formatVnd(data.garbage_price);
-            if (document.getElementById('tcInternetPrice')) document.getElementById('tcInternetPrice').innerText = netPrice;
-            if (document.getElementById('tcGarbagePrice')) document.getElementById('tcGarbagePrice').innerText = garbagePrice;
-            if (document.getElementById('tcInternetGarbagePrice')) {
-                const totalNetGarbage = (parseFloat(data.internet_price || 0) + parseFloat(data.garbage_price || 0));
-                document.getElementById('tcInternetGarbagePrice').innerText = totalNetGarbage > 0 ? (formatVnd(totalNetGarbage) + ' / tháng') : `${netPrice} + Rác: ${garbagePrice}`;
+                if (document.getElementById('tcElecPrice')) document.getElementById('tcElecPrice').innerText = formatVnd(data.electricity_price) + ' / kWh';
+                if (document.getElementById('tcElecStart')) document.getElementById('tcElecStart').innerText = `Chỉ số đầu: ${data.electricity_start || 0} kWh`;
+
+                if (data.water_calculation_type === 'nguoi') {
+                    if (document.getElementById('tcWaterTypeLabel')) document.getElementById('tcWaterTypeLabel').innerText = 'Tiền nước sinh hoạt (Theo người):';
+                    if (document.getElementById('tcWaterPrice')) document.getElementById('tcWaterPrice').innerText = formatVnd(data.water_price_person) + ' / người / tháng';
+                    if (document.getElementById('tcWaterSubInfo')) document.getElementById('tcWaterSubInfo').innerText = `Số người ở: ${data.water_people_count || 1} người`;
+                } else {
+                    if (document.getElementById('tcWaterTypeLabel')) document.getElementById('tcWaterTypeLabel').innerText = 'Tiền nước sinh hoạt (Theo khối):';
+                    if (document.getElementById('tcWaterPrice')) document.getElementById('tcWaterPrice').innerText = formatVnd(data.water_price_block) + ' / m³';
+                    if (document.getElementById('tcWaterSubInfo')) document.getElementById('tcWaterSubInfo').innerText = `Chỉ số đầu: ${data.water_start || 0} m³`;
+                }
+
+                const netPrice = formatVnd(data.internet_price);
+                const garbagePrice = formatVnd(data.garbage_price);
+                if (document.getElementById('tcInternetPrice')) document.getElementById('tcInternetPrice').innerText = netPrice;
+                if (document.getElementById('tcGarbagePrice')) document.getElementById('tcGarbagePrice').innerText = garbagePrice;
+                if (document.getElementById('tcInternetGarbagePrice')) {
+                    const totalNetGarbage = (parseFloat(data.internet_price || 0) + parseFloat(data.garbage_price || 0));
+                    document.getElementById('tcInternetGarbagePrice').innerText = totalNetGarbage > 0 ? (formatVnd(totalNetGarbage) + ' / tháng') : `${netPrice} + Rác: ${garbagePrice}`;
+                }
             }
 
             // Điều 4
-            if (document.getElementById('tcPaymentCycle')) document.getElementById('tcPaymentCycle').innerText = (data.payment_cycle || '1 tháng (Hàng tháng)') + ` (Hạn trả: ${data.payment_limit_days || 5} ngày)`;
+            if (document.getElementById('tcPaymentCycle')) {
+                let cycleText = data.payment_cycle || '1 tháng/lần';
+                if (/^\d+$/.test(String(cycleText).trim())) {
+                    const cNum = parseInt(cycleText, 10);
+                    cycleText = (cNum === 12) ? '1 năm/lần' : `${cNum} tháng/lần`;
+                } else if (!String(cycleText).includes('tháng') && !String(cycleText).includes('năm')) {
+                    cycleText = `${cycleText} tháng/lần`;
+                }
+                document.getElementById('tcPaymentCycle').innerText = cycleText + ` (Hạn trả: ${data.payment_limit_days || 5} ngày)`;
+            }
             if (document.getElementById('tcBillDate')) document.getElementById('tcBillDate').innerText = data.bill_date ? `Hạn Mùng ${data.bill_date} hàng tháng` : 'Hạn Mùng 10 hàng tháng';
             if (document.getElementById('tcPenaltyBadge')) document.getElementById('tcPenaltyBadge').innerText = `Phạt trễ hạn: ${data.late_penalty_fee || '20.000 VNĐ / ngày'}`;
 

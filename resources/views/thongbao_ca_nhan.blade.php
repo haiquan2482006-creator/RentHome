@@ -167,7 +167,12 @@
                     $badgeBg = 'bg-teal-50 text-teal-700 border border-teal-200';
                     $badgeText = 'Hệ thống';
 
-                    if (str_contains($category, 'contract') || str_contains($type, 'contract') || str_contains(strtolower($n->title), 'hợp đồng')) {
+                    if (str_contains($category, 'building') || str_contains($type, 'building') || str_contains(strtolower($n->title), 'tòa nhà')) {
+                        $iconClass = 'fa-solid fa-city';
+                        $iconBg = 'bg-purple-100 text-purple-700 border border-purple-200';
+                        $badgeBg = 'bg-purple-50 text-purple-700 border border-purple-200';
+                        $badgeText = 'Tòa nhà';
+                    } elseif (str_contains($category, 'contract') || str_contains($type, 'contract') || str_contains(strtolower($n->title), 'hợp đồng')) {
                         $iconClass = 'fa-solid fa-file-signature';
                         $iconBg = 'bg-teal-100 text-teal-700 border border-teal-200';
                         $badgeBg = 'bg-teal-50 text-teal-700 border border-teal-200';
@@ -251,6 +256,60 @@
                                 {{ $n->message }}
                             </p>
 
+                            @php
+                                $attachedPost = null;
+                                if (!empty($n->post_id)) {
+                                    $attachedPost = \App\Models\Post::where('_id', $n->post_id)->first() ?: \App\Models\Post::find($n->post_id);
+                                } elseif (str_contains($category, 'complaint') || str_contains(strtolower($n->title . ' ' . $n->message), 'khiếu nại')) {
+                                    if (preg_match('/#?KN-[A-Z0-9]+/i', $n->message, $matches)) {
+                                        $matchedCode = ltrim($matches[0], '#');
+                                        $foundTicket = \App\Models\SupportTicket::where('ticket_code', 'like', "%{$matchedCode}%")
+                                            ->orWhere('complaint_code', 'like', "%{$matchedCode}%")
+                                            ->first();
+                                        if ($foundTicket && !empty($foundTicket->post_id)) {
+                                            $attachedPost = \App\Models\Post::where('_id', $foundTicket->post_id)->first() ?: \App\Models\Post::find($foundTicket->post_id);
+                                        }
+                                    }
+                                }
+                            @endphp
+
+                            @if($attachedPost)
+                                <div class="mt-2.5 p-2.5 sm:p-3 rounded-xl bg-slate-50 border border-slate-200/90 hover:border-teal-300 hover:bg-teal-50/40 transition-all group max-w-xl">
+                                    <a href="{{ url('/chitietbaidang/' . ($attachedPost->_id ?? $attachedPost->id)) }}" class="flex items-center gap-3">
+                                        @php
+                                            $thumb = $attachedPost->avatar ?? ($attachedPost->hinh_anh[0] ?? ($attachedPost->images[0] ?? null));
+                                        @endphp
+                                        @if($thumb)
+                                            <img src="{{ $thumb }}" alt="{{ $attachedPost->title }}" class="w-12 h-12 rounded-lg object-cover shrink-0 border border-slate-200 shadow-2xs group-hover:scale-105 transition-transform">
+                                        @else
+                                            <div class="w-12 h-12 rounded-lg bg-teal-100 text-teal-600 flex items-center justify-center shrink-0">
+                                                <i class="fa-solid fa-house"></i>
+                                            </div>
+                                        @endif
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-[10px] font-bold uppercase tracking-wider text-teal-700 bg-teal-100/80 px-1.5 py-0.5 rounded">Bài đăng khiếu nại</span>
+                                                @if(!empty($attachedPost->gia_thue ?? $attachedPost->price))
+                                                    <span class="text-xs font-black text-emerald-600 ml-auto">
+                                                        {{ is_numeric($attachedPost->gia_thue ?? $attachedPost->price) ? number_format($attachedPost->gia_thue ?? $attachedPost->price) . ' đ/tháng' : ($attachedPost->gia_thue ?? $attachedPost->price) }}
+                                                    </span>
+                                                @endif
+                                            </div>
+                                            <h4 class="text-xs sm:text-sm font-bold text-slate-800 group-hover:text-teal-700 truncate mt-0.5">
+                                                {{ $attachedPost->title }}
+                                            </h4>
+                                            <p class="text-[11px] text-slate-500 truncate flex items-center gap-1">
+                                                <i class="fa-solid fa-location-dot text-[10px] text-slate-400"></i>
+                                                <span>{{ $attachedPost->dia_chi ?? ($attachedPost->address ?? 'RentHome') }}</span>
+                                            </p>
+                                        </div>
+                                        <div class="shrink-0 text-slate-400 group-hover:text-teal-600 pl-1">
+                                            <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+                                        </div>
+                                    </a>
+                                </div>
+                            @endif
+
                             <!-- Meta: Thời gian & Link điều hướng -->
                             <div class="flex flex-wrap items-center justify-between gap-2 mt-3 pt-2.5 border-t border-slate-100 text-[11px] text-slate-400">
                                 <div class="flex items-center gap-2">
@@ -269,7 +328,10 @@
                                     if ($actionUrl && str_contains($actionUrl, 'Overview')) {
                                         $actionUrl = null;
                                     }
-                                    if (!$actionUrl) {
+                                    if ($attachedPost) {
+                                        $actionUrl = url('/chitietbaidang/' . ($attachedPost->_id ?? $attachedPost->id));
+                                        $actionLabel = 'Xem bài đăng';
+                                    } elseif (!$actionUrl || $actionUrl === url('/thong-bao') || $actionUrl === url('/thong-bao-ca-nhan')) {
                                         if (str_contains($category, 'contract') || str_contains(strtolower($n->title . ' ' . $n->message), 'hợp đồng') || str_contains(strtolower($n->title . ' ' . $n->message), 'tiền cọc')) {
                                             $actionUrl = route('nha-dang-thue');
                                             $actionLabel = 'Xem tại Nhà đang thuê';
@@ -278,10 +340,12 @@
                                             $actionLabel = 'Xem Lịch sử liên hệ';
                                         } elseif (!empty($n->post_id)) {
                                             $actionUrl = url('/chitietbaidang/' . $n->post_id);
-                                            $actionLabel = 'Xem phòng';
+                                            $actionLabel = 'Xem bài đăng';
+                                        } else {
+                                            $actionUrl = null;
                                         }
                                     } else {
-                                        $actionLabel = 'Xem chi tiết';
+                                        $actionLabel = (str_contains($category, 'building') || !empty($n->building_id)) ? 'Quản lý tòa nhà' : 'Xem chi tiết';
                                     }
                                 @endphp
 

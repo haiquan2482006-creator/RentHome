@@ -267,10 +267,19 @@
 
                     <!-- MỤC A: TIỀN PHÒNG -->
                     <div class="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 space-y-3">
-                        <div class="flex items-center justify-between">
-                            <h3 class="font-extrabold text-slate-800 text-xs flex items-center gap-2">
-                                <i class="fa-solid fa-house-user text-brand-600"></i> A. Tiền Phòng Tháng Này
-                            </h3>
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div class="flex items-center gap-2">
+                                <h3 class="font-extrabold text-slate-800 text-xs flex items-center gap-2">
+                                    <i class="fa-solid fa-house-user text-brand-600"></i> A. Tiền Phòng Tháng Này
+                                </h3>
+                                <span id="rent_cycle_badge" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold {{ !empty($selectedData['isRentDue']) ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-slate-100 text-slate-600 border border-slate-200' }}">
+                                    @if(!empty($selectedData['isRentDue']))
+                                        <i class="fa-solid fa-bell text-amber-600"></i> Đến hạn thu tiền nhà ({{ $selectedData['paymentCycle'] ?? 1 }} tháng): {{ number_format($selectedData['rent'] ?? 0) }} VNĐ
+                                    @else
+                                        <i class="fa-solid fa-clock text-slate-500"></i> Chu kỳ {{ $selectedData['paymentCycle'] ?? 1 }} tháng/lần (Chưa đến hạn{{ !empty($selectedData['nextRentDate']) ? ' - Hạn tiếp: ' . $selectedData['nextRentDate'] : '' }}) - Tiền phòng: 0đ
+                                    @endif
+                                </span>
+                            </div>
                             <label class="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-600">
                                 <input type="checkbox" id="full_month_check" checked onchange="toggleFullMonth(this.checked)" class="rounded text-brand-600 focus:ring-brand-500 w-4 h-4">
                                 <span>Tính trọn 1 tháng</span>
@@ -753,6 +762,17 @@
             }
             if (document.getElementById('room_rent_price')) {
                 document.getElementById('room_rent_price').value = data.rent || 0;
+            }
+
+            const rentBadge = document.getElementById('rent_cycle_badge');
+            if (rentBadge) {
+                if (data.isRentDue) {
+                    rentBadge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200';
+                    rentBadge.innerHTML = `<i class="fa-solid fa-bell text-amber-600"></i> Đến hạn thu tiền nhà (${data.paymentCycle || 1} tháng): ${formatVND(data.rent || 0)}`;
+                } else {
+                    rentBadge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-200';
+                    rentBadge.innerHTML = `<i class="fa-solid fa-clock text-slate-500"></i> Chu kỳ ${data.paymentCycle || 1} tháng/lần (Chưa đến hạn${data.nextRentDate ? ' - Hạn tiếp: ' + data.nextRentDate : ''}) - Tiền phòng: 0đ`;
+                }
             }
 
             // Đồng bộ tiền cọc: Tự động theo tháng đầu / tháng sau (hệ thống tự quyết định 100%)

@@ -13,13 +13,16 @@ class Complaint extends Model
         'user_id',
         'complaint_code',
         'content',
+        'reason',
         'target_id',
         'target_type',
         'post_id',
         'staff_id',
         'image',
+        'images',
         'status',
         'note',
+        'reply_message',
         'resolution_note',
         'resolution_action',
         'resolved_by',
@@ -27,6 +30,11 @@ class Complaint extends Model
         'is_valid',
         'created_at',
         'updated_at',
+    ];
+
+    protected $casts = [
+        'images' => 'array',
+        'is_valid' => 'boolean',
     ];
 
     public function user()
@@ -52,5 +60,10 @@ class Complaint extends Model
     public function resolver()
     {
         return $this->belongsTo(User::class, 'resolved_by');
+    }
+
+    public function replies()
+    {
+        return $this->hasMany(TicketReply::class, 'ticket_id');
     }
 }

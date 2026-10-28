@@ -157,9 +157,20 @@ class FavoriteController extends Controller
         if ($existing) {
             $existing->delete();
 
+            // Giảm favorites_count của bài đăng (Đảm bảo dữ liệu thật, không âm)
+            $cur = max(0, (int)($post->favorites_count ?? ($post->likes ?? 0)));
+            $newFav = max(0, $cur - 1);
+            $post->favorites_count = $newFav;
+            $post->likes = $newFav;
+            $post->save();
+
+            \Illuminate\Support\Facades\Cache::forget('home_approved_posts_default');
+            \Illuminate\Support\Facades\Cache::forget('home_featured_posts');
+
             return response()->json([
                 'success' => true,
                 'is_favorite' => false,
+                'favorites_count' => (int)$newFav,
                 'message' => 'Đã xóa bài viết khỏi danh sách yêu thích.',
                 'post_id' => $realPostId
             ]);
@@ -179,12 +190,15 @@ class FavoriteController extends Controller
             'post_id' => $realPostId,
         ]);
 
-        // Cập nhật số lượt thích trên bài viết nếu có trường likes
-        try {
-            $post->increment('likes');
-        } catch (\Exception $e) {
-            // bỏ qua nếu không có trường
-        }
+        // Tăng favorites_count của bài đăng (Đảm bảo dữ liệu thật)
+        $cur = max(0, (int)($post->favorites_count ?? ($post->likes ?? 0)));
+        $newFav = $cur + 1;
+        $post->favorites_count = $newFav;
+        $post->likes = $newFav;
+        $post->save();
+
+        \Illuminate\Support\Facades\Cache::forget('home_approved_posts_default');
+        \Illuminate\Support\Facades\Cache::forget('home_featured_posts');
 
         // Tạo thông báo cho chủ sở hữu bài đăng (quản lý bài)
         $postOwnerId = (string) $post->user_id;
@@ -241,6 +255,7 @@ class FavoriteController extends Controller
         return response()->json([
             'success' => true,
             'is_favorite' => true,
+            'favorites_count' => (int)($post->favorites_count ?? 0),
             'message' => 'Đã thêm bài viết vào danh sách yêu thích!',
             'post' => [
                 'id' => $realPostId,

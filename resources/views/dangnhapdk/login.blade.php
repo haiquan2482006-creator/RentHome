@@ -344,10 +344,10 @@
             <form action="/login" method="POST">
                 @csrf
                 <div class="input-group">
-                    <label class="input-label">Email đăng nhập <span class="required-star">*</span></label>
+                    <label class="input-label">Email hoặc Tên đăng nhập <span class="required-star">*</span></label>
                     <div class="input-box">
-                        <i class="fa-solid fa-envelope icon-left"></i>
-                        <input type="email" name="email" value="{{ old('email') }}" placeholder="Nhập địa chỉ email *" required>
+                        <i class="fa-solid fa-user icon-left"></i>
+                        <input type="text" name="email" value="{{ old('email') }}" placeholder="Nhập địa chỉ email hoặc tên đăng nhập *" required autocomplete="username">
                     </div>
                 </div>
                 

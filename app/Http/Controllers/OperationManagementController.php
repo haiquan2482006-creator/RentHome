@@ -40,7 +40,7 @@ class OperationManagementController extends Controller
             });
         }
 
-        $contracts = $contractsQuery->latest()->get();
+        $contracts = $contractsQuery->with(['post.user', 'post.building', 'owner', 'tenant'])->latest()->get();
 
         $now = Carbon::now();
         $today = $now->day;
@@ -257,7 +257,26 @@ class OperationManagementController extends Controller
                 'water_people_count'     => (int)($contract->water_people_count ?? 1),
                 'internet_price'         => (float)($contract->internet_price ?? 0),
                 'garbage_price'          => (float)($contract->garbage_price ?? 0),
-                'payment_cycle'          => $contract->payment_cycle ?: '1 tháng',
+                'no_service_fee'         => (
+                    ($contract->no_service_fee ?? false) ||
+                    (!empty($post) && !empty($post->building) && (
+                        ($post->building->no_service_fee ?? false) ||
+                        ($post->building->service_type ?? '') === 'none' ||
+                        (
+                            empty($post->building->electricity_price) &&
+                            empty($post->building->water_price) &&
+                            empty($post->building->service_fee)
+                        )
+                    )) ||
+                    (
+                        (float)($contract->electricity_price ?? 0) <= 0 &&
+                        (float)($contract->water_price_block ?? 0) <= 0 &&
+                        (float)($contract->water_price_person ?? 0) <= 0 &&
+                        (float)($contract->internet_price ?? 0) <= 0 &&
+                        (float)($contract->garbage_price ?? 0) <= 0
+                    )
+                ),
+                'payment_cycle'          => is_numeric($contract->payment_cycle) ? (((int)$contract->payment_cycle === 12) ? '1 năm/lần' : ((int)$contract->payment_cycle . ' tháng/lần')) : ($contract->payment_cycle ?: '1 tháng/lần'),
                 'bill_date'              => $billDate,
                 'billing_date'           => $contract->billing_date ?: ('Mùng ' . $billDate),
                 'payment_limit_days'     => $contract->payment_limit_days ?: '5 ngày',
@@ -308,7 +327,7 @@ class OperationManagementController extends Controller
                 'water_people_count'     => (int)($contract->water_people_count ?? 1),
                 'internet_price'         => (float)($contract->internet_price ?? 0),
                 'garbage_price'          => (float)($contract->garbage_price ?? 0),
-                'payment_cycle'          => $contract->payment_cycle ?: '1 tháng',
+                'payment_cycle'          => is_numeric($contract->payment_cycle) ? (((int)$contract->payment_cycle === 12) ? '1 năm/lần' : ((int)$contract->payment_cycle . ' tháng/lần')) : ($contract->payment_cycle ?: '1 tháng/lần'),
                 'payment_limit_days'     => $contract->payment_limit_days ?: '5 ngày',
                 'late_penalty_fee'       => $contract->late_penalty_fee ?: '20.000 VNĐ / ngày',
                 'contract_status'        => $contract->status ?? 'active',
@@ -330,7 +349,7 @@ class OperationManagementController extends Controller
         $pendingApprovalCount = $rooms->where('status', 'pending_approval')->count();
         $dueRooms = $rooms->where('status', 'unpaid')->values();
 
-        $roomsQuery = Post::where(function ($q) {
+        $roomsQuery = Post::with(['user', 'building'])->where(function ($q) {
             $q->whereNull('is_deleted')->orWhere('is_deleted', false);
         })->where('status', '!=', 'đã cho thuê')->where(function($q) {
             $q->whereNull('is_rented')->orWhere('is_rented', false);
@@ -487,7 +506,7 @@ class OperationManagementController extends Controller
             });
         }
 
-        $contracts = $contractsQuery->latest()->get();
+        $contracts = $contractsQuery->with(['post.user', 'post.building', 'owner', 'tenant'])->latest()->get();
 
         $now = Carbon::now();
         $currentMonthStr = 'Tháng ' . $now->format('m/Y');
@@ -602,6 +621,13 @@ class OperationManagementController extends Controller
 
             $tenantNameDisplay = ($contract->tenant_name ?: 'Khách thuê') . ($contract->tenant_phone ? ' (SĐT: ' . $contract->tenant_phone . ')' : '');
 
+            // Cập nhật thuật toán tính Tiền Phòng (Room Rent) theo chu kỳ thanh toán
+            $current_billing_date = $now;
+            $calculatedRoomRent = \App\Services\InvoiceService::calculateRoomRentFee($contract, $current_billing_date);
+            $paymentCycle = (int)($contract->payment_cycle ?: 1);
+            $isRentDue = ($calculatedRoomRent > 0);
+            $nextRentDateStr = !empty($contract->next_rent_date) ? Carbon::parse($contract->next_rent_date)->format('d/m/Y') : '';
+
             $item = [
                 'contractId'      => $contractId,
                 'contractCode'    => $contractCode,
@@ -610,7 +636,11 @@ class OperationManagementController extends Controller
                 'tenantName'      => $tenantNameDisplay,
                 'tenantRawName'   => $contract->tenant_name ?: 'Khách thuê',
                 'tenantPhone'     => $contract->tenant_phone ?: '',
-                'rent'            => (float)($contract->rent_price ?? ($post->price ?? 0)),
+                'rent'            => $calculatedRoomRent,
+                'contractPrice'   => (float)($contract->price ?: ($contract->rent_price ?? ($post->price ?? 0))),
+                'paymentCycle'    => $paymentCycle,
+                'isRentDue'       => $isRentDue,
+                'nextRentDate'    => $nextRentDateStr,
                 'contractDeposit' => $contractDeposit,
                 'deposit'         => $defaultDeposit,
                 'isFirstMonth'    => $isFirstMonth,
@@ -750,6 +780,8 @@ class OperationManagementController extends Controller
             $contract->last_paid_period = $now->format('m/Y');
             $contract->last_paid_date = $now->toDateTimeString();
             $contract->save();
+
+            \App\Services\InvoiceService::handleInvoicePaid($invoice);
         }
 
         return response()->json([

@@ -20,7 +20,7 @@ class PersonalAccountController extends Controller
     private function checkAdminPermission()
     {
         $user = Auth::user();
-        return $user && ($user->isAdmin() || ($user->role === 'admin') || ($user->isEnterprise() && !$user->isSubAccount()));
+        return $user && ($user->isAdmin() || ($user->role === 'admin') || (method_exists($user, 'isCskh') && $user->isCskh()) || ($user->isEnterprise() && !$user->isSubAccount()));
     }
 
     /**
@@ -36,16 +36,34 @@ class PersonalAccountController extends Controller
             return redirect('/')->with('error', 'Bạn không có quyền truy cập trang Quản trị Admin!');
         }
 
-        // Lấy danh sách toàn bộ tài khoản cá nhân (khách thuê / người dùng phổ thông)
-        $query = User::where(function ($q) {
+        $excludedRoles = [
+            'admin', 'Admin',
+            'doanhnghiep', 'enterprise',
+            'staff', 'sub_account',
+            'kiemduyet', 'moderator', 'kiem_duyet',
+            'nhansu', 'nhan su', 'nhan_su',
+            'cskh', 'chamsockh', 'cham_soc_kh', 'chăm sóc kh', 'chăm sóc khách hàng', 'cham soc kh'
+        ];
+
+        // Lấy danh sách toàn bộ tài khoản cá nhân (khách thuê / người dùng phổ thông, loại trừ CSKH & nội bộ)
+        $query = User::where(function ($q) use ($excludedRoles) {
             $q->where('role', 'canhan')
               ->orWhere('role', 'user')
               ->orWhere('role', 'khach')
               ->orWhereNull('role')
-              ->orWhere(function ($subQ) {
-                  $subQ->whereNotIn('role', ['admin', 'Admin', 'doanhnghiep', 'enterprise', 'staff', 'sub_account', 'kiemduyet', 'moderator', 'nhansu', 'nhan su', 'nhan_su'])
+              ->orWhere(function ($subQ) use ($excludedRoles) {
+                  $subQ->whereNotIn('role', $excludedRoles)
                        ->whereNull('parent_id');
               });
+        })
+        ->whereNotIn('role', $excludedRoles)
+        ->where(function ($q) {
+            $q->whereNull('staff_role')->orWhere(function($srQ) {
+                $srQ->where('staff_role', 'not like', '%chăm sóc%')
+                    ->where('staff_role', 'not like', '%cskh%')
+                    ->where('staff_role', 'not like', '%nhân sự%')
+                    ->where('staff_role', 'not like', '%kiểm duyệt%');
+            });
         })
         ->where(function ($q) {
             $q->whereNull('is_deleted')->orWhere('is_deleted', false);
@@ -104,7 +122,17 @@ class PersonalAccountController extends Controller
             ->whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly', 'expired'])
             ->count();
 
-            $user->is_account_locked = ($user->is_locked === true || in_array($user->status, ['locked', 'khoa', 'vi_pham', 'banned']));
+            $isLocked = ($user->is_locked === true || in_array($user->status, ['locked', 'khoa', 'vi_pham', 'banned']));
+            // Tự động mở khóa tài khoản nếu đã hết thời gian khóa
+            if ($isLocked && $user->locked_until && now()->gte($user->locked_until)) {
+                $user->is_locked = false;
+                $user->status = 'active';
+                $user->locked_until = null;
+                $user->lock_reason = null;
+                $user->save();
+                $isLocked = false;
+            }
+            $user->is_account_locked = $isLocked;
 
             return $user;
         });
@@ -116,16 +144,25 @@ class PersonalAccountController extends Controller
             $users = $users->filter(fn($u) => $u->rented_rooms_count == 0)->values();
         }
 
-        // Tính các số liệu thống kê tổng quan của trang
-        $allPersonalAccounts = User::where(function ($q) {
+        // Tính các số liệu thống kê tổng quan của trang (loại trừ CSKH & nội bộ)
+        $allPersonalAccounts = User::where(function ($q) use ($excludedRoles) {
             $q->where('role', 'canhan')
               ->orWhere('role', 'user')
               ->orWhere('role', 'khach')
               ->orWhereNull('role')
-              ->orWhere(function ($subQ) {
-                  $subQ->whereNotIn('role', ['admin', 'Admin', 'doanhnghiep', 'enterprise', 'staff', 'sub_account', 'kiemduyet', 'moderator', 'nhansu', 'nhan su', 'nhan_su'])
+              ->orWhere(function ($subQ) use ($excludedRoles) {
+                  $subQ->whereNotIn('role', $excludedRoles)
                        ->whereNull('parent_id');
               });
+        })
+        ->whereNotIn('role', $excludedRoles)
+        ->where(function ($q) {
+            $q->whereNull('staff_role')->orWhere(function($srQ) {
+                $srQ->where('staff_role', 'not like', '%chăm sóc%')
+                    ->where('staff_role', 'not like', '%cskh%')
+                    ->where('staff_role', 'not like', '%nhân sự%')
+                    ->where('staff_role', 'not like', '%kiểm duyệt%');
+            });
         })
         ->where(function ($q) {
             $q->whereNull('is_deleted')->orWhere('is_deleted', false);
@@ -134,8 +171,8 @@ class PersonalAccountController extends Controller
 
         $stats = [
             'total'     => $allPersonalAccounts->count(),
-            'active'    => $allPersonalAccounts->filter(fn($u) => !$u->is_locked && !in_array($u->status, ['locked', 'khoa', 'vi_pham', 'banned']))->count(),
-            'locked'    => $allPersonalAccounts->filter(fn($u) => $u->is_locked || in_array($u->status, ['locked', 'khoa', 'vi_pham', 'banned']))->count(),
+            'active'    => $allPersonalAccounts->filter(fn($u) => (!$u->is_locked && !in_array($u->status, ['locked', 'khoa', 'vi_pham', 'banned'])) || ($u->locked_until && now()->gte($u->locked_until)))->count(),
+            'locked'    => $allPersonalAccounts->filter(fn($u) => ($u->is_locked || in_array($u->status, ['locked', 'khoa', 'vi_pham', 'banned'])) && (!$u->locked_until || now()->lessThan($u->locked_until)))->count(),
             'has_posts' => Post::distinct('user_id')->count(),
             'renting'   => Contract::whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly', 'expired'])->distinct('tenant_id')->count(),
         ];
@@ -299,6 +336,9 @@ class PersonalAccountController extends Controller
             });
 
             $isLocked = ($user->is_locked === true || in_array($user->status, ['locked', 'khoa', 'vi_pham', 'banned']));
+            if ($isLocked && $user->locked_until && now()->gte($user->locked_until)) {
+                $isLocked = false;
+            }
 
             $userData = [
                 'id'               => $userId,
@@ -312,6 +352,7 @@ class PersonalAccountController extends Controller
                 'status'           => $user->status ?? 'active',
                 'is_locked'        => $isLocked,
                 'lock_reason'      => $user->lock_reason ?? '',
+                'locked_until'     => $this->formatDateSafe($user->locked_until, 'd/m/Y H:i'),
                 'locked_at'        => $this->formatDateSafe($user->locked_at, 'd/m/Y H:i'),
                 'created_at'       => $this->formatDateSafe($user->created_at, 'd/m/Y H:i'),
                 'created_at_human' => $this->formatHumanDiffSafe($user->created_at),
@@ -339,8 +380,8 @@ class PersonalAccountController extends Controller
     }
 
     /**
-     * YÊU CẦU 2: Chức năng "Khóa tài khoản" (Ban User)
-     * Đồng thời đảm bảo thẻ "Số tài khoản vi phạm" ở Dashboard Admin tự động đếm tăng lên
+     * YÊU CẦU 2 & BƯỚC 3: Chức năng "Khóa tài khoản" người dùng có thời hạn
+     * Validate lock_reason, lock_duration, tính locked_until và lưu vào DB
      */
     public function toggleLock(Request $request, $id)
     {
@@ -358,42 +399,94 @@ class PersonalAccountController extends Controller
         }
 
         $isCurrentlyLocked = ($user->is_locked === true || in_array($user->status, ['locked', 'khoa', 'vi_pham', 'banned']));
+        if ($isCurrentlyLocked && $user->locked_until && now()->gte($user->locked_until)) {
+            $isCurrentlyLocked = false;
+        }
+
         $newLockState = !$isCurrentlyLocked;
-
-        $reason = $request->input('reason', $newLockState ? 'Tài khoản vi phạm tiêu chuẩn cộng đồng hoặc có dấu hiệu lừa đảo/spam.' : null);
-
-        // Cập nhật trạng thái
-        // DashboardController: User::where('is_locked', true)->orWhereIn('status', ['locked', 'khoa', 'vi_pham', 'banned'])->count()
-        $user->is_locked = $newLockState;
-        $user->status = $newLockState ? 'locked' : 'active';
-        $user->locked_at = $newLockState ? now() : null;
-        $user->lock_reason = $newLockState ? $reason : null;
-        $user->save();
-
         $userName = $user->account_name ?: ($user->username ?: $user->email);
+
+        if ($newLockState) {
+            // Chuẩn hóa tên trường lock_reason nếu client gửi reason
+            if (!$request->has('lock_reason') && $request->has('reason')) {
+                $request->merge(['lock_reason' => $request->input('reason')]);
+            }
+
+            // BƯỚC 3: Validate form: lock_reason và lock_duration là bắt buộc
+            $validated = $request->validate([
+                'lock_reason'   => 'required|string',
+                'lock_duration' => 'required',
+            ], [
+                'lock_reason.required'   => 'Vui lòng nhập lý do khóa tài khoản.',
+                'lock_duration.required' => 'Vui lòng chọn thời gian khóa.',
+            ]);
+
+            $lockReason = trim($validated['lock_reason']);
+            $lockDuration = $validated['lock_duration'];
+
+            // BƯỚC 2: Logic tính thời gian $lockedUntil
+            // - Nếu $request->lock_duration === 'indefinite': $lockedUntil = Carbon::now()->addYears(100);
+            // - Ngược lại: $lockedUntil = Carbon::now()->addDays((int) $request->lock_duration);
+            $isIndefinite = ($lockDuration === 'indefinite' || (int)$lockDuration >= 9999);
+            if ($isIndefinite) {
+                $lockedUntil = Carbon::now()->addYears(100);
+            } else {
+                $lockedUntil = Carbon::now()->addDays((int)$lockDuration);
+            }
+
+            // Lưu vào DB: Cập nhật locked_until = $lockedUntil và lock_reason = $request->lock_reason
+            $user->is_locked = true;
+            $user->status = 'locked';
+            $user->locked_at = Carbon::now();
+            $user->locked_until = $lockedUntil;
+            $user->lock_reason = $lockReason;
+            $user->save();
+
+            $formattedUntil = Carbon::parse($lockedUntil)->format('d/m/Y H:i');
+            $timeText = $isIndefinite ? 'đến khi mở lại (thủ công)' : "đến {$formattedUntil}";
+            $actionMsg = "Đã khóa tài khoản {$userName} thành công ({$timeText})!";
+        } else {
+            // Mở khóa tài khoản
+            $user->is_locked = false;
+            $user->status = 'active';
+            $user->locked_at = null;
+            $user->locked_until = null;
+            $user->lock_reason = null;
+            $user->save();
+
+            $actionMsg = "Đã mở khóa tài khoản {$userName} thành công!";
+        }
+
         $actionName = $newLockState ? 'Khóa tài khoản' : 'Mở khóa tài khoản';
         $actionType = $newLockState ? 'lock' : 'unlock';
 
         // Ghi nhật ký vào AdminActivity để theo dõi trên trang Lịch sử Admin
+        $durationText = $newLockState ? ($isIndefinite ? 'Đến khi mở lại (Thủ công)' : Carbon::parse($user->locked_until)->format('d/m/Y H:i')) : 'Đã khôi phục quyền truy cập.';
         AdminActivity::log(
             $actionType,
             'account',
             "{$actionName} người dùng",
-            "Admin đã {$actionName}: {$userName} ({$user->email}). " . ($newLockState ? "Lý do: {$reason}" : "Đã khôi phục quyền truy cập."),
+            "Admin đã {$actionName}: {$userName} ({$user->email}). " . ($newLockState ? "Thời hạn: {$durationText}. Lý do: {$user->lock_reason}" : $durationText),
             $user,
-            ['reason' => $reason, 'user_id' => (string)($user->_id ?? $user->id)]
+            [
+                'reason' => $user->lock_reason,
+                'locked_until' => $user->locked_until,
+                'is_indefinite' => $isIndefinite ?? false,
+                'user_id' => (string)($user->_id ?? $user->id)
+            ]
         );
 
         // Gửi thông báo đến người dùng nếu tài khoản bị khóa
         if ($newLockState) {
             try {
+                $thoiGianText = $isIndefinite ? 'đến khi được mở lại bởi Quản trị viên' : 'đến ' . Carbon::parse($user->locked_until)->format('d/m/Y H:i');
                 Notification::create([
                     'user_id'    => (string)($user->_id ?? $user->id),
                     'role'       => 'canhan',
                     'category'   => 'account_locked',
                     'type'       => 'error',
                     'title'      => 'Tài khoản của bạn đã bị khóa',
-                    'message'    => 'Tài khoản của bạn đã bị khóa bởi Quản trị viên. Lý do: ' . $reason . '. Mọi thắc mắc xin liên hệ bộ phận hỗ trợ RentHome.',
+                    'message'    => "Tài khoản của bạn đã bị khóa bởi Quản trị viên {$thoiGianText}. Lý do: {$user->lock_reason}.",
                     'is_read'    => false,
                     'created_at' => now(),
                     'updated_at' => now(),
@@ -404,15 +497,28 @@ class PersonalAccountController extends Controller
         }
 
         // Đếm lại tổng số tài khoản vi phạm hiện tại để trả về cho Frontend cập nhật badge nếu cần
-        $totalViolations = User::where('is_locked', true)
-            ->orWhereIn('status', ['locked', 'khoa', 'vi_pham', 'banned'])
-            ->count();
+        $totalViolations = User::where(function ($q) {
+            $q->where('is_locked', true)
+              ->orWhereIn('status', ['locked', 'khoa', 'vi_pham', 'banned']);
+        })
+        ->where(function ($q) {
+            $q->whereNull('locked_until')->orWhere('locked_until', '>', Carbon::now());
+        })
+        ->count();
+
+        $displayLockedUntil = null;
+        if ($user->locked_until) {
+            $displayLockedUntil = ($isIndefinite ?? false) ? 'Đến khi mở lại' : Carbon::parse($user->locked_until)->format('d/m/Y H:i');
+        }
 
         return response()->json([
             'success'          => true,
-            'message'          => $newLockState ? "Đã khóa tài khoản {$userName} thành công!" : "Đã mở khóa tài khoản {$userName} thành công!",
+            'message'          => $actionMsg,
             'is_locked'        => $user->is_locked,
             'status'           => $user->status,
+            'locked_until'     => $displayLockedUntil,
+            'is_indefinite'    => $isIndefinite ?? false,
+            'lock_reason'      => $user->lock_reason,
             'total_violations' => $totalViolations,
         ]);
     }
@@ -525,6 +631,7 @@ class PersonalAccountController extends Controller
             $post->reject_reason = 'Admin đã gỡ bài vi phạm: ' . $reason;
             $post->rejected_at = now();
             $post->rejected_by = (string)(Auth::id() ?? 'admin');
+            $post->building_id = null;
             $post->save();
         }
 

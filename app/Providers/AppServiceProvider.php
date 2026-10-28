@@ -20,6 +20,12 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         \App\Models\Invoice::observe(\App\Observers\InvoiceObserver::class);
+        \App\Models\Post::observe(\App\Observers\PostObserver::class);
+        \App\Models\Contract::observe(\App\Observers\ContractObserver::class);
+
+        \Illuminate\Support\Collection::macro('latest', function ($column = 'created_at') {
+            return $this->sortByDesc($column);
+        });
 
         $defaultSettings = [
             'banner_title' => 'Tìm Nhà Cho Thuê Nhanh Chóng & Dễ Dàng',

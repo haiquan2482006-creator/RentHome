@@ -42,6 +42,7 @@ class Contract extends Model
         'cccd_images',
         'contract_documents',
         'payment_cycle',
+        'next_rent_date',
         'deposit_amount',
         'bill_date',
         'billing_date',
@@ -60,6 +61,18 @@ class Contract extends Model
         'terminated_by',
         'liquidation_scenario',
     ];
+
+    protected $casts = [
+        'payment_cycle' => 'integer',
+    ];
+
+    /**
+     * Accessor đồng bộ trường price với rent_price
+     */
+    public function getPriceAttribute()
+    {
+        return (float)($this->rent_price ?? 0);
+    }
 
     public function post()
     {

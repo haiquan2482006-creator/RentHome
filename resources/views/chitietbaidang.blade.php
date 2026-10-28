@@ -19,6 +19,9 @@
     <!-- Alpine.js -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
     <script>
         @php
             $themeSettings = file_exists(storage_path('app/theme_settings.json')) 
@@ -68,6 +71,11 @@
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
+
+        /* Đảm bảo popup SweetAlert2 luôn hiển thị trên cùng, đè lên các Modal có z-index cao (như reportPostModal z-[9999]) */
+        .swal2-container {
+            z-index: 999999 !important;
+        }
     </style>
 </head>
 <body class="text-slate-800 antialiased pt-24">
@@ -108,9 +116,11 @@
                         // Chuẩn hóa mảng $typeMap hỗ trợ cả chữ hoa và chữ thường
                         $typeMap = [
                             'nha_o'               => 'Nhà ở',
+                            'nha_rieng'           => 'Nhà ở / Nhà riêng lẻ',
+                            'nha_nguyen_can'      => 'Nhà nguyên căn',
                             'phong_tro'           => 'Phòng trọ',
                             'nha_tro'             => 'Phòng trọ',
-                            'can_ho'              => 'Căn hộ',
+                            'can_ho'              => 'Căn hộ / Chung cư mini',
                             'can_ho_dich_vu'      => 'Căn hộ dịch vụ',
                             'chung_cu_mini'       => 'Chung cư mini',
                             'chung_cu'            => 'Chung cư',
@@ -121,8 +131,6 @@
                             'sleepbox'            => 'Ký túc xá / Sleepbox',
                             'dat_nen'             => 'Đất nền',
                             'dat_phan_lo'         => 'Đất phân lô',
-                            'nha_rieng'           => 'Nhà riêng',
-                            'nha_nguyen_can'      => 'Nhà nguyên căn',
                             'cum_nha_lien_ke'     => 'Cụm nhà liền kề',
                             'biet_thu'            => 'Biệt thự',
                         ];
@@ -142,7 +150,7 @@
 
                     <!-- Main Header Info -->
                     <div>
-                        <div class="flex flex-wrap items-center gap-3 mb-4">
+                        <div class="flex flex-wrap items-center gap-3 mb-3">
                             <span class="px-4 py-1.5 bg-gradient-to-r from-brand-500 to-brand-600 text-white text-xs font-bold rounded-full uppercase tracking-wider shadow-sm">
                                 {{ $typeStr }}
                             </span>
@@ -151,12 +159,45 @@
                                 <i class="fa-solid fa-stairs text-sky-500"></i> {{ $isLienKe ? ($floorVal . ' tầng') : ('Tầng ' . $floorVal) }}
                             </span>
                             @endif
-                            <span class="text-slate-400 text-sm font-medium flex items-center gap-1.5 bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
-                                <i class="fa-regular fa-clock"></i> {{ $post->created_at->diffForHumans() }}
-                            </span>
                         </div>
 
-                        <h1 class="text-3xl sm:text-4xl font-black text-slate-900 leading-[1.3] mb-4 tracking-tight">{{ $post->title }}</h1>
+                        <h1 class="text-3xl sm:text-4xl font-black text-slate-900 leading-[1.3] mb-3 tracking-tight">{{ $post->title }}</h1>
+
+                        <!-- Dòng Chỉ số tương tác thực tế & Thời gian đăng (FOMO Badges) -->
+                        <div class="flex flex-wrap items-center gap-2.5 sm:gap-3 mb-4">
+                            <span class="text-slate-500 text-xs sm:text-sm font-medium flex items-center gap-1.5 bg-slate-100/90 px-3.5 py-1.5 rounded-full border border-slate-200 shadow-2xs">
+                                <i class="fa-regular fa-clock text-slate-400"></i> {{ $post->created_at->diffForHumans() }}
+                            </span>
+                            @php
+                                $detailPostId = (string)($post->_id ?? $post->id);
+                                $detailOwnerId = (string)($post->user_id ?? '');
+                                $isAuth = \Illuminate\Support\Facades\Auth::check();
+                                $curUser = $isAuth ? \Illuminate\Support\Facades\Auth::user() : null;
+                                $isEnterprise = $curUser && ($curUser->isEnterprise() || $curUser->role === 'doanhnghiep');
+                                $isMyPost = $isAuth && ($detailOwnerId === (string)\Illuminate\Support\Facades\Auth::id());
+                                $canFav = !$isEnterprise && !$isMyPost;
+                            @endphp
+                            @if($canFav)
+                            <button type="button"
+                                    onclick="window.RentHomeFavorites && window.RentHomeFavorites.toggle('{{ $detailPostId }}', event, '{{ $detailOwnerId }}')"
+                                    data-fav-id="{{ $detailPostId }}"
+                                    data-owner-id="{{ $detailOwnerId }}"
+                                    class="fav-detail-btn text-xs sm:text-sm font-bold flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-rose-200 bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-600 transition-all shadow-2xs group active:scale-95 cursor-pointer"
+                                    title="Nhấn để lưu hoặc bỏ lưu bài đăng">
+                                <i class="fa-regular fa-heart text-slate-400 group-hover:text-rose-500 transition-colors"></i>
+                                <span class="fav-action-text">Yêu thích</span>
+                            </button>
+                            @endif
+
+                            <!-- Nút Báo cáo / Khiếu nại bài đăng -->
+                            <button type="button"
+                                    onclick="openReportModal()"
+                                    class="text-xs sm:text-sm font-bold flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-amber-300 bg-amber-50/60 hover:bg-amber-100 text-amber-800 transition-all shadow-2xs group active:scale-95 cursor-pointer"
+                                    title="Báo cáo / Khiếu nại thông tin bài đăng này">
+                                <i class="fa-solid fa-flag text-amber-600 group-hover:scale-110 transition-transform"></i>
+                                <span>Báo cáo tin</span>
+                            </button>
+                        </div>
                         
                         <div class="flex items-start sm:items-center gap-2 text-slate-500 font-medium text-base sm:text-lg">
                             <i class="fa-solid fa-location-dot text-brand-500 mt-1 sm:mt-0"></i>
@@ -334,7 +375,7 @@
                         <div class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2 sm:gap-3" id="galleryThumbnails">
                             @foreach($galleryImages as $index => $imgSrc)
                             <button type="button" onclick="changeMainImage('{{ $imgSrc }}', this)" class="thumb-btn relative aspect-[4/3] rounded overflow-hidden border-2 {{ $index === 0 ? 'border-brand-500 ring-2 ring-brand-500/20' : 'border-transparent hover:border-slate-300' }} focus:outline-none transition-all group bg-slate-100 shadow-sm cursor-pointer">
-                                <img src="{{ $imgSrc }}" alt="Thumbnail {{ $index + 1 }}" class="w-full h-full object-cover group-hover:opacity-100 opacity-75 transition-opacity" onerror="this.onerror=null; this.src='https://placehold.co/200x150?text=No+Image';">
+                                <img src="{{ $imgSrc }}" loading="lazy" alt="Thumbnail {{ $index + 1 }}" class="w-full h-full object-cover group-hover:opacity-100 opacity-75 transition-opacity" onerror="this.onerror=null; this.src='https://placehold.co/200x150?text=No+Image';">
                             </button>
                             @endforeach
                         </div>
@@ -360,6 +401,14 @@
                         $rawUnit = strtolower(trim((string)($post->price_unit ?? 'thang')));
                         if (in_array($rawUnit, ['thang', 'tháng'])) {
                             $displayUnit = '/ tháng';
+                        } elseif (in_array($rawUnit, ['2_nam', '2 nam', '2 năm'])) {
+                            $displayUnit = '/ 2 năm';
+                        } elseif (in_array($rawUnit, ['3_nam', '3 nam', '3 năm'])) {
+                            $displayUnit = '/ 3 năm';
+                        } elseif (in_array($rawUnit, ['5_nam', '5 nam', '5 năm'])) {
+                            $displayUnit = '/ 5 năm';
+                        } elseif (in_array($rawUnit, ['tren_5_nam', 'tren 5 nam', 'trên 5 năm'])) {
+                            $displayUnit = '/ trên 5 năm';
                         } elseif (in_array($rawUnit, ['nam', 'năm'])) {
                             $displayUnit = '/ năm';
                         } elseif (in_array($rawUnit, ['m2', 'm²'])) {
@@ -450,6 +499,21 @@
                             </span>
                             <span class="text-xl sm:text-2xl font-black text-slate-800 tracking-tight whitespace-nowrap">
                                 {{ $isLienKe ? ($floorVal . ' tầng') : ('Tầng ' . $floorVal) }}
+                            </span>
+                        </div>
+                        @endif
+
+                        @if(!empty($post->payment_requirement))
+                        <!-- Divider -->
+                        <div class="w-px h-10 bg-slate-200 hidden sm:block"></div>
+
+                        <!-- Yêu cầu thanh toán / Đặt cọc -->
+                        <div class="flex flex-col min-w-fit">
+                            <span class="text-xs text-amber-600 font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                                <i class="fa-solid fa-hand-holding-dollar text-amber-500 text-xs"></i> Yêu cầu thanh toán / Cọc
+                            </span>
+                            <span class="text-sm sm:text-base font-extrabold text-slate-800 tracking-tight">
+                                {{ $post->payment_requirement }}
                             </span>
                         </div>
                         @endif
@@ -629,10 +693,10 @@
                         
                         <div class="flex items-center gap-4 mb-6">
                             <div class="w-14 h-14 rounded-full bg-brand-100 flex items-center justify-center text-xl text-brand-600 font-bold border-2 border-brand-200 shrink-0">
-                                {{ strtoupper(substr($post->user->account_name ?? $post->user->username ?? $post->user->name ?? 'U', 0, 1)) }}
+                                {{ strtoupper(substr($post->user->ten_hien_thi ?? ($post->user->ho_ten ?? ($post->user->account_name ?? 'U')), 0, 1)) }}
                             </div>
                             <div>
-                                <h4 class="text-base font-bold text-slate-900">{{ $post->user->account_name ?? $post->user->username ?? $post->user->name ?? 'Người dùng' }}</h4>
+                                <h4 class="text-base font-bold text-slate-900">{{ $post->user->ten_hien_thi ?? ($post->user->ho_ten ?? ($post->user->account_name ?? 'Người dùng')) }}</h4>
                                 @php
                                     $u = $post->user;
                                     $isEnterprise = $u && (method_exists($u, 'isEnterprise') ? $u->isEnterprise() : in_array($u->role ?? '', ['doanhnghiep', 'enterprise']));
@@ -716,6 +780,12 @@
                             <i class="fa-solid fa-triangle-exclamation"></i> Tài khoản này hiện đang bị khóa.
                         </div>
                         @endif
+
+                        <div class="mt-4 pt-3 border-t border-slate-100 text-center">
+                            <button type="button" onclick="openReportModal()" class="text-xs text-slate-400 hover:text-amber-600 font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer">
+                                <i class="fa-regular fa-flag text-amber-500"></i> Tin đăng có sai phạm? Báo cáo ngay
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Appointment/Contact Form -->
@@ -853,13 +923,22 @@
                             </button>
 
                             <!-- Status Badge when not pending -->
-                            <div x-show="isContacted && contactStatus !== 'pending'" x-cloak class="w-full py-3.5 px-4 bg-slate-100 border border-slate-200 text-slate-500 rounded-md font-bold text-center mt-2 flex items-center justify-center gap-2">
-                                <i class="fa-solid fa-lock"></i> 
-                                <span x-text="
-                                    contactStatus === 'communicating' ? 'Chủ nhà đang trao đổi' : 
-                                    (contactStatus === 'approved' ? 'Yêu cầu đã được duyệt' : 
-                                    (contactStatus === 'rejected' ? 'Yêu cầu bị từ chối' : 'Yêu cầu đã đóng'))
-                                "></span>
+                            <div x-show="isContacted && contactStatus !== 'pending'" x-cloak class="w-full py-3.5 px-4 bg-slate-100 border border-slate-200 text-slate-500 rounded-md font-bold text-center mt-2 flex flex-col items-center justify-center gap-2">
+                                <div class="flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-lock"></i> 
+                                    <span x-text="
+                                        contactStatus === 'communicating' ? 'Chủ nhà đang trao đổi' : 
+                                        (contactStatus === 'approved' ? 'Yêu cầu đã được duyệt' : 
+                                        (contactStatus === 'rejected' ? 'Yêu cầu bị từ chối' : 'Yêu cầu đã đóng'))
+                                    "></span>
+                                </div>
+                                <template x-if="contactStatus === 'rejected' || contactStatus === 'closed' || contactStatus === 'liquidated'">
+                                    <button type="button" 
+                                        @click="isContacted = false; contactStatus = '';"
+                                        class="mt-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-bold transition shadow-sm flex items-center gap-1.5 cursor-pointer">
+                                        <i class="fa-solid fa-rotate-right"></i> Mở lại & gửi yêu cầu mới
+                                    </button>
+                                </template>
                             </div>
                         </form>
                     </div>
@@ -944,7 +1023,8 @@
             $sameBuildingPosts = collect([]);
             if (!empty($post->building_id) && !empty($b)) {
                 $bIdStr = (string)$post->building_id;
-                $sameBuildingPosts = \App\Models\Post::where(function($q) use ($bIdStr, $post) {
+                $sameBuildingPosts = \App\Models\Post::with(['user', 'building'])
+                    ->where(function($q) use ($bIdStr, $post) {
                         $q->where('building_id', $bIdStr)
                           ->orWhere('building_id', $post->building_id);
                     })
@@ -999,7 +1079,7 @@
                     @endphp
                     <a href="{{ url('/chitietbaidang/' . $sbPost->_id) }}" class="min-w-[280px] sm:min-w-[300px] max-w-[300px] flex-none snap-start bg-white rounded-xl border border-slate-200/70 shadow-sm hover:shadow-lg transition-all group overflow-hidden flex flex-col h-full hover:-translate-y-1">
                         <div class="relative aspect-[4/3] overflow-hidden bg-slate-100">
-                            <img src="{{ $sbImg }}" alt="{{ $sbPost->title }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80';">
+                            <img src="{{ $sbImg }}" loading="lazy" alt="{{ $sbPost->title }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80';">
                             <div class="absolute top-3 left-3 bg-brand-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider shadow-sm">
                                 {{ $sbType }}
                             </div>
@@ -1013,7 +1093,7 @@
                             <h3 class="text-slate-900 font-bold text-sm mb-2 line-clamp-2 group-hover:text-brand-600 transition-colors leading-snug">{{ $sbPost->title }}</h3>
                             <div class="mt-auto">
                                 <div class="flex items-center justify-between mt-3 mb-2">
-                                    <span class="text-brand-600 font-black text-base">{{ number_format($sbPost->price, 0, ',', '.') }} {{ $sbPost->price_unit }}</span>
+                                    <span class="text-brand-600 font-black text-base">{{ number_format($sbPost->price, 0, ',', '.') }} {{ $sbPost->formatted_price_unit }}</span>
                                     <span class="text-slate-600 font-bold text-xs">{{ $sbPost->area }} m&sup2;</span>
                                 </div>
                                 <div class="text-slate-500 text-xs flex items-center justify-between border-t border-slate-100 pt-2.5 mt-2">
@@ -1065,7 +1145,32 @@
                 $sameBuildingPosts->pluck('id')->map(fn($id) => (string)$id)->toArray()
             )));
 
-            $relatedPosts = \App\Models\Post::where('property_type', $post->property_type)
+            // Chuẩn hóa nhóm phân loại chính xác để Bất động sản cùng loại CHỈ hiển thị đúng phân khúc
+            $currentType = strtolower(trim((string)($post->property_type ?: ($b->type ?? 'nha_rieng'))));
+            
+            // Định nghĩa các nhóm phân loại bất động sản đồng nhất
+            $houseGroup = ['nha_o', 'nha_rieng', 'nha_nguyen_can'];
+            $apartmentGroup = ['can_ho', 'can_ho_dich_vu', 'chung_cu_mini', 'chung_cu'];
+            $townhouseGroup = ['cum_nha_lien_ke', 'biet_thu'];
+            $roomGroup = ['phong_tro', 'nha_tro', 'ky_tuc_xa', 'sleepbox'];
+            $landGroup = ['dat_nen', 'dat_phan_lo', 'mat_bang', 'mat_bang_kinh_doanh', 'van_phong'];
+
+            if (in_array($currentType, $houseGroup)) {
+                $targetTypes = $houseGroup;
+            } elseif (in_array($currentType, $apartmentGroup)) {
+                $targetTypes = $apartmentGroup;
+            } elseif (in_array($currentType, $townhouseGroup)) {
+                $targetTypes = $townhouseGroup;
+            } elseif (in_array($currentType, $roomGroup)) {
+                $targetTypes = $roomGroup;
+            } elseif (in_array($currentType, $landGroup)) {
+                $targetTypes = $landGroup;
+            } else {
+                $targetTypes = [$currentType];
+            }
+
+            $relatedPosts = \App\Models\Post::with(['user', 'building'])
+                ->whereIn('property_type', $targetTypes)
                 ->whereNotIn('_id', $excludeIds)
                 ->whereIn('status', ['approved', 'active'])
                 ->latest()
@@ -1075,6 +1180,27 @@
                     return !in_array((string)$rp->_id, $excludeIds) && !in_array((string)($rp->id ?? ''), $excludeIds);
                 })
                 ->take(10);
+
+            $cardTypeMap = [
+                'nha_o'               => 'Nhà ở',
+                'nha_rieng'           => 'Nhà riêng',
+                'nha_nguyen_can'      => 'Nguyên căn',
+                'phong_tro'           => 'Phòng trọ',
+                'nha_tro'             => 'Phòng trọ',
+                'can_ho'              => 'Căn hộ',
+                'can_ho_dich_vu'      => 'Căn hộ dịch vụ',
+                'chung_cu_mini'       => 'Chung cư mini',
+                'chung_cu'            => 'Chung cư',
+                'mat_bang'            => 'Mặt bằng',
+                'mat_bang_kinh_doanh' => 'Mặt bằng',
+                'van_phong'           => 'Văn phòng',
+                'ky_tuc_xa'           => 'Ký túc xá',
+                'sleepbox'            => 'Sleepbox',
+                'dat_nen'             => 'Đất nền',
+                'dat_phan_lo'         => 'Đất nền',
+                'cum_nha_lien_ke'     => 'Cụm liền kề',
+                'biet_thu'            => 'Biệt thự',
+            ];
         @endphp
 
         @if($relatedPosts->count() > 0)
@@ -1100,11 +1226,11 @@
                 @foreach($relatedPosts as $rPost)
                 @php
                     $rImg = $resolveThumb($rPost);
-                    $rType = $typeMap[strtolower($rPost->property_type ?? '')] ?? ($typeMap[$rPost->property_type ?? ''] ?? 'Bất động sản');
+                    $rType = $cardTypeMap[strtolower($rPost->property_type ?? '')] ?? ($typeMap[strtolower($rPost->property_type ?? '')] ?? 'Bất động sản');
                 @endphp
                 <a href="{{ url('/chitietbaidang/' . $rPost->_id) }}" class="min-w-[280px] sm:min-w-[300px] max-w-[300px] flex-none snap-start bg-white rounded-md border border-slate-200/60 shadow-sm hover:shadow-md transition-all group overflow-hidden flex flex-col h-full hover:-translate-y-0.5">
                     <div class="relative aspect-[4/3] overflow-hidden bg-slate-100">
-                        <img src="{{ $rImg }}" alt="{{ $rPost->title }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80';">
+                        <img src="{{ $rImg }}" loading="lazy" alt="{{ $rPost->title }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80';">
                         <div class="absolute top-3 left-3 bg-brand-600 text-white text-[10px] font-bold px-2.5 py-1 rounded uppercase tracking-wider shadow-sm">
                             {{ $rType }}
                         </div>
@@ -1113,7 +1239,7 @@
                         <h3 class="text-slate-900 font-bold text-sm mb-2 line-clamp-2 group-hover:text-brand-600 transition-colors">{{ $rPost->title }}</h3>
                         <div class="mt-auto">
                             <div class="flex items-center justify-between mt-3 mb-2">
-                                <span class="text-brand-600 font-black text-base">{{ number_format($rPost->price, 0, ',', '.') }} {{ $rPost->price_unit }}</span>
+                                <span class="text-brand-600 font-black text-base">{{ number_format($rPost->price, 0, ',', '.') }} {{ $rPost->formatted_price_unit }}</span>
                                 <span class="text-slate-500 font-medium text-xs">{{ $rPost->area }} m&sup2;</span>
                             </div>
                             <div class="text-slate-500 text-xs flex items-center gap-1.5 truncate">
@@ -1131,6 +1257,281 @@
     <!-- Footer -->
     @include('partials.footer')
 
+    <!-- ================= MODAL BÁO CÁO / KHIẾU NẠI BÀI ĐĂNG (BƯỚC 1) ================= -->
+    <div id="reportPostModal" class="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 transition-all duration-300 opacity-0 pointer-events-none" onclick="if(event.target === this) closeReportModal()">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-100 transform scale-95 transition-all duration-300 max-h-[92vh] flex flex-col" id="reportModalBox">
+            
+            <!-- Modal Header -->
+            <div class="px-6 py-4 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 text-white flex items-center justify-between shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-lg shadow-xs">
+                        <i class="fa-solid fa-flag"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base sm:text-lg font-black leading-tight">Phản Ánh & Khiếu Nại Bài Đăng</h3>
+                        <p class="text-xs text-amber-100 font-medium mt-0.5">Tiếp nhận và gửi thẳng đến bộ phận CSKH</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeReportModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors text-white cursor-pointer" title="Đóng">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body -->
+            <form id="reportPostForm" action="{{ route('submit.khieu_nai') }}" method="POST" enctype="multipart/form-data" class="flex-1 overflow-y-auto p-6 space-y-4">
+                @csrf
+                <!-- 2 thẻ Input ẩn (Hidden) để tự động lấy dữ liệu -->
+                <input type="hidden" name="post_id" value="{{ $post->id }}">
+                <input type="hidden" name="staff_id" value="{{ $post->staff_id }}">
+
+                <!-- Trường 1 (Hiển thị readonly): Tiêu đề bài đăng đang bị khiếu nại -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Tiêu đề bài đăng đang bị khiếu nại
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                            <i class="fa-solid fa-house-chimney text-sm"></i>
+                        </div>
+                        <input type="text" readonly value="{{ $post->title }}" 
+                               class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-700 text-xs sm:text-sm font-bold outline-none cursor-not-allowed select-all" 
+                               title="{{ $post->title }}">
+                    </div>
+                </div>
+
+                <!-- Trường 2 (Bắt buộc): Textarea Nội dung phản ánh -->
+                <div>
+                    <label for="noidung" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Nội dung phản ánh <span class="text-rose-500 font-black">*</span>
+                    </label>
+                    <textarea id="noidung" name="noidung" rows="4" required
+                              placeholder="Nội dung phản ánh (Ví dụ: Sai giá, phòng không giống ảnh, tin ảo đã cho thuê, thái độ không tốt...)"
+                              class="w-full p-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none text-xs sm:text-sm text-slate-700 transition resize-none"></textarea>
+                    <span class="text-[11px] text-slate-400 mt-1 block">Nội dung càng chi tiết sẽ giúp bộ phận CSKH giải quyết càng nhanh chóng.</span>
+                </div>
+
+                <!-- Trường 3 (Tùy chọn): Input upload file ảnh bằng chứng -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Hình ảnh bằng chứng (Tùy chọn)
+                    </label>
+                    <div class="border-2 border-dashed border-slate-200 hover:border-amber-400 rounded-xl p-4 text-center cursor-pointer bg-slate-50 hover:bg-amber-50/20 transition-all"
+                         onclick="document.getElementById('reportImagesInput').click()">
+                        <i class="fa-solid fa-cloud-arrow-up text-2xl text-amber-500 mb-1"></i>
+                        <p class="text-xs font-bold text-slate-700">Nhấn để chọn ảnh bằng chứng từ thiết bị</p>
+                        <p class="text-[10px] text-slate-400 mt-0.5">Cho phép tải lên nhiều ảnh (JPG, PNG, WEBP, tối đa 5MB/ảnh)</p>
+                    </div>
+                    <input type="file" id="reportImagesInput" name="images[]" multiple accept="image/*" class="hidden" onchange="handleReportImagesPreview(event)">
+
+                    <!-- Preview thumbnails container -->
+                    <div id="reportImagesPreviewGrid" class="grid grid-cols-4 gap-2 mt-3 hidden"></div>
+                </div>
+
+                <!-- Thông báo trạng thái AJAX nếu có -->
+                <div id="reportFormAlert" class="hidden p-3 rounded-xl text-xs font-semibold"></div>
+
+                <!-- Modal Footer & Nút Submit -->
+                <div class="pt-4 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                    <button type="button" onclick="closeReportModal()" class="px-4 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-bold text-xs sm:text-sm transition cursor-pointer">
+                        Hủy bỏ
+                    </button>
+                    <button type="submit" id="btnSubmitReport" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 hover:from-amber-600 hover:via-orange-600 hover:to-rose-700 text-white font-extrabold text-xs sm:text-sm shadow-md shadow-orange-500/25 flex items-center gap-2 cursor-pointer transition active:scale-95">
+                        <i class="fa-solid fa-paper-plane text-xs"></i>
+                        <span id="btnSubmitReportText">Gửi báo cáo</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Script điều khiển Modal Báo cáo & Upload ảnh preview -->
+    <script>
+        function openReportModal() {
+            const modal = document.getElementById('reportPostModal');
+            const box = document.getElementById('reportModalBox');
+            if (modal && box) {
+                modal.classList.remove('opacity-0', 'pointer-events-none');
+                modal.classList.add('opacity-100', 'pointer-events-auto');
+                box.classList.remove('scale-95');
+                box.classList.add('scale-100');
+                const textarea = document.getElementById('noidung');
+                if (textarea) setTimeout(() => textarea.focus(), 150);
+            }
+        }
+
+        function closeReportModal() {
+            const modal = document.getElementById('reportPostModal');
+            const box = document.getElementById('reportModalBox');
+            if (modal && box) {
+                modal.classList.remove('opacity-100', 'pointer-events-auto');
+                modal.classList.add('opacity-0', 'pointer-events-none');
+                box.classList.remove('scale-100');
+                box.classList.add('scale-95');
+            }
+        }
+
+        function handleReportImagesPreview(event) {
+            const files = event.target.files;
+            const container = document.getElementById('reportImagesPreviewGrid');
+            container.innerHTML = '';
+
+            if (files && files.length > 0) {
+                container.classList.remove('hidden');
+                Array.from(files).forEach((file, index) => {
+                    if (file.type.startsWith('image/')) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            const div = document.createElement('div');
+                            div.className = 'relative aspect-square rounded-lg overflow-hidden border border-slate-200 shadow-xs bg-slate-100 group';
+                            div.innerHTML = `
+                                <img src="${e.target.result}" class="w-full h-full object-cover" alt="Preview ${index + 1}">
+                                <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white text-[10px] font-bold">
+                                    Ảnh ${index + 1}
+                                </div>
+                            `;
+                            container.appendChild(div);
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+            } else {
+                container.classList.add('hidden');
+            }
+        }
+
+        // Xử lý gửi Form khiếu nại qua AJAX và ngăn chặn gửi trùng lặp (Double Submit)
+        let isSubmittingReport = false;
+        document.getElementById('reportPostForm')?.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            if (isSubmittingReport) return;
+
+            const btn = document.getElementById('btnSubmitReport');
+            const btnText = document.getElementById('btnSubmitReportText');
+            const alertBox = document.getElementById('reportFormAlert');
+
+            const content = document.getElementById('noidung').value.trim();
+            if (content.length < 5) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Thông báo',
+                        text: 'Vui lòng nhập nội dung khiếu nại tối thiểu 5 ký tự.',
+                        confirmButtonColor: '#ea580c'
+                    }).then(() => {
+                        document.getElementById('noidung')?.focus();
+                    });
+                } else {
+                    alert('Vui lòng nhập nội dung khiếu nại tối thiểu 5 ký tự.');
+                    document.getElementById('noidung')?.focus();
+                }
+                return;
+            }
+
+            isSubmittingReport = true;
+            btn.disabled = true;
+            btnText.innerText = 'Đang gửi báo cáo...';
+            alertBox.classList.add('hidden');
+
+            const formData = new FormData(this);
+
+            try {
+                const response = await fetch(this.action, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    },
+                    body: formData
+                });
+
+                let data = null;
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    data = await response.json();
+                } else {
+                    data = { success: response.ok };
+                }
+
+                if (response.ok && data && data.success) {
+                    closeReportModal();
+                    document.getElementById('reportPostForm').reset();
+                    document.getElementById('reportImagesPreviewGrid').innerHTML = '';
+                    document.getElementById('reportImagesPreviewGrid').classList.add('hidden');
+
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Thành công!',
+                            text: data.message || 'Cảm ơn bạn! Phản ánh của bạn đã được gửi tới Ban Quản Trị để xử lý.',
+                            confirmButtonColor: '#16a34a',
+                            confirmButtonText: 'Đóng'
+                        });
+                    } else {
+                        alert(data.message || 'Cảm ơn bạn! Phản ánh của bạn đã được gửi tới Ban Quản Trị để xử lý.');
+                    }
+                } else {
+                    const errorMsg = data?.message || (data?.errors ? Object.values(data.errors).flat().join('\n') : 'Có lỗi xảy ra khi gửi khiếu nại.');
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Không thể gửi báo cáo',
+                            text: errorMsg,
+                            confirmButtonColor: '#ef4444'
+                        });
+                    } else {
+                        alertBox.className = 'p-3 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200';
+                        alertBox.innerText = errorMsg;
+                        alertBox.classList.remove('hidden');
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Đã có lỗi xảy ra',
+                        text: 'Có lỗi kết nối khi gửi phản ánh. Vui lòng thử lại sau giây lát!',
+                        confirmButtonColor: '#ef4444'
+                    });
+                } else {
+                    alert('Có lỗi kết nối khi gửi phản ánh. Vui lòng thử lại sau giây lát!');
+                }
+            } finally {
+                isSubmittingReport = false;
+                btn.disabled = false;
+                btnText.innerText = 'Gửi báo cáo';
+            }
+        });
+
+        // Tự động kích hoạt SweetAlert2 nếu trang tải lại kèm flash session
+        document.addEventListener('DOMContentLoaded', function () {
+            @if(session('success'))
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Thành công!',
+                        text: "{{ session('success') }}",
+                        confirmButtonColor: '#16a34a',
+                        confirmButtonText: 'Đóng'
+                    });
+                }
+            @endif
+
+            @if(session('error'))
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Đã có lỗi xảy ra',
+                        text: "{{ session('error') }}",
+                        confirmButtonColor: '#ef4444',
+                        confirmButtonText: 'Đóng'
+                    });
+                }
+            @endif
+        });
+    </script>
 </body>
 </html>
+
 

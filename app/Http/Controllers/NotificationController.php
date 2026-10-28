@@ -198,6 +198,9 @@ class NotificationController extends Controller
     public function index()
     {
         $user = Auth::user();
+        if ($user && method_exists($user, 'isCskh') && $user->isCskh()) {
+            return redirect()->route('cskh.notifications');
+        }
         $userId = (string)($user->_id ?? $user->id);
         $notifications = Notification::where('user_id', $userId)
             ->orWhere('user_id', $user->id)

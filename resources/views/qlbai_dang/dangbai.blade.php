@@ -67,6 +67,14 @@
     $badgeText = ($isEnterprise && !$isSubAccount) ? 'Doanh Nghiệp RentHome' : 'Quản Lý Tòa Nhà';
     $subTitle = ($isEnterprise && !$isSubAccount) ? 'RentHome Quản Trị' : 'Tài Khoản Phân Quyền';
     $preselectedBuildingId = request()->query('building_id', '');
+    $editPostIdParam = request()->query('edit', '');
+    $editingPost = null;
+    if ($editPostIdParam) {
+        $editingPost = \App\Models\Post::where('_id', $editPostIdParam)->first() ?: \App\Models\Post::find($editPostIdParam);
+        if ($editingPost && empty($preselectedBuildingId) && !empty($editingPost->building_id)) {
+            $preselectedBuildingId = (string)$editingPost->building_id;
+        }
+    }
 @endphp
 
     <!-- Modal Container -->
@@ -74,7 +82,7 @@
         class="bg-white rounded-3xl max-w-2xl w-full my-auto shadow-2xl border border-slate-100 overflow-visible flex flex-col">
 
         <!-- ==================== BƯỚC 1: XÁC NHẬN VỊ TRÍ CHI TIẾT ==================== -->
-        <div id="step-location" class="flex flex-col h-full min-h-0">
+        <div id="step-location" class="flex flex-col h-full min-h-0 {{ $editingPost ? 'hidden' : '' }}">
             <!-- Modal Header -->
             <div class="px-6 py-4 sm:py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
                 <div class="flex items-center gap-2.5">
@@ -83,8 +91,9 @@
                     </div>
                     <h3 class="font-extrabold text-slate-900 text-lg">Xác nhận vị trí chi tiết</h3>
                 </div>
-                <a href="{{ url('Overview') }}"
-                    class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors">
+                <a href="{{ $preselectedBuildingId ? url('/quan-ly-toa-nha/' . $preselectedBuildingId . '?ref=buildings') : url('Overview') }}"
+                    class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors"
+                    title="Đóng">
                     <i class="fa-solid fa-xmark text-sm"></i>
                 </a>
             </div>
@@ -118,7 +127,7 @@
                             @if($isSubAccount)
                                 <option value="" data-address="" data-type="">-- Chọn tòa nhà bạn được giao quản lý --</option>
                             @else
-                                <option value="" data-address="" data-type="nha_o">-- Không thuộc tòa nhà nào (Đăng nhà riêng lẻ) --</option>
+                                <option value="" data-address="" data-type="nha_rieng">-- Không thuộc tòa nhà nào (Đăng nhà riêng lẻ) --</option>
                             @endif
                             @foreach($buildings as $b)
                                 @php
@@ -202,17 +211,30 @@
         </div>
 
         <!-- ==================== BƯỚC 2: THÔNG TIN CHI TIẾT BẤT ĐỘNG SẢN ==================== -->
-        <div id="step-details" class="flex flex-col h-full min-h-0 hidden">
+        <div id="step-details" class="flex flex-col h-full min-h-0 {{ $editingPost ? '' : 'hidden' }}">
             <!-- Modal Header -->
             <div class="px-6 py-4 sm:py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
                 <div class="flex items-center gap-2.5">
                     <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg">
-                        <i class="fa-solid fa-pen-to-square"></i>
+                        <i class="fa-solid {{ $editingPost ? 'fa-wrench text-amber-500' : 'fa-pen-to-square text-emerald-600' }}"></i>
                     </div>
-                    <h3 class="font-extrabold text-slate-900 text-lg">Thông tin chi tiết bất động sản</h3>
+                    <div>
+                        <h3 class="font-extrabold text-slate-900 text-lg">{{ $editingPost ? 'Sửa lỗi & Cập nhật bài đăng' : 'Thông tin chi tiết bất động sản' }}</h3>
+                        @if($editingPost && $preselectedBuildingId)
+                            @php
+                                $attachedBuilding = $buildings->firstWhere(fn($b) => (string)($b->_id ?? $b->id) === (string)$preselectedBuildingId);
+                            @endphp
+                            @if($attachedBuilding)
+                                <p class="text-[11px] font-semibold text-purple-700 flex items-center gap-1.5 mt-0.5">
+                                    <i class="fa-solid fa-city"></i> Tòa nhà: <strong class="underline">{{ $attachedBuilding->name }}</strong>
+                                </p>
+                            @endif
+                        @endif
+                    </div>
                 </div>
-                <a href="{{ url('Overview') }}"
-                    class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors">
+                <a href="{{ $preselectedBuildingId ? url('/quan-ly-toa-nha/' . $preselectedBuildingId . '?ref=buildings') : url('Overview') }}"
+                    class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors"
+                    title="Đóng">
                     <i class="fa-solid fa-xmark text-sm"></i>
                 </a>
             </div>
@@ -266,7 +288,7 @@
                 </div>
 
                 <!-- Input Hidden chứa Loại hình BĐS (Được đồng bộ tự động từ Tòa nhà đã chọn) -->
-                <input type="hidden" name="property_type" id="hidden_property_type" value="nha_o">
+                <input type="hidden" name="property_type" id="hidden_property_type" value="nha_rieng">
 
                 <!-- Giá, Diện tích & Vị trí tầng (Cân đối tỉ lệ 5 - 3 - 4, đồng bộ chiều cao tuyệt đối) -->
                 <div class="grid grid-cols-1 sm:grid-cols-12 gap-3.5 items-start">
@@ -276,20 +298,14 @@
                             Giá thuê mong muốn <span class="text-rose-500">*</span>
                         </label>
                         <div class="flex items-center shadow-xs rounded-2xl bg-white border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-emerald-500 transition-all relative h-11">
+                            <!-- Input ẩn giữ giá trị price_unit cố định là thang -->
+                            <input type="hidden" name="price_unit" id="post-price-unit" value="thang">
                             <!-- Ô nhập giá -->
                             <input type="text" id="post-price" placeholder="VD: 15.000.000"
                                 oninput="formatPriceInput(this)" onblur="validatePriceInput(this)"
                                 class="w-full pl-3.5 pr-2 py-2.5 h-full text-xs font-medium text-slate-800 focus:outline-none bg-transparent">
-                            <!-- Đường kẻ dọc -->
-                            <div class="w-px h-6 bg-slate-200 shrink-0"></div>
-                            <!-- Dropdown chọn chu kỳ -->
-                            <select id="post-price-unit" class="bg-slate-50 hover:bg-slate-100 text-amber-700 font-bold text-[11px] h-full pl-2.5 pr-6 focus:outline-none cursor-pointer border-none outline-none appearance-none relative shrink-0">
-                                <option value="thang">/ tháng</option>
-                                <option value="nam">/ năm</option>
-                                <option value="tong">Tổng tiền</option>
-                                <option value="m2">/ m²</option>
-                            </select>
-                            <i class="fa-solid fa-chevron-down absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-[9px] pointer-events-none"></i>
+                            <!-- Text label cố định bên phải ô input -->
+                            <span class="text-gray-500 bg-gray-100 px-3 py-2 border-l border-slate-200 text-xs font-bold shrink-0 flex items-center justify-center select-none whitespace-nowrap h-full">/ tháng</span>
                         </div>
                         <p id="price-helper-text" class="text-[11px] mt-1 text-slate-500 font-semibold h-4 leading-4 truncate"></p>
                     </div>
@@ -342,6 +358,18 @@
                             <span id="bathroom-count" class="font-bold text-xs text-slate-800">1</span>
                             <button type="button" onclick="stepCount('bathroom', 1)" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 font-bold text-slate-600 flex items-center justify-center">+</button>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Yêu cầu thanh toán / Đặt cọc (Tùy chọn) -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
+                        <span>Yêu cầu thanh toán / Đặt cọc <span class="text-slate-400 font-normal">(Tùy chọn)</span></span>
+                        <i class="fa-solid fa-hand-holding-dollar text-slate-400 text-xs"></i>
+                    </label>
+                    <div class="relative h-11">
+                        <input type="text" id="post-payment-requirement" name="payment_requirement" placeholder="VD: Đóng tiền 3 tháng/lần, cọc 1 tháng..."
+                            class="w-full px-3.5 py-2.5 h-11 rounded-2xl bg-white border border-slate-200 text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all shadow-2xs">
                     </div>
                 </div>
 
@@ -461,10 +489,17 @@
 
             <!-- Modal Footer -->
             <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3 bg-white rounded-b-3xl shrink-0">
-                <button type="button" onclick="goToStepLocation()"
-                    class="px-6 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-colors">
-                    Quay lại
-                </button>
+                @if($editingPost)
+                    <a href="{{ $preselectedBuildingId ? url('/quan-ly-toa-nha/' . $preselectedBuildingId . '?ref=buildings') : url('Overview') }}"
+                        class="px-6 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-colors inline-block">
+                        Quay lại
+                    </a>
+                @else
+                    <button type="button" onclick="goToStepLocation()"
+                        class="px-6 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-colors">
+                        Quay lại
+                    </button>
+                @endif
                 <button type="button" onclick="submitPost()"
                     class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition-all flex items-center gap-1.5">
                     <i class="fa-solid fa-paper-plane text-xs"></i> Đăng Bài Viết
@@ -486,78 +521,15 @@
         let editPostId = null;
 
         document.addEventListener('DOMContentLoaded', () => {
-            const editDataRaw = sessionStorage.getItem('edit_post_data');
-            if (editDataRaw) {
+            @if($editingPost)
                 try {
-                    const post = JSON.parse(editDataRaw);
-                    editPostId = post.id;
-                    
-                    if(post.price) {
-                        const priceInput = document.getElementById('post-price');
-                        if(priceInput) {
-                            priceInput.value = post.price;
-                            formatPriceInput(priceInput);
-                        }
-                    }
-                    if(post.price_unit) {
-                        const unitSelect = document.getElementById('post-price-unit');
-                        if(unitSelect) unitSelect.value = post.price_unit;
-                    }
-                    if(post.area) {
-                        const areaInput = document.getElementById('post-area');
-                        if(areaInput) areaInput.value = post.area;
-                    }
-                    const savedFloor = (post.floor !== undefined && post.floor !== null) ? post.floor : post.floor_number;
-                    if(savedFloor !== undefined && savedFloor !== null && savedFloor !== '') {
-                        const floorInput = document.getElementById('post-floor');
-                        if(floorInput) floorInput.value = savedFloor;
-                    }
-                    if(post.bedroom) {
-                        const bedSpan = document.getElementById('bedroom-count');
-                        if(bedSpan) bedSpan.innerText = post.bedroom;
-                    }
-                    if(post.bathroom) {
-                        const bathSpan = document.getElementById('bathroom-count');
-                        if(bathSpan) bathSpan.innerText = post.bathroom;
-                    }
-                    if(post.amenities) {
-                        const amenitiesInput = document.getElementById('amenities-input');
-                        if(amenitiesInput) amenitiesInput.value = post.amenities;
-                    }
-                    if(post.description) {
-                        const descInput = document.getElementById('post-description');
-                        if(descInput) descInput.value = post.description;
-                    }
-
-                    if(post.property_type) {
-                        const hiddenTypeInput = document.getElementById('hidden_property_type');
-                        if (hiddenTypeInput) hiddenTypeInput.value = post.property_type;
-                        if(typeof togglePropertyType === 'function') {
-                            togglePropertyType(post.property_type);
-                        }
-                    }
-
-                    if (post.province || post.district || post.ward) {
-                        window.autoSelectLocation = {
-                            province: post.province,
-                            district: post.district,
-                            ward: post.ward
-                        };
-                    }
-
-                    if (post.address_detail) {
-                        const detailInput = document.getElementById('address-detail-input');
-                        if (detailInput) detailInput.value = post.address_detail;
-                    }
-
-                    if (typeof goToStepDetails === 'function') {
-                        goToStepDetails();
-                    }
-
+                    const serverPost = @json($editingPost);
+                    serverPost.id = serverPost._id || serverPost.id;
+                    sessionStorage.setItem('edit_post_data', JSON.stringify(serverPost));
                 } catch (e) {
-                    console.error('Lỗi parse edit_post_data:', e);
+                    console.error('Lỗi nạp bài đăng cần sửa:', e);
                 }
-            }
+            @endif
             fetchProvinces();
         });
 
@@ -1112,15 +1084,16 @@
             const bSelect = document.getElementById('select-building-id');
             const buildingId = bSelect ? bSelect.value : '';
             const isSubAccount = @json($isSubAccount);
+            const isEditing = Boolean(document.getElementById('edit-post-id')?.value || '{{ $editingPost ? "1" : "" }}');
 
-            if (isSubAccount && !buildingId) {
+            if (isSubAccount && !buildingId && !isEditing) {
                 alert('Vui lòng chọn Tòa nhà được phân công quản lý trước khi tiếp tục!');
                 bSelect?.focus();
                 return;
             }
 
-            document.getElementById('step-location').classList.add('hidden');
-            document.getElementById('step-details').classList.remove('hidden');
+            document.getElementById('step-location')?.classList.add('hidden');
+            document.getElementById('step-details')?.classList.remove('hidden');
         }
 
         function goToStepLocation() {
@@ -1146,17 +1119,14 @@
                 }
             }
             
-            // Logic tự động đổi chu kỳ giá và Label
+            // Label giá thuê cố định quy chuẩn theo tháng
             const unitSelect = document.getElementById('post-price-unit');
             const priceLabel = document.getElementById('price-label-text');
-            if (unitSelect && priceLabel) {
-                if (isLand) {
-                    unitSelect.value = 'tong';
-                    priceLabel.innerHTML = 'Giá bán mong muốn <span class="text-rose-500">*</span>';
-                } else {
-                    unitSelect.value = 'thang';
-                    priceLabel.innerHTML = 'Giá thuê mong muốn <span class="text-rose-500">*</span>';
-                }
+            if (unitSelect) {
+                unitSelect.value = 'thang';
+            }
+            if (priceLabel) {
+                priceLabel.innerHTML = 'Giá thuê mong muốn <span class="text-rose-500">*</span>';
             }
         }
 
@@ -1378,7 +1348,8 @@
             }
             const isSubAccount = @json($isSubAccount);
             const buildingId = document.getElementById('select-building-id')?.value || '';
-            if (isSubAccount && !buildingId) {
+            const isEditing = Boolean(document.getElementById('edit-post-id')?.value || '{{ $editingPost ? "1" : "" }}');
+            if (isSubAccount && !buildingId && !isEditing) {
                 alert('Vui lòng chọn Tòa nhà được phân công quản lý trước khi đăng bài!');
                 document.getElementById('select-building-id')?.focus();
                 return;
@@ -1413,6 +1384,10 @@
             if (bedCount) formData.append('bedroom', bedCount);
             const bathCount = document.getElementById('bathroom-count')?.innerText?.trim();
             if (bathCount) formData.append('bathroom', bathCount);
+
+            // Yêu cầu thanh toán / Đặt cọc
+            const payReqVal = document.getElementById('post-payment-requirement')?.value?.trim();
+            formData.append('payment_requirement', payReqVal || '');
 
             // Địa chỉ kế thừa trực tiếp từ Tòa nhà đã chọn
             const bSelectEl = document.getElementById('select-building-id');
@@ -1511,6 +1486,7 @@
         }
 
         function formatPriceInput(input) {
+            if (!input) return;
             let val = input.value.replace(/\D/g, '');
             input.value = val;
             
@@ -1521,16 +1497,18 @@
                 helper.innerText = '';
                 return;
             }
+
+            const unitSuffix = ' / tháng';
             
             let num = parseInt(val, 10);
             if (num > 999000000000) {
                 helper.innerText = `Lưu ý: Số tiền tối đa là 999.000.000.000 VNĐ.`;
                 helper.className = 'text-[11px] mt-1.5 text-rose-500 font-bold h-4';
             } else if (num < 100000) {
-                helper.innerText = `Lưu ý: Số tiền tối thiểu là 100.000 VNĐ. (Đang nhập: ${new Intl.NumberFormat('vi-VN').format(num)} VNĐ)`;
+                helper.innerText = `Lưu ý: Số tiền tối thiểu là 100.000 VNĐ. (Đang nhập: ${new Intl.NumberFormat('vi-VN').format(num)} VNĐ${unitSuffix})`;
                 helper.className = 'text-[11px] mt-1.5 text-rose-500 font-bold h-4';
             } else {
-                helper.innerText = `Số tiền hợp lệ: ${new Intl.NumberFormat('vi-VN').format(num)} VNĐ`;
+                helper.innerText = `Số tiền hợp lệ: ${new Intl.NumberFormat('vi-VN').format(num)} VNĐ${unitSuffix}`;
                 helper.className = 'text-[11px] mt-1.5 text-emerald-600 font-bold h-4';
             }
         }
@@ -1554,27 +1532,40 @@
         function getPropertyTypeLabel(rawType) {
             const map = {
                 'can_ho': 'Chung cư mini / Căn hộ dịch vụ',
+                'can_ho_dich_vu': 'Căn hộ dịch vụ',
+                'chung_cu': 'Chung cư',
+                'chung_cu_mini': 'Chung cư mini',
                 'nha_tro': 'Nhà trọ / Khu trọ',
                 'ky_tuc_xa': 'Ký túc xá / Sleepbox',
+                'sleepbox': 'Sleepbox',
                 'dat_phan_lo': 'Đất phân lô',
                 'dat_nen': 'Đất nền',
+                'mat_bang': 'Mặt bằng kinh doanh',
                 'cum_nha_lien_ke': 'Cụm nhà liền kề / Dự án',
+                'biet_thu': 'Biệt thự',
                 'nha_rieng': 'Nhà ở / Nhà riêng lẻ',
-                'nha_o': 'Nhà ở',
+                'nha_o': 'Nhà ở / Nhà riêng lẻ',
                 'phong_tro': 'Phòng trọ'
             };
             return map[rawType] || 'Căn hộ / Nhà ở';
         }
 
         function applyPropertyTypeMapping(rawType) {
-            let mappedType = 'nha_o';
-            const isLand = (rawType === 'dat_phan_lo' || rawType === 'dat_nen');
-            if (isLand) {
+            let mappedType = rawType || 'nha_rieng';
+            const lower = String(rawType || '').toLowerCase().trim();
+
+            if (lower === 'dat_phan_lo' || lower === 'dat_nen' || lower === 'mat_bang') {
                 mappedType = 'dat_nen';
-            } else if (rawType === 'nha_tro' || rawType === 'ky_tuc_xa' || rawType === 'phong_tro') {
+            } else if (lower === 'nha_tro' || lower === 'ky_tuc_xa' || lower === 'phong_tro' || lower === 'sleepbox') {
                 mappedType = 'phong_tro';
+            } else if (lower === 'can_ho' || lower === 'chung_cu' || lower === 'chung_cu_mini' || lower === 'can_ho_dich_vu') {
+                mappedType = 'can_ho';
+            } else if (lower === 'cum_nha_lien_ke' || lower === 'biet_thu') {
+                mappedType = 'cum_nha_lien_ke';
+            } else if (lower === 'nha_rieng' || lower === 'nha_o' || lower === 'nha_nguyen_can') {
+                mappedType = 'nha_rieng';
             } else {
-                mappedType = 'nha_o';
+                mappedType = rawType || 'nha_rieng';
             }
 
             const hiddenInput = document.getElementById('hidden_property_type');
@@ -1855,17 +1846,56 @@
             if (editDataStr) {
                 try {
                     const postData = JSON.parse(editDataStr);
-                    document.getElementById('post-title').value = postData.title || '';
+                    const isRented = Boolean(postData.is_rented === true || postData.status === 'đã cho thuê' || postData.status === 'rented' || postData.status === 'dang_thue' || postData.status === 'đang thuê');
+                    if (isRented) {
+                        sessionStorage.removeItem('edit_post_data');
+                        alert('Bài đăng này đang có người thuê, không được phép chỉnh sửa hoặc cập nhật!');
+                        window.location.href = '/Overview';
+                        return;
+                    }
+
+                    editPostId = postData.id || postData._id;
+
+                    // Gắn ID bài đăng cần sửa
+                    let hiddenInput = document.getElementById('edit-post-id');
+                    if (!hiddenInput) {
+                        hiddenInput = document.createElement('input');
+                        hiddenInput.type = 'hidden';
+                        hiddenInput.id = 'edit-post-id';
+                        document.body.appendChild(hiddenInput);
+                    }
+                    hiddenInput.value = editPostId;
+
+                    // Đồng bộ Tòa nhà trực thuộc
+                    const targetBuildingId = postData.building_id || '{{ $preselectedBuildingId }}';
+                    if (targetBuildingId && bSelect) {
+                        bSelect.value = targetBuildingId;
+                        onBuildingSelected(bSelect);
+                    }
+
+                    // Điền tiêu đề
+                    const titleInput = document.getElementById('post-title');
+                    if (titleInput) {
+                        titleInput.value = postData.title || '';
+                    }
+
+                    // Điền giá niêm yết
                     if (postData.price) {
                         const priceInput = document.getElementById('post-price');
-                        priceInput.value = postData.price;
-                        formatPriceInput(priceInput);
+                        if (priceInput) {
+                            priceInput.value = postData.price;
+                            formatPriceInput(priceInput);
+                        }
                     }
                     
                     const unitSelect = document.getElementById('post-price-unit');
-                    if (unitSelect && postData.price_unit) unitSelect.value = postData.price_unit;
+                    if (unitSelect) {
+                        unitSelect.value = 'thang';
+                    }
                     
-                    if(postData.area) document.getElementById('post-area').value = postData.area;
+                    if (postData.area && document.getElementById('post-area')) {
+                        document.getElementById('post-area').value = postData.area;
+                    }
                     
                     window.autoSelectLocation = {
                         province: postData.province,
@@ -1879,24 +1909,33 @@
                     if (document.getElementById('post-description')) {
                         document.getElementById('post-description').value = postData.description || '';
                     }
-                    
-                    if (postData.building_id) {
-                        const bSelect = document.getElementById('select-building-id');
-                        if (bSelect) {
-                            bSelect.value = postData.building_id;
-                            onBuildingSelected(bSelect);
-                        }
-                    }
 
+                    // Số tầng
                     const savedFloor2 = (postData.floor !== undefined && postData.floor !== null) ? postData.floor : postData.floor_number;
-                    if(savedFloor2 !== undefined && savedFloor2 !== null && savedFloor2 !== '') {
+                    if (savedFloor2 !== undefined && savedFloor2 !== null && savedFloor2 !== '') {
                         const floorInput = document.getElementById('post-floor');
-                        // Nếu ô này không bị khóa cố định bởi tòa nhà thì khôi phục giá trị đã lưu
-                        if(floorInput && !floorInput.readOnly) {
+                        if (floorInput && !floorInput.readOnly) {
                             floorInput.value = savedFloor2;
                         }
                     }
+
+                    // Số phòng ngủ & phòng tắm
+                    if (postData.bedroom) {
+                        const bedSpan = document.getElementById('bedroom-count');
+                        if (bedSpan) bedSpan.innerText = postData.bedroom;
+                    }
+                    if (postData.bathroom) {
+                        const bathSpan = document.getElementById('bathroom-count');
+                        if (bathSpan) bathSpan.innerText = postData.bathroom;
+                    }
+
+                    // Yêu cầu thanh toán / Đặt cọc
+                    if (postData.payment_requirement !== undefined && postData.payment_requirement !== null) {
+                        const payReqInput = document.getElementById('post-payment-requirement');
+                        if (payReqInput) payReqInput.value = postData.payment_requirement;
+                    }
                     
+                    // Loại hình BĐS
                     if (postData.property_type) {
                         const hiddenTypeInput = document.getElementById('hidden_property_type');
                         if (hiddenTypeInput) hiddenTypeInput.value = postData.property_type;
@@ -1905,40 +1944,45 @@
                         }
                     }
 
-                    if (postData.amenities && Array.isArray(postData.amenities)) {
+                    // Tiện ích
+                    if (postData.amenities) {
                         const input = document.getElementById('amenities-input');
-                        const roomOnlyAmenities = postData.amenities.filter(am => !currentBuildingAmenities.includes(am));
-                        if (input) input.value = roomOnlyAmenities.join(', ');
+                        if (input) {
+                            const roomOnlyAmenities = Array.isArray(postData.amenities) 
+                                ? postData.amenities.filter(am => !(currentBuildingAmenities || []).includes(am))
+                                : [postData.amenities];
+                            input.value = Array.isArray(roomOnlyAmenities) ? roomOnlyAmenities.join(', ') : roomOnlyAmenities;
+                        }
                     }
                     
+                    // Danh sách ảnh
                     if (postData.images && Array.isArray(postData.images)) {
                         existingImagesArray = postData.images;
-                        renderImagePreviews();
+                        if (typeof renderImagePreviews === 'function') {
+                            renderImagePreviews();
+                        }
                     }
-                    
-                    let hiddenInput = document.createElement('input');
-                    hiddenInput.type = 'hidden';
-                    hiddenInput.id = 'edit-post-id';
-                    hiddenInput.value = postData.id || postData._id;
-                    document.body.appendChild(hiddenInput);
 
+                    // Nút cập nhật & Tiêu đề
                     const btn = document.querySelector('button[onclick="submitPost()"]');
                     if (btn) btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up mr-2"></i>Cập nhật thông tin';
                     
                     const titleH1 = document.querySelector('h1');
                     if (titleH1) titleH1.innerHTML = 'Cập nhật bài đăng';
 
-                    sessionStorage.removeItem('edit_post_data');
-
-                    if (typeof goToStepDetails === 'function') {
-                        goToStepDetails();
+                    // Chuyển thẳng sang Bước 2 Thông tin chi tiết, bỏ qua bước vị trí
+                    const stepLoc = document.getElementById('step-location');
+                    const stepDet = document.getElementById('step-details');
+                    if (stepLoc && stepDet) {
+                        stepLoc.classList.add('hidden');
+                        stepDet.classList.remove('hidden');
                     }
+
+                    sessionStorage.removeItem('edit_post_data');
                 } catch(e) {
                     console.error('Error parsing edit_post_data', e);
                 }
             }
-            
-            fetchProvinces();
         });
 
         document.addEventListener('click', function (event) {

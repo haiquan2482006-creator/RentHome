@@ -2,7 +2,7 @@
     $user = \Illuminate\Support\Facades\Auth::user();
     $isStaff = $user && ($user->isSubAccount() || $user->isStaff() || in_array($user->role ?? '', ['nhansu', 'nhan su', 'nhan_su', 'sub_account', 'staff']));
     $isEnterprise = $user && ($user->isEnterprise() || in_array($user->role ?? '', ['doanhnghiep', 'enterprise'])) && !$isStaff;
-    $userName = $user ? ($isStaff ? ($user->account_name ?? $user->username ?? 'Nhân sự') : ($isEnterprise ? ($user->representative ?? $user->account_name ?? $user->company_name ?? $user->username ?? 'Doanh nghiệp') : ($user->account_name ?? $user->username ?? 'Người dùng'))) : 'Người dùng';
+    $userName = $user ? ($isStaff ? ($user->ten_hien_thi ?: ($user->ho_ten ?: ($user->account_name ?: ($user->username ?: 'Nhân sự')))) : ($isEnterprise ? ($user->representative ?? $user->account_name ?? $user->company_name ?? $user->username ?? 'Doanh nghiệp') : ($user->ten_hien_thi ?: ($user->ho_ten ?: ($user->account_name ?: ($user->username ?: 'Người dùng')))))) : 'Người dùng';
     $initial = mb_strtoupper(mb_substr($userName, 0, 1, 'UTF-8'), 'UTF-8');
     $isDrawer = $isDrawer ?? false;
 
@@ -98,6 +98,7 @@
             <i class="fa-solid fa-clock-rotate-left w-5 text-teal-400"></i> Lịch sử liên hệ
         </a>
         @endif
+
         
         <a href="{{ route('user.change_password') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl {{ request()->routeIs('user.change_password') ? 'bg-brand-600 text-white font-semibold shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/5 hover:text-white font-semibold transition-colors' }}">
             <i class="fa-solid fa-key w-5"></i> Đổi mật khẩu

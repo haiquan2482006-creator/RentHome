@@ -116,9 +116,10 @@ class BuildingController extends Controller
                         $bPostsQuery = $bPostsQuery->orWhere('building_id', new \MongoDB\BSON\ObjectId($bId));
                     } catch (\Exception $e) {}
                 }
-                $postsList = $bPostsQuery->where(function($q) {
-                    $q->whereNull('is_deleted')->orWhere('is_deleted', false);
-                })->get();
+                $postsList = $bPostsQuery->whereNotIn('status', ['rejected', 'tu_choi', 'từ chối', 'deleted'])
+                    ->where(function($q) {
+                        $q->whereNull('is_deleted')->orWhere('is_deleted', false);
+                    })->get();
 
                 $postIds = $postsList->map(fn($p) => (string)($p->_id ?? $p->id))->filter()->toArray();
                 $postsTotalInColl = count($postIds);
@@ -196,6 +197,18 @@ class BuildingController extends Controller
             } else {
                 $buildings = collect();
             }
+
+            $buildings->transform(function ($b) {
+                $bId = (string)($b->_id ?? $b->id);
+                $actualCount = Post::where('building_id', $bId)
+                    ->whereNotIn('status', ['rejected', 'tu_choi', 'từ chối', 'deleted'])
+                    ->where(function($q) {
+                        $q->whereNull('is_deleted')->orWhere('is_deleted', false);
+                    })->count();
+                $b->actual_rooms_count = $actualCount;
+                $b->total_rooms = $actualCount;
+                return $b;
+            });
 
             return response()->json([
                 'success' => true,
@@ -380,7 +393,7 @@ class BuildingController extends Controller
                 'parking_fee' => ($hasServicePricing && $request->filled('parking_fee')) ? (float)$validated['parking_fee'] : null,
 
                 'total_floors' => !empty($validated['total_floors']) ? (int)$validated['total_floors'] : 1,
-                'total_rooms' => !empty($validated['total_rooms']) ? (int)$validated['total_rooms'] : 1,
+                'total_rooms' => !empty($validated['total_rooms']) ? (int)$validated['total_rooms'] : 0,
                 'amenities' => !empty($validated['amenities']) ? array_values(array_unique($validated['amenities'])) : [],
                 'description' => $validated['description'] ?? '',
 
@@ -469,7 +482,7 @@ class BuildingController extends Controller
                 }
 
                 // Cập nhật assigned_buildings & building_ids cho các nhân viên
-                User::whereIn('_id', $managerIds)->get()->each(function ($staff) use ($bId) {
+                User::whereIn('_id', $managerIds)->get()->each(function ($staff) use ($bId, $building) {
                     $assigned = (array)($staff->assigned_buildings ?? []);
                     $assigned = array_values(array_diff($assigned, ['all', '*']));
                     if (!in_array($bId, $assigned, true)) {
@@ -482,24 +495,14 @@ class BuildingController extends Controller
                         $staff->building_ids = array_values(array_unique($bIds));
                     }
                     $staff->save();
-                });
-            }
 
-            // Tự động tạo 1 bài đăng Post nếu property_group là 'single_room' hoặc 'single'
-            $pGroup = $request->input('property_group') ?: ($building->property_group ?? '');
-            if (in_array($pGroup, ['single_room', 'single'])) {
-                if (class_exists(\App\Models\Post::class)) {
-                    Post::create([
-                        'building_id' => $bId,
-                        'title'       => 'Toàn bộ BĐS - ' . $building->name,
-                        'room_number' => 'Toàn bộ',
-                        'status'      => 'available',
-                        'price'       => 0,
-                        'area'        => 0,
-                        'user_id'     => (string)($user->_id ?? $user->id),
-                        'parent_id'   => $user->parent_id ?: (string)($user->_id ?? $user->id),
-                    ]);
-                }
+                    // Gửi thông báo phân công tòa nhà cho nhân sự đang hoạt động
+                    try {
+                        Notification::sendBuildingAssignedNotification($staff, $building);
+                    } catch (\Exception $e) {
+                        Log::warning('Lỗi gửi thông báo phân công tòa nhà: ' . $e->getMessage());
+                    }
+                });
             }
 
             // 4. Response: Hỗ trợ cả AJAX JSON (Modal) và Form Submit Redirect kèm Flash Message
@@ -798,6 +801,13 @@ class BuildingController extends Controller
                         }
                         $newStaff->building_ids = array_values(array_unique($bIds));
                         $newStaff->save();
+
+                        // Gửi thông báo phân công tòa nhà cho nhân sự đang hoạt động
+                        try {
+                            Notification::sendBuildingAssignedNotification($newStaff, $building);
+                        } catch (\Exception $e) {
+                            Log::warning('Lỗi gửi thông báo phân công tòa nhà: ' . $e->getMessage());
+                        }
                     }
                 }
                 if ($oldManagerId) {
@@ -1016,7 +1026,8 @@ class BuildingController extends Controller
                         $q->orWhere('building_id', new \MongoDB\BSON\ObjectId($bId));
                     } catch (\Exception $e) {}
                 }
-            })->where(function($q) {
+            })->whereNotIn('status', ['rejected', 'tu_choi', 'từ chối', 'deleted'])
+            ->where(function($q) {
                 $q->whereNull('is_deleted')->orWhere('is_deleted', false);
             });
             $postsList = $postsQuery->get();
@@ -1154,8 +1165,14 @@ class BuildingController extends Controller
                 abort(403, 'Tài khoản cá nhân không có quyền quản lý tòa nhà.');
             }
 
-            $rooms = Post::where('building_id', $bId)
-                         ->orWhere('building_id', (string)$id)
+            $rooms = Post::where(function($q) use ($bId, $id) {
+                             $q->where('building_id', $bId)
+                               ->orWhere('building_id', (string)$id);
+                         })
+                         ->whereNotIn('status', ['rejected', 'tu_choi', 'từ chối', 'deleted'])
+                         ->where(function($q) {
+                             $q->whereNull('is_deleted')->orWhere('is_deleted', false);
+                         })
                          ->orderBy('created_at', 'desc')
                          ->get();
 
@@ -1273,8 +1290,14 @@ class BuildingController extends Controller
         $bId = (string)($building->_id ?? $building->id);
         $totalScale = (int)($building->total_rooms ?: 16);
 
-        $posts = Post::where('building_id', $bId)
-                     ->orWhere('building_id', (string)$id)
+        $posts = Post::where(function($q) use ($bId, $id) {
+                         $q->where('building_id', $bId)
+                           ->orWhere('building_id', (string)$id);
+                     })
+                     ->whereNotIn('status', ['rejected', 'tu_choi', 'từ chối', 'deleted'])
+                     ->where(function($q) {
+                         $q->whereNull('is_deleted')->orWhere('is_deleted', false);
+                     })
                      ->orderBy('created_at', 'desc')
                      ->get();
 

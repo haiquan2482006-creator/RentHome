@@ -207,18 +207,41 @@
                         $statusLabel = 'Đã từ chối / Đã đóng';
                     }
 
-                    // Xử lý ảnh bài đăng
-                    $postThumb = 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?q=80&w=800&auto=format&fit=crop';
-                    if ($post && !empty($post->images) && is_array($post->images) && count($post->images) > 0) {
-                        $imgStr = (string)$post->images[0];
-                        if (strlen($imgStr) === 24 && ctype_xdigit($imgStr)) {
-                            $postThumb = url('/images/' . $imgStr);
-                        } elseif (\Illuminate\Support\Str::startsWith($imgStr, 'http') || \Illuminate\Support\Str::startsWith($imgStr, 'data:')) {
-                            $postThumb = $imgStr;
-                        } elseif (\Illuminate\Support\Str::startsWith($imgStr, '/storage/')) {
-                            $postThumb = asset(ltrim($imgStr, '/'));
-                        } else {
-                            $postThumb = asset('storage/' . $imgStr);
+                    // Xử lý ảnh bài đăng chuẩn hóa
+                    $defaultThumb = 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?q=80&w=800&auto=format&fit=crop';
+                    $postThumb = $defaultThumb;
+                    if ($post) {
+                        if (!empty($post->display_image)) {
+                            $postThumb = $post->display_image;
+                        } elseif (!empty($post->images) && is_iterable($post->images)) {
+                            foreach ($post->images as $imgRef) {
+                                $imgStr = is_array($imgRef) ? ($imgRef['url'] ?? ($imgRef['id'] ?? '')) : (is_object($imgRef) ? ($imgRef->url ?? ($imgRef->id ?? '')) : (string)$imgRef);
+                                $imgStr = trim($imgStr);
+                                if (empty($imgStr)) continue;
+
+                                if (\Illuminate\Support\Str::startsWith($imgStr, ['/images/', 'images/', '/image/', 'image/'])) {
+                                    $postThumb = url('/' . ltrim($imgStr, '/'));
+                                    break;
+                                }
+                                if (preg_match('/^[a-f\d]{24}$/i', $imgStr)) {
+                                    $postThumb = url('/images/' . $imgStr);
+                                    break;
+                                }
+                                if (\Illuminate\Support\Str::startsWith($imgStr, ['http://', 'https://', 'data:'])) {
+                                    $postThumb = $imgStr;
+                                    break;
+                                }
+                                if (\Illuminate\Support\Str::startsWith($imgStr, ['/storage/', 'storage/'])) {
+                                    $postThumb = asset(ltrim($imgStr, '/'));
+                                    break;
+                                }
+                                if (\Illuminate\Support\Str::startsWith($imgStr, '/')) {
+                                    $postThumb = url($imgStr);
+                                    break;
+                                }
+                                $postThumb = asset('storage/' . $imgStr);
+                                break;
+                            }
                         }
                     }
 
@@ -239,7 +262,7 @@
                     <div class="flex flex-col md:flex-row gap-5">
                         <!-- Thumbnail bài đăng -->
                         <div class="w-full md:w-56 h-40 md:h-36 rounded-xl overflow-hidden shrink-0 relative bg-slate-100">
-                            <img src="{{ $postThumb }}" alt="{{ $postTitle }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform">
+                            <img src="{{ $postThumb }}" alt="{{ $postTitle }}" onerror="this.onerror=null; this.src='{{ $defaultThumb }}';" class="w-full h-full object-cover group-hover:scale-105 transition-transform">
                             <span class="absolute bottom-2 left-2 px-2.5 py-1 rounded-lg bg-slate-900/80 text-white font-extrabold text-xs backdrop-blur-sm">
                                 {{ $postPrice }}
                             </span>

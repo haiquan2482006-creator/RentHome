@@ -15,6 +15,7 @@ class InvoiceObserver
     public function updated(Invoice $invoice): void
     {
         $this->checkAndTerminateContract($invoice);
+        $this->handleRentCycleAdvancement($invoice);
     }
 
     /**
@@ -23,6 +24,18 @@ class InvoiceObserver
     public function saved(Invoice $invoice): void
     {
         $this->checkAndTerminateContract($invoice);
+        $this->handleRentCycleAdvancement($invoice);
+    }
+
+    /**
+     * Cập nhật next_rent_date khi hóa đơn tiền phòng được thanh toán thành công
+     */
+    private function handleRentCycleAdvancement(Invoice $invoice): void
+    {
+        $isPaid = ($invoice->status === 'paid' || $invoice->payment_status === 'paid');
+        if ($isPaid) {
+            \App\Services\InvoiceService::handleInvoicePaid($invoice);
+        }
     }
 
     /**

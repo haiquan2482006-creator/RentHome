@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
 use App\Models\NewsArticle;
 use App\Models\AdminActivity;
@@ -346,6 +347,8 @@ class NewsModerationController extends Controller
             'updated_at'   => now(),
         ]);
 
+        Cache::forget('home_approved_news');
+
         return response()->json([
             'success' => true,
             'message' => 'Đã thêm bài viết mới vào danh sách chờ duyệt!',
@@ -389,6 +392,8 @@ class NewsModerationController extends Controller
         $article->is_featured = $isFeatured;
         $article->save();
 
+        Cache::forget('home_approved_news');
+
         return response()->json([
             'success' => true,
             'message' => 'Đã cập nhật bài báo thành công!',
@@ -418,6 +423,8 @@ class NewsModerationController extends Controller
         $article->moderated_by = $adminId;
         $article->moderated_at = now();
         $article->save();
+
+        Cache::forget('home_approved_news');
 
         // Ghi log hoạt động
         AdminActivity::log(
@@ -449,6 +456,8 @@ class NewsModerationController extends Controller
 
         $title = $article->title;
         $article->delete();
+
+        Cache::forget('home_approved_news');
 
         AdminActivity::log(
             'delete',
@@ -497,8 +506,9 @@ class NewsModerationController extends Controller
         if ($sort === 'oldest') {
             $query->orderBy('published_at', 'asc')->orderBy('created_at', 'asc');
         } else {
-            // Luôn đưa bài viết vừa được kiểm duyệt mới nhất lên vị trí đầu tiên
-            $query->orderBy('moderated_at', 'desc')
+            // Luôn đưa bài viết nổi bật và vừa được kiểm duyệt mới nhất lên vị trí đầu tiên
+            $query->orderBy('is_featured', 'desc')
+                  ->orderBy('moderated_at', 'desc')
                   ->orderBy('published_at', 'desc')
                   ->orderBy('created_at', 'desc');
         }

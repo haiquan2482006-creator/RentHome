@@ -14,23 +14,51 @@ class Post extends Model
         'floor', 'floor_number', 'bedroom', 'bathroom',
         'province', 'district', 'ward', 'address', 'building_id', 'display_image',
         'property_type', 'account_role', 'amenities', 'images', 'status',
-        'approved_at', 'approved_by', 'rejected_at', 'rejected_by', 'reject_reason',
-        'views', 'view_count'
+        'payment_requirement',
+        'approved_at', 'approved_by', 'rejected_at', 'rejected_by', 'reject_reason', 'admin_directive',
+        'views', 'view_count', 'favorites_count', 'likes',
+        'is_featured', 'featured_at'
     ];
 
     protected $attributes = [
         'views' => 0,
+        'favorites_count' => 0,
+        'is_featured' => false,
     ];
 
     protected $casts = [
         'amenities' => 'array',
         'images' => 'array',
         'views' => 'integer',
+        'favorites_count' => 'integer',
+        'is_featured' => 'boolean',
+        'featured_at' => 'datetime',
     ];
+
+    public function getIsFeaturedAttribute($value)
+    {
+        return (bool)($value ?? false);
+    }
 
     public function getViewsAttribute($value)
     {
         return (int)($value ?? 0);
+    }
+
+    public function getFavoritesCountAttribute($value)
+    {
+        return max(0, (int)($value ?? ($this->attributes['likes'] ?? 0)));
+    }
+
+    public function getPropertyTypeAttribute($value)
+    {
+        if (!empty($value)) {
+            return $value;
+        }
+        if ($this->building && !empty($this->building->type)) {
+            return $this->building->type;
+        }
+        return 'nha_rieng';
     }
 
     public function user()
@@ -45,7 +73,7 @@ class Post extends Model
     }
 
     // Accessor trả về URL ảnh hiển thị duy nhất
-    protected $appends = ['display_image', 'all_images'];
+    protected $appends = ['display_image', 'all_images', 'favorites_count', 'formatted_price_unit'];
 
     public function getDisplayImageAttribute()
     {
@@ -93,6 +121,20 @@ class Post extends Model
         return $this->hasMany(Contact::class, 'post_id', '_id');
     }
 
+    public function tickets()
+    {
+        return $this->hasMany(SupportTicket::class, 'post_id');
+    }
+
+    public function getTicketsAttribute()
+    {
+        $id = (string)($this->_id ?? $this->id);
+        return SupportTicket::where(function($q) use ($id) {
+            $q->where('post_id', $id)
+              ->orWhere('target_id', $id);
+        })->get();
+    }
+
     public function getAllImagesAttribute()
     {
         $urls = [];
@@ -132,5 +174,27 @@ class Post extends Model
             $urls[] = $this->display_image;
         }
         return $urls;
+    }
+
+    public function getFormattedPriceUnitAttribute()
+    {
+        $u = strtolower(trim((string)($this->price_unit ?? 'thang')));
+        $map = [
+            'thang'      => '/ tháng',
+            'tháng'      => '/ tháng',
+            '2_nam'      => '/ 2 năm',
+            '2 nam'      => '/ 2 năm',
+            '3_nam'      => '/ 3 năm',
+            '3 nam'      => '/ 3 năm',
+            '5_nam'      => '/ 5 năm',
+            '5 nam'      => '/ 5 năm',
+            'tren_5_nam' => '/ trên 5 năm',
+            'tren 5 nam' => '/ trên 5 năm',
+            'nam'        => '/ năm',
+            'năm'        => '/ năm',
+            'm2'         => '/ m²',
+            'tong'       => '',
+        ];
+        return $map[$u] ?? ($u ? '/' . $u : '/ tháng');
     }
 }
