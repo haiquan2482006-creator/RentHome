@@ -14,13 +14,24 @@ class Post extends Model
         'floor', 'floor_number', 'bedroom', 'bathroom',
         'province', 'district', 'ward', 'address', 'building_id', 'display_image',
         'property_type', 'account_role', 'amenities', 'images', 'status',
-        'approved_at', 'approved_by', 'rejected_at', 'rejected_by', 'reject_reason'
+        'approved_at', 'approved_by', 'rejected_at', 'rejected_by', 'reject_reason',
+        'views', 'view_count'
+    ];
+
+    protected $attributes = [
+        'views' => 0,
     ];
 
     protected $casts = [
         'amenities' => 'array',
         'images' => 'array',
+        'views' => 'integer',
     ];
+
+    public function getViewsAttribute($value)
+    {
+        return (int)($value ?? 0);
+    }
 
     public function user()
     {

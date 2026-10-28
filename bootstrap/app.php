@@ -16,6 +16,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'api/moderator/*',
             'api/kiem-duyet/*',
         ]);
+
+        $middleware->web(append: [
+            \App\Http\Middleware\RestrictModeratorToManagement::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

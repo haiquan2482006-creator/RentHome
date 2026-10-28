@@ -38,12 +38,36 @@ class FavoriteController extends Controller
             ]);
         }
 
-        $posts = Post::with(['user', 'imageModels'])
-            ->whereIn('_id', $postIds)
-            ->orWhereIn('id', $postIds)
+        // BƯỚC 1: Lấy toàn bộ bài đăng user đã lưu bất kể trạng thái hiện tại là gì.
+        // TUYỆT ĐỐI KHÔNG dùng điều kiện lọc bỏ các bài đã thuê (không where('status', 'available')).
+        $posts = Post::with(['user', 'building'])
+            ->where(function ($q) use ($postIds) {
+                $q->whereIn('_id', $postIds)
+                  ->orWhereIn('id', $postIds);
+            })
             ->get();
 
-        $mappedPosts = $posts->map(function ($post) {
+        // Lấy danh sách post_id hoặc room_id đang có hợp đồng thuê hoạt động
+        $activeContractPostIds = [];
+        try {
+            $activeContracts = \App\Models\Contract::whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly'])
+                ->where(function ($q) use ($postIds) {
+                    $q->whereIn('post_id', $postIds)
+                      ->orWhereIn('room_id', $postIds);
+                })
+                ->get(['post_id', 'room_id']);
+
+            $activeContractPostIds = $activeContracts->pluck('post_id')
+                ->merge($activeContracts->pluck('room_id'))
+                ->filter()
+                ->map('strval')
+                ->unique()
+                ->toArray();
+        } catch (\Exception $e) {
+            $activeContractPostIds = [];
+        }
+
+        $mappedPosts = $posts->map(function ($post) use ($activeContractPostIds) {
             $unitText = 'đ/tháng';
             if ($post->price_unit === 'nam') {
                 $unitText = 'đ/năm';
@@ -54,9 +78,17 @@ class FavoriteController extends Controller
             }
 
             $address = implode(', ', array_filter([$post->address, $post->ward, $post->district, $post->province]));
+            $postIdStr = (string) ($post->_id ?? $post->id);
+            $rawStatus = strtolower(trim((string) ($post->status ?? '')));
+
+            $isRented = (bool) (
+                $post->is_rented === true || $post->is_rented === 1 || $post->is_rented === '1' ||
+                in_array($rawStatus, ['rented', 'đã cho thuê', 'dang_thue', 'đang thuê', 'da_cho_thue', 'inactive']) ||
+                in_array($postIdStr, $activeContractPostIds, true)
+            );
 
             return [
-                'id' => (string) ($post->_id ?? $post->id),
+                'id' => $postIdStr,
                 'title' => $post->title,
                 'price' => number_format((float) ($post->price ?? 0), 0, ',', '.') . ' ' . $unitText,
                 'raw_price' => $post->price,
@@ -64,6 +96,7 @@ class FavoriteController extends Controller
                 'address' => $address,
                 'display_image' => $post->display_image,
                 'status' => $post->status,
+                'is_rented' => $isRented,
             ];
         });
 
@@ -189,6 +222,22 @@ class FavoriteController extends Controller
             $unitText = 'VNĐ';
         }
 
+        $rawStatus = strtolower(trim((string) ($post->status ?? '')));
+        $isRented = (bool) (
+            $post->is_rented === true || $post->is_rented === 1 || $post->is_rented === '1' ||
+            in_array($rawStatus, ['rented', 'đã cho thuê', 'dang_thue', 'đang thuê', 'da_cho_thue', 'inactive'])
+        );
+        if (!$isRented) {
+            try {
+                $isRented = \App\Models\Contract::whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly'])
+                    ->where(function ($q) use ($realPostId) {
+                        $q->where('post_id', $realPostId)
+                          ->orWhere('room_id', $realPostId);
+                    })
+                    ->exists();
+            } catch (\Exception $e) {}
+        }
+
         return response()->json([
             'success' => true,
             'is_favorite' => true,
@@ -197,8 +246,11 @@ class FavoriteController extends Controller
                 'id' => $realPostId,
                 'title' => $post->title,
                 'price' => number_format((float) ($post->price ?? 0), 0, ',', '.') . ' ' . $unitText,
+                'raw_price' => $post->price,
                 'display_image' => $post->display_image,
                 'address' => implode(', ', array_filter([$post->address, $post->ward, $post->district, $post->province])),
+                'status' => $post->status,
+                'is_rented' => $isRented,
             ]
         ]);
     }

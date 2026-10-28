@@ -734,4 +734,18 @@
             dropdown.classList.toggle('open');
         }
     }
+
+    // Tự động kiểm tra trạng thái đăng nhập khi quay lại qua nút Back/Forward
+    window.addEventListener('pageshow', function(event) {
+        if (event.persisted) {
+            fetch('/api/auth/status')
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    if (data && !data.authenticated) {
+                        window.location.reload();
+                    }
+                })
+                .catch(function() {});
+        }
+    });
 </script>

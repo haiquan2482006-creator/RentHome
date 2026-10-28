@@ -11,6 +11,20 @@ class AuthController extends Controller
 {
     public function showLoginForm()
     {
+        if (Auth::check()) {
+            $user = Auth::user();
+            if ($user->role === 'admin' || $user->isAdmin()) {
+                return redirect('/Admin');
+            }
+            if ($user->isModerator() || $user->role === 'kiemduyet' || $user->role === 'moderator') {
+                return redirect('/kiem-duyet/tong-quan');
+            }
+            if ($user->role === 'doanhnghiep' || $user->isEnterprise()) {
+                return redirect('/Overview');
+            }
+            return redirect('/');
+        }
+
         return view('dangnhapdk.login');
     }
 
@@ -46,7 +60,8 @@ class AuthController extends Controller
             }
 
             if ($user->isModerator() || $user->role === 'kiemduyet' || $user->role === 'moderator') {
-                return redirect()->intended('/kiem-duyet/tong-quan')->with('success', 'Xin chào ' . ($user->account_name ?: 'Kiểm duyệt viên') . '! Đăng nhập thành công vào Kênh Kiểm Duyệt.');
+                $request->session()->forget('url.intended');
+                return redirect('/kiem-duyet/tong-quan')->with('success', 'Xin chào ' . ($user->account_name ?: 'Kiểm duyệt viên') . '! Đăng nhập thành công vào Kênh Kiểm Duyệt.');
             }
 
             // 3. Tài khoản con (nhân sự / nhân viên phụ trách) -> Chuyển về Trang chủ (Home)
@@ -70,6 +85,10 @@ class AuthController extends Controller
 
     public function showRegisterForm()
     {
+        if (Auth::check()) {
+            return redirect('/');
+        }
+
         return view('dangnhapdk.Register');
     }
 

@@ -410,7 +410,11 @@ class NewsModerationController extends Controller
         $user = Auth::user();
         $adminId = $user ? (string)($user->_id ?? $user->id) : 'moderator';
 
+        // Đặt tất cả bài trước đó thành không nổi bật để bài vừa duyệt trở thành bài nổi bật chính trên Trang chủ
+        NewsArticle::where('is_featured', true)->update(['is_featured' => false]);
+
         $article->status = 'approved';
+        $article->is_featured = true;
         $article->moderated_by = $adminId;
         $article->moderated_at = now();
         $article->save();
@@ -462,24 +466,60 @@ class NewsModerationController extends Controller
     }
 
     /**
-     * API Public cho Trang chủ
+     * API Public: Tin tức đã phê duyệt
      * GET /api/news/approved
-     * Trả về tối đa 5 bài (1 bài nổi bật + 4 bài lưới)
+     * Hỗ trợ lọc theo từ khóa, chuyên mục, nguồn báo và số lượng
      */
-    public function getApprovedNews()
+    public function getApprovedNews(Request $request)
     {
         $this->ensureSeedSampleData();
 
-        $articles = NewsArticle::where('status', 'approved')
-            ->orderBy('is_featured', 'desc')
-            ->orderBy('moderated_at', 'desc')
-            ->orderBy('published_at', 'desc')
-            ->take(5)
-            ->get();
+        $query = NewsArticle::where('status', 'approved');
+
+        if ($request->filled('keyword')) {
+            $kw = trim((string)$request->query('keyword'));
+            $query->where(function ($q) use ($kw) {
+                $q->where('title', 'like', "%{$kw}%")
+                  ->orWhere('summary', 'like', "%{$kw}%")
+                  ->orWhere('content', 'like', "%{$kw}%");
+            });
+        }
+
+        if ($request->filled('category') && $request->query('category') !== 'all') {
+            $query->where('category', $request->query('category'));
+        }
+
+        if ($request->filled('source') && $request->query('source') !== 'all') {
+            $query->where('source_name', $request->query('source'));
+        }
+
+        $sort = $request->query('sort', 'latest');
+        if ($sort === 'oldest') {
+            $query->orderBy('published_at', 'asc')->orderBy('created_at', 'asc');
+        } else {
+            // Luôn đưa bài viết vừa được kiểm duyệt mới nhất lên vị trí đầu tiên
+            $query->orderBy('moderated_at', 'desc')
+                  ->orderBy('published_at', 'desc')
+                  ->orderBy('created_at', 'desc');
+        }
+
+        if ($request->has('limit')) {
+            $limit = (int)$request->query('limit');
+            if ($limit > 0) {
+                $query->take($limit);
+            }
+        } elseif ($request->boolean('home', false)) {
+            $query->take(5);
+        } elseif (!$request->has('all') && !$request->has('keyword') && !$request->has('category') && !$request->has('source')) {
+            $query->take(5);
+        }
+
+        $articles = $query->get();
 
         return response()->json([
             'success'  => true,
             'articles' => $articles,
+            'total'    => $articles->count(),
         ]);
     }
 

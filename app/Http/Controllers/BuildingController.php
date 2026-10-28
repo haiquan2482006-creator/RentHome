@@ -1198,7 +1198,30 @@ class BuildingController extends Controller
                 return $room;
             });
 
-            return view('qlbai_dang.BuildingDetail', compact('building', 'rooms', 'activeContractPostIds', 'activeContractMap'));
+            // Lấy danh sách các tòa nhà khác trong hệ thống để phục vụ chuyển phòng (loại trừ cơ sở hiện tại)
+            $otherBuildingsQuery = Building::where('_id', '!=', $bId)
+                ->where(function($q) {
+                    $q->whereNull('is_deleted')->orWhere('is_deleted', false);
+                });
+
+            if ($user->isSubAccount()) {
+                $assignedIds = (array)($user->assigned_buildings ?? $user->building_ids ?? []);
+                if (!empty($assignedIds)) {
+                    $otherBuildingsQuery->whereIn('_id', $assignedIds);
+                }
+            }
+
+            $otherBuildings = $otherBuildingsQuery->orderBy('name', 'asc')->get();
+            if ($otherBuildings->isEmpty() && ($user->isAdmin() || $user->isEnterprise())) {
+                $otherBuildings = Building::where('_id', '!=', $bId)
+                    ->where(function($q) {
+                        $q->whereNull('is_deleted')->orWhere('is_deleted', false);
+                    })
+                    ->orderBy('name', 'asc')
+                    ->get();
+            }
+
+            return view('qlbai_dang.BuildingDetail', compact('building', 'rooms', 'activeContractPostIds', 'activeContractMap', 'otherBuildings'));
 
         } catch (\Exception $e) {
             Log::error('Lỗi xem chi tiết bài đăng tòa nhà: ' . $e->getMessage());

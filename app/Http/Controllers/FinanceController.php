@@ -898,13 +898,8 @@ class FinanceController extends Controller
                     ]);
             }
 
-            // Cập nhật Contact liên kết (nếu có)
-            \App\Models\Contact::where('contract_id', $contractIdStr)->update(['status' => 'liquidated']);
-            if (!empty($contract->contact_id)) {
-                \App\Models\Contact::where('_id', $contract->contact_id)
-                    ->orWhere('id', $contract->contact_id)
-                    ->update(['status' => 'liquidated']);
-            }
+            // Ẩn hoàn toàn tất cả các yêu cầu liên hệ của hợp đồng này khỏi trang khách hàng liên hệ
+            \App\Http\Controllers\ContactController::hideContactsForContract($contract);
 
             // 4. Gửi thông báo thành công cho Khách thuê
             $liqDetails = (array)($contract->liquidation_details ?? []);

@@ -48,16 +48,16 @@
     <!-- Main Content -->
     <main class="pt-32 pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <!-- Filter Section -->
-        <div class="mb-12 bg-white rounded-3xl p-6 shadow-sm border border-slate-200">
-            <form id="filter-form" onsubmit="event.preventDefault(); fetchAllPosts();" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="mb-8 bg-white rounded-3xl p-6 shadow-sm border border-slate-200">
+            <form id="filter-form" onsubmit="event.preventDefault(); fetchAllPosts();" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 <!-- Search by Keyword/Address -->
-                <div class="md:col-span-4 lg:col-span-1">
-                    <label class="block text-sm font-bold text-slate-700 mb-2">Tìm kiếm</label>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">Tìm kiếm từ khóa</label>
                     <div class="relative">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <i class="fa-solid fa-search text-slate-400"></i>
                         </div>
-                        <input type="text" name="keyword" class="pl-10 w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition-all font-medium text-slate-700" placeholder="Nhập địa chỉ, tên đường...">
+                        <input type="text" name="keyword" class="pl-10 w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition-all font-medium text-slate-700" placeholder="Địa chỉ, tên đường...">
                     </div>
                 </div>
 
@@ -65,12 +65,12 @@
                 <div>
                     <label class="block text-sm font-bold text-slate-700 mb-2">Loại bất động sản</label>
                     <div class="relative">
-                        <select name="type" class="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-3 pr-10 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition-all text-slate-700 appearance-none font-medium">
+                        <select name="type" class="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-3 pr-10 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition-all text-slate-700 appearance-none font-medium cursor-pointer">
                             <option value="">Tất cả loại nhà</option>
-                            <option value="nha_tro">Nhà trọ / Phòng trọ</option>
-                            <option value="nha_dat">Nhà đất</option>
-                            <option value="dat_dai">Đất đai</option>
                             <option value="can_ho">Căn hộ / Chung cư</option>
+                            <option value="nha_nguyen_can">Nhà nguyên căn</option>
+                            <option value="phong_tro">Phòng trọ sinh viên</option>
+                            <option value="cum_nha_lien_ke">Biệt thự / Villa</option>
                             <option value="mat_bang">Mặt bằng kinh doanh</option>
                         </select>
                         <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
@@ -81,7 +81,7 @@
 
                 <!-- Location -->
                 <div>
-                    <label class="block text-sm font-bold text-slate-700 mb-2">Khu vực</label>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">Khu vực / Tỉnh thành</label>
                     <div class="relative">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <i class="fa-solid fa-location-dot text-slate-400"></i>
@@ -90,13 +90,44 @@
                     </div>
                 </div>
 
-                <!-- Search Button -->
-                <div class="flex items-end">
-                    <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 px-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-brand-500/30">
-                        <i class="fa-solid fa-filter"></i> Lọc kết quả
+                <!-- Price Range -->
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">Mức giá</label>
+                    <div class="relative">
+                        <select name="price_range" class="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-3 pr-10 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition-all text-slate-700 appearance-none font-medium cursor-pointer">
+                            <option value="">Tất cả mức giá</option>
+                            <option value="1">Dưới 3 triệu / tháng</option>
+                            <option value="2">3 - 7 triệu / tháng</option>
+                            <option value="3">7 - 15 triệu / tháng</option>
+                            <option value="4">Trên 15 triệu / tháng</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                            <i class="fa-solid fa-chevron-down text-slate-400 text-xs"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Search & Reset Buttons -->
+                <div class="flex items-end gap-2">
+                    <button type="submit" class="flex-1 bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 px-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-brand-500/30 cursor-pointer">
+                        <i class="fa-solid fa-filter"></i> Lọc
+                    </button>
+                    <button type="button" onclick="resetAllFilters()" title="Đặt lại bộ lọc" class="w-11 h-11 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl flex items-center justify-center transition-colors cursor-pointer shrink-0">
+                        <i class="fa-solid fa-rotate-left"></i>
                     </button>
                 </div>
             </form>
+        </div>
+
+        <!-- Filter Status Banner -->
+        <div id="filter-status-banner" class="hidden mb-6 flex flex-wrap items-center justify-between gap-3 bg-brand-50/80 border border-brand-200/80 rounded-2xl px-5 py-3">
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="text-xs font-bold text-slate-700" id="filter-status-count">Đang lọc theo:</span>
+                <div id="filter-active-tags" class="flex flex-wrap items-center gap-1.5"></div>
+            </div>
+            <button type="button" onclick="resetAllFilters()" class="text-xs font-bold text-rose-500 hover:text-rose-700 inline-flex items-center gap-1 cursor-pointer transition-colors">
+                <i class="fa-solid fa-xmark"></i> Xóa tất cả bộ lọc
+            </button>
         </div>
 
         <div id="all-posts-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 lg:gap-8">
@@ -109,6 +140,26 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Đọc params từ URL nếu được chuyển tiếp từ Trang Chủ
+            const urlParams = new URLSearchParams(window.location.search);
+            const kw = urlParams.get('keyword');
+            const type = urlParams.get('type');
+            const loc = urlParams.get('location');
+            const price = urlParams.get('price_range') || urlParams.get('price');
+
+            if (kw && document.querySelector('input[name="keyword"]')) {
+                document.querySelector('input[name="keyword"]').value = kw;
+            }
+            if (type && document.querySelector('select[name="type"]')) {
+                document.querySelector('select[name="type"]').value = type;
+            }
+            if (loc && document.querySelector('input[name="location"]')) {
+                document.querySelector('input[name="location"]').value = loc;
+            }
+            if (price && document.querySelector('select[name="price_range"]')) {
+                document.querySelector('select[name="price_range"]').value = price;
+            }
+
             fetchAllPosts();
         });
 
@@ -117,15 +168,17 @@
             if (!container) return;
 
             // Get filter values
-            const keyword = document.querySelector('input[name="keyword"]')?.value || '';
+            const keyword = document.querySelector('input[name="keyword"]')?.value.trim() || '';
             const type = document.querySelector('select[name="type"]')?.value || '';
-            const location = document.querySelector('input[name="location"]')?.value || '';
+            const location = document.querySelector('input[name="location"]')?.value.trim() || '';
+            const price_range = document.querySelector('select[name="price_range"]')?.value || '';
 
             // Build query params
             const params = new URLSearchParams();
             if (keyword) params.append('keyword', keyword);
             if (type) params.append('type', type);
-            if (location) params.append('location', location);
+            if (location && location !== 'Tất cả địa điểm') params.append('location', location);
+            if (price_range) params.append('price_range', price_range);
             
             const queryString = params.toString();
             const url = '/api/posts/approved' + (queryString ? '?' + queryString : '');
@@ -138,8 +191,23 @@
                 if (response.ok) {
                     const data = await response.json();
                     const posts = data.posts || [];
+
+                    // Update filter status banner
+                    updateFilterBanner({ keyword, type, location, price_range }, posts.length);
+
                     if (!Array.isArray(posts) || posts.length === 0) {
-                        container.innerHTML = '<p class="col-span-full text-center text-slate-500 py-10">Hiện chưa có bài đăng nào.</p>';
+                        container.innerHTML = `
+                            <div class="col-span-full py-16 px-6 text-center bg-white rounded-3xl border border-slate-200 shadow-xs">
+                                <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center text-2xl">
+                                    <i class="fa-solid fa-house-circle-xmark"></i>
+                                </div>
+                                <h3 class="text-lg font-bold text-slate-800 mb-2">Không tìm thấy bài đăng phù hợp</h3>
+                                <p class="text-sm text-slate-500 max-w-md mx-auto mb-6">Không có bất động sản nào khớp với bộ lọc hiện tại của bạn. Hãy thử thay đổi tiêu chí hoặc xem tất cả bài đăng.</p>
+                                <button type="button" onclick="resetAllFilters()" class="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow-md transition-all cursor-pointer">
+                                    <i class="fa-solid fa-rotate-left"></i> Xem tất cả bài đăng
+                                </button>
+                            </div>
+                        `;
                         return;
                     }
                     
@@ -234,11 +302,72 @@
                         window.RentHomeFavorites.updateCardButtons();
                     }
                 } else {
-                    container.innerHTML = '<p class="col-span-full text-center text-rose-500 py-10">Lỗi khi tải dữ liệu bài đăng!</p>';
+                    container.innerHTML = '<p class="col-span-full text-center text-rose-500 py-10 font-bold">Lỗi khi tải dữ liệu bài đăng!</p>';
                 }
             } catch (error) {
                 console.error('Error fetching real posts:', error);
+                container.innerHTML = '<p class="col-span-full text-center text-rose-500 py-10 font-bold">Không thể kết nối đến máy chủ!</p>';
             }
+        }
+
+        function updateFilterBanner(filters, count) {
+            const banner = document.getElementById('filter-status-banner');
+            const countEl = document.getElementById('filter-status-count');
+            const tagsEl = document.getElementById('filter-active-tags');
+            if (!banner || !countEl || !tagsEl) return;
+
+            const hasFilter = Boolean(filters.keyword || filters.type || (filters.location && filters.location !== 'Tất cả địa điểm') || filters.price_range);
+
+            if (!hasFilter) {
+                banner.classList.add('hidden');
+                return;
+            }
+
+            banner.classList.remove('hidden');
+            countEl.innerHTML = `Tìm thấy <strong class="text-brand-700 font-extrabold">${count}</strong> bất động sản phù hợp:`;
+
+            let tagsHtml = '';
+            if (filters.keyword) {
+                tagsHtml += `<span class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-700 flex items-center gap-1"><i class="fa-solid fa-magnifying-glass text-slate-400"></i> "${filters.keyword}"</span>`;
+            }
+            if (filters.location && filters.location !== 'Tất cả địa điểm') {
+                tagsHtml += `<span class="px-2.5 py-1 rounded-lg bg-white border border-emerald-300 text-xs font-bold text-emerald-700 flex items-center gap-1"><i class="fa-solid fa-location-dot text-emerald-500"></i> ${filters.location}</span>`;
+            }
+            if (filters.type) {
+                const typeLabels = {
+                    'can_ho': 'Căn hộ / Chung cư',
+                    'nha_nguyen_can': 'Nhà nguyên căn',
+                    'phong_tro': 'Phòng trọ sinh viên',
+                    'cum_nha_lien_ke': 'Biệt thự / Villa',
+                    'mat_bang': 'Mặt bằng kinh doanh'
+                };
+                tagsHtml += `<span class="px-2.5 py-1 rounded-lg bg-white border border-blue-300 text-xs font-bold text-blue-700 flex items-center gap-1"><i class="fa-solid fa-layer-group text-blue-500"></i> ${typeLabels[filters.type] || filters.type}</span>`;
+            }
+            if (filters.price_range) {
+                const priceLabels = {
+                    '1': 'Dưới 3 triệu',
+                    '2': '3 - 7 triệu',
+                    '3': '7 - 15 triệu',
+                    '4': 'Trên 15 triệu'
+                };
+                tagsHtml += `<span class="px-2.5 py-1 rounded-lg bg-white border border-amber-300 text-xs font-bold text-amber-700 flex items-center gap-1"><i class="fa-solid fa-money-bill-wave text-amber-500"></i> ${priceLabels[filters.price_range] || filters.price_range}</span>`;
+            }
+            tagsEl.innerHTML = tagsHtml;
+        }
+
+        function resetAllFilters() {
+            const kw = document.querySelector('input[name="keyword"]');
+            const type = document.querySelector('select[name="type"]');
+            const loc = document.querySelector('input[name="location"]');
+            const price = document.querySelector('select[name="price_range"]');
+
+            if (kw) kw.value = '';
+            if (type) type.value = '';
+            if (loc) loc.value = '';
+            if (price) price.value = '';
+
+            window.history.replaceState({}, '', window.location.pathname);
+            fetchAllPosts();
         }
     </script>
 </body>

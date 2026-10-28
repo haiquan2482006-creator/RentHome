@@ -170,14 +170,22 @@
         if ($currentUser) {
             $postIds = \App\Models\Post::where('user_id', $currentUser->id)->pluck('_id');
             $pendingContactCount = \App\Models\Contact::whereIn('post_id', $postIds)
+                                                      ->where(function($q) {
+                                                          $q->whereNull('is_hidden')->orWhere('is_hidden', '!=', true);
+                                                      })
                                                       ->where('status', 'pending')
                                                       ->count();
         }
 
-        // Đếm số lượng bài đăng chờ duyệt của tài khoản hiện tại
+        // Đếm số lượng bài đăng chờ duyệt & tổng lượt xem của tài khoản hiện tại
         $userPendingPostsCount = 0;
+        $totalUserViews = 0;
+        $approvedPosts = collect();
+
         if ($currentUser) {
             $cUserId = (string)($currentUser->_id ?? $currentUser->id);
+            $approvedPostsQuery = \App\Models\Post::with(['building', 'user']);
+
             if ($isSubAccount) {
                 $assignedIds = (array) ($currentUser->assigned_buildings ?? []);
                 if (!empty($assignedIds) && !in_array('all', $assignedIds, true) && !in_array('*', $assignedIds, true)) {
@@ -188,6 +196,20 @@
                               ->orWhere('staff_id', $cUserId)
                               ->orWhere('author_id', $cUserId);
                         })->count();
+
+                    $totalUserViews = (int)\App\Models\Post::where(function($q) use ($assignedIds, $cUserId) {
+                        $q->whereIn('building_id', $assignedIds)
+                          ->orWhere('user_id', $cUserId)
+                          ->orWhere('staff_id', $cUserId)
+                          ->orWhere('author_id', $cUserId);
+                    })->sum('views');
+
+                    $approvedPostsQuery->where(function($q) use ($assignedIds, $cUserId) {
+                        $q->whereIn('building_id', $assignedIds)
+                          ->orWhere('user_id', $cUserId)
+                          ->orWhere('staff_id', $cUserId)
+                          ->orWhere('author_id', $cUserId);
+                    });
                 } else {
                     $parentId = (string)($currentUser->parent_id ?: $cUserId);
                     $userPendingPostsCount = \App\Models\Post::where('status', 'pending')
@@ -197,9 +219,24 @@
                               ->orWhere('staff_id', $cUserId)
                               ->orWhere('author_id', $cUserId);
                         })->count();
+
+                    $totalUserViews = (int)\App\Models\Post::where(function($q) use ($parentId, $cUserId) {
+                        $q->where('parent_id', $parentId)
+                          ->orWhere('user_id', $cUserId)
+                          ->orWhere('staff_id', $cUserId)
+                          ->orWhere('author_id', $cUserId);
+                    })->sum('views');
+
+                    $approvedPostsQuery->where(function($q) use ($parentId, $cUserId) {
+                        $q->where('parent_id', $parentId)
+                          ->orWhere('user_id', $cUserId)
+                          ->orWhere('staff_id', $cUserId)
+                          ->orWhere('author_id', $cUserId);
+                    });
                 }
             } elseif ($isEnterprise || $isAdmin) {
                 $userPendingPostsCount = \App\Models\Post::where('status', 'pending')->count();
+                $totalUserViews = (int)\App\Models\Post::sum('views');
             } else {
                 $userPendingPostsCount = \App\Models\Post::where('status', 'pending')
                     ->where(function($q) use ($cUserId) {
@@ -207,7 +244,24 @@
                           ->orWhere('staff_id', $cUserId)
                           ->orWhere('author_id', $cUserId);
                     })->count();
+
+                $totalUserViews = (int)\App\Models\Post::where(function($q) use ($cUserId) {
+                    $q->where('user_id', $cUserId)
+                      ->orWhere('staff_id', $cUserId)
+                      ->orWhere('author_id', $cUserId);
+                })->sum('views');
+
+                $approvedPostsQuery->where(function($q) use ($cUserId) {
+                    $q->where('user_id', $cUserId)
+                      ->orWhere('staff_id', $cUserId)
+                      ->orWhere('author_id', $cUserId);
+                });
             }
+
+            $approvedPosts = $approvedPostsQuery->where(function ($q) {
+                $q->whereIn('status', ['active', 'approved', 'đã cho thuê', 'rented', 'dang_thue'])
+                  ->orWhere('is_rented', true);
+            })->whereNotIn('status', ['pending', 'rejected', 'deleted'])->orderBy('created_at', 'desc')->get();
         }
     @endphp
 
@@ -435,7 +489,7 @@
                         class="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between hover:border-brand-500/30 transition-all">
                         <div>
                             <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tổng lượt xem</p>
-                            <p id="total-views" class="text-2xl font-black text-slate-900 mt-1">0</p>
+                            <p id="total-views" class="text-2xl font-black text-slate-900 mt-1">{{ number_format($totalUserViews ?? 0) }}</p>
                             <span class="text-[11px] text-emerald-600 font-bold"><i
                                     class="fa-solid fa-arrow-trend-up"></i>
                                 +12% tuần này</span>
@@ -553,6 +607,50 @@
                                 </tr>
                             </thead>
                             <tbody id="active-posts-tbody" class="divide-y divide-slate-100 text-slate-700 font-medium">
+                                @forelse($approvedPosts as $post)
+                                    @php
+                                        $imgUrl = $post->display_image ?: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=300&q=80';
+                                        $priceFormatted = number_format($post->price) . ' đ';
+                                        $isRented = (bool)($post->is_rented === true || in_array($post->status, ['đã cho thuê', 'rented', 'dang_thue']));
+                                    @endphp
+                                    <tr class="transition-all {{ $isRented ? 'opacity-50 hover:opacity-85 bg-slate-50/70 border-l-4 border-l-amber-500' : 'hover:bg-slate-50' }}">
+                                        <td class="p-4 font-bold text-slate-900">{{ $post->id ?? $post->_id }}</td>
+                                        <td class="p-4">
+                                            <div class="flex items-center gap-3">
+                                                <img src="{{ $imgUrl }}" class="w-10 h-10 rounded-lg object-cover border border-slate-200 shadow-xs {{ $isRented ? 'grayscale-[25%]' : '' }}" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=300&q=80';">
+                                                <div>
+                                                    <p class="font-bold text-slate-900 flex items-center gap-2">
+                                                        {{ $post->title }}
+                                                        @if($isRented)
+                                                            <span class="text-[9px] bg-amber-100 text-amber-800 font-extrabold px-1.5 py-0.5 rounded border border-amber-200 uppercase tracking-wider">Đang thuê</span>
+                                                        @endif
+                                                    </p>
+                                                    <p class="text-[10px] text-slate-400">{{ $post->location ?? $post->address ?? 'Đang cập nhật' }}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="p-4 font-bold {{ $isRented ? 'text-slate-600' : 'text-brand-600' }}">{{ $priceFormatted }}</td>
+                                        <td class="p-4">
+                                            @if($isRented)
+                                                <span class="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 font-extrabold text-[10px] inline-flex items-center gap-1.5 border border-amber-200 shadow-2xs">
+                                                    <span class="w-1.5 h-1.5 rounded-full bg-amber-600 inline-block animate-pulse"></span> Đang thuê
+                                                </span>
+                                            @else
+                                                <span class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[10px] inline-flex items-center gap-1.5">
+                                                    <i class="fa-solid fa-circle-check"></i> Đang hiển thị
+                                                </span>
+                                            @endif
+                                        </td>
+                                        <td class="p-4 text-center font-bold text-slate-600">{{ $post->views ?? 0 }}</td>
+                                        <td class="p-4 text-right">
+                                            <button onclick="editPost('{{ $post->id ?? $post->_id }}')" class="px-3 py-1.5 rounded-lg {{ $isRented ? 'bg-slate-100 hover:bg-slate-200 text-slate-600' : 'bg-blue-50 hover:bg-blue-100 text-blue-600' }} font-bold text-xs transition-colors" title="{{ $isRented ? 'Bài đăng đang cho thuê' : 'Cập nhật bài đăng' }}">
+                                                <i class="fa-solid fa-pen mr-1"></i> Cập nhật
+                                            </button>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="6" class="p-8 text-center text-slate-400 font-medium"><i class="fa-solid fa-box-open text-3xl mb-2 block"></i>Không có bài đăng nào đang hiển thị.</td></tr>
+                                @endforelse
                             </tbody>
                         </table>
                     </div>

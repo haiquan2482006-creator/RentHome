@@ -2,6 +2,11 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
+    @auth
+    <script>
+        window.location.replace("{{ (Auth::user()->isAdmin() ? '/Admin' : (Auth::user()->isModerator() ? '/kiem-duyet/tong-quan' : (Auth::user()->isEnterprise() ? '/Overview' : '/'))) }}");
+    </script>
+    @endauth
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Đăng Nhập - RentHome</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -387,6 +392,22 @@
                 icon.classList.add('fa-eye');
             }
         }
+
+        // Tự động kiểm tra trạng thái đăng nhập khi người dùng bấm nút Quay lại (Back)
+        window.addEventListener('pageshow', function (event) {
+            fetch('/api/auth/status')
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    if (data && data.authenticated) {
+                        let targetUrl = '/';
+                        if (data.role === 'admin') targetUrl = '/Admin';
+                        else if (data.role === 'kiemduyet' || data.role === 'moderator') targetUrl = '/kiem-duyet/tong-quan';
+                        else if (data.role === 'doanhnghiep' || data.role === 'enterprise') targetUrl = '/Overview';
+                        window.location.replace(targetUrl);
+                    }
+                })
+                .catch(function() {});
+        });
     </script>
 </body>
 </html>

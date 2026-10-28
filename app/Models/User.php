@@ -154,16 +154,25 @@ class User extends Authenticatable
 
     public function isSubAccount(): bool
     {
+        if ($this->isModerator()) {
+            return false;
+        }
         return in_array($this->role, ['sub_account', 'staff', 'nhansu', 'nhan su', 'nhan_su'], true) || !empty($this->parent_id);
     }
 
     public function isStaff(): bool
     {
+        if ($this->isModerator()) {
+            return false;
+        }
         return $this->isSubAccount();
     }
 
     public function isNhansu(): bool
     {
+        if ($this->isModerator()) {
+            return false;
+        }
         return in_array($this->role, ['nhansu', 'nhan su', 'nhan_su', 'sub_account', 'staff'], true)
             || str_contains(mb_strtolower($this->staff_role ?? ''), 'nhân sự')
             || str_contains(mb_strtolower($this->staff_role ?? ''), 'nhan su');

@@ -19,11 +19,18 @@ class Contact extends Model
         'appointment_date',
         'note',
         'message',
-        'status'
+        'status',
+        'contract_id',
+        'is_hidden'
     ];
 
     public function post()
     {
         return $this->belongsTo(Post::class, 'post_id', '_id');
+    }
+
+    public function contract()
+    {
+        return $this->belongsTo(Contract::class, 'contract_id', '_id');
     }
 }

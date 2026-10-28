@@ -29,6 +29,9 @@
     if ($user) {
         $postIds = \App\Models\Post::where('user_id', $user->id)->pluck('_id');
         $pendingContactCount = \App\Models\Contact::whereIn('post_id', $postIds)
+                                                  ->where(function($q) {
+                                                      $q->whereNull('is_hidden')->orWhere('is_hidden', '!=', true);
+                                                  })
                                                   ->where('status', 'pending')
                                                   ->count();
     }
@@ -42,7 +45,7 @@
 <aside id="global-sidebar-user" class="w-72 bg-slate-900 text-white flex flex-col shrink-0 shadow-2xl h-full {{ $isDrawer ? 'fixed top-0 left-0 z-[70] transform -translate-x-full transition-transform duration-300 ease-in-out' : 'hidden md:flex relative z-20' }}">
     <!-- Brand -->
     <div class="h-20 flex items-center justify-between px-8 border-b border-white/10">
-        <a href="{{ url('/') }}" class="text-xl font-black flex items-center gap-3 hover:opacity-80 transition-opacity group">
+        <a href="{{ Auth::check() && (Auth::user()->isModerator() || in_array(Auth::user()->role ?? '', ['kiemduyet', 'moderator', 'kiem_duyet'])) ? url('/kiem-duyet/tong-quan') : url('/') }}" class="text-xl font-black flex items-center gap-3 hover:opacity-80 transition-opacity group">
             <img src="{{ $webLogo }}" alt="RentHome Logo" class="w-10 h-10 object-contain rounded-xl shadow-md group-hover:scale-105 transition-transform">
             <span>{{ $p1 }}<span class="text-brand-500">{{ $p2 }}</span></span>
         </a>

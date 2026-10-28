@@ -2178,9 +2178,6 @@
                     <button type="button" class="btn btn-outline" onclick="closeModal('inspectModal')">
                         <i class="fa-solid fa-xmark"></i> Đóng
                     </button>
-                    <a href="#" target="_blank" class="btn-view-web" id="btnModalPreviewWeb" title="Mở trang xem trước bài đăng">
-                        <i class="fa-solid fa-arrow-up-right-from-square"></i> Xem thử trên web
-                    </a>
                 </div>
                 <div style="display: flex; gap: 10px;">
                     <button type="button" class="btn btn-danger" id="btnModalReject">

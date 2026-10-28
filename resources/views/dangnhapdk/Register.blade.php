@@ -2,6 +2,11 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
+    @auth
+    <script>
+        window.location.replace('/');
+    </script>
+    @endauth
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Đăng Ký - RentHome</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -454,6 +459,18 @@
                 icon.classList.add('fa-eye');
             }
         }
+
+        // Tự động kiểm tra trạng thái đăng nhập khi người dùng bấm nút Quay lại (Back)
+        window.addEventListener('pageshow', function (event) {
+            fetch('/api/auth/status')
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    if (data && data.authenticated) {
+                        window.location.replace('/');
+                    }
+                })
+                .catch(function() {});
+        });
     </script>
 </body>
 </html>
