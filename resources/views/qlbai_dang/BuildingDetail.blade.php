@@ -6,6 +6,7 @@
     <title>Chi Tiết Vận Hành & Quản Lý Phòng: {{ $building->name }} - RentHome</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    @include('partials.modern-notification')
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <style>
@@ -1036,7 +1037,7 @@
                         text: 'Vui lòng chọn Tòa nhà / Cơ sở đích tiếp nhận phòng này!'
                     });
                 } else {
-                    alert('Vui lòng chọn Tòa nhà / Cơ sở đích tiếp nhận!');
+                    showToast('Vui lòng chọn Tòa nhà / Cơ sở đích tiếp nhận!', 'warning');
                 }
                 targetBuildingSelect?.focus();
                 return;
@@ -1076,7 +1077,7 @@
                                 window.location.reload();
                             });
                         } else {
-                            alert(data.message || 'Chuyển tòa nhà thành công!');
+                            showToast(data.message || 'Chuyển tòa nhà thành công!', 'success');
                             window.location.reload();
                         }
                     } else {
@@ -1087,7 +1088,7 @@
                                 text: data.message || 'Có lỗi xảy ra khi chuyển tòa nhà!'
                             });
                         } else {
-                            alert(data.message || 'Có lỗi xảy ra!');
+                            showToast(data.message || 'Có lỗi xảy ra!', 'error');
                         }
                         if (btnConfirm) {
                             btnConfirm.disabled = false;
@@ -1103,7 +1104,7 @@
                             text: 'Không thể kết nối đến máy chủ. Vui lòng thử lại!'
                         });
                     } else {
-                        alert('Lỗi kết nối máy chủ!');
+                        showToast('Lỗi kết nối máy chủ!', 'error');
                     }
                     if (btnConfirm) {
                         btnConfirm.disabled = false;
@@ -1128,9 +1129,15 @@
                     }
                 });
             } else {
-                if (confirm(`Xác nhận chuyển phòng sang cơ sở "${targetBuildingName}"?`)) {
-                    confirmAction();
-                }
+                showConfirmDialog({
+                    title: "Chuyển cơ sở / Tòa nhà?",
+                    html: `Chuyển phòng sang cơ sở <strong>"${targetBuildingName}"</strong>?`,
+                    icon: "question",
+                    confirmText: "Đồng ý chuyển",
+                    confirmColor: "#f59e0b"
+                }).then((isConfirmed) => {
+                    if (isConfirmed) confirmAction();
+                });
             }
         }
 
@@ -1193,7 +1200,7 @@
                                 showConfirmButton: false
                             }).then(() => window.location.reload());
                         } else {
-                            alert('Đã xóa bài đăng thành công!');
+                            showToast('Đã xóa bài đăng thành công!', 'success');
                             window.location.reload();
                         }
                     } else {
@@ -1204,13 +1211,13 @@
                                 text: data.message || 'Có lỗi xảy ra!'
                             });
                         } else {
-                            alert(data.message || 'Có lỗi xảy ra!');
+                            showToast(data.message || 'Có lỗi xảy ra!', 'error');
                         }
                     }
                 })
                 .catch(err => {
                     console.error(err);
-                    alert('Lỗi kết nối máy chủ!');
+                    showToast('Lỗi kết nối máy chủ!', 'error');
                 });
             };
 
@@ -1228,14 +1235,29 @@
                     if (res.isConfirmed) doDelete();
                 });
             } else {
-                if (confirm('Hành động này sẽ XÓA VĨNH VIỄN bài đăng và hình ảnh liên quan. Bạn có chắc chắn?')) {
-                    doDelete();
-                }
+                showConfirmDialog({
+                    title: "Xóa bài đăng?",
+                    text: "Hành động này sẽ XÓA VĨNH VIỄN bài đăng và hình ảnh liên quan. Bạn có chắc chắn?",
+                    icon: "warning",
+                    confirmText: "Đồng ý xóa",
+                    confirmColor: "#ef4444",
+                    danger: true
+                }).then((isConfirmed) => {
+                    if (isConfirmed) doDelete();
+                });
             }
         }
 
-        function cancelRoom(id) {
-            if (!confirm('Bạn có muốn hủy đăng bài này không?')) return;
+        async function cancelRoom(id) {
+            const confirmed = await showConfirmDialog({
+                title: "Hủy đăng bài?",
+                text: "Bạn có muốn hủy đăng bài này không?",
+                icon: "question",
+                confirmText: "Đồng ý hủy",
+                confirmColor: "#ef4444",
+                danger: true
+            });
+            if (!confirmed) return;
             fetch(`/api/posts/${id}/cancel`, {
                 method: 'POST',
                 headers: {
@@ -1246,15 +1268,15 @@
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    alert('Đã hủy đăng bài thành công!');
+                    showToast('Đã hủy đăng bài thành công!', 'success');
                     window.location.reload();
                 } else {
-                    alert(data.message || 'Có lỗi xảy ra!');
+                    showToast(data.message || 'Có lỗi xảy ra!', 'error');
                 }
             })
             .catch(err => {
                 console.error(err);
-                alert('Lỗi kết nối máy chủ!');
+                showToast('Lỗi kết nối máy chủ!', 'error');
             });
         }
     </script>

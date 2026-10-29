@@ -8,6 +8,7 @@ use App\Models\Notification;
 use App\Models\SupportTicket;
 use App\Models\Complaint;
 use App\Models\Post;
+use App\Models\AdminActivity;
 
 /**
  * CSKHController - Controller chuyên trách cho Kênh Chăm Sóc Khách Hàng (CSKH)
@@ -35,6 +36,171 @@ class CSKHController extends ComplaintController
             'is_read'    => false,
             'created_at' => now(),
         ]);
+    }
+
+    /**
+     * Màn hình Tổng quan CSKH (Biểu đồ khiếu nại & Thống kê KPI)
+     * Route: GET /cskh/tong-quan
+     */
+    public function overview(Request $request)
+    {
+        $currentUser = Auth::user();
+        if (!$currentUser || (!$currentUser->isCskh() && !$currentUser->isAdmin() && $currentUser->role !== 'admin' && !$currentUser->isModerator())) {
+            return redirect('/login')->with('error', 'Chỉ tài khoản Chăm Sóc Khách Hàng mới có quyền truy cập trang Tổng quan CSKH.');
+        }
+
+        // Tự động đồng bộ các thông báo ban đầu nếu chưa có
+        $this->ensureInitialNotificationsExist();
+
+        // 1. Thống kê KPI tổng thể
+        $totalComplaints = SupportTicket::where('type', 'khieu_nai')->count() + Complaint::count();
+
+        // Đơn chờ xử lý cấp 1 (Pending tại CSKH)
+        $pendingCount = SupportTicket::where('type', 'khieu_nai')
+            ->whereNotIn('status', ['resolved', 'rejected', 'da_giai_quyet', 'tu_choi'])
+            ->where(function($q) {
+                $q->whereNull('is_escalated')->orWhere('is_escalated', false);
+            })
+            ->where('status', '!=', 'escalated')
+            ->count()
+            + Complaint::whereNotIn('status', ['resolved', 'rejected', 'da_giai_quyet', 'tu_choi'])
+            ->where(function($q) {
+                $q->whereNull('is_escalated')->orWhere('is_escalated', false);
+            })
+            ->where('status', '!=', 'escalated')
+            ->count();
+
+        // Đơn đã chuyển tiếp lên Admin cấp 2 (Trình Admin / Đẩy lên Admin)
+        $escalatedCount = SupportTicket::where('type', 'khieu_nai')
+            ->where(function($q) {
+                $q->where('is_escalated', true)->orWhere('status', 'escalated');
+            })
+            ->count()
+            + Complaint::where(function($q) {
+                $q->where('is_escalated', true)->orWhere('status', 'escalated');
+            })
+            ->count();
+
+        // Đơn do CSKH tự giải quyết (Không leo thang lên Admin)
+        $cskhResolvedCount = SupportTicket::where('type', 'khieu_nai')
+            ->whereIn('status', ['resolved', 'da_giai_quyet', 'closed'])
+            ->where(function($q) {
+                $q->whereNull('is_escalated')->orWhere('is_escalated', false);
+            })
+            ->where('status', '!=', 'escalated')
+            ->count()
+            + Complaint::whereIn('status', ['resolved', 'da_giai_quyet', 'closed'])
+            ->where(function($q) {
+                $q->whereNull('is_escalated')->orWhere('is_escalated', false);
+            })
+            ->where('status', '!=', 'escalated')
+            ->count();
+
+        // Đơn đã giải quyết thành công (Tổng thể cả CSKH & Admin)
+        $resolvedCount = SupportTicket::where('type', 'khieu_nai')
+            ->whereIn('status', ['resolved', 'da_giai_quyet', 'closed'])
+            ->count()
+            + Complaint::whereIn('status', ['resolved', 'da_giai_quyet', 'closed'])
+            ->count();
+
+        // Đơn đã bác bỏ / từ chối (Rejected)
+        $rejectedCount = SupportTicket::where('type', 'khieu_nai')
+            ->whereIn('status', ['rejected', 'tu_choi', 'cancelled'])
+            ->count()
+            + Complaint::whereIn('status', ['rejected', 'tu_choi', 'cancelled'])
+            ->count();
+
+        // Tỷ lệ giải quyết
+        $resolutionRate = $totalComplaints > 0 ? round(($resolvedCount / $totalComplaints) * 100, 1) : 100;
+
+        // 2. Dữ liệu biểu đồ 7 ngày gần nhất
+        $chartDays = [];
+        $incomingData = [];
+        $resolvedData = [];
+
+        for ($i = 6; $i >= 0; $i--) {
+            $date = now()->subDays($i);
+            $dateStart = $date->copy()->startOfDay();
+            $dateEnd = $date->copy()->endOfDay();
+            $dayLabel = $date->format('d/m');
+
+            $chartDays[] = $dayLabel;
+
+            $inCount = SupportTicket::where('type', 'khieu_nai')
+                ->whereBetween('created_at', [$dateStart, $dateEnd])
+                ->count()
+                + Complaint::whereBetween('created_at', [$dateStart, $dateEnd])->count();
+
+            $resCount = SupportTicket::where('type', 'khieu_nai')
+                ->whereBetween('resolved_at', [$dateStart, $dateEnd])
+                ->count()
+                + Complaint::whereBetween('updated_at', [$dateStart, $dateEnd])
+                    ->whereIn('status', ['resolved', 'da_giai_quyet'])
+                    ->count();
+
+            $incomingData[] = $inCount;
+            $resolvedData[] = $resCount;
+        }
+
+        // 3. Phân loại theo lý do vi phạm phổ biến
+        $allTickets = SupportTicket::where('type', 'khieu_nai')->get(['reason', 'message', 'content', 'status']);
+        $allComplaints = Complaint::all(['reason', 'content', 'status']);
+
+        $reasonCategories = [
+            'sai_lech' => ['label' => 'Sai lệch giá / hình ảnh', 'count' => 0, 'color' => '#f59e0b'],
+            'da_thue' => ['label' => 'Đã cho thuê nhưng vẫn đăng', 'count' => 0, 'color' => '#0284c7'],
+            'khong_lien_he' => ['label' => 'Không liên hệ được chủ phòng', 'count' => 0, 'color' => '#8b5cf6'],
+            'lua_dao' => ['label' => 'Dấu hiệu lừa đảo / Đặt cọc', 'count' => 0, 'color' => '#ef4444'],
+            'phan_anh_khac' => ['label' => 'Phản ánh bài đăng / Khác', 'count' => 0, 'color' => '#10b981'],
+        ];
+
+        foreach ($allTickets->concat($allComplaints) as $item) {
+            $r = mb_strtolower(($item->reason ?? '') . ' ' . ($item->message ?? '') . ' ' . ($item->content ?? ''));
+            if (str_contains($r, 'giá') || str_contains($r, 'ảnh') || str_contains($r, 'hình') || str_contains($r, 'sai lệch')) {
+                $reasonCategories['sai_lech']['count']++;
+            } elseif (str_contains($r, 'đã cho thuê') || str_contains($r, 'hết phòng') || str_contains($r, 'trùng')) {
+                $reasonCategories['da_thue']['count']++;
+            } elseif (str_contains($r, 'không liên') || str_contains($r, 'không nghe') || str_contains($r, 'thuê bao')) {
+                $reasonCategories['khong_lien_he']['count']++;
+            } elseif (str_contains($r, 'lừa') || str_contains($r, 'cọc') || str_contains($r, 'tiền')) {
+                $reasonCategories['lua_dao']['count']++;
+            } else {
+                $reasonCategories['phan_anh_khac']['count']++;
+            }
+        }
+
+        // 4. Danh sách khiếu nại mới nhất / khẩn cấp
+        $recentTickets = SupportTicket::where('type', 'khieu_nai')
+            ->with(['post', 'staff'])
+            ->orderBy('created_at', 'desc')
+            ->take(6)
+            ->get();
+
+        // 5. Số thông báo chưa đọc cho Badge Sidebar
+        $userId = (string)($currentUser->_id ?? $currentUser->id);
+        $unreadCount = Notification::where(function ($q) use ($userId) {
+            $q->where('role', 'cskh')
+              ->orWhere('role', 'cham_soc_kh')
+              ->orWhere('role', 'chamsockh')
+              ->orWhere('user_id', $userId);
+        })->where('is_read', false)->count();
+
+        return view('cham_soc_kh.tong_quan', compact(
+            'currentUser',
+            'totalComplaints',
+            'pendingCount',
+            'escalatedCount',
+            'cskhResolvedCount',
+            'resolvedCount',
+            'rejectedCount',
+            'resolutionRate',
+            'chartDays',
+            'incomingData',
+            'resolvedData',
+            'reasonCategories',
+            'recentTickets',
+            'unreadCount'
+        ));
     }
 
     /**
@@ -330,5 +496,171 @@ class CSKHController extends ComplaintController
             'unread_notifications' => $unreadCount,
             'pending_complaints' => $pendingComplaints
         ]);
+    }
+
+    /**
+     * Màn hình Lịch sử hoạt động của tài khoản Chăm Sóc Khách Hàng
+     * Route: GET /cskh/lich-su (name: cskh.history)
+     */
+    public function history(Request $request)
+    {
+        $currentUser = Auth::user();
+        if (!$currentUser || (!$currentUser->isCskh() && !$currentUser->isAdmin() && $currentUser->role !== 'admin' && !$currentUser->isModerator())) {
+            return redirect('/login')->with('error', 'Chỉ tài khoản Chăm Sóc Khách Hàng mới có quyền truy cập trang Lịch sử hoạt động.');
+        }
+
+        $userId = (string)($currentUser->_id ?? $currentUser->id);
+
+        // Đảm bảo các hoạt động cơ bản được đồng bộ
+        $this->ensureInitialActivitiesExist($currentUser);
+
+        // 1. Base Query: Tìm các hoạt động của CSKH hoặc liên quan đến khiếu nại / liên hệ
+        $query = AdminActivity::where(function($q) use ($userId) {
+            $q->where('admin_id', $userId)
+              ->orWhere('category', 'cskh')
+              ->orWhereIn('category', ['complaint', 'support_ticket', 'contact'])
+              ->orWhere('admin_name', 'LIKE', '%Chăm Sóc%')
+              ->orWhere('admin_name', 'LIKE', '%CSKH%');
+        });
+
+        // 2. Bộ lọc tìm kiếm từ khóa
+        $search = trim((string)$request->input('search', ''));
+        if (!empty($search)) {
+            $query->where(function($q) use ($search) {
+                $q->where('title', 'LIKE', "%{$search}%")
+                  ->orWhere('description', 'LIKE', "%{$search}%")
+                  ->orWhere('target_name', 'LIKE', "%{$search}%")
+                  ->orWhere('target_id', 'LIKE', "%{$search}%")
+                  ->orWhere('admin_name', 'LIKE', "%{$search}%");
+            });
+        }
+
+        // 3. Bộ lọc loại hành động
+        $actionType = $request->input('action_type', 'all');
+        if ($actionType && $actionType !== 'all') {
+            if ($actionType === 'escalate') {
+                $query->whereIn('action_type', ['escalate', 'escalate_ticket']);
+            } elseif ($actionType === 'resolve') {
+                $query->whereIn('action_type', ['resolve', 'resolve_contact', 'approve']);
+            } elseif ($actionType === 'reply') {
+                $query->whereIn('action_type', ['reply', 'message']);
+            } elseif ($actionType === 'warning') {
+                $query->whereIn('action_type', ['warning', 'remind_staff']);
+            } elseif ($actionType === 'reject') {
+                $query->whereIn('action_type', ['reject', 'reject_complaint', 'dismiss']);
+            } else {
+                $query->where('action_type', $actionType);
+            }
+        }
+
+        // 4. Bộ lọc thời gian
+        $period = $request->input('period', 'all');
+        if ($period === 'today') {
+            $query->where('created_at', '>=', now()->startOfDay());
+        } elseif ($period === '7days') {
+            $query->where('created_at', '>=', now()->subDays(7)->startOfDay());
+        } elseif ($period === '30days') {
+            $query->where('created_at', '>=', now()->subDays(30)->startOfDay());
+        }
+
+        // 5. Thống kê nhanh cho các thẻ KPI trên trang Lịch sử
+        $statsBase = AdminActivity::where(function($q) use ($userId) {
+            $q->where('admin_id', $userId)
+              ->orWhere('category', 'cskh')
+              ->orWhereIn('category', ['complaint', 'support_ticket', 'contact'])
+              ->orWhere('admin_name', 'LIKE', '%Chăm Sóc%')
+              ->orWhere('admin_name', 'LIKE', '%CSKH%');
+        });
+
+        $totalActivities = (clone $statsBase)->count();
+        $escalatedCount = (clone $statsBase)->whereIn('action_type', ['escalate', 'escalate_ticket'])->count();
+        $resolvedCount = (clone $statsBase)->whereIn('action_type', ['resolve', 'resolve_contact', 'approve'])->count();
+        $repliedCount = (clone $statsBase)->whereIn('action_type', ['reply', 'message'])->count();
+
+        // 6. Phân trang dữ liệu
+        $activities = $query->orderBy('created_at', 'desc')->paginate(12)->appends($request->all());
+
+        // 7. Số liệu Badge cho Sidebar
+        $pendingCount = SupportTicket::where('type', 'khieu_nai')
+            ->whereNotIn('status', ['resolved', 'rejected', 'da_giai_quyet', 'tu_choi'])
+            ->where(function($q) {
+                $q->whereNull('is_escalated')->orWhere('is_escalated', false);
+            })
+            ->where('status', '!=', 'escalated')
+            ->count()
+            + Complaint::whereNotIn('status', ['resolved', 'rejected', 'da_giai_quyet', 'tu_choi'])
+            ->where(function($q) {
+                $q->whereNull('is_escalated')->orWhere('is_escalated', false);
+            })
+            ->where('status', '!=', 'escalated')
+            ->count();
+
+        $unreadCount = Notification::where(function ($q) use ($userId) {
+            $q->where('role', 'cskh')
+              ->orWhere('role', 'cham_soc_kh')
+              ->orWhere('role', 'chamsockh')
+              ->orWhere('user_id', $userId)
+              ->orWhereIn('category', [
+                  'new_complaint',
+                  'admin_verdict',
+                  'admin_rejected',
+                  'admin_sanction',
+                  'customer_reply',
+                  'complaint_escalated'
+              ]);
+        })->where('is_read', false)->count();
+
+        return view('cham_soc_kh.lich_su', compact(
+            'currentUser',
+            'activities',
+            'totalActivities',
+            'escalatedCount',
+            'resolvedCount',
+            'repliedCount',
+            'pendingCount',
+            'unreadCount',
+            'search',
+            'actionType',
+            'period'
+        ));
+    }
+
+    /**
+     * Tự động khởi tạo dữ liệu hoạt động CSKH ban đầu nếu chưa có
+     */
+    protected function ensureInitialActivitiesExist($currentUser)
+    {
+        $hasCskhLogs = AdminActivity::where('category', 'cskh')->orWhere('action_type', 'escalate')->exists();
+        if ($hasCskhLogs) {
+            return;
+        }
+
+        $cskhName = $currentUser->account_name ?: ($currentUser->username ?: 'Chăm Sóc Khách Hàng');
+        $cskhEmail = $currentUser->email ?: 'chamsockh@gmail.com';
+        $cskhId = (string)($currentUser->_id ?? $currentUser->id);
+
+        $tickets = SupportTicket::where('type', 'khieu_nai')->get();
+        foreach ($tickets as $t) {
+            $code = $t->ticket_code ?? ('#KN-' . strtoupper(substr((string)$t->_id, -5)));
+            if ($t->is_escalated) {
+                AdminActivity::create([
+                    'admin_id'    => $cskhId,
+                    'admin_name'  => $cskhName,
+                    'admin_email' => $cskhEmail,
+                    'action_type' => 'escalate',
+                    'category'    => 'complaint',
+                    'title'       => 'Trình hồ sơ khiếu nại lên Ban Quản Trị (Cấp 2)',
+                    'description' => "CSKH đã xác minh và chuyển tiếp hồ sơ {$code} lên Ban Quản Trị Cấp 2 xử lý. Lý do: {$t->subject} - Khách thuê phản ánh cần thẩm tra đối soát.",
+                    'target_id'   => (string)$t->_id,
+                    'target_name' => $code,
+                    'ip_address'  => request()->ip() ?: '127.0.0.1',
+                    'user_agent'  => 'Cốc Cốc trên Windows',
+                    'status'      => 'warning',
+                    'metadata'    => ['code' => $code, 'type' => 'khieu_nai'],
+                    'created_at'  => $t->created_at ?? now(),
+                    'updated_at'  => $t->created_at ?? now(),
+                ]);
+            }
+        }
     }
 }

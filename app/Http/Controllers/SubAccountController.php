@@ -449,8 +449,8 @@ class SubAccountController extends Controller
             return response()->json(['error' => 'Chỉ tài khoản Ban Quản Trị / Doanh nghiệp RentHome mới có quyền cập nhật tài khoản con.'], 403);
         }
 
-        $subAccount = User::find($id);
-        if (!$subAccount || !$subAccount->isSubAccount()) {
+        $subAccount = User::where('_id', $id)->orWhere('id', $id)->first();
+        if (!$subAccount || (!$subAccount->isSubAccount() && !$subAccount->isModerator() && !$subAccount->isCskh() && empty($subAccount->parent_id))) {
             return response()->json(['error' => 'Không tìm thấy tài khoản con!'], 404);
         }
 
@@ -474,41 +474,37 @@ class SubAccountController extends Controller
             $subAccount->account_name = $validated['name'];
             $subAccount->phone = $validated['phone'];
 
-            $isModerator = (method_exists($subAccount, 'isModerator') && $subAccount->isModerator())
-                || in_array(strtolower($subAccount->role ?? ''), ['kiemduyet', 'moderator', 'kiem_duyet'], true)
-                || in_array(strtolower($request->input('role') ?? ''), ['kiemduyet', 'moderator', 'kiem_duyet'], true)
-                || str_contains(mb_strtolower($subAccount->staff_role ?? ''), 'kiểm duyệt')
-                || str_contains(mb_strtolower($request->input('staff_role') ?? ''), 'kiểm duyệt');
+            $rawRole = $request->input('role');
+            $rawStaffRole = $request->input('staff_role');
 
-            $isCskh = (method_exists($subAccount, 'isCskh') && $subAccount->isCskh())
-                || in_array(strtolower($subAccount->role ?? ''), ['chăm sóc kh', 'chamsockh', 'cskh', 'cham_soc_kh'], true)
-                || in_array(strtolower($request->input('role') ?? ''), ['chăm sóc kh', 'chamsockh', 'cskh', 'cham_soc_kh'], true)
-                || str_contains(mb_strtolower($subAccount->staff_role ?? ''), 'chăm sóc')
-                || str_contains(mb_strtolower($request->input('staff_role') ?? ''), 'chăm sóc')
-                || str_contains(mb_strtolower($subAccount->staff_role ?? ''), 'cskh')
-                || str_contains(mb_strtolower($request->input('staff_role') ?? ''), 'cskh');
+            if (!empty($rawRole) || !empty($rawStaffRole)) {
+                $isModerator = in_array(strtolower((string)$rawRole), ['kiemduyet', 'moderator', 'kiem_duyet'], true)
+                    || str_contains(mb_strtolower((string)$rawStaffRole), 'kiểm duyệt')
+                    || str_contains(mb_strtolower((string)$rawStaffRole), 'kiem duyet');
+
+                $isCskh = in_array(strtolower((string)$rawRole), ['chăm sóc kh', 'chamsockh', 'cskh', 'cham_soc_kh'], true)
+                    || str_contains(mb_strtolower((string)$rawStaffRole), 'chăm sóc')
+                    || str_contains(mb_strtolower((string)$rawStaffRole), 'cskh');
+            } else {
+                $isModerator = (method_exists($subAccount, 'isModerator') && $subAccount->isModerator())
+                    || in_array(strtolower($subAccount->role ?? ''), ['kiemduyet', 'moderator', 'kiem_duyet'], true)
+                    || str_contains(mb_strtolower($subAccount->staff_role ?? ''), 'kiểm duyệt');
+
+                $isCskh = (method_exists($subAccount, 'isCskh') && $subAccount->isCskh())
+                    || in_array(strtolower($subAccount->role ?? ''), ['chăm sóc kh', 'chamsockh', 'cskh', 'cham_soc_kh'], true)
+                    || str_contains(mb_strtolower($subAccount->staff_role ?? ''), 'chăm sóc')
+                    || str_contains(mb_strtolower($subAccount->staff_role ?? ''), 'cskh');
+            }
 
             if ($isModerator) {
                 $subAccount->role = 'kiemduyet';
-                $subAccount->staff_role = !empty($validated['staff_role']) ? $validated['staff_role'] : ($subAccount->staff_role ?: 'Kiểm duyệt viên');
+                $subAccount->staff_role = !empty($rawStaffRole) ? $rawStaffRole : 'Kiểm duyệt viên';
             } elseif ($isCskh) {
                 $subAccount->role = 'chăm sóc kh';
-                $subAccount->staff_role = !empty($validated['staff_role']) ? $validated['staff_role'] : ($subAccount->staff_role ?: 'Chăm sóc KH');
+                $subAccount->staff_role = !empty($rawStaffRole) ? $rawStaffRole : 'Chăm sóc KH';
             } else {
-                // Tài khoản do admin tạo / cập nhật: chuyển từ doanh nghiệp sang nhansu / Nhân sự
-                $inputRole = $request->input('role');
-                if (!empty($inputRole) && !in_array($inputRole, ['doanhnghiep', 'enterprise'], true)) {
-                    $subAccount->role = $inputRole;
-                } else {
-                    $subAccount->role = 'nhansu';
-                }
-
-                $inputStaffRole = $validated['staff_role'] ?? null;
-                if (!empty($inputStaffRole) && !in_array($inputStaffRole, ['Doanh nghiệp', 'doanhnghiep', 'Nhân viên'], true)) {
-                    $subAccount->staff_role = $inputStaffRole;
-                } else {
-                    $subAccount->staff_role = 'Nhân sự';
-                }
+                $subAccount->role = 'nhansu';
+                $subAccount->staff_role = (!empty($rawStaffRole) && !in_array($rawStaffRole, ['Doanh nghiệp', 'doanhnghiep', 'Nhân viên'], true)) ? $rawStaffRole : 'Nhân sự';
             }
 
             $previousAssigned = array_map('strval', (array)($subAccount->assigned_buildings ?? []));
@@ -809,6 +805,43 @@ class SubAccountController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Đã xóa tài khoản khách hàng khỏi hệ thống thành công!'
+        ]);
+    }
+
+    /**
+     * Xóa tài khoản con / nhân sự
+     */
+    public function destroy($id)
+    {
+        if (!$this->checkPermission()) {
+            return response()->json(['error' => 'Chỉ tài khoản Ban Quản Trị / Doanh nghiệp RentHome mới có quyền xóa tài khoản con.'], 403);
+        }
+
+        $subAccount = User::where('_id', $id)->orWhere('id', $id)->first();
+        if (!$subAccount) {
+            return response()->json(['error' => 'Không tìm thấy tài khoản con!'], 404);
+        }
+
+        if ($subAccount->isAdmin()) {
+            return response()->json(['error' => 'Không thể xóa tài khoản Quản trị viên!'], 403);
+        }
+
+        $accName = $subAccount->account_name ?: ($subAccount->username ?: $subAccount->email);
+
+        // Ghi log xóa
+        AdminActivity::log(
+            'delete',
+            'account',
+            'Xóa tài khoản nhân sự / tài khoản con',
+            "Admin đã xóa tài khoản: {$accName} ({$subAccount->email}) khỏi danh sách.",
+            $subAccount
+        );
+
+        $subAccount->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã xóa tài khoản con khỏi hệ thống thành công!'
         ]);
     }
 }

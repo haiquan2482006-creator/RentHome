@@ -867,13 +867,13 @@
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success') {
-                    alert('🎉 ' + data.message);
+                    showToast('🎉 ' + data.message, 'success');
                 } else {
-                    alert('Đã lưu cấu hình giao diện thành công!');
+                    showToast('Đã lưu cấu hình giao diện thành công!', 'success');
                 }
             })
             .catch(() => {
-                alert('Đã lưu cấu hình giao diện thành công!');
+                showToast('Đã lưu cấu hình giao diện thành công!', 'success');
             });
         }
     </script>

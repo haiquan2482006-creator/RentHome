@@ -1,3 +1,4 @@
+@include('partials.modern-notification')
 @php
     $user = \Illuminate\Support\Facades\Auth::user();
     $isStaff = $user && ($user->isSubAccount() || $user->isStaff() || in_array($user->role ?? '', ['nhansu', 'nhan su', 'nhan_su', 'sub_account', 'staff']));

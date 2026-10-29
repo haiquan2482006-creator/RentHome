@@ -14,6 +14,7 @@
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    @include('partials.modern-notification')
     <script>
         tailwind.config = {
             theme: {
@@ -501,7 +502,7 @@
                                     <span class="text-slate-400 block text-[10px] uppercase font-bold">Số Tài Khoản:</span>
                                     <div class="flex items-center justify-between">
                                         <strong class="text-emerald-400 text-sm font-mono tracking-wider">{{ $bankAccount }}</strong>
-                                        <button type="button" onclick="navigator.clipboard.writeText('{{ $bankAccount }}'); alert('Đã sao chép số tài khoản!')" class="text-slate-300 hover:text-white" title="Sao chép STK">
+                                        <button type="button" onclick="navigator.clipboard.writeText('{{ $bankAccount }}'); showToast('Đã sao chép số tài khoản!', 'success')" class="text-slate-300 hover:text-white" title="Sao chép STK">
                                             <i class="fa-solid fa-copy"></i>
                                         </button>
                                     </div>
@@ -514,7 +515,7 @@
                                     <span class="text-slate-400 block text-[10px] uppercase font-bold">Nội Dung Chuyển Khoản:</span>
                                     <div class="flex items-center justify-between">
                                         <strong class="text-amber-300 text-sm font-mono">{{ $memo }}</strong>
-                                        <button type="button" onclick="navigator.clipboard.writeText('{{ $memo }}'); alert('Đã sao chép nội dung chuyển khoản!')" class="text-slate-300 hover:text-white" title="Sao chép cú pháp">
+                                        <button type="button" onclick="navigator.clipboard.writeText('{{ $memo }}'); showToast('Đã sao chép nội dung chuyển khoản!', 'success')" class="text-slate-300 hover:text-white" title="Sao chép cú pháp">
                                             <i class="fa-solid fa-copy"></i>
                                         </button>
                                     </div>
@@ -643,9 +644,17 @@
                     }
                 });
             } else {
-                if (confirm(`Bạn xác nhận đã thu [${totalAmountStr}] VNĐ tiền mặt từ khách thuê ${tenantName}?`)) {
-                    executePayCash(invoiceCode, csrfToken);
-                }
+                showConfirmDialog({
+                    title: "Xác nhận thu tiền mặt?",
+                    text: `Bạn xác nhận đã thu [${totalAmountStr}] VNĐ tiền mặt từ khách thuê ${tenantName}?`,
+                    icon: "question",
+                    confirmText: "Đã thu tiền",
+                    confirmColor: "#10b981"
+                }).then((isConfirmed) => {
+                    if (isConfirmed) {
+                        executePayCash(invoiceCode, csrfToken);
+                    }
+                });
             }
         }
 
@@ -678,14 +687,14 @@
                             window.location.reload();
                         });
                     } else {
-                        alert('🎉 ' + data.message);
+                        showToast('🎉 ' + data.message, 'success');
                         window.location.reload();
                     }
                 } else {
                     if (typeof Swal !== 'undefined') {
                         Swal.fire('Không Thể Thực Hiện', data.message || 'Không thể cập nhật thanh toán', 'warning');
                     } else {
-                        alert('Lỗi: ' + (data.message || 'Không thể cập nhật thanh toán'));
+                        showToast('Lỗi: ' + (data.message || 'Không thể cập nhật thanh toán'), 'error');
                     }
                     if (btnTop) { btnTop.disabled = false; btnTop.innerHTML = '<i class="fa-solid fa-money-bill-wave text-base"></i><span>Xác Nhận Thu Tiền Mặt</span>'; }
                     if (btnBottom) { btnBottom.disabled = false; btnBottom.innerHTML = '<i class="fa-solid fa-money-bill-wave text-base"></i><span>XÁC NHẬN THU TIỀN MẶT</span>'; }
@@ -696,7 +705,7 @@
                 if (typeof Swal !== 'undefined') {
                     Swal.fire('Lỗi', 'Có lỗi xảy ra khi kết nối máy chủ!', 'error');
                 } else {
-                    alert('Có lỗi xảy ra khi kết nối máy chủ!');
+                    showToast('Có lỗi xảy ra khi kết nối máy chủ!', 'error');
                 }
                 if (btnTop) { btnTop.disabled = false; }
                 if (btnBottom) { btnBottom.disabled = false; }

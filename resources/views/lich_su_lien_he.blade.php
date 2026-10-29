@@ -430,52 +430,57 @@
             }
         }
 
-        // Xử lý thu hồi yêu cầu liên hệ
+        // Xử lý thu hồi yêu cầu liên hệ (Thu hồi trực tiếp, không hỏi lại, thông báo dạng Toast)
         function revokeContact(contactId) {
-            Swal.fire({
-                title: 'Thu hồi yêu cầu liên hệ?',
-                text: 'Bạn có chắc chắn muốn hủy yêu cầu xem phòng này không?',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#dc2626',
-                cancelButtonColor: '#64748b',
-                confirmButtonText: 'Đồng ý thu hồi',
-                cancelButtonText: 'Hủy'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    fetch(`/contact/${contactId}/revoke`, {
-                        method: 'DELETE',
-                        headers: {
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                            'Accept': 'application/json',
-                            'Content-Type': 'application/json'
-                        }
-                    })
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.success) {
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Thành công!',
-                                text: data.message || 'Đã thu hồi yêu cầu liên hệ thành công.',
-                                timer: 1500,
-                                showConfirmButton: false
-                            });
-                            const card = document.getElementById(`contact-card-${contactId}`);
-                            if (card) {
-                                card.remove();
-                            }
-                            setTimeout(() => {
-                                window.location.reload();
-                            }, 1200);
-                        } else {
-                            Swal.fire('Lỗi!', data.message || 'Không thể thu hồi yêu cầu này.', 'error');
-                        }
-                    })
-                    .catch(err => {
-                        Swal.fire('Lỗi!', 'Đã có lỗi xảy ra trong quá trình xử lý.', 'error');
+            fetch(`/contact/${contactId}/revoke`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                const Toast = Swal.mixin({
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 3000,
+                    timerProgressBar: true
+                });
+
+                if (data.success) {
+                    Toast.fire({
+                        icon: 'success',
+                        title: data.message || 'Đã thu hồi yêu cầu liên hệ thành công.'
+                    });
+                    const card = document.getElementById(`contact-card-${contactId}`);
+                    if (card) {
+                        card.remove();
+                    }
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1200);
+                } else {
+                    Toast.fire({
+                        icon: 'error',
+                        title: data.message || 'Không thể thu hồi yêu cầu này.'
                     });
                 }
+            })
+            .catch(err => {
+                const Toast = Swal.mixin({
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 3000,
+                    timerProgressBar: true
+                });
+                Toast.fire({
+                    icon: 'error',
+                    title: 'Đã có lỗi xảy ra trong quá trình xử lý.'
+                });
             });
         }
     </script>

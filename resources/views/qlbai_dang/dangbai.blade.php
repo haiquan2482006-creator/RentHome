@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    @include('partials.modern-notification')
     <script>
         tailwind.config = {
             theme: {
@@ -1087,7 +1088,7 @@
             const isEditing = Boolean(document.getElementById('edit-post-id')?.value || '{{ $editingPost ? "1" : "" }}');
 
             if (isSubAccount && !buildingId && !isEditing) {
-                alert('Vui lòng chọn Tòa nhà được phân công quản lý trước khi tiếp tục!');
+                showToast('Vui lòng chọn Tòa nhà được phân công quản lý trước khi tiếp tục!', 'warning');
                 bSelect?.focus();
                 return;
             }
@@ -1226,7 +1227,7 @@
             let currentVal = input.value.trim();
             if (currentVal.includes(text)) return;
             if (currentBuildingAmenities.includes(text)) {
-                alert(`"${text}" đã có sẵn trong danh sách tiện ích dùng chung kế thừa từ tòa nhà!`);
+                showToast(`"` + text + `" đã có sẵn trong danh sách tiện ích dùng chung kế thừa từ tòa nhà!`, 'info');
                 return;
             }
             if (currentVal.length > 0) {
@@ -1334,7 +1335,7 @@
             const title = titleInput ? titleInput.value.trim() : '';
 
             if (!title) {
-                alert('Vui lòng nhập tiêu đề bài đăng!');
+                showToast('Vui lòng nhập tiêu đề bài đăng!', 'warning');
                 if (titleInput) titleInput.focus();
                 return;
             }
@@ -1343,14 +1344,14 @@
             const areaInput = document.getElementById('post-area');
             
             if (!priceInput || !priceInput.value.trim()) {
-                alert('Vui lòng nhập giá cho thuê!');
+                showToast('Vui lòng nhập giá cho thuê!', 'warning');
                 return;
             }
             const isSubAccount = @json($isSubAccount);
             const buildingId = document.getElementById('select-building-id')?.value || '';
             const isEditing = Boolean(document.getElementById('edit-post-id')?.value || '{{ $editingPost ? "1" : "" }}');
             if (isSubAccount && !buildingId && !isEditing) {
-                alert('Vui lòng chọn Tòa nhà được phân công quản lý trước khi đăng bài!');
+                showToast('Vui lòng chọn Tòa nhà được phân công quản lý trước khi đăng bài!', 'warning');
                 document.getElementById('select-building-id')?.focus();
                 return;
             }
@@ -1457,7 +1458,7 @@
                 btn.disabled = false;
                 if (data.success) {
                     sessionStorage.removeItem('edit_post_data');
-                    alert(data.message || 'Đã gửi bài đăng thành công! Bài viết đang chờ Kiểm duyệt viên phê duyệt.');
+                    showToast(data.message || 'Đã gửi bài đăng thành công! Bài viết đang chờ Kiểm duyệt viên phê duyệt.', 'success');
                     
                     let targetUrl = '/Overview?tab=pending';
                     if (data.redirect_url) {
@@ -1474,14 +1475,14 @@
                     }
                     window.location.href = targetUrl;
                 } else {
-                    alert(data.error || data.message || 'Có lỗi xảy ra khi đăng bài!');
+                    showToast(data.error || data.message || 'Có lỗi xảy ra khi đăng bài!', 'error');
                 }
             })
             .catch(err => {
                 console.error(err);
                 btn.innerHTML = originalText;
                 btn.disabled = false;
-                alert('Không thể kết nối đến server. Vui lòng thử lại sau.');
+                showToast('Không thể kết nối đến server. Vui lòng thử lại sau.', 'error');
             });
         }
 
@@ -1849,7 +1850,7 @@
                     const isRented = Boolean(postData.is_rented === true || postData.status === 'đã cho thuê' || postData.status === 'rented' || postData.status === 'dang_thue' || postData.status === 'đang thuê');
                     if (isRented) {
                         sessionStorage.removeItem('edit_post_data');
-                        alert('Bài đăng này đang có người thuê, không được phép chỉnh sửa hoặc cập nhật!');
+                        showToast('Bài đăng này đang có người thuê, không được phép chỉnh sửa hoặc cập nhật!', 'warning');
                         window.location.href = '/Overview';
                         return;
                     }

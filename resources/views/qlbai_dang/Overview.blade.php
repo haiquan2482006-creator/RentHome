@@ -1732,9 +1732,15 @@
         }
 
         async function deleteNotif(id) {
-            if (!confirm('Bạn có chắc chắn muốn xóa vĩnh viễn thông báo này khỏi hệ thống?')) {
-                return;
-            }
+            const confirmed = await showConfirmDialog({
+                title: "Xóa thông báo?",
+                text: "Bạn có chắc chắn muốn xóa vĩnh viễn thông báo này khỏi hệ thống?",
+                icon: "warning",
+                confirmText: "Xóa",
+                confirmColor: "#ef4444",
+                danger: true
+            });
+            if (!confirmed) return;
 
             // Cập nhật giao diện ngay lập tức (Optimistic UI)
             let list = getNotificationsData();
@@ -1766,13 +1772,19 @@
             const list = getNotificationsData();
             const readNotifs = list.filter(n => n.isRead);
             if (readNotifs.length === 0) {
-                alert('Không có thông báo đã đọc nào để xóa.');
+                showToast('Không có thông báo đã đọc nào để xóa.', 'info');
                 return;
             }
 
-            if (!confirm(`Bạn có chắc chắn muốn xóa toàn bộ ${readNotifs.length} thông báo đã đọc khỏi hệ thống?`)) {
-                return;
-            }
+            const confirmed = await showConfirmDialog({
+                title: "Xóa thông báo đã đọc?",
+                text: `Bạn có chắc chắn muốn xóa toàn bộ ${readNotifs.length} thông báo đã đọc khỏi hệ thống?`,
+                icon: "warning",
+                confirmText: "Xóa tất cả",
+                confirmColor: "#ef4444",
+                danger: true
+            });
+            if (!confirmed) return;
 
             // Cập nhật giao diện ngay lập tức
             saveNotificationsData(list.filter(n => !n.isRead));
@@ -1905,11 +1917,19 @@
                 const p = window.allPosts[postId];
                 const isRented = Boolean(p.is_rented === true || p.status === 'đã cho thuê' || p.status === 'rented' || p.status === 'dang_thue' || p.status === 'đang thuê');
                 if (isRented) {
-                    alert('Bài đăng này đang có người thuê, không thể hủy hoặc xóa!');
+                    showToast('Bài đăng này đang có người thuê, không thể hủy hoặc xóa!', 'warning');
                     return;
                 }
             }
-            if (!confirm(`Bạn có chắc chắn muốn hủy đăng bài này không?`)) return;
+            const confirmed = await showConfirmDialog({
+                title: "Hủy đăng bài?",
+                text: "Bạn có chắc chắn muốn hủy đăng bài này không?",
+                icon: "question",
+                confirmText: "Hủy đăng bài",
+                confirmColor: "#ef4444",
+                danger: true
+            });
+            if (!confirmed) return;
             try {
                 const res = await fetch(`/api/posts/${postId}/cancel`, {
                     method: "POST",
@@ -1920,9 +1940,9 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    alert(data.message || 'Đã hủy bài đăng thành công!');
+                    showToast(data.message || 'Đã hủy bài đăng thành công!', 'success');
                 } else {
-                    alert(data.message || 'Không thể hủy bài đăng!');
+                    showToast(data.message || 'Không thể hủy bài đăng!', 'error');
                 }
             } catch (err) {
                 console.error("Lỗi hủy bài:", err);
@@ -2094,7 +2114,7 @@
 
             if (panel.classList.contains('hidden')) {
                 if (b_currentDistrictsList.length === 0) {
-                    alert('Vui lòng chọn Tỉnh / Thành phố trước');
+                    showToast('Vui lòng chọn Tỉnh / Thành phố trước', 'warning');
                     return;
                 }
                 panel.classList.remove('hidden');
@@ -2172,7 +2192,7 @@
 
             if (panel.classList.contains('hidden')) {
                 if (b_currentWardsList.length === 0) {
-                    alert('Vui lòng chọn Quận / Huyện trước');
+                    showToast('Vui lòng chọn Quận / Huyện trước', 'warning');
                     return;
                 }
                 panel.classList.remove('hidden');
@@ -2409,7 +2429,7 @@
                 const data = await response.json();
                 
                 if (response.ok) {
-                    alert('Tạo tòa nhà thành công!');
+                    showToast('Tạo tòa nhà thành công!', 'success');
                     closeCreateBuildingModal();
                     form.reset();
                     
@@ -2425,11 +2445,11 @@
                     
                     fetchBuildings();
                 } else {
-                    alert('Lỗi: ' + (data.message || 'Không thể tạo tòa nhà'));
+                    showToast('Lỗi: ' + (data.message || 'Không thể tạo tòa nhà'), 'error');
                 }
             } catch (error) {
                 console.error('Lỗi khi tạo tòa nhà:', error);
-                alert('Đã xảy ra lỗi kết nối!');
+                showToast('Đã xảy ra lỗi kết nối!', 'error');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = originalBtnText;
@@ -2770,13 +2790,13 @@ function fetchHistoryPosts() {
                 const post = window.allPosts[id];
                 const isRented = Boolean(post.is_rented === true || post.status === 'đã cho thuê' || post.status === 'rented' || post.status === 'dang_thue' || post.status === 'đang thuê');
                 if (isRented) {
-                    alert('Bài đăng này đang có người thuê, không thể cập nhật hoặc sửa đổi!');
+                    showToast('Bài đăng này đang có người thuê, không thể cập nhật hoặc sửa đổi!', 'warning');
                     return;
                 }
                 sessionStorage.setItem('edit_post_data', JSON.stringify(post));
                 window.location.href = "{{ url('dangbai') }}";
             } else {
-                alert('Không tìm thấy dữ liệu bài đăng!');
+                showToast('Không tìm thấy dữ liệu bài đăng!', 'warning');
             }
         }
 
@@ -2823,14 +2843,14 @@ function fetchHistoryPosts() {
                 
                 const data = await res.json();
                 if (res.ok) {
-                    alert(data.message || 'Đã gửi phản hồi thành công!');
+                    showToast(data.message || 'Đã gửi phản hồi thành công!', 'success');
                     closeComplaintModal();
                 } else {
-                    alert(data.error || data.message || 'Đã xảy ra lỗi, vui lòng thử lại!');
+                    showToast(data.error || data.message || 'Đã xảy ra lỗi, vui lòng thử lại!', 'error');
                 }
             } catch (err) {
                 console.error(err);
-                alert('Lỗi kết nối tới máy chủ!');
+                showToast('Lỗi kết nối tới máy chủ!', 'error');
             } finally {
                 btnSubmit.disabled = false;
                 btnSubmit.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Gửi phản hồi';
@@ -3041,7 +3061,7 @@ function fetchHistoryPosts() {
                 });
                 const data = await res.json();
                 if (data.success) {
-                    alert(data.message || 'Tạo tài khoản nhân viên thành công!');
+                    showToast(data.message || 'Tạo tài khoản nhân viên thành công!', 'success');
                     closeCreateSubAccountModal();
                     fetchSubAccounts();
                 } else {
@@ -3049,11 +3069,11 @@ function fetchHistoryPosts() {
                     if (data.errors && typeof data.errors === 'object') {
                         errMsg = Object.values(data.errors).flat().join('\n');
                     }
-                    alert(errMsg);
+                    showToast(errMsg, 'error');
                 }
             } catch (err) {
                 console.error(err);
-                alert('Lỗi kết nối máy chủ!');
+                showToast('Lỗi kết nối máy chủ!', 'error');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fa-solid fa-check"></i> Tạo tài khoản & Phân quyền';
@@ -3102,7 +3122,7 @@ function fetchHistoryPosts() {
             const checkboxes = document.querySelectorAll('input[name="edit_assigned_buildings[]"]:checked');
             
             if (checkboxes.length === 0) {
-                alert('Vui lòng chọn ít nhất 1 tòa nhà để phân quyền cho nhân viên này!');
+                showToast('Vui lòng chọn ít nhất 1 tòa nhà để phân quyền cho nhân viên này!', 'warning');
                 return;
             }
 
@@ -3130,7 +3150,7 @@ function fetchHistoryPosts() {
                 });
                 const data = await res.json();
                 if (data.success) {
-                    alert(data.message || 'Cập nhật phân quyền thành công!');
+                    showToast(data.message || 'Cập nhật phân quyền thành công!', 'success');
                     closeEditSubAccountModal();
                     fetchSubAccounts();
                 } else {
@@ -3138,11 +3158,11 @@ function fetchHistoryPosts() {
                     if (data.errors && typeof data.errors === 'object') {
                         errMsg = Object.values(data.errors).flat().join('\n');
                     }
-                    alert(errMsg);
+                    showToast(errMsg, 'error');
                 }
             } catch (err) {
                 console.error(err);
-                alert('Lỗi kết nối máy chủ!');
+                showToast('Lỗi kết nối máy chủ!', 'error');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Lưu thay đổi phân quyền';
@@ -3150,7 +3170,13 @@ function fetchHistoryPosts() {
         }
 
         async function toggleLockSubAccount(accId) {
-            if (!confirm('Bạn có chắc chắn muốn thay đổi trạng thái khóa/mở khóa tài khoản này?')) return;
+            const confirmed = await showConfirmDialog({
+                title: "Thay đổi trạng thái tài khoản?",
+                text: "Bạn có chắc chắn muốn thay đổi trạng thái khóa/mở khóa tài khoản này?",
+                icon: "question",
+                confirmText: "Xác nhận"
+            });
+            if (!confirmed) return;
             try {
                 const res = await fetch(`/api/sub-accounts/${accId}/toggle-lock`, {
                     method: 'POST',
@@ -3161,19 +3187,27 @@ function fetchHistoryPosts() {
                 });
                 const data = await res.json();
                 if (data.success) {
-                    alert(data.message);
+                    showToast(data.message, 'success');
                     fetchSubAccounts();
                 } else {
-                    alert(data.error || 'Có lỗi xảy ra!');
+                    showToast(data.error || 'Có lỗi xảy ra!', 'error');
                 }
             } catch (err) {
                 console.error(err);
-                alert('Lỗi kết nối máy chủ!');
+                showToast('Lỗi kết nối máy chủ!', 'error');
             }
         }
 
         async function deleteSubAccount(accId) {
-            if (!confirm('Bạn có chắc chắn muốn xóa tài khoản nhân viên này khỏi hệ thống? Hành động này không thể hoàn tác.')) return;
+            const confirmed = await showConfirmDialog({
+                title: "Xóa tài khoản nhân viên?",
+                text: "Bạn có chắc chắn muốn xóa tài khoản nhân viên này khỏi hệ thống? Hành động này không thể hoàn tác.",
+                icon: "warning",
+                confirmText: "Xóa tài khoản",
+                confirmColor: "#ef4444",
+                danger: true
+            });
+            if (!confirmed) return;
             try {
                 const res = await fetch(`/api/sub-accounts/${accId}`, {
                     method: 'DELETE',
@@ -3184,14 +3218,14 @@ function fetchHistoryPosts() {
                 });
                 const data = await res.json();
                 if (data.success) {
-                    alert(data.message || 'Đã xóa tài khoản!');
+                    showToast(data.message || 'Đã xóa tài khoản!', 'success');
                     fetchSubAccounts();
                 } else {
-                    alert(data.error || 'Có lỗi xảy ra!');
+                    showToast(data.error || 'Có lỗi xảy ra!', 'error');
                 }
             } catch (err) {
                 console.error(err);
-                alert('Lỗi kết nối máy chủ!');
+                showToast('Lỗi kết nối máy chủ!', 'error');
             }
         }
     </script>

@@ -644,7 +644,15 @@
         }
 
         async function removeNotif(btn, id) {
-            if (!confirm('Bạn có chắc chắn muốn xóa thông báo này?')) return;
+            const confirmed = await showConfirmDialog({
+                title: 'Xóa thông báo?',
+                text: 'Bạn có chắc chắn muốn xóa thông báo này?',
+                icon: 'warning',
+                confirmText: 'Xóa',
+                cancelText: 'Hủy',
+                danger: true
+            });
+            if (!confirmed) return;
             const item = btn.closest('.notif-item');
             if (item) {
                 item.remove();

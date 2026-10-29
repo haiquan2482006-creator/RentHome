@@ -2,6 +2,7 @@
      COMPONENT: MODAL KHÓA / MỞ KHÓA TÀI KHOẢN DÙNG CHUNG
      Dùng chung cho Quản lý Khách thuê & Quản lý Nhân viên
      ========================================== -->
+@include('partials.modern-notification')
 @once
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 @endonce
@@ -264,9 +265,17 @@
                     }
                 });
             } else {
-                if (confirm(`Bạn có chắc chắn muốn mở khóa cho tài khoản "${userName}"?`)) {
-                    executeUnlockUser(userId);
-                }
+                showConfirmDialog({
+                    title: "Mở khóa tài khoản?",
+                    text: `Bạn có chắc chắn muốn mở khóa cho tài khoản "${userName}"?`,
+                    icon: "question",
+                    confirmText: "Mở khóa",
+                    confirmColor: "#10b981"
+                }).then((isConfirmed) => {
+                    if (isConfirmed) {
+                        executeUnlockUser(userId);
+                    }
+                });
             }
             return;
         }
@@ -363,12 +372,12 @@
                 if (typeof Swal !== 'undefined') {
                     Swal.fire({ icon: 'error', title: 'Thất bại', text: err });
                 } else {
-                    alert(err);
+                    showToast(err, 'error');
                 }
             }
         } catch (e) {
             console.error('Lỗi khi mở khóa:', e);
-            alert('Lỗi kết nối máy chủ!');
+            showToast('Lỗi kết nối máy chủ!', 'error');
         }
     }
 
@@ -386,7 +395,7 @@
         const duration = durationSelect ? durationSelect.value : '7';
 
         if (!reason) {
-            alert('Vui lòng nhập lý do khóa tài khoản.');
+            showToast('Vui lòng nhập lý do khóa tài khoản.', 'warning');
             if (reasonInput) reasonInput.focus();
             return;
         }
@@ -432,7 +441,7 @@
                 if (typeof Swal !== 'undefined') {
                     Swal.fire({ icon: 'error', title: 'Thao tác thất bại', text: err });
                 } else {
-                    alert(err);
+                    showToast(err, 'error');
                 }
                 if (submitBtn) {
                     submitBtn.disabled = false;
@@ -441,7 +450,7 @@
             }
         } catch (err) {
             console.error('Lỗi khi khóa tài khoản:', err);
-            alert('Lỗi kết nối máy chủ khi khóa tài khoản!');
+            showToast('Lỗi kết nối máy chủ khi khóa tài khoản!', 'error');
             if (submitBtn) {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="fa-solid fa-lock"></i> Xác nhận khóa tài khoản';

@@ -1169,6 +1169,20 @@ class ComplaintController extends Controller
             'created_at' => now(),
         ]);
 
+        // Ghi log hoạt động CSKH
+        AdminActivity::log(
+            'escalate',
+            'complaint',
+            'Trình hồ sơ khiếu nại lên Ban Quản Trị (Cấp 2)',
+            "CSKH đã chuyển tiếp hồ sơ #{$ticket->formatted_ticket_code} lên Ban Quản Trị Cấp 2 xử lý. Ghi chú: {$cskhNote}",
+            $ticket,
+            [
+                'ticket_id'   => (string)($ticket->_id ?? $ticket->id),
+                'ticket_code' => $ticket->formatted_ticket_code,
+                'cskh_note'   => $cskhNote,
+            ]
+        );
+
         return response()->json([
             'success' => true,
             'message' => 'Đã trình hồ sơ lên Admin giải quyết thành công!'

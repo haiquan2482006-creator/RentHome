@@ -789,6 +789,18 @@
                     </div>
 
                     <!-- Appointment/Contact Form -->
+                    @php
+                        $isCurrentStaff = false;
+                        if (auth()->check()) {
+                            $curAuthUser = auth()->user();
+                            $isCurrentStaff = (
+                                (method_exists($curAuthUser, 'isNhansu') && $curAuthUser->isNhansu()) ||
+                                (method_exists($curAuthUser, 'isStaff') && $curAuthUser->isStaff()) ||
+                                in_array($curAuthUser->role ?? '', ['nhansu', 'staff', 'sub_account', 'nhan_su', 'nhan su'])
+                            );
+                        }
+                    @endphp
+
                     @if($isRented)
                     <div class="bg-white rounded-lg p-6 shadow-sm border border-slate-200/60 text-center">
                         <div class="w-14 h-14 rounded-2xl bg-rose-50 text-rose-500 border border-rose-100 flex items-center justify-center mx-auto mb-3 text-2xl">
@@ -804,6 +816,92 @@
                         <a href="{{ url('/baidang') }}" class="mt-5 inline-flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow-md shadow-brand-500/20 transition">
                             <i class="fa-solid fa-magnifying-glass"></i> Tìm kiếm phòng tương tự khác
                         </a>
+                    </div>
+                    @elseif($isCurrentStaff)
+                    <!-- Khu vực bị làm mờ & ẩn thao tác đối với Tài khoản Nhân sự -->
+                    <div class="bg-white rounded-lg p-6 shadow-sm border border-slate-200/60 relative overflow-hidden">
+                        <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-5">
+                            <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">Điền thông tin liên hệ</h3>
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 font-bold text-[10px] uppercase tracking-wider">
+                                <i class="fa-solid fa-lock text-[10px]"></i> Đã khóa
+                            </span>
+                        </div>
+
+                        <div class="relative">
+                            <!-- Form nhập yêu cầu liên hệ bị ẩn và làm mờ hoàn toàn -->
+                            <div class="space-y-4 filter blur-[2px] opacity-35 pointer-events-none select-none" aria-hidden="true">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Họ và tên</label>
+                                    <div class="relative">
+                                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
+                                            <i class="fa-regular fa-user text-sm"></i>
+                                        </div>
+                                        <input type="text" disabled value="{{ auth()->user()->account_name ?? (auth()->user()->name ?? 'Nhân sự vận hành') }}" class="w-full pl-10 pr-4 py-2.5 rounded border border-slate-200 bg-slate-50 text-sm">
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Số điện thoại</label>
+                                    <div class="relative">
+                                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
+                                            <i class="fa-solid fa-phone text-sm"></i>
+                                        </div>
+                                        <input type="tel" disabled value="{{ auth()->user()->phone ?? '09xxxxxxxx' }}" class="w-full pl-10 pr-4 py-2.5 rounded border border-slate-200 bg-slate-50 text-sm">
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Gmail</label>
+                                    <div class="relative">
+                                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
+                                            <i class="fa-regular fa-envelope text-sm"></i>
+                                        </div>
+                                        <input type="email" disabled value="{{ auth()->user()->email ?? 'nhansu@renthome.vn' }}" class="w-full pl-10 pr-4 py-2.5 rounded border border-slate-200 bg-slate-50 text-sm">
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Lịch hẹn</label>
+                                    <div class="relative">
+                                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
+                                            <i class="fa-regular fa-calendar-check text-sm"></i>
+                                        </div>
+                                        <input type="text" disabled value="Chọn lịch hẹn xem nhà" class="w-full pl-10 pr-4 py-2.5 rounded border border-slate-200 bg-slate-50 text-sm">
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Lời nhắn</label>
+                                    <div class="relative">
+                                        <div class="absolute top-3 left-3.5 text-slate-400">
+                                            <i class="fa-regular fa-comment-dots text-sm"></i>
+                                        </div>
+                                        <textarea disabled rows="2" class="w-full pl-10 pr-4 py-2.5 rounded border border-slate-200 bg-slate-50 text-sm resize-none"></textarea>
+                                    </div>
+                                </div>
+
+                                <div class="w-full py-3.5 px-4 bg-slate-300 text-white rounded-md font-bold text-center text-sm">
+                                    Gửi thông tin
+                                </div>
+                            </div>
+
+                            <!-- Lớp phủ cảnh báo hiển thị chính giữa cho Nhân sự -->
+                            <div class="absolute inset-0 z-10 flex flex-col items-center justify-center p-4 text-center bg-white/70 backdrop-blur-[2px] rounded-lg">
+                                <div class="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 shadow-sm flex items-center justify-center mx-auto mb-3 text-2xl">
+                                    <i class="fa-solid fa-user-shield"></i>
+                                </div>
+                                <span class="inline-block px-3 py-0.5 rounded-full bg-amber-100 text-amber-800 font-extrabold text-[10px] uppercase tracking-wider mb-2">
+                                    Tài khoản Nhân sự vận hành
+                                </span>
+                                <h4 class="text-base font-bold text-slate-900 leading-snug">Không thể thuê nhà hoặc gửi liên hệ</h4>
+                                <p class="text-xs text-slate-600 mt-2 leading-relaxed max-w-[270px]">
+                                    Bạn đang đăng nhập bằng tài khoản <strong>Nhân sự quản lý</strong>. Tài khoản nhân sự không được phép thuê nhà hoặc gửi yêu cầu liên hệ xem phòng.
+                                </p>
+                                <div class="mt-4 px-3.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-slate-600 text-[11px] font-semibold flex items-center gap-1.5 shadow-2xs">
+                                    <i class="fa-solid fa-lock text-slate-400"></i> Khu vực nhập thông tin đã bị làm mờ & ẩn thao tác
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     @else
                     <div x-data="{ isContacted: {{ $hasContacted ? 'true' : 'false' }}, contactId: '{{ $contactId ?? '' }}', contactStatus: '{{ $contactStatus ?? '' }}', isRevoking: false }" class="bg-white rounded-lg p-6 shadow-sm border border-slate-200/60 relative">
@@ -892,7 +990,7 @@
                             <button type="button" 
                                 x-show="isContacted && contactStatus === 'pending'" 
                                 x-cloak
-                                @click="if(confirm('Bạn có chắc chắn muốn thu hồi yêu cầu liên hệ này không?')) {
+                                @click="
                                     isRevoking = true;
                                     fetch('/contact/' + contactId + '/revoke', {
                                         method: 'DELETE',
@@ -903,19 +1001,49 @@
                                     })
                                     .then(res => res.json())
                                     .then(data => {
+                                        const Toast = Swal.mixin({
+                                            toast: true,
+                                            position: 'top-end',
+                                            showConfirmButton: false,
+                                            timer: 3000,
+                                            timerProgressBar: true,
+                                            didOpen: (toast) => {
+                                                toast.addEventListener('mouseenter', Swal.stopTimer);
+                                                toast.addEventListener('mouseleave', Swal.resumeTimer);
+                                            }
+                                        });
+
                                         if (data.success) {
                                             isContacted = false;
                                             contactId = '';
                                             contactStatus = '';
-                                            alert('Đã thu hồi yêu cầu thành công!');
+                                            Toast.fire({
+                                                icon: 'success',
+                                                title: 'Đã thu hồi yêu cầu liên hệ thành công!'
+                                            });
                                         } else {
-                                            alert(data.message || 'Lỗi khi thu hồi.');
+                                            Toast.fire({
+                                                icon: 'error',
+                                                title: data.message || 'Lỗi khi thu hồi yêu cầu.'
+                                            });
                                         }
                                     })
-                                    .catch(err => alert('Đã có lỗi mạng. Vui lòng thử lại.'))
+                                    .catch(err => {
+                                        const Toast = Swal.mixin({
+                                            toast: true,
+                                            position: 'top-end',
+                                            showConfirmButton: false,
+                                            timer: 3000,
+                                            timerProgressBar: true
+                                        });
+                                        Toast.fire({
+                                            icon: 'error',
+                                            title: 'Đã có lỗi kết nối mạng. Vui lòng thử lại.'
+                                        });
+                                    })
                                     .finally(() => isRevoking = false);
-                                }"
-                                class="w-full py-3.5 px-4 bg-rose-50 border border-rose-500 text-rose-600 hover:bg-rose-100 rounded-md font-bold transition-all shadow-sm flex items-center justify-center gap-2 mt-2"
+                                "
+                                class="w-full py-3.5 px-4 bg-rose-50 border border-rose-500 text-rose-600 hover:bg-rose-100 rounded-md font-bold transition-all shadow-sm flex items-center justify-center gap-2 mt-2 cursor-pointer"
                                 :disabled="isRevoking"
                                 :class="{'opacity-50 cursor-not-allowed': isRevoking}"
                             >
@@ -1412,19 +1540,8 @@
 
             const content = document.getElementById('noidung').value.trim();
             if (content.length < 5) {
-                if (typeof Swal !== 'undefined') {
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Thông báo',
-                        text: 'Vui lòng nhập nội dung khiếu nại tối thiểu 5 ký tự.',
-                        confirmButtonColor: '#ea580c'
-                    }).then(() => {
-                        document.getElementById('noidung')?.focus();
-                    });
-                } else {
-                    alert('Vui lòng nhập nội dung khiếu nại tối thiểu 5 ký tự.');
-                    document.getElementById('noidung')?.focus();
-                }
+                showToast('Vui lòng nhập nội dung khiếu nại tối thiểu 5 ký tự.', 'warning');
+                document.getElementById('noidung')?.focus();
                 return;
             }
 
@@ -1459,44 +1576,30 @@
                     document.getElementById('reportImagesPreviewGrid').innerHTML = '';
                     document.getElementById('reportImagesPreviewGrid').classList.add('hidden');
 
-                    if (typeof Swal !== 'undefined') {
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Thành công!',
-                            text: data.message || 'Cảm ơn bạn! Phản ánh của bạn đã được gửi tới Ban Quản Trị để xử lý.',
-                            confirmButtonColor: '#16a34a',
-                            confirmButtonText: 'Đóng'
-                        });
-                    } else {
-                        alert(data.message || 'Cảm ơn bạn! Phản ánh của bạn đã được gửi tới Ban Quản Trị để xử lý.');
-                    }
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Thành công!',
+                        text: data.message || 'Cảm ơn bạn! Phản ánh của bạn đã được gửi tới Ban Quản Trị để xử lý.',
+                        confirmButtonColor: '#16a34a',
+                        confirmButtonText: 'Đóng'
+                    });
                 } else {
                     const errorMsg = data?.message || (data?.errors ? Object.values(data.errors).flat().join('\n') : 'Có lỗi xảy ra khi gửi khiếu nại.');
-                    if (typeof Swal !== 'undefined') {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Không thể gửi báo cáo',
-                            text: errorMsg,
-                            confirmButtonColor: '#ef4444'
-                        });
-                    } else {
-                        alertBox.className = 'p-3 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200';
-                        alertBox.innerText = errorMsg;
-                        alertBox.classList.remove('hidden');
-                    }
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Không thể gửi báo cáo',
+                        text: errorMsg,
+                        confirmButtonColor: '#ef4444'
+                    });
                 }
             } catch (err) {
                 console.error(err);
-                if (typeof Swal !== 'undefined') {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Đã có lỗi xảy ra',
-                        text: 'Có lỗi kết nối khi gửi phản ánh. Vui lòng thử lại sau giây lát!',
-                        confirmButtonColor: '#ef4444'
-                    });
-                } else {
-                    alert('Có lỗi kết nối khi gửi phản ánh. Vui lòng thử lại sau giây lát!');
-                }
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Đã có lỗi xảy ra',
+                    text: 'Có lỗi kết nối khi gửi phản ánh. Vui lòng thử lại sau giây lát!',
+                    confirmButtonColor: '#ef4444'
+                });
             } finally {
                 isSubmittingReport = false;
                 btn.disabled = false;

@@ -2866,7 +2866,7 @@
                     }
                 });
             } else {
-                alert('Biên bản quyết toán hợp đồng ' + roomCode + ':\n- Tổng nợ: ' + totalDebt + '\n- Tiền cọc đã cấn trừ: ' + depositAmount + '\n- Phòng đã bàn giao lại (Còn trống)');
+                showToast('Biên bản quyết toán phòng ' + roomCode + ': nợ ' + totalDebt + ', cọc cấn trừ ' + depositAmount, 'info');
             }
         }
 

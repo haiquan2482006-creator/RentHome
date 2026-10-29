@@ -1,3 +1,4 @@
+@include('partials.modern-notification')
 <!-- Google Fonts & Icons cho tất cả các trang Admin -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

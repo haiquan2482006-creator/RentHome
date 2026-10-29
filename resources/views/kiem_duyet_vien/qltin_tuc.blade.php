@@ -9,8 +9,69 @@
     <!-- Google Fonts & FontAwesome 6 -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <style>
+        /* Custom SweetAlert2 Modal styling */
+        .swal2-popup:not(.swal2-toast) {
+            border-radius: 1.25rem !important;
+            font-family: 'Inter', sans-serif !important;
+            padding: 1.5rem !important;
+            max-width: 440px !important;
+        }
+        .swal2-popup:not(.swal2-toast) .swal2-title {
+            font-size: 1.15rem !important;
+            font-weight: 800 !important;
+            color: #0f172a !important;
+        }
+        .swal2-popup:not(.swal2-toast) .swal2-html-container {
+            font-size: 0.875rem !important;
+            color: #475569 !important;
+            line-height: 1.5 !important;
+            margin: 0.5rem 0 0 0 !important;
+        }
+        .swal2-actions {
+            gap: 0.75rem !important;
+            margin-top: 1.25rem !important;
+        }
+        .swal2-confirm, .swal2-cancel {
+            border-radius: 0.75rem !important;
+            font-weight: 700 !important;
+            font-size: 0.875rem !important;
+            padding: 0.6rem 1.2rem !important;
+        }
+
+        /* Toast nhỏ gọn, tinh tế */
+        .swal2-popup.swal2-toast {
+            border-radius: 0.75rem !important;
+            font-family: 'Inter', sans-serif !important;
+            padding: 0.5rem 0.85rem !important;
+            max-width: 320px !important;
+            width: auto !important;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1) !important;
+            border: 1px solid #e2e8f0 !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 0.4rem !important;
+        }
+        .swal2-popup.swal2-toast .swal2-title {
+            font-size: 0.8125rem !important;
+            font-weight: 600 !important;
+            color: #0f172a !important;
+            margin: 0 !important;
+            line-height: 1.35 !important;
+            text-align: left !important;
+        }
+        .swal2-popup.swal2-toast .swal2-icon {
+            width: 1.25rem !important;
+            height: 1.25rem !important;
+            min-width: 1.25rem !important;
+            margin: 0 !important;
+        }
+        .swal2-popup.swal2-toast .swal2-icon .swal2-icon-content {
+            font-size: 0.75rem !important;
+        }
         :root {
             --primary: #0284c7;
             --primary-dark: #0369a1;
@@ -931,7 +992,7 @@
                     <i class="fa-solid fa-newspaper"></i>
                     Quản Lý & Kiểm Duyệt Tin Tức BĐS (RSS & Moderation)
                 </h1>
-                <p>Tự động thu thập tin thị trường từ RSS các báo lớn (VnExpress, CafeF, Dân Trí) với <strong>hạn mức tối đa 10 tin/ngày</strong>, kiểm duyệt và lựa chọn bài xuất bản lên Trang chủ.</p>
+                <p>Tự động thu thập tin thị trường từ RSS các báo lớn (VnExpress, CafeF, Dân Trí) với <strong>hạn mức tối đa 10 tin/ngày</strong>, kiểm duyệt và lựa chọn bài xuất bản lên Trang chủ. <span style="display: inline-flex; align-items: center; gap: 4px; background: #fef3c7; color: #b45309; padding: 2px 8px; border-radius: 6px; font-weight: 600; font-size: 11.5px; margin-left: 4px;"><i class="fa-solid fa-clock-rotate-left"></i> Tin chưa duyệt sau 5 ngày tự động ẩn</span></p>
             </div>
             <div class="header-actions">
                 <button type="button" class="btn btn-outline" onclick="loadNews()">
@@ -939,9 +1000,6 @@
                 </button>
                 <button type="button" class="btn btn-primary" id="btnFetchRss" onclick="fetchRssNews()">
                     <i class="fa-solid fa-cloud-arrow-down"></i> Kéo tin RSS mới nhất
-                </button>
-                <button type="button" class="btn btn-success" onclick="openAddModal()">
-                    <i class="fa-solid fa-plus"></i> Thêm tin thủ công
                 </button>
             </div>
         </div>
@@ -951,7 +1009,7 @@
             <div class="kpi-card" onclick="switchTab('pending')">
                 <div>
                     <div class="kpi-val" id="kpiPending" style="color: #d97706;">0</div>
-                    <div class="kpi-label">Tin Chờ Duyệt (Pending)</div>
+                    <div class="kpi-label">Tin Chờ Duyệt (Trong 5 ngày)</div>
                 </div>
                 <div class="kpi-icon amber">
                     <i class="fa-solid fa-hourglass-half"></i>
@@ -1111,77 +1169,20 @@
         </div>
     </div>
 
-    <!-- ================= MODAL THÊM TIN THỦ CÔNG ================= -->
-    <div class="modal-overlay" id="addModal" onclick="if(event.target === this) closeAddModal()">
-        <div class="modal-box-large">
-            <div class="modal-header">
-                <h3>
-                    <i class="fa-solid fa-plus-circle" style="color: var(--success);"></i>
-                    Thêm Tin Tức Bất Động Sản Thủ Công
-                </h3>
-                <button type="button" class="logout-btn" onclick="closeAddModal()">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </div>
-
-            <div class="modal-body">
-                <div class="form-group">
-                    <label>Tiêu đề bài báo *</label>
-                    <input type="text" id="addTitle" class="form-control" placeholder="Nhập tiêu đề tin tức nổi bật...">
-                </div>
-
-                <div class="form-grid-2">
-                    <div class="form-group">
-                        <label>Nguồn bài viết</label>
-                        <input type="text" id="addSourceName" class="form-control" value="RentHome News" placeholder="VD: VnExpress, CafeF, RentHome...">
-                    </div>
-                    <div class="form-group">
-                        <label>Danh mục tin *</label>
-                        <select id="addCategory" class="form-control">
-                            <option value="Tin thị trường">Tin thị trường</option>
-                            <option value="Cẩm nang pháp lý">Cẩm nang pháp lý</option>
-                            <option value="Xu hướng sống">Xu hướng sống</option>
-                            <option value="Phân tích giá">Phân tích giá</option>
-                            <option value="Dự án nổi bật">Dự án nổi bật</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="form-grid-2">
-                    <div class="form-group">
-                        <label>Link bài viết gốc</label>
-                        <input type="text" id="addSourceUrl" class="form-control" placeholder="https://...">
-                    </div>
-                    <div class="form-group">
-                        <label>Link ảnh đại diện (URL)</label>
-                        <input type="text" id="addImageUrl" class="form-control" placeholder="https://images.unsplash.com/...">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>Tóm tắt bài viết *</label>
-                    <textarea id="addSummary" rows="3" class="form-control" placeholder="Mô tả ngắn gọn nội dung bài viết..."></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="addIsFeatured">
-                        <span><strong style="color: #d97706;">⭐ Đặt làm Bài viết Nổi bật</strong> (Khung lớn bên trái trang chủ)</span>
-                    </label>
-                </div>
-            </div>
-
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline" onclick="closeAddModal()">Hủy</button>
-                <button type="button" class="btn btn-success" onclick="submitCreateNews()">
-                    <i class="fa-solid fa-check"></i> Tạo bài viết
-                </button>
-            </div>
-        </div>
-    </div>
-
     <!-- ================= JAVASCRIPT LOGIC ================= -->
     <script>
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true,
+            didOpen: (toast) => {
+                toast.addEventListener('mouseenter', Swal.stopTimer);
+                toast.addEventListener('mouseleave', Swal.resumeTimer);
+            }
+        });
+
         let currentTab = 'pending';
         let allArticles = [];
 
@@ -1412,23 +1413,59 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    alert(data.message || 'Kéo tin RSS thành công!');
+                    Toast.fire({
+                        icon: 'success',
+                        title: data.message || 'Kéo tin RSS thành công!'
+                    });
                     loadNews();
                 } else {
-                    alert(data.message || 'Lỗi khi kéo tin RSS!');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Lỗi',
+                        text: data.message || 'Lỗi khi kéo tin RSS!',
+                        confirmButtonColor: '#ef4444'
+                    });
                 }
             } catch (e) {
                 console.error(e);
-                alert('Lỗi kết nối máy chủ!');
+                Toast.fire({
+                    icon: 'error',
+                    title: 'Lỗi kết nối máy chủ!'
+                });
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = originalHtml;
             }
         }
 
-        // 6. Phê duyệt bài báo
+        // 6. Phê duyệt bài báo với thông báo xác nhận hiện đại
         async function approveNews(id) {
-            if (!confirm('Xác nhận phê duyệt bài báo này hiển thị công khai lên Trang chủ?')) return;
+            const item = allArticles.find(a => (a._id || a.id) === id);
+            const title = item ? item.title : 'bài báo này';
+
+            const result = await Swal.fire({
+                title: 'Xác nhận phê duyệt?',
+                html: `
+                    <div style="text-align: left; background: #f0fdf4; padding: 14px 16px; border-radius: 14px; border: 1px solid #bbf7d0; margin-top: 10px;">
+                        <p style="font-weight: 700; color: #166534; font-size: 14px; line-height: 1.4; margin-bottom: 6px;">
+                            <i class="fa-solid fa-newspaper text-emerald-600 mr-1"></i> ${escapeHtml(title)}
+                        </p>
+                        <p style="font-size: 12px; color: #15803d; line-height: 1.4;">
+                            Bài viết sẽ được phê duyệt và hiển thị công khai ngay lên Trang chủ RentHome.
+                        </p>
+                    </div>
+                `,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#10b981',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: '<i class="fa-solid fa-circle-check mr-1.5"></i> Đồng ý phê duyệt',
+                cancelButtonText: '<i class="fa-solid fa-xmark mr-1.5"></i> Hủy bỏ',
+                reverseButtons: true,
+                focusConfirm: true
+            });
+
+            if (!result.isConfirmed) return;
 
             try {
                 const res = await fetch(`/api/kiem-duyet/news/${id}/approve`, {
@@ -1440,20 +1477,57 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    alert(data.message || 'Đã duyệt bài thành công!');
+                    Toast.fire({
+                        icon: 'success',
+                        title: 'Đã phê duyệt bài báo thành công!'
+                    });
+                    closeEditModal();
                     loadNews();
                 } else {
-                    alert(data.message || 'Lỗi khi duyệt bài!');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Không thể phê duyệt',
+                        text: data.message || 'Lỗi khi duyệt bài!',
+                        confirmButtonColor: '#ef4444'
+                    });
                 }
             } catch (e) {
                 console.error(e);
-                alert('Lỗi kết nối máy chủ!');
+                Toast.fire({
+                    icon: 'error',
+                    title: 'Lỗi kết nối máy chủ!'
+                });
             }
         }
 
-        // 7. Xóa bài báo
+        // 7. Xóa bài báo với xác nhận hiện đại
         async function deleteNews(id) {
-            if (!confirm('Bạn có chắc chắn muốn xóa bài báo này khỏi hệ thống?')) return;
+            const item = allArticles.find(a => (a._id || a.id) === id);
+            const title = item ? item.title : 'bài báo này';
+            const shortTitle = title.length > 55 ? title.substring(0, 55) + '...' : title;
+
+            const result = await Swal.fire({
+                title: 'Xác nhận xóa bài báo?',
+                html: `
+                    <div style="text-align: left; background: #fff1f2; padding: 12px 14px; border-radius: 12px; border: 1px solid #fecdd3; margin-top: 8px;">
+                        <p style="font-weight: 700; color: #9f1239; font-size: 13px; line-height: 1.4; margin-bottom: 4px;">
+                            <i class="fa-solid fa-trash-can text-rose-600 mr-1"></i> ${escapeHtml(shortTitle)}
+                        </p>
+                        <p style="font-size: 11.5px; color: #be123c; margin: 0;">
+                            Bài viết sẽ bị xóa hoàn toàn khỏi hệ thống.
+                        </p>
+                    </div>
+                `,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: '<i class="fa-solid fa-trash mr-1.5"></i> Xóa ngay',
+                cancelButtonText: '<i class="fa-solid fa-xmark mr-1.5"></i> Hủy bỏ',
+                reverseButtons: true
+            });
+
+            if (!result.isConfirmed) return;
 
             try {
                 const res = await fetch(`/api/kiem-duyet/news/${id}`, {
@@ -1465,14 +1539,25 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    alert(data.message || 'Đã xóa bài báo!');
+                    Toast.fire({
+                        icon: 'success',
+                        title: 'Đã xóa bài báo thành công!'
+                    });
                     loadNews();
                 } else {
-                    alert(data.message || 'Lỗi khi xóa bài!');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Lỗi',
+                        text: data.message || 'Lỗi khi xóa bài!',
+                        confirmButtonColor: '#ef4444'
+                    });
                 }
             } catch (e) {
                 console.error(e);
-                alert('Lỗi kết nối máy chủ!');
+                Toast.fire({
+                    icon: 'error',
+                    title: 'Lỗi kết nối máy chủ!'
+                });
             }
         }
 
@@ -1532,7 +1617,10 @@
             };
 
             if (!payload.title || !payload.summary) {
-                alert('Vui lòng nhập đầy đủ Tiêu đề và Tóm tắt!');
+                Toast.fire({
+                    icon: 'warning',
+                    title: 'Vui lòng nhập đầy đủ Tiêu đề và Tóm tắt!'
+                });
                 return;
             }
 
@@ -1548,15 +1636,26 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    alert(data.message || 'Đã lưu chỉnh sửa!');
+                    Toast.fire({
+                        icon: 'success',
+                        title: data.message || 'Đã lưu chỉnh sửa thành công!'
+                    });
                     closeEditModal();
                     loadNews();
                 } else {
-                    alert(data.message || 'Lỗi khi lưu bài!');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Lỗi',
+                        text: data.message || 'Lỗi khi lưu bài!',
+                        confirmButtonColor: '#ef4444'
+                    });
                 }
             } catch (e) {
                 console.error(e);
-                alert('Lỗi kết nối máy chủ!');
+                Toast.fire({
+                    icon: 'error',
+                    title: 'Lỗi kết nối máy chủ!'
+                });
             }
         }
 
@@ -1564,62 +1663,6 @@
             const id = document.getElementById('editArticleId').value;
             await submitEditNews();
             await approveNews(id);
-        }
-
-        // 9. Modal Thêm tin thủ công
-        function openAddModal() {
-            document.getElementById('addTitle').value = '';
-            document.getElementById('addSourceName').value = 'RentHome News';
-            document.getElementById('addCategory').value = 'Tin thị trường';
-            document.getElementById('addSourceUrl').value = '';
-            document.getElementById('addImageUrl').value = '';
-            document.getElementById('addSummary').value = '';
-            document.getElementById('addIsFeatured').checked = false;
-            document.getElementById('addModal').classList.add('show');
-        }
-
-        function closeAddModal() {
-            document.getElementById('addModal').classList.remove('show');
-        }
-
-        async function submitCreateNews() {
-            const payload = {
-                title: document.getElementById('addTitle').value.trim(),
-                source_name: document.getElementById('addSourceName').value.trim() || 'RentHome News',
-                category: document.getElementById('addCategory').value,
-                source_url: document.getElementById('addSourceUrl').value.trim() || window.location.origin,
-                image_url: document.getElementById('addImageUrl').value.trim() || 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80',
-                summary: document.getElementById('addSummary').value.trim(),
-                is_featured: document.getElementById('addIsFeatured').checked
-            };
-
-            if (!payload.title || !payload.summary) {
-                alert('Vui lòng nhập Tiêu đề và Tóm tắt bài viết!');
-                return;
-            }
-
-            try {
-                const res = await fetch('/api/kiem-duyet/news', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-                    },
-                    body: JSON.stringify(payload)
-                });
-                const data = await res.json();
-                if (data.success) {
-                    alert(data.message || 'Đã thêm bài viết thành công!');
-                    closeAddModal();
-                    loadNews();
-                } else {
-                    alert(data.message || 'Lỗi khi thêm bài viết!');
-                }
-            } catch (e) {
-                console.error(e);
-                alert('Lỗi kết nối máy chủ!');
-            }
         }
 
         function escapeHtml(str) {

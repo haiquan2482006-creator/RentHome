@@ -9,6 +9,7 @@
     @endauth
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Đăng Nhập - RentHome</title>
+    @include('partials.modern-notification')
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
@@ -361,7 +362,7 @@
                 </div>
                 
                 <div style="overflow: hidden; margin-bottom: 22px;">
-                    <a href="javascript:void(0)" onclick="alert('Vui lòng liên hệ Quản trị viên doanh nghiệp (admin2006@gmail.com) để được cấp lại mật khẩu.')" class="forgot-password">Quên mật khẩu?</a>
+                    <a href="javascript:void(0)" onclick="showToast('Vui lòng liên hệ Quản trị viên doanh nghiệp (admin2006@gmail.com) để được cấp lại mật khẩu.', 'info')" class="forgot-password">Quên mật khẩu?</a>
                 </div>
                 
                 <button type="submit" class="btn-submit">ĐĂNG NHẬP</button>

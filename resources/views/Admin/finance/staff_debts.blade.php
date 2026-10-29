@@ -961,11 +961,18 @@
 
         // Action quan trọng: Xác nhận nhân viên đã nộp tiền (Xóa nợ)
         async function confirmRemitDebt(staffId, staffName, totalAmount, count) {
-            const promptMsg = `XÁC NHẬN NỘP TIỀN QUỸ CÔNG TY:\n\nBạn có chắc chắn xác nhận nhân sự "${staffName}" đã nộp đủ số tiền ${totalAmount} VNĐ (${count} hóa đơn) về quỹ công ty không?\n\nSau khi xác nhận:\n- Toàn bộ hóa đơn tiền mặt sẽ chuyển sang trạng thái ĐÃ NỘP (is_remitted_to_admin = true).\n- TỔNG CÔNG NỢ CỦA NHÂN VIÊN SẼ LẬP TỨC VỀ 0 VNĐ.`;
-
-            if (!confirm(promptMsg)) {
-                return;
-            }
+            const confirmed = await showConfirmDialog({
+                title: "Xác nhận nộp tiền quỹ công ty?",
+                html: `<div style=\"text-align: left; font-size: 13.5px; line-height: 1.5; color: #334155;\">
+                    <p>Nhân sự: <strong>${staffName}</strong></p>
+                    <p>Tổng tiền nộp: <strong style=\"color: #059669;\">${totalAmount} VNĐ</strong> (${count} hóa đơn)</p>
+                    <p style=\"font-size: 12px; color: #64748b; margin-top: 6px;\">Toàn bộ hóa đơn tiền mặt sẽ chuyển sang ĐÃ NỘP và tổng công nợ nhân viên sẽ về 0 VNĐ.</p>
+                </div>`,
+                icon: "question",
+                confirmText: "Xác nhận nộp quỹ",
+                confirmColor: "#10b981"
+            });
+            if (!confirmed) return;
 
             const btn = document.getElementById(`btn-remit-${staffId}`);
             if (btn) {

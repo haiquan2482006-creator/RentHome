@@ -49,7 +49,13 @@ class NewsModerationController extends Controller
         // Tự động kiểm tra và kéo tin RSS ngầm nếu lần kéo trước cách đây hơn 2 tiếng
         self::autoFetchIfOutdated(2);
 
+        // Tự động ẩn các tin tức chưa duyệt quá 5 ngày khỏi trang quản lý
+        self::autoCleanExpiredUnapprovedNews(5);
+
         $query = NewsArticle::query();
+
+        // Luôn ẩn các bài viết đã hết hạn tự động (expired) khỏi toàn bộ trang quản lý tin tức
+        $query->where('status', '!=', 'expired');
 
         if ($status && $status !== 'all') {
             $query->where('status', $status);
@@ -69,7 +75,7 @@ class NewsModerationController extends Controller
                           ->get();
 
         $stats = [
-            'total'    => NewsArticle::count(),
+            'total'    => NewsArticle::where('status', '!=', 'expired')->count(),
             'pending'  => NewsArticle::where('status', 'pending')->count(),
             'approved' => NewsArticle::where('status', 'approved')->count(),
             'rejected' => NewsArticle::where('status', 'rejected')->count(),
@@ -83,12 +89,57 @@ class NewsModerationController extends Controller
     }
 
     /**
+     * Tự động ẩn (biến mất) các tin tức quá 5 ngày mà chưa được phê duyệt hoặc chưa xóa
+     * Chuyển trạng thái sang 'expired' để loại bỏ khỏi danh sách quản lý, giữ nguồn tin luôn mới
+     */
+    public static function autoCleanExpiredUnapprovedNews(int $days = 5): int
+    {
+        try {
+            $now = Carbon::now();
+            $expiredArticles = NewsArticle::where('status', 'pending')->get();
+            $expiredCount = 0;
+
+            foreach ($expiredArticles as $article) {
+                $createdAt = $article->created_at ? Carbon::parse($article->created_at) : null;
+                $publishedAt = $article->published_at ? Carbon::parse($article->published_at) : null;
+
+                // Nếu ngày tạo hoặc ngày xuất bản của tin tức cách hiện tại >= $days ngày (so khớp theo ngày lịch hoặc pubDate)
+                $isExpired = false;
+                if ($createdAt && $createdAt->copy()->startOfDay()->diffInDays($now->copy()->startOfDay()) >= $days) {
+                    $isExpired = true;
+                } elseif ($publishedAt && $publishedAt->copy()->startOfDay()->diffInDays($now->copy()->startOfDay()) >= $days) {
+                    $isExpired = true;
+                }
+
+                if ($isExpired) {
+                    $article->status = 'expired';
+                    $article->expired_at = now();
+                    $article->save();
+                    $expiredCount++;
+                }
+            }
+
+            if ($expiredCount > 0) {
+                Cache::forget('home_approved_news');
+            }
+
+            return $expiredCount;
+        } catch (\Throwable $e) {
+            Log::warning("Lỗi autoCleanExpiredUnapprovedNews: " . $e->getMessage());
+            return 0;
+        }
+    }
+
+    /**
      * Tự động quét RSS nếu bài viết mới nhất hoặc lần kéo trước cách đây quá số giờ chỉ định
      * và giới hạn tối đa $dailyLimit tin mới mỗi ngày (mặc định 10 tin/ngày).
      */
     public static function autoFetchIfOutdated(int $hoursThreshold = 2, int $dailyLimit = 10): int
     {
         try {
+            // Tự động dọn dẹp các tin chưa duyệt quá 5 ngày
+            self::autoCleanExpiredUnapprovedNews(5);
+
             // Kiểm tra số lượng bài báo đã kéo trong ngày hôm nay
             $todayStart = Carbon::today()->startOfDay();
             $todayCount = NewsArticle::where('created_at', '>=', $todayStart)->count();
@@ -145,6 +196,9 @@ class NewsModerationController extends Controller
      */
     public static function performRssFetch(int $dailyLimit = 10, bool $force = false): array
     {
+        // Tự động ẩn các tin chưa duyệt quá 5 ngày trước khi kéo tin mới
+        self::autoCleanExpiredUnapprovedNews(5);
+
         $todayStart = Carbon::today()->startOfDay();
         $todayFetchedCount = NewsArticle::where('created_at', '>=', $todayStart)->count();
 
@@ -309,51 +363,6 @@ class NewsModerationController extends Controller
             'message'       => "Đã kéo {$newCount} bài báo mới hôm nay (Hạn mức tối đa {$dailyLimit} tin/ngày, hiện có {$totalToday} tin hôm nay).",
             'errors'        => $errors,
         ];
-    }
-
-    /**
-     * Thêm tin tức thủ công từ Kiểm duyệt viên
-     * POST /api/kiem-duyet/news
-     */
-    public function store(Request $request)
-    {
-        $request->validate([
-            'title'       => 'required|string|max:300',
-            'summary'     => 'required|string|max:1000',
-            'source_name' => 'nullable|string|max:100',
-            'source_url'  => 'nullable|string|max:500',
-            'category'    => 'nullable|string|max:100',
-            'image_url'   => 'nullable|string|max:500',
-            'is_featured' => 'nullable|boolean',
-        ]);
-
-        $isFeatured = $request->boolean('is_featured', false);
-        if ($isFeatured) {
-            NewsArticle::where('is_featured', true)->update(['is_featured' => false]);
-        }
-
-        $article = NewsArticle::create([
-            'title'        => $request->input('title'),
-            'summary'      => $request->input('summary'),
-            'content'      => $request->input('summary'),
-            'source_name'  => $request->input('source_name', 'RentHome News'),
-            'source_url'   => $request->input('source_url', url('/')),
-            'category'     => $request->input('category', 'Tin thị trường'),
-            'image_url'    => $request->input('image_url') ?: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80',
-            'status'       => 'pending',
-            'is_featured'  => $isFeatured,
-            'published_at' => now(),
-            'created_at'   => now(),
-            'updated_at'   => now(),
-        ]);
-
-        Cache::forget('home_approved_news');
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Đã thêm bài viết mới vào danh sách chờ duyệt!',
-            'article' => $article,
-        ]);
     }
 
     /**

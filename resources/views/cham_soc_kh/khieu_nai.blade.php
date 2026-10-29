@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    @include('partials.modern-notification')
 
     <style>
         :root {
@@ -75,17 +76,21 @@
         }
 
         .brand-logo {
-            width: 42px;
-            height: 42px;
-            background: #0284c7;
-            color: #ffffff;
+            width: 44px;
+            height: 44px;
+            background: transparent;
             border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
-            font-weight: 800;
             flex-shrink: 0;
+            overflow: hidden;
+        }
+
+        .brand-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
         }
 
         .brand-info h2 {
@@ -740,7 +745,7 @@
     <aside class="sidebar">
         <div class="brand-box">
             <div class="brand-logo">
-                <i class="fa-solid fa-headset"></i>
+                <img src="{{ asset('img/logo.png') }}" alt="RentHome Logo">
             </div>
             <div class="brand-info">
                 <h2>RentHome <span class="role-badge">CSKH</span></h2>
@@ -750,6 +755,14 @@
 
         <div class="nav-section-title">Chăm Sóc Khách Hàng</div>
         <ul class="nav-list">
+            <li>
+                <a href="{{ url('/cskh/tong-quan') }}" class="nav-link">
+                    <span class="nav-link-left">
+                        <i class="fa-solid fa-chart-pie"></i>
+                        <span>Tổng quan</span>
+                    </span>
+                </a>
+            </li>
             <li>
                 <a href="{{ url('/cskh/khieu-nai') }}" class="nav-link active">
                     <span class="nav-link-left">
@@ -775,6 +788,14 @@
                     @if($cskhUnreadCount > 0)
                         <span class="nav-badge badge-warning-pill" id="sidebarNotifBadge">{{ $cskhUnreadCount }}</span>
                     @endif
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('cskh.history') }}" class="nav-link">
+                    <span class="nav-link-left">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                        <span>Lịch sử hoạt động</span>
+                    </span>
                 </a>
             </li>
         </ul>
@@ -1608,7 +1629,7 @@
                 });
                 const data = await res.json();
                 if (!res.ok || !data.success) {
-                    alert(data.message || 'Không thể tải chi tiết ticket!');
+                    showToast(data.message || 'Không thể tải chi tiết ticket!', 'error');
                     closeHandleModal();
                     return;
                 }
@@ -1616,7 +1637,7 @@
                 renderHandleModal(data.ticket, data.replies || []);
             } catch (err) {
                 console.error(err);
-                alert('Lỗi kết nối khi tải chi tiết hồ sơ.');
+                showToast('Lỗi kết nối khi tải chi tiết hồ sơ.', 'error');
                 closeHandleModal();
             } finally {
                 document.getElementById('hdLoadingSpinner').classList.add('hidden');
@@ -1782,7 +1803,7 @@
             const message = replyInput.value.trim();
 
             if (!message) {
-                alert('Vui lòng nhập chỉ thị / yêu cầu xử lý gửi đến Người đăng bài trước khi hoàn tất giải quyết!');
+                showToast('Vui lòng nhập chỉ thị / yêu cầu xử lý gửi đến Người đăng bài trước khi hoàn tất giải quyết!', 'warning');
                 replyInput.focus();
                 return;
             }
@@ -1810,7 +1831,7 @@
 
                 const data = await res.json();
                 if (!res.ok || !data.success) {
-                    alert(data.message || 'Lỗi khi gửi phản hồi giải quyết ticket!');
+                    showToast(data.message || 'Lỗi khi gửi phản hồi giải quyết ticket!', 'error');
                     return;
                 }
 
@@ -1836,7 +1857,7 @@
 
             } catch (err) {
                 console.error(err);
-                alert('Lỗi kết nối khi gửi phản hồi giải quyết!');
+                showToast('Lỗi kết nối khi gửi phản hồi giải quyết!', 'error');
             } finally {
                 if (submitBtn) {
                     submitBtn.disabled = false;
@@ -1851,7 +1872,7 @@
             const escInput = document.getElementById('hdEscalateNoteInput');
             const cleanNote = (escInput ? escInput.value : '').trim();
             if (!cleanNote) {
-                alert('Vui lòng nhập ghi chú nội bộ cho Admin trước khi trình giải quyết!');
+                showToast('Vui lòng nhập ghi chú nội bộ cho Admin trước khi trình giải quyết!', 'warning');
                 if (escInput) escInput.focus();
                 return;
             }
@@ -1917,11 +1938,11 @@
 
                     closeHandleModal();
                 } else {
-                    alert(data.message || 'Không thể trình ticket lên Admin!');
+                    showToast(data.message || 'Không thể trình ticket lên Admin!', 'error');
                 }
             } catch (e) {
                 console.error(e);
-                alert('Lỗi kết nối khi gửi yêu cầu trình Admin.');
+                showToast('Lỗi kết nối khi gửi yêu cầu trình Admin.', 'error');
             } finally {
                 if (btn) {
                     btn.disabled = false;

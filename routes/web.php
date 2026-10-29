@@ -907,6 +907,14 @@ Route::middleware(['auth'])->group(function () {
         return redirect('/kiem-duyet/tong-quan');
     });
 
+    Route::get('/kiem_duyet/qltin_tuc', function () {
+        return redirect('/kiem-duyet/qltin-tuc');
+    });
+
+    Route::get('/kiem_duyet/qlkiem_duyet', function () {
+        return redirect('/kiem-duyet/qlkiem-duyet');
+    });
+
     Route::get('/kiem-duyet/tong-quan', function () {
         $user = Auth::user();
         if (!$user->isModerator() && $user->role !== 'admin') {
@@ -981,8 +989,11 @@ Route::middleware(['auth'])->group(function () {
             }
         }
 
+        // Tự động quét dọn tin chưa duyệt quá 5 ngày
+        \App\Http\Controllers\NewsModerationController::autoCleanExpiredUnapprovedNews(5);
+
         // Thống kê tin tức (NewsArticle) cho Kiểm duyệt viên
-        $totalNewsCount = \App\Models\NewsArticle::count();
+        $totalNewsCount = \App\Models\NewsArticle::where('status', '!=', 'expired')->count();
         $approvedNewsCount = \App\Models\NewsArticle::where('status', 'approved')->count();
         $pendingNewsCount = \App\Models\NewsArticle::where('status', 'pending')->count();
         $rejectedNewsCount = \App\Models\NewsArticle::where('status', 'rejected')->count();
@@ -1187,6 +1198,7 @@ Route::middleware(['auth'])->group(function () {
         if (!$user->isModerator() && $user->role !== 'admin') {
             return redirect('/')->with('error', 'Chỉ tài khoản Kiểm duyệt viên mới có quyền truy cập.');
         }
+        \App\Http\Controllers\NewsModerationController::autoCleanExpiredUnapprovedNews(5);
         $pendingPostsBadge = \App\Models\Post::where('status', 'pending')->count();
         $pendingComplaints = \App\Models\Complaint::where('status', 'pending')->count();
         return view('kiem_duyet_vien.qltin_tuc', compact('pendingPostsBadge', 'pendingComplaints', 'user'));
@@ -1507,7 +1519,6 @@ Route::middleware(['auth'])->group(function () {
     // API Quản lý & Kiểm duyệt Tin tức BĐS (RSS & Moderation)
     Route::get('/api/kiem-duyet/news', [\App\Http\Controllers\NewsModerationController::class, 'index'])->name('moderator.news.index');
     Route::post('/api/kiem-duyet/news/fetch-rss', [\App\Http\Controllers\NewsModerationController::class, 'fetchRss'])->name('moderator.news.fetch_rss');
-    Route::post('/api/kiem-duyet/news', [\App\Http\Controllers\NewsModerationController::class, 'store'])->name('moderator.news.store');
     Route::put('/api/kiem-duyet/news/{id}', [\App\Http\Controllers\NewsModerationController::class, 'update'])->name('moderator.news.update');
     Route::post('/api/kiem-duyet/news/{id}/approve', [\App\Http\Controllers\NewsModerationController::class, 'approve'])->name('moderator.news.approve');
     Route::delete('/api/kiem-duyet/news/{id}', [\App\Http\Controllers\NewsModerationController::class, 'destroy'])->name('moderator.news.destroy');
@@ -1617,6 +1628,10 @@ Route::post('/api/contact-messages', [\App\Http\Controllers\AdminContactMessageC
 // Routes Kênh Chăm Sóc Khách Hàng (Role: cham_soc_kh / CSKH)
 // ========================================================
 Route::middleware(['auth'])->prefix('cskh')->group(function () {
+    Route::get('/tong-quan', [\App\Http\Controllers\CSKHController::class, 'overview'])->name('cskh.overview');
+    Route::get('/', function () {
+        return redirect()->route('cskh.overview');
+    });
     Route::get('/khieu-nai', [\App\Http\Controllers\ComplaintController::class, 'index'])->name('cskh.complaints');
     Route::get('/khieu_nai', function (\Illuminate\Http\Request $request) {
         $qs = http_build_query($request->all());
@@ -1647,6 +1662,12 @@ Route::middleware(['auth'])->prefix('cskh')->group(function () {
     Route::delete('/notifications/{id}', [\App\Http\Controllers\CSKHController::class, 'deleteNotification'])->name('cskh.notifications.destroy');
     Route::delete('/notifications/clear-read', [\App\Http\Controllers\CSKHController::class, 'clearReadNotifications'])->name('cskh.notifications.clear_read');
     Route::get('/api/notifications/unread-count', [\App\Http\Controllers\CSKHController::class, 'getUnreadCount'])->name('cskh.notifications.unread_count');
+
+    // Lịch sử hoạt động CSKH
+    Route::get('/lich-su', [\App\Http\Controllers\CSKHController::class, 'history'])->name('cskh.history');
+    Route::get('/lich_su', function () {
+        return redirect()->route('cskh.history');
+    });
 });
 
 // Chuyển hướng các URL cũ về Route CSKH mới

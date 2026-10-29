@@ -1419,9 +1419,18 @@
 
         // Action quan trọng: Duyệt chuyển khoản
         async function approveBankTransfer(invId, invoiceCode, amount) {
-            if (!confirm(`Xác nhận Admin đã nhận được ${amount} đ chuyển khoản từ ngân hàng cho Hóa đơn #${invoiceCode}?\n\nHệ thống sẽ chuyển trạng thái hóa đơn sang "Đã thu tiền" (PAID) và tự động KÍCH HOẠT HỢP ĐỒNG.`)) {
-                return;
-            }
+            const confirmed = await showConfirmDialog({
+                title: "Xác nhận duyệt chuyển khoản?",
+                html: `<div style=\"text-align: left; font-size: 13.5px; line-height: 1.5; color: #334155;\">
+                    <p style=\"font-weight: 700; color: #0284c7; margin-bottom: 6px;\">Hóa đơn #${invoiceCode}</p>
+                    <p>Xác nhận Admin đã nhận được <strong>${amount} đ</strong> chuyển khoản từ ngân hàng?<br>
+                    Hệ thống sẽ chuyển trạng thái sang <strong>\"Đã thu tiền\" (PAID)</strong> và tự động kích hoạt hợp đồng.</p>
+                </div>`,
+                icon: "question",
+                confirmText: "Xác nhận thu tiền",
+                confirmColor: "#10b981"
+            });
+            if (!confirmed) return;
 
             const btn = document.getElementById(`btn-approve-${invId}`);
             if (btn) {

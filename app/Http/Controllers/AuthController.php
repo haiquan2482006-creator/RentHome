@@ -107,10 +107,10 @@ class AuthController extends Controller
                 return redirect('/kiem-duyet/tong-quan')->with('success', 'Xin chào ' . ($user->account_name ?: 'Kiểm duyệt viên') . '! Đăng nhập thành công vào Kênh Kiểm Duyệt.');
             }
 
-            // 2.2 Nhân viên Chăm sóc khách hàng (CSKH) -> Chuyển thẳng về Trung tâm CSKH & Khiếu nại
+            // 2.2 Nhân viên Chăm sóc khách hàng (CSKH) -> Chuyển về Trang Tổng quan CSKH
             if ((method_exists($user, 'isCskh') && $user->isCskh()) || in_array($user->role, ['chăm sóc kh', 'chamsockh', 'cskh', 'cham_soc_kh'])) {
                 $request->session()->forget('url.intended');
-                return redirect('/cskh/khieu-nai')->with('success', 'Xin chào ' . ($user->account_name ?: 'Chăm sóc khách hàng') . '! Đăng nhập thành công vào Trung tâm CSKH.');
+                return redirect('/cskh/tong-quan')->with('success', 'Xin chào ' . ($user->account_name ?: 'Chăm sóc khách hàng') . '! Đăng nhập thành công vào Trung tâm CSKH.');
             }
 
             // 3. Tài khoản con (nhân sự / nhân viên phụ trách) -> Chuyển về Trang chủ (Home)

@@ -498,11 +498,12 @@
                                             .then(data => {
                                                 if (data.success) {
                                                     this.state = newStatus;
+                                                    showToast('Cập nhật trạng thái liên hệ thành công!', 'success');
                                                 } else {
-                                                    alert(data.message || 'Lỗi khi cập nhật trạng thái.');
+                                                    showToast(data.message || 'Lỗi khi cập nhật trạng thái.', 'error');
                                                 }
                                             })
-                                            .catch(err => alert('Lỗi mạng hoặc server. Vui lòng thử lại.'))
+                                            .catch(err => showToast('Lỗi mạng hoặc server. Vui lòng thử lại.', 'error'))
                                             .finally(() => this.isUpdating = false);
                                         }
                                     }">

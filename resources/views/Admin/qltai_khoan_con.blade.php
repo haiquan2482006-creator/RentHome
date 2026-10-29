@@ -1547,62 +1547,62 @@
                     </p>
 
                     <div class="permissions-grid">
-                        <div class="perm-card-item">
-                            <div class="perm-icon-box" style="background: rgba(2, 132, 199, 0.12); color: #0284c7;">
-                                <i class="fa-solid fa-newspaper"></i>
-                            </div>
-                            <div class="perm-card-info" style="flex: 1;">
-                                <div style="display: flex; align-items: center; justify-content: space-between;">
-                                    <h4>Quyền Đăng Tin & Bài Đăng</h4>
-                                    <span class="badge-fixed-lock"><i class="fa-solid fa-check"></i> Đã cấp</span>
+                            <div class="perm-card-item">
+                                <div class="perm-icon-box" style="background: rgba(2, 132, 199, 0.12); color: #0284c7;">
+                                    <i class="fa-solid fa-newspaper"></i>
                                 </div>
-                                <p>Được tạo, chỉnh sửa bài đăng cho thuê trên website và gắn số điện thoại nhân viên.</p>
+                                <div class="perm-card-info" style="flex: 1;">
+                                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                                        <h4>Quyền Đăng Tin & Bài Đăng</h4>
+                                        <span class="badge-fixed-lock"><i class="fa-solid fa-check"></i> Đã cấp</span>
+                                    </div>
+                                    <p>Được tạo, chỉnh sửa bài đăng cho thuê trên website và gắn số điện thoại nhân viên.</p>
+                                </div>
+                            </div>
+
+                            <div class="perm-card-item">
+                                <div class="perm-icon-box" style="background: rgba(5, 150, 105, 0.12); color: #059669;">
+                                    <i class="fa-solid fa-phone-volume"></i>
+                                </div>
+                                <div class="perm-card-info" style="flex: 1;">
+                                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                                        <h4>Tiếp Nhận Khách & Đặt Lịch</h4>
+                                        <span class="badge-fixed-lock"><i class="fa-solid fa-check"></i> Đã cấp</span>
+                                    </div>
+                                    <p>Xem danh sách khách gửi liên hệ, chat tư vấn và xác nhận lịch hẹn xem phòng.</p>
+                                </div>
+                            </div>
+
+                            <div class="perm-card-item">
+                                <div class="perm-icon-box" style="background: rgba(124, 58, 237, 0.12); color: #7c3aed;">
+                                    <i class="fa-solid fa-file-signature"></i>
+                                </div>
+                                <div class="perm-card-info" style="flex: 1;">
+                                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                                        <h4>Khởi Tạo & Quản Lý Hợp Đồng</h4>
+                                        <span class="badge-fixed-lock"><i class="fa-solid fa-check"></i> Đã cấp</span>
+                                    </div>
+                                    <p>Tạo hợp đồng thuê mới, tính tiền cọc và quản lý khách thuê tại các phòng.</p>
+                                </div>
+                            </div>
+
+                            <div class="perm-card-item">
+                                <div class="perm-icon-box" style="background: rgba(217, 119, 6, 0.12); color: #d97706;">
+                                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                                </div>
+                                <div class="perm-card-info" style="flex: 1;">
+                                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                                        <h4>Chốt Điện Nước & Hóa Đơn</h4>
+                                        <span class="badge-fixed-lock"><i class="fa-solid fa-check"></i> Đã cấp</span>
+                                    </div>
+                                    <p>Nhập chỉ số điện nước hàng tháng, phát hành hóa đơn theo tài khoản công ty.</p>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="perm-card-item">
-                            <div class="perm-icon-box" style="background: rgba(5, 150, 105, 0.12); color: #059669;">
-                                <i class="fa-solid fa-phone-volume"></i>
-                            </div>
-                            <div class="perm-card-info" style="flex: 1;">
-                                <div style="display: flex; align-items: center; justify-content: space-between;">
-                                    <h4>Tiếp Nhận Khách & Đặt Lịch</h4>
-                                    <span class="badge-fixed-lock"><i class="fa-solid fa-check"></i> Đã cấp</span>
-                                </div>
-                                <p>Xem danh sách khách gửi liên hệ, chat tư vấn và xác nhận lịch hẹn xem phòng.</p>
-                            </div>
-                        </div>
-
-                        <div class="perm-card-item">
-                            <div class="perm-icon-box" style="background: rgba(124, 58, 237, 0.12); color: #7c3aed;">
-                                <i class="fa-solid fa-file-signature"></i>
-                            </div>
-                            <div class="perm-card-info" style="flex: 1;">
-                                <div style="display: flex; align-items: center; justify-content: space-between;">
-                                    <h4>Khởi Tạo & Quản Lý Hợp Đồng</h4>
-                                    <span class="badge-fixed-lock"><i class="fa-solid fa-check"></i> Đã cấp</span>
-                                </div>
-                                <p>Tạo hợp đồng thuê mới, tính tiền cọc và quản lý khách thuê tại các phòng.</p>
-                            </div>
-                        </div>
-
-                        <div class="perm-card-item">
-                            <div class="perm-icon-box" style="background: rgba(217, 119, 6, 0.12); color: #d97706;">
-                                <i class="fa-solid fa-file-invoice-dollar"></i>
-                            </div>
-                            <div class="perm-card-info" style="flex: 1;">
-                                <div style="display: flex; align-items: center; justify-content: space-between;">
-                                    <h4>Chốt Điện Nước & Hóa Đơn</h4>
-                                    <span class="badge-fixed-lock"><i class="fa-solid fa-check"></i> Đã cấp</span>
-                                </div>
-                                <p>Nhập chỉ số điện nước hàng tháng, phát hành hóa đơn theo tài khoản công ty.</p>
-                            </div>
-                        </div>
                     </div>
 
-                </div>
-
-                <div class="modal-footer">
+                    <div class="modal-footer">
                     <button type="button" class="btn-cancel" onclick="closeModal()">Hủy Bỏ</button>
                     <button type="submit" id="btnSubmitForm" class="btn-create">
                         <i class="fa-solid fa-floppy-disk"></i> Lưu Tài Khoản Con
@@ -1735,7 +1735,13 @@
 
         // Khóa / Mở khóa tài khoản khách hàng cá nhân
         async function toggleLockCustomer(cId) {
-            if (!confirm('Bạn có chắc chắn muốn thay đổi trạng thái khóa/mở khóa khách hàng này?')) return;
+            const confirmed = await showConfirmDialog({
+                title: 'Thay đổi trạng thái tài khoản?',
+                text: 'Bạn có chắc chắn muốn thay đổi trạng thái khóa/mở khóa khách hàng này?',
+                icon: 'question',
+                confirmText: 'Xác nhận'
+            });
+            if (!confirmed) return;
             try {
                 const res = await fetch(`/api/customer-accounts/${cId}/toggle-lock`, {
                     method: 'POST',
@@ -1760,7 +1766,15 @@
 
         // Xóa tài khoản khách hàng cá nhân
         async function deleteCustomer(cId) {
-            if (!confirm('Bạn có chắc chắn muốn xóa tài khoản khách hàng này?')) return;
+            const confirmed = await showConfirmDialog({
+                title: 'Xóa tài khoản khách hàng?',
+                text: 'Bạn có chắc chắn muốn xóa tài khoản khách hàng này?',
+                icon: 'warning',
+                confirmText: 'Xóa tài khoản',
+                cancelText: 'Hủy',
+                danger: true
+            });
+            if (!confirmed) return;
             try {
                 const res = await fetch(`/api/customer-accounts/${cId}`, {
                     method: 'DELETE',
@@ -2141,7 +2155,15 @@
 
         // Xóa tài khoản con
         async function deleteAccount(accId) {
-            if (!confirm('XÁC NHẬN: Bạn có chắc chắn muốn xóa tài khoản con này khỏi hệ thống? Dữ liệu bài đăng và hợp đồng vẫn thuộc doanh nghiệp nhưng tài khoản sẽ không thể đăng nhập nữa.')) return;
+            const confirmed = await showConfirmDialog({
+                title: 'Xóa tài khoản nhân sự?',
+                text: 'Bạn có chắc chắn muốn xóa tài khoản con này khỏi hệ thống? Dữ liệu bài đăng và hợp đồng vẫn thuộc doanh nghiệp.',
+                icon: 'warning',
+                confirmText: 'Xác nhận xóa',
+                cancelText: 'Hủy',
+                danger: true
+            });
+            if (!confirmed) return;
 
             try {
                 const res = await fetch(`/api/sub-accounts/${accId}`, {

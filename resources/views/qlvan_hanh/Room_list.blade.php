@@ -1307,9 +1307,17 @@
                     }
                 });
             } else {
-                if (confirm(`Bạn xác nhận đã thu [${amountStr}] tiền mặt từ khách thuê ${tenantName}?`)) {
-                    executeCollectFromPendingDebtModal(targetRoomCode);
-                }
+                showConfirmDialog({
+                    title: "Xác nhận thu tiền mặt?",
+                    text: `Bạn xác nhận đã thu [${amountStr}] tiền mặt từ khách thuê ${tenantName}?`,
+                    icon: "question",
+                    confirmText: "Đã thu tiền",
+                    confirmColor: "#10b981"
+                }).then((isConfirmed) => {
+                    if (isConfirmed) {
+                        executeCollectFromPendingDebtModal(targetRoomCode);
+                    }
+                });
             }
         }
 
@@ -1651,7 +1659,7 @@
             navigator.clipboard.writeText(msg).then(() => {
                 showToast("Đã sao chép nội dung tin nhắn Zalo gửi khách thuê!");
             }).catch(() => {
-                alert("Nội dung tin nhắn Zalo:\n\n" + msg);
+                showToast("Đã sao chép nội dung tin nhắn Zalo gửi khách thuê!", "success");
             });
         }
 
@@ -1689,9 +1697,17 @@
                     }
                 });
             } else {
-                if (confirm(`Bạn xác nhận đã thu [${totalText}] tiền mặt từ khách thuê ${tenant}?`)) {
-                    executeCollectFromInvoiceModal();
-                }
+                showConfirmDialog({
+                    title: "Xác nhận thu tiền mặt?",
+                    text: `Bạn xác nhận đã thu [${totalText}] tiền mặt từ khách thuê ${tenant}?`,
+                    icon: "question",
+                    confirmText: "Đã thu tiền",
+                    confirmColor: "#10b981"
+                }).then((isConfirmed) => {
+                    if (isConfirmed) {
+                        executeCollectFromInvoiceModal();
+                    }
+                });
             }
         }
 
@@ -1721,7 +1737,7 @@
                     if (typeof Swal !== 'undefined') {
                         Swal.fire('Thông Báo', resData.message || 'Lỗi khi cập nhật thanh toán', 'warning');
                     } else {
-                        alert(resData.message || 'Lỗi khi cập nhật thanh toán');
+                        showToast(resData.message || 'Lỗi khi cập nhật thanh toán', 'error');
                     }
                     return;
                 }
@@ -1998,11 +2014,8 @@
             const totalEl = document.getElementById('vcTotalInitialPay');
             const total = totalEl ? totalEl.innerText : '0đ';
             
-            showToast(`Đã xác nhận ký ${code} thành công!`);
-            setTimeout(() => {
-                alert(`Xác nhận ký ${code} thành công!\nTổng tiền đợt đầu: ${total}.\nĐang tiến hành lập phiếu thu và kích hoạt hiệu lực pháp lý.`);
-                closeViewContractModal();
-            }, 300);
+            showToast(`Đã xác nhận ký ${code} thành công! Tổng tiền đợt đầu: ${total}`, 'success');
+            closeViewContractModal();
         }
 
         // 7. FORM TẠO HỢP ĐỒNG MỚI & CẤU HÌNH PHÒNG
@@ -2151,9 +2164,17 @@
                     }
                 });
             } else {
-                if (confirm(`Bạn xác nhận đã thu [${amountStr}] tiền mặt ${tenantStr} từ khách thuê này?`)) {
-                    updateRoomPaymentStatus(contractId, roomCode, 'paid', btnElement, 'cash');
-                }
+                showConfirmDialog({
+                    title: "Xác nhận thu tiền mặt?",
+                    text: `Bạn xác nhận đã thu [${amountStr}] tiền mặt ${tenantStr} từ khách thuê này?`,
+                    icon: "question",
+                    confirmText: "Đã thu tiền",
+                    confirmColor: "#10b981"
+                }).then((isConfirmed) => {
+                    if (isConfirmed) {
+                        updateRoomPaymentStatus(contractId, roomCode, "paid", btnElement, "cash");
+                    }
+                });
             }
         }
 

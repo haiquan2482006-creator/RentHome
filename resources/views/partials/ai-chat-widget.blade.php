@@ -641,7 +641,14 @@
     }
 
     async function resetRentHomeChat() {
-        if (!confirm('Bạn có chắc muốn làm mới phiên hội thoại không?')) return;
+        const confirmed = await showConfirmDialog({
+            title: "Làm mới hội thoại?",
+            text: "Bạn có chắc muốn làm mới phiên hội thoại không?",
+            icon: "question",
+            confirmText: "Làm mới",
+            confirmColor: "#0284c7"
+        });
+        if (!confirmed) return;
         try {
             await fetch(AI_RESET_ENDPOINT, {
                 method: 'POST',

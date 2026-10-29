@@ -279,7 +279,7 @@ class PostController extends Controller
                   ->whereNotIn('id', $activeContractPostIds);
         }
 
-        $isDefaultQuery = !$request->filled('keyword') && !$request->filled('type') && !$request->filled('location');
+        $isDefaultQuery = !$request->filled('keyword') && !$request->filled('type') && !$request->filled('location') && !$request->filled('price_range') && !$request->filled('price');
 
         if ($isDefaultQuery) {
             $posts = $query->orderBy('created_at', 'desc')->take(24)->get();
@@ -320,18 +320,61 @@ class PostController extends Controller
         if ($request->filled('type') && !in_array($request->query('type'), ['all', ''])) {
             $type = trim($request->query('type'));
             $typeGroup = [$type];
-            if (in_array($type, ['can_ho', 'ch', 'chung_cu'])) {
+            $bKeywords = [];
+
+            if (in_array($type, ['can_ho', 'ch', 'chung_cu', 'chung_cu_mini', 'can_ho_dich_vu'])) {
                 $typeGroup = ['can_ho', 'can_ho_dich_vu', 'chung_cu', 'chung_cu_mini', 'ch'];
-            } elseif (in_array($type, ['nha_nguyen_can', 'nnc', 'nha_rieng', 'nha_o'])) {
-                $typeGroup = ['nha_nguyen_can', 'nha_rieng', 'nha_o', 'nnc'];
-            } elseif (in_array($type, ['phong_tro', 'pt', 'nha_tro', 'ky_tuc_xa', 'sleepbox'])) {
-                $typeGroup = ['phong_tro', 'nha_tro', 'ky_tuc_xa', 'sleepbox', 'pt'];
-            } elseif (in_array($type, ['cum_nha_lien_ke', 'biet_thu', 'villa'])) {
-                $typeGroup = ['cum_nha_lien_ke', 'biet_thu', 'villa'];
-            } elseif (in_array($type, ['mat_bang', 'mat_bang_kinh_doanh', 'van_phong'])) {
-                $typeGroup = ['mat_bang', 'mat_bang_kinh_doanh', 'van_phong'];
+                $bKeywords = ['Chung cư', 'Căn hộ'];
+            } elseif (in_array($type, ['nha_tro', 'phong_tro', 'pt'])) {
+                $typeGroup = ['nha_tro', 'phong_tro', 'pt'];
+                $bKeywords = ['Nhà trọ', 'Khu trọ', 'Phòng trọ'];
+            } elseif (in_array($type, ['ky_tuc_xa', 'sleepbox', 'ktx'])) {
+                $typeGroup = ['ky_tuc_xa', 'sleepbox', 'ktx'];
+                $bKeywords = ['Ký túc xá', 'Sleepbox'];
+            } elseif (in_array($type, ['dat_phan_lo', 'dat_phanlo'])) {
+                $typeGroup = ['dat_phan_lo', 'dat_phanlo'];
+                $bKeywords = ['Đất phân lô', 'Đất nền'];
+            } elseif (in_array($type, ['nha_rieng', 'nha_nguyen_can', 'nnc', 'nha_o'])) {
+                $typeGroup = ['nha_rieng', 'nha_nguyen_can', 'nha_o', 'nnc'];
+                $bKeywords = ['Nhà ở', 'Nhà riêng'];
+            } elseif (in_array($type, ['cum_nha_lien_ke', 'biet_thu', 'villa', 'lien_ke', 'nha_lien_ke'])) {
+                $typeGroup = ['cum_nha_lien_ke', 'biet_thu', 'villa', 'lien_ke', 'nha_lien_ke'];
+                $bKeywords = ['Cụm nhà liền kề', 'Dự án', 'Biệt thự'];
+            } elseif (in_array($type, ['dat_nen', 'mat_bang', 'mat_bang_kinh_doanh', 'van_phong'])) {
+                $typeGroup = ['dat_nen', 'mat_bang', 'mat_bang_kinh_doanh', 'van_phong'];
+                $bKeywords = ['Mặt bằng'];
             }
-            $query->whereIn('property_type', $typeGroup);
+
+            // Lấy ID các tòa nhà (vỏ dự án) có type hoặc business_type tương ứng
+            $buildingQuery = Building::whereIn('type', $typeGroup);
+            if (!empty($bKeywords)) {
+                $buildingQuery->orWhere(function($bq) use ($bKeywords) {
+                    foreach ($bKeywords as $kw) {
+                        $bq->orWhere('business_type', 'like', "%{$kw}%");
+                    }
+                });
+            }
+
+            $buildings = $buildingQuery->get(['_id']);
+            $matchingBuildingIds = [];
+            foreach ($buildings as $b) {
+                $strId = (string)($b->_id ?? $b->id);
+                if ($strId) {
+                    $matchingBuildingIds[] = $strId;
+                    try {
+                        if (class_exists('\MongoDB\BSON\ObjectId') && strlen($strId) === 24) {
+                            $matchingBuildingIds[] = new \MongoDB\BSON\ObjectId($strId);
+                        }
+                    } catch (\Exception $e) {}
+                }
+            }
+
+            $query->where(function ($q) use ($typeGroup, $matchingBuildingIds) {
+                $q->whereIn('property_type', $typeGroup);
+                if (!empty($matchingBuildingIds)) {
+                    $q->orWhereIn('building_id', $matchingBuildingIds);
+                }
+            });
         }
 
         if ($request->filled('location')) {

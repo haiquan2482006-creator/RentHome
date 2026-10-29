@@ -11,8 +11,69 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <style>
+        /* Custom SweetAlert2 Modal styling */
+        .swal2-popup:not(.swal2-toast) {
+            border-radius: 1.25rem !important;
+            font-family: 'Inter', sans-serif !important;
+            padding: 1.5rem !important;
+            max-width: 440px !important;
+        }
+        .swal2-popup:not(.swal2-toast) .swal2-title {
+            font-size: 1.15rem !important;
+            font-weight: 800 !important;
+            color: #0f172a !important;
+        }
+        .swal2-popup:not(.swal2-toast) .swal2-html-container {
+            font-size: 0.875rem !important;
+            color: #475569 !important;
+            line-height: 1.5 !important;
+            margin: 0.5rem 0 0 0 !important;
+        }
+        .swal2-actions {
+            gap: 0.75rem !important;
+            margin-top: 1.25rem !important;
+        }
+        .swal2-confirm, .swal2-cancel {
+            border-radius: 0.75rem !important;
+            font-weight: 700 !important;
+            font-size: 0.875rem !important;
+            padding: 0.6rem 1.2rem !important;
+        }
+
+        /* Toast nhỏ gọn, tinh tế */
+        .swal2-popup.swal2-toast {
+            border-radius: 0.75rem !important;
+            font-family: 'Inter', sans-serif !important;
+            padding: 0.5rem 0.85rem !important;
+            max-width: 320px !important;
+            width: auto !important;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1) !important;
+            border: 1px solid #e2e8f0 !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 0.4rem !important;
+        }
+        .swal2-popup.swal2-toast .swal2-title {
+            font-size: 0.8125rem !important;
+            font-weight: 600 !important;
+            color: #0f172a !important;
+            margin: 0 !important;
+            line-height: 1.35 !important;
+            text-align: left !important;
+        }
+        .swal2-popup.swal2-toast .swal2-icon {
+            width: 1.25rem !important;
+            height: 1.25rem !important;
+            min-width: 1.25rem !important;
+            margin: 0 !important;
+        }
+        .swal2-popup.swal2-toast .swal2-icon .swal2-icon-content {
+            font-size: 0.75rem !important;
+        }
         :root {
             --primary: #0284c7;
             --primary-dark: #0369a1;
@@ -1230,6 +1291,23 @@
 
     <!-- ================= JAVASCRIPT LOGIC & CHARTS ================= -->
     <script>
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true,
+            didOpen: (toast) => {
+                toast.addEventListener('mouseenter', Swal.stopTimer);
+                toast.addEventListener('mouseleave', Swal.resumeTimer);
+            }
+        });
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
         // 0. Dữ liệu thực tế truyền từ Controller / Backend
         const chart7DaysData = {!! json_encode($chart7Days ?? ['labels'=>[], 'approved'=>[], 'rejected'=>[], 'complaint'=>[]]) !!};
         const chart30DaysData = {!! json_encode($chart30Days ?? ['labels'=>[], 'approved'=>[], 'rejected'=>[], 'complaint'=>[]]) !!};
@@ -1372,9 +1450,32 @@
             document.getElementById('previewModal').classList.add('show');
         }
 
-        // 6. Phê duyệt nhanh bài đăng trên bảng (Gọi API thực tế vào CSDL)
+        // 6. Phê duyệt nhanh bài đăng trên bảng với xác nhận hiện đại
         async function approvePostQuick(btn, title) {
-            if (!confirm('Xác nhận PHÊ DUYỆT bài đăng "' + title + '" và cho phép hiển thị công khai lên trang chủ?')) return;
+            const result = await Swal.fire({
+                title: 'Xác nhận phê duyệt?',
+                html: `
+                    <div style="text-align: left; background: #f0fdf4; padding: 14px 16px; border-radius: 14px; border: 1px solid #bbf7d0; margin-top: 10px;">
+                        <p style="font-weight: 700; color: #166534; font-size: 14px; line-height: 1.4; margin-bottom: 6px;">
+                            <i class="fa-solid fa-house-circle-check text-emerald-600 mr-1"></i> ${escapeHtml(title)}
+                        </p>
+                        <p style="font-size: 12px; color: #15803d; line-height: 1.4;">
+                            Bài đăng sẽ được phê duyệt và hiển thị công khai ngay lên Trang chủ RentHome.
+                        </p>
+                    </div>
+                `,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#10b981',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: '<i class="fa-solid fa-circle-check mr-1.5"></i> Đồng ý phê duyệt',
+                cancelButtonText: '<i class="fa-solid fa-xmark mr-1.5"></i> Hủy bỏ',
+                reverseButtons: true,
+                focusConfirm: true
+            });
+
+            if (!result.isConfirmed) return;
+
             const row = btn.closest('tr');
             const postId = row ? row.getAttribute('data-id') : null;
             if (!postId) return;
@@ -1390,6 +1491,10 @@
                 });
                 const data = await res.json();
                 if (data.success) {
+                    Toast.fire({
+                        icon: 'success',
+                        title: 'Đã phê duyệt bài đăng thành công!'
+                    });
                     row.style.transition = '0.3s';
                     row.style.opacity = '0';
                     setTimeout(() => {
@@ -1397,12 +1502,20 @@
                         decrementPendingCounter(true);
                     }, 300);
                 } else {
-                    alert(data.message || 'Có lỗi xảy ra khi phê duyệt bài đăng.');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Không thể phê duyệt',
+                        text: data.message || 'Có lỗi xảy ra khi phê duyệt bài đăng.',
+                        confirmButtonColor: '#ef4444'
+                    });
                     btn.disabled = false;
                 }
             } catch (err) {
                 console.error(err);
-                alert('Lỗi kết nối máy chủ khi phê duyệt.');
+                Toast.fire({
+                    icon: 'error',
+                    title: 'Lỗi kết nối máy chủ khi phê duyệt.'
+                });
                 btn.disabled = false;
             }
         }
@@ -1441,12 +1554,24 @@
                         decrementPendingCounter(false);
                     }, 300);
                     closeModal('rejectModal');
+                    Toast.fire({
+                        icon: 'info',
+                        title: 'Đã từ chối và gửi phản hồi cho nhân viên!'
+                    });
                 } else {
-                    alert(data.message || 'Có lỗi xảy ra khi từ chối bài đăng.');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Lỗi',
+                        text: data.message || 'Có lỗi xảy ra khi từ chối bài đăng.',
+                        confirmButtonColor: '#ef4444'
+                    });
                 }
             } catch (err) {
                 console.error(err);
-                alert('Lỗi kết nối máy chủ khi từ chối bài đăng.');
+                Toast.fire({
+                    icon: 'error',
+                    title: 'Lỗi kết nối máy chủ khi từ chối bài đăng.'
+                });
             }
         }
 

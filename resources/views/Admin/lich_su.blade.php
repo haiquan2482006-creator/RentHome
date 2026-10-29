@@ -503,14 +503,14 @@
                                 </td>
                                 <td style="text-align: right;">
                                     @if($isLockAction && !empty($act->target_id))
-                                        <form action="{{ url('qlnguoi_dung/unlock/' . $act->target_id) }}" method="POST" style="display: inline;" onsubmit="return confirm('Mở khóa cho tài khoản này?');">
+                                        <form action="{{ url('qlnguoi_dung/unlock/' . $act->target_id) }}" method="POST" style="display: inline;" onsubmit="return confirmForm(this, 'Mở khóa cho tài khoản này?');">
                                             @csrf
                                             <button type="submit" class="btn-table-action btn-table-unlock">
                                                 <i class="fa-solid fa-lock-open"></i> Mở khóa
                                             </button>
                                         </form>
                                     @elseif($isRestoreAction && !empty($act->target_id))
-                                        <form action="{{ url('qlnguoi_dung/restore/' . $act->target_id) }}" method="POST" style="display: inline;" onsubmit="return confirm('Khôi phục tài khoản này?');">
+                                        <form action="{{ url('qlnguoi_dung/restore/' . $act->target_id) }}" method="POST" style="display: inline;" onsubmit="return confirmForm(this, 'Khôi phục tài khoản này?');">
                                             @csrf
                                             <button type="submit" class="btn-table-action btn-table-unlock">
                                                 <i class="fa-solid fa-rotate-left"></i> Khôi phục

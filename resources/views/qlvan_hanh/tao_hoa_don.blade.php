@@ -17,6 +17,7 @@
 
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    @include('partials.modern-notification')
 
     <script>
         tailwind.config = {
@@ -1114,9 +1115,15 @@
             const msg = `[RentHome] Kính gửi anh/chị ${tenant},\nRentHome xin gửi thông báo hóa đơn ${period} cho ${roomText}.\n- Tổng tiền thanh toán: ${total}.\n- Nội dung CK: ${document.getElementById('transfer_memo').value}.\nXin cảm ơn!`;
             
             navigator.clipboard.writeText(msg).then(() => {
-                alert('Đã sao chép nội dung tin nhắn Zalo gửi khách thuê!\n\nNội dung:\n' + msg);
+                showToast('Đã sao chép nội dung tin nhắn Zalo gửi khách thuê!', 'success');
             }).catch(() => {
-                alert('Nội dung tin nhắn Zalo:\n\n' + msg);
+                Swal.fire({
+                    title: 'Nội dung tin nhắn Zalo',
+                    html: `<div style="text-align: left; font-size: 13.5px; line-height: 1.5; color: #334155; white-space: pre-line; background: #f8fafc; padding: 12px; border-radius: 12px;">${msg}</div>`,
+                    icon: 'info',
+                    confirmButtonColor: '#0284c7',
+                    confirmButtonText: '<i class="fa-solid fa-check mr-1.5"></i> Đã hiểu'
+                });
             });
         }
 

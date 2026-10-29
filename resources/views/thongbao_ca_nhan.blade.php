@@ -84,7 +84,7 @@
                                 Thông Báo Của Tôi
                             </h1>
                             @if(isset($unreadCount) && $unreadCount > 0)
-                                <span class="px-2.5 py-0.5 rounded-full bg-rose-500 text-white text-xs font-bold shadow-xs">
+                                <span id="unread-header-badge" class="px-2.5 py-0.5 rounded-full bg-rose-500 text-white text-xs font-bold shadow-xs">
                                     {{ $unreadCount }} chưa đọc
                                 </span>
                             @endif
@@ -131,7 +131,7 @@
                     <a href="{{ route('thongbao.canhan', ['tab' => 'unread']) }}" 
                        class="tab-btn inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all {{ ($currentTab ?? '') === 'unread' ? 'active' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 bg-slate-50 border border-slate-200/60' }}">
                         <span>Chưa đọc</span>
-                        <span class="px-1.5 py-0.2 rounded-full text-[10px] {{ ($currentTab ?? '') === 'unread' ? 'bg-white/25 text-white' : 'bg-rose-100 text-rose-700' }}">
+                        <span id="unread-tab-count" class="px-1.5 py-0.2 rounded-full text-[10px] {{ ($currentTab ?? '') === 'unread' ? 'bg-white/25 text-white' : 'bg-rose-100 text-rose-700' }}">
                             {{ $unreadCount ?? 0 }}
                         </span>
                     </a>
@@ -140,7 +140,7 @@
                     <a href="{{ route('thongbao.canhan', ['tab' => 'read']) }}" 
                        class="tab-btn inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all {{ ($currentTab ?? '') === 'read' ? 'active' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 bg-slate-50 border border-slate-200/60' }}">
                         <span>Đã đọc</span>
-                        <span class="px-1.5 py-0.2 rounded-full text-[10px] {{ ($currentTab ?? '') === 'read' ? 'bg-white/25 text-white' : 'bg-slate-200 text-slate-700' }}">
+                        <span id="read-tab-count" class="px-1.5 py-0.2 rounded-full text-[10px] {{ ($currentTab ?? '') === 'read' ? 'bg-white/25 text-white' : 'bg-slate-200 text-slate-700' }}">
                             {{ $readCount ?? 0 }}
                         </span>
                     </a>
@@ -288,7 +288,9 @@
                                         @endif
                                         <div class="flex-1 min-w-0">
                                             <div class="flex items-center gap-2">
-                                                <span class="text-[10px] font-bold uppercase tracking-wider text-teal-700 bg-teal-100/80 px-1.5 py-0.5 rounded">Bài đăng khiếu nại</span>
+                                                <span class="text-[10px] font-bold uppercase tracking-wider {{ str_contains($category, 'contact') ? 'text-amber-700 bg-amber-100/80' : 'text-teal-700 bg-teal-100/80' }} px-1.5 py-0.5 rounded">
+                                                    {{ str_contains($category, 'contact') ? 'Bài đăng liên hệ' : 'Bài đăng khiếu nại' }}
+                                                </span>
                                                 @if(!empty($attachedPost->gia_thue ?? $attachedPost->price))
                                                     <span class="text-xs font-black text-emerald-600 ml-auto">
                                                         {{ is_numeric($attachedPost->gia_thue ?? $attachedPost->price) ? number_format($attachedPost->gia_thue ?? $attachedPost->price) . ' đ/tháng' : ($attachedPost->gia_thue ?? $attachedPost->price) }}
@@ -399,47 +401,86 @@
     <script>
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
-        // 1. Đánh dấu tất cả là đã đọc
+        // 1. Đánh dấu tất cả là đã đọc (Lập tức chuyển trạng thái, loại bỏ hoàn toàn hiệu ứng hỏi lại & popup)
         function markAllAsRead() {
-            Swal.fire({
-                title: 'Đánh dấu đã đọc?',
-                text: 'Toàn bộ thông báo chưa đọc của bạn sẽ được chuyển thành đã đọc.',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#0d9488',
-                cancelButtonColor: '#64748b',
-                confirmButtonText: 'Đồng ý',
-                cancelButtonText: 'Hủy'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    fetch('{{ route("thongbao.markAllRead") }}', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': csrfToken,
-                            'Accept': 'application/json'
-                        }
-                    })
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.success) {
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Thành công!',
-                                text: data.message || 'Đã đánh dấu tất cả thông báo là đã đọc.',
-                                timer: 1200,
-                                showConfirmButton: false
-                            });
-                            setTimeout(() => window.location.reload(), 1000);
-                        } else {
-                            Swal.fire('Lỗi', data.message || 'Có lỗi xảy ra', 'error');
-                        }
-                    })
-                    .catch(() => {
-                        Swal.fire('Lỗi', 'Không thể hoàn tất yêu cầu lúc này.', 'error');
-                    });
+            // Cập nhật ngay lập tức giao diện toàn bộ các thẻ thông báo sang trạng thái đã đọc
+            const cards = document.querySelectorAll('[id^="notif-card-"]');
+            cards.forEach(card => {
+                // Đổi viền và nền sang kiểu đã đọc
+                card.className = 'rounded-xl p-4 sm:p-5 transition-all duration-200 shadow-sm border bg-white border-slate-200/80 hover:border-slate-300';
+                
+                // Tiêu đề h3
+                const titleEl = card.querySelector('h3');
+                if (titleEl) {
+                    titleEl.className = 'text-sm sm:text-base leading-snug font-medium text-slate-700';
                 }
+                
+                // Nội dung text p
+                const pEl = card.querySelector('p');
+                if (pEl) {
+                    pEl.className = 'text-xs sm:text-sm mt-1 leading-relaxed break-words text-slate-500';
+                }
+                
+                // Xóa nút checkmark đánh dấu đã đọc
+                const btnCheck = card.querySelector('button[title="Đánh dấu đã đọc"]');
+                if (btnCheck) btnCheck.remove();
+                
+                // Xóa nhãn "Mới" nhấp nháy
+                const newBadges = card.querySelectorAll('.animate-pulse');
+                newBadges.forEach(badge => {
+                    const parent = badge.closest('.inline-flex') || badge.parentElement;
+                    if (parent) parent.remove();
+                });
             });
+
+            // Ẩn badge đếm số lượng chưa đọc ở tiêu đề trang
+            const headerBadge = document.getElementById('unread-header-badge');
+            if (headerBadge) headerBadge.remove();
+
+            // Cập nhật số đếm tab Chưa đọc về 0
+            const unreadTabCount = document.getElementById('unread-tab-count');
+            if (unreadTabCount) unreadTabCount.innerText = '0';
+
+            // Cập nhật số đếm tab Đã đọc bằng tổng số thông báo
+            const readTabCount = document.getElementById('read-tab-count');
+            const totalTabCount = document.querySelector('a[href*="tab=all"] span:last-child');
+            if (readTabCount && totalTabCount) {
+                readTabCount.innerText = totalTabCount.innerText.trim();
+            }
+
+            // Cập nhật chuông thông báo trên thanh topbar (nếu có)
+            const topbarBadge = document.getElementById('home-topbar-notif-badge');
+            if (topbarBadge) {
+                topbarBadge.innerText = '0';
+                topbarBadge.style.display = 'none';
+            }
+
+            // Nếu người dùng đang đứng ở riêng tab "Chưa đọc" thì hiển thị giao diện trống ngay lập tức
+            const currentUrl = new URL(window.location.href);
+            if (currentUrl.searchParams.get('tab') === 'unread') {
+                const listContainer = document.getElementById('notif-list-container');
+                if (listContainer) {
+                    listContainer.innerHTML = `
+                        <div class="bg-white rounded-2xl p-12 text-center border border-slate-200/80 shadow-xs">
+                            <div class="w-16 h-16 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center mx-auto mb-4 text-2xl">
+                                <i class="fa-solid fa-bell-slash"></i>
+                            </div>
+                            <h3 class="text-base font-bold text-slate-800">Không có thông báo nào</h3>
+                            <p class="text-xs text-slate-500 mt-1">Bạn đã đọc toàn bộ thông báo.</p>
+                        </div>
+                    `;
+                }
+            }
+
+            // Gửi ngầm request lên máy chủ để cập nhật dữ liệu vào DB (không hỏi lại, không popup khác)
+            fetch('{{ route("thongbao.markAllRead") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json'
+                }
+            }).catch(err => console.error('Lỗi khi đánh dấu đã đọc tất cả:', err));
         }
 
         // 2. Xóa toàn bộ thông báo đã đọc

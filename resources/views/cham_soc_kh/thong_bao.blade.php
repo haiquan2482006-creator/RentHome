@@ -13,6 +13,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    @include('partials.modern-notification')
 
     <style>
         :root {
@@ -77,18 +78,21 @@
         }
 
         .brand-logo {
-            width: 42px;
-            height: 42px;
-            background: #0284c7;
-            color: #ffffff;
-            border-radius: 12px;
+            width: 44px;
+            height: 44px;
+            background: transparent;
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
-            font-weight: 800;
             flex-shrink: 0;
-            box-shadow: 0 4px 10px rgba(2, 132, 199, 0.25);
+            overflow: hidden;
+        }
+
+        .brand-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
         }
 
         .brand-info h2 {
@@ -335,7 +339,7 @@
     <aside class="sidebar">
         <div class="brand-box">
             <div class="brand-logo">
-                <i class="fa-solid fa-headset"></i>
+                <img src="{{ asset('img/logo.png') }}" alt="RentHome Logo">
             </div>
             <div class="brand-info">
                 <h2>RentHome <span class="role-badge">CSKH</span></h2>
@@ -345,6 +349,14 @@
 
         <div class="nav-section-title">Chăm Sóc Khách Hàng</div>
         <ul class="nav-list">
+            <li>
+                <a href="{{ url('/cskh/tong-quan') }}" class="nav-link">
+                    <span class="nav-link-left">
+                        <i class="fa-solid fa-chart-pie"></i>
+                        <span>Tổng quan</span>
+                    </span>
+                </a>
+            </li>
             <li>
                 <a href="{{ url('/cskh/khieu-nai') }}" class="nav-link">
                     <span class="nav-link-left">
@@ -363,6 +375,14 @@
                     @if(isset($unreadCount) && $unreadCount > 0)
                         <span class="nav-badge badge-warning-pill" id="sidebarNotifBadge">{{ $unreadCount }}</span>
                     @endif
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('cskh.history') }}" class="nav-link">
+                    <span class="nav-link-left">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                        <span>Lịch sử hoạt động</span>
+                    </span>
                 </a>
             </li>
         </ul>

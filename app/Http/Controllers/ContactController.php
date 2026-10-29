@@ -186,6 +186,21 @@ class ContactController extends Controller
     {
         $post = Post::findOrFail($postId);
 
+        // Chặn tài khoản nhân sự gửi yêu cầu liên hệ / thuê nhà
+        if (Auth::check()) {
+            $currentUser = Auth::user();
+            $isStaffUser = (
+                (method_exists($currentUser, 'isNhansu') && $currentUser->isNhansu()) ||
+                (method_exists($currentUser, 'isStaff') && $currentUser->isStaff()) ||
+                in_array($currentUser->role ?? '', ['nhansu', 'staff', 'sub_account', 'nhan_su', 'nhan su'])
+            );
+            if ($isStaffUser) {
+                return back()->withErrors([
+                    'message' => 'Tài khoản nhân sự quản trị vận hành không được phép thuê nhà hoặc gửi yêu cầu liên hệ.'
+                ])->withInput();
+            }
+        }
+
         $request->validate([
             'fullname' => 'required',
             'phone' => 'required',
@@ -376,6 +391,66 @@ class ContactController extends Controller
 
         if ($contact->status !== 'pending') {
             return response()->json(['success' => false, 'message' => 'Chỉ có thể thu hồi yêu cầu đang ở trạng thái chờ phản hồi.'], 400);
+        }
+
+        // 1. Lấy thông tin bài đăng và người sở hữu bài đăng
+        $post = $contact->post ?: Post::find($contact->post_id);
+        $ownerId = (string)($contact->owner_id ?? ($post ? ($post->user_id ?? ($post->user->_id ?? $post->author_id)) : ''));
+        $postId = (string)($contact->post_id ?? ($post ? ($post->_id ?? $post->id) : ''));
+        $postTitle = $post ? ($post->title ?? 'Bài đăng') : 'Bài đăng';
+
+        // 2. Lấy thông tin khách hàng và lời yêu cầu liên hệ
+        $sender = Auth::user();
+        $senderName = $contact->sender_name ?: ($sender ? ($sender->account_name ?? ($sender->name ?? 'Khách hàng')) : 'Khách hàng');
+        $senderPhone = $contact->phone ?: ($sender ? ($sender->phone ?? '') : '');
+        $senderMessage = trim((string)($contact->message ?? ''));
+        $appointmentDate = $contact->appointment_date ?? '';
+
+        // 3. Xây dựng nội dung thông báo kèm lời yêu cầu và bài đăng
+        $customerInfo = $senderName . ($senderPhone ? " ({$senderPhone})" : "");
+        $messageContent = "Khách hàng {$customerInfo} đã thu hồi yêu cầu thuê đối với bài đăng \"{$postTitle}\".";
+        if (!empty($senderMessage)) {
+            $messageContent .= " Lời yêu cầu: \"{$senderMessage}\".";
+        }
+        if (!empty($appointmentDate)) {
+            try {
+                $formattedAppointment = Carbon::parse($appointmentDate)->format('H:i - d/m/Y');
+                $messageContent .= " (Lịch hẹn trước đó: {$formattedAppointment})";
+            } catch (\Throwable $e) {}
+        }
+
+        // 4. Tạo thông báo tự động gửi cho tài khoản đăng bài
+        if (!empty($ownerId)) {
+            Notification::create([
+                'user_id'    => $ownerId,
+                'role'       => 'owner',
+                'category'   => 'contact_revoked',
+                'type'       => 'warning',
+                'title'      => 'Khách hàng đã thu hồi yêu cầu thuê nhà',
+                'message'    => $messageContent,
+                'post_id'    => $postId,
+                'action_url' => url('/thong-bao-lien-he'),
+                'is_read'    => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            // Nếu bài đăng thuộc nhân viên con và có doanh nghiệp mẹ, gửi thêm cho doanh nghiệp mẹ
+            if ($post && !empty($post->parent_id) && (string)$post->parent_id !== $ownerId) {
+                Notification::create([
+                    'user_id'    => (string)$post->parent_id,
+                    'role'       => 'doanhnghiep',
+                    'category'   => 'contact_revoked',
+                    'type'       => 'warning',
+                    'title'      => 'Khách hàng đã thu hồi yêu cầu thuê bài đăng',
+                    'message'    => "Khách hàng {$customerInfo} đã thu hồi yêu cầu thuê cho bài đăng \"{$postTitle}\" của nhân viên." . (!empty($senderMessage) ? " Lời yêu cầu: \"{$senderMessage}\"." : ""),
+                    'post_id'    => $postId,
+                    'action_url' => url('/thong-bao-lien-he'),
+                    'is_read'    => false,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
         }
 
         $contact->forceDelete();

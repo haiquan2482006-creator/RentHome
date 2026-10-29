@@ -1,3 +1,4 @@
+@include('partials.modern-notification')
 <style>
     .glass-panel {
         background: rgba(255, 255, 255, 0.9);
@@ -54,7 +55,7 @@
     $navItems = [
         ['url' => url('/#hero'), 'label' => 'Trang chủ', 'active' => Request::is('/')],
         ['url' => url('/baidang'), 'label' => 'Thuê nhà', 'active' => Request::is('baidang')],
-        ['url' => url('/#featured'), 'label' => 'Nhà nổi bật', 'active' => false],
+        ['url' => url('/#featured-posts-section'), 'label' => 'Nhà nổi bật', 'active' => false],
         ['url' => url('/#features'), 'label' => 'Ưu điểm', 'active' => false],
         ['url' => url('/tintuc'), 'label' => 'Tin tức', 'active' => Request::is('tintuc*') || Request::is('tin-tuc*')],
         ['url' => url('/#contact'), 'label' => 'Liên hệ', 'active' => false],
