@@ -21,6 +21,14 @@ class ContractController extends Controller
      */
     public function store(Request $request)
     {
+        $user = Auth::user();
+        if (!$user) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => 'Vui lòng đăng nhập để tạo hợp đồng.'], 401);
+            }
+            return redirect()->guest(route('login'))->with('error', 'Vui lòng đăng nhập để tạo hợp đồng.');
+        }
+
         $request->validate([
             'room_id'         => 'required',
             'tenant_name'     => 'required|string|max:255',

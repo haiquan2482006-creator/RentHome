@@ -714,6 +714,11 @@ class OperationManagementController extends Controller
      */
     public function storeInvoice(Request $request)
     {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Vui lòng đăng nhập để thực hiện thao tác này!'], 401);
+        }
+
         $contractId = $request->input('contract_id');
         $contractCode = $request->input('contract_code');
 
@@ -797,6 +802,11 @@ class OperationManagementController extends Controller
      */
     public function updatePaymentStatus(Request $request)
     {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Vui lòng đăng nhập để thực hiện thao tác này!'], 401);
+        }
+
         $contractId = $request->input('contract_id');
         $status = $request->input('status', 'paid'); // 'paid' hoặc 'unpaid'
 

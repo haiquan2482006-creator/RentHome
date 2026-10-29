@@ -11,9 +11,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->web(append: [
-            \App\Http\Middleware\CheckLockedAccount::class,
-        ]);
+
 
         $middleware->validateCsrfTokens(except: [
             'qlvan_hanh/update_payment_status',
@@ -27,6 +25,8 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->web(append: [
+            \App\Http\Middleware\CheckLockedAccount::class,
+            \App\Http\Middleware\PreventBackHistory::class,
             \App\Http\Middleware\RestrictModeratorToManagement::class,
         ]);
     })
