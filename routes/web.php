@@ -78,14 +78,14 @@ Route::get('/trangcanhanuser', function () {
         return redirect()->route('login')->with('error', 'Vui lòng đăng nhập để truy cập trang cá nhân.');
     }
     return view('trangcanhanuser');
-})->name('user.dashboard');
+})->middleware('auth')->name('user.dashboard');
 
 Route::get('/doi-mat-khau', function () {
     if (!\Illuminate\Support\Facades\Auth::check()) {
         return redirect()->route('login')->with('error', 'Vui lòng đăng nhập để đổi mật khẩu.');
     }
     return view('doi_mat_khau');
-})->name('user.change_password');
+})->middleware('auth')->name('user.change_password');
 
 Route::post('/doi-mat-khau', function (\Illuminate\Http\Request $request) {
     if (!\Illuminate\Support\Facades\Auth::check()) {
@@ -121,16 +121,16 @@ Route::post('/doi-mat-khau', function (\Illuminate\Http\Request $request) {
     $user->save();
 
     return back()->with('success', 'Đổi mật khẩu thành công!');
-})->name('user.update_password');
+})->middleware('auth')->name('user.update_password');
 
-Route::post('/trangcanhanuser', [\App\Http\Controllers\UserController::class, 'updateProfile'])->name('user.profile.update');
-Route::post('/api/user/avatar', [\App\Http\Controllers\UserController::class, 'uploadAvatar'])->name('user.avatar.upload');
+Route::post('/trangcanhanuser', [\App\Http\Controllers\UserController::class, 'updateProfile'])->middleware('auth')->name('user.profile.update');
+Route::post('/api/user/avatar', [\App\Http\Controllers\UserController::class, 'uploadAvatar'])->middleware('auth')->name('user.avatar.upload');
 
-Route::get('/Admin', [DashboardController::class, 'index'])->name('admin.overview');
+Route::get('/Admin', [DashboardController::class, 'index'])->middleware('auth')->name('admin.overview');
 
 Route::get('/admin', function () {
     return redirect('/Admin');
-});
+})->middleware('auth');
 
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
@@ -153,12 +153,16 @@ Route::get('/api/auth/status', function () {
 
 Route::get('/nha_dang_thue', function () {
     return redirect('/nha-dang-thue');
-});
+})->middleware('auth');
 Route::get('/nha dang thue', function () {
     return redirect('/nha-dang-thue');
-});
+})->middleware('auth');
 
 Route::get('/nha-dang-thue', function () {
+    if (!\Illuminate\Support\Facades\Auth::check()) {
+        return redirect()->route('login')->with('error', 'Vui lòng đăng nhập để xem danh sách nhà đang thuê.');
+    }
+
     $currentUser = \Illuminate\Support\Facades\Auth::user();
     $userId = \Illuminate\Support\Facades\Auth::id();
 
@@ -309,7 +313,7 @@ Route::get('/nha-dang-thue', function () {
     }
 
     return view('nhadangthue.index', compact('rentedContracts', 'totalRentedCount', 'totalRentAmount', 'pendingInvoicesCount', 'pendingInvoicesTotal', 'pendingInvoices', 'paidInvoices', 'allInvoices', 'terminatedContracts'));
-})->name('nha-dang-thue');
+})->middleware('auth')->name('nha-dang-thue');
 
 Route::post('/api/invoices/{code}/pay', function ($code, \Illuminate\Http\Request $request) {
     $cleanCode = trim($code);
@@ -398,7 +402,7 @@ Route::post('/api/invoices/{code}/pay', function ($code, \Illuminate\Http\Reques
         ]);
     }
     return response()->json(['success' => false, 'message' => 'Không tìm thấy hóa đơn'], 404);
-});
+})->middleware('auth');
 
 // API danh sách hóa đơn tiền mặt nhân viên đang giữ (chưa nộp Kế toán)
 Route::get('/api/staff/my-cash-debts', function () {
@@ -461,46 +465,50 @@ Route::get('/api/staff/my-cash-debts', function () {
     ]);
 })->middleware(['auth'])->name('api.staff.my_cash_debts');
 
-Route::get('/quan-ly-van-hanh', [\App\Http\Controllers\OperationManagementController::class, 'index'])->name('quan-ly-van-hanh');
+Route::get('/quan-ly-van-hanh', [\App\Http\Controllers\OperationManagementController::class, 'index'])->middleware('auth')->name('quan-ly-van-hanh');
 
-Route::get('/qlvan_hanh/Room_list', [\App\Http\Controllers\OperationManagementController::class, 'index'])->name('qlvan_hanh.room_list');
+Route::get('/qlvan_hanh/Room_list', [\App\Http\Controllers\OperationManagementController::class, 'index'])->middleware('auth')->name('qlvan_hanh.room_list');
 
-Route::get('/api/operation/check-billing-due', [\App\Http\Controllers\OperationManagementController::class, 'checkRealtimeDue'])->name('operation.check_due');
+Route::get('/api/operation/check-billing-due', [\App\Http\Controllers\OperationManagementController::class, 'checkRealtimeDue'])->middleware('auth')->name('operation.check_due');
 
-Route::post('/qlvan_hanh/contracts', [\App\Http\Controllers\ContractController::class, 'store'])->name('contracts.store');
+Route::post('/qlvan_hanh/contracts', [\App\Http\Controllers\ContractController::class, 'store'])->middleware('auth')->name('contracts.store');
 
 // Tuyến đường xem chi tiết Hóa đơn chuyên nghiệp (Đặc biệt cho Hóa đơn #1 thanh toán nhận nhà)
-Route::get('/qlvan_hanh/hoa_don/{code}', [\App\Http\Controllers\OperationManagementController::class, 'showInvoiceDetail'])->name('qlvan_hanh.invoice_detail');
-Route::get('/qlvan_hanh/hoa-don/{code}', [\App\Http\Controllers\OperationManagementController::class, 'showInvoiceDetail']);
-Route::get('/hoa-don/{code}', [\App\Http\Controllers\OperationManagementController::class, 'showInvoiceDetail'])->name('invoice.detail');
+Route::get('/qlvan_hanh/hoa_don/{code}', [\App\Http\Controllers\OperationManagementController::class, 'showInvoiceDetail'])->middleware('auth')->name('qlvan_hanh.invoice_detail');
+Route::get('/qlvan_hanh/hoa-don/{code}', [\App\Http\Controllers\OperationManagementController::class, 'showInvoiceDetail'])->middleware('auth');
+Route::get('/hoa-don/{code}', [\App\Http\Controllers\OperationManagementController::class, 'showInvoiceDetail'])->middleware('auth')->name('invoice.detail');
 
 // ==================== QUY TRÌNH THANH LÝ HỢP ĐỒNG & CHỐT CÔNG NỢ (MONGODB) ====================
-Route::get('/qlvan_hanh/thanh_ly_cong_no', [\App\Http\Controllers\ContractLiquidationController::class, 'index'])->name('qlvan_hanh.thanh_ly_cong_no');
-Route::get('/thanh-ly-cong-no', [\App\Http\Controllers\ContractLiquidationController::class, 'index'])->name('thanh-ly-cong-no');
+Route::get('/qlvan_hanh/thanh_ly_cong_no', [\App\Http\Controllers\ContractLiquidationController::class, 'index'])->middleware('auth')->name('qlvan_hanh.thanh_ly_cong_no');
+Route::get('/thanh-ly-cong-no', [\App\Http\Controllers\ContractLiquidationController::class, 'index'])->middleware('auth')->name('thanh-ly-cong-no');
 
 // Bước 1: Khách thuê gửi yêu cầu trả phòng
-Route::post('/api/contracts/{id}/request-checkout', [\App\Http\Controllers\ContractLiquidationController::class, 'requestCheckout'])->name('api.contracts.request_checkout');
+Route::post('/api/contracts/{id}/request-checkout', [\App\Http\Controllers\ContractLiquidationController::class, 'requestCheckout'])->middleware('auth')->name('api.contracts.request_checkout');
 
 // Bước 2: Lấy dữ liệu hợp đồng & tính toán Realtime
-Route::get('/api/contracts/{id}/liquidation-data', [\App\Http\Controllers\ContractLiquidationController::class, 'getLiquidationData'])->name('api.contracts.liquidation_data');
-Route::post('/api/contracts/{id}/calculate-liquidation', [\App\Http\Controllers\ContractLiquidationController::class, 'calculateRealtime'])->name('api.contracts.calculate_liquidation');
+Route::get('/api/contracts/{id}/liquidation-data', [\App\Http\Controllers\ContractLiquidationController::class, 'getLiquidationData'])->middleware('auth')->name('api.contracts.liquidation_data');
+Route::post('/api/contracts/{id}/calculate-liquidation', [\App\Http\Controllers\ContractLiquidationController::class, 'calculateRealtime'])->middleware('auth')->name('api.contracts.calculate_liquidation');
 
 // Bước 3: Chốt quyết toán rẽ nhánh Kịch bản A / B
-Route::post('/api/contracts/{id}/settle-liquidation', [\App\Http\Controllers\ContractLiquidationController::class, 'settleLiquidation'])->name('api.contracts.settle_liquidation');
+Route::post('/api/contracts/{id}/settle-liquidation', [\App\Http\Controllers\ContractLiquidationController::class, 'settleLiquidation'])->middleware('auth')->name('api.contracts.settle_liquidation');
 
 // Bước 4: Tự động hóa sau khi hoàn tất thanh toán / hoàn tiền
-Route::post('/api/contracts/{id}/confirm-refund', [\App\Http\Controllers\ContractLiquidationController::class, 'confirmRefund'])->name('api.contracts.confirm_refund');
-Route::post('/api/contracts/{id}/confirm-final-paid', [\App\Http\Controllers\ContractLiquidationController::class, 'confirmFinalInvoicePaid'])->name('api.contracts.confirm_final_paid');
+Route::post('/api/contracts/{id}/confirm-refund', [\App\Http\Controllers\ContractLiquidationController::class, 'confirmRefund'])->middleware('auth')->name('api.contracts.confirm_refund');
+Route::post('/api/contracts/{id}/confirm-final-paid', [\App\Http\Controllers\ContractLiquidationController::class, 'confirmFinalInvoicePaid'])->middleware('auth')->name('api.contracts.confirm_final_paid');
 
 
-Route::get('/qlvan_hanh/tao_hoa_don', [\App\Http\Controllers\OperationManagementController::class, 'createInvoice'])->name('qlvan_hanh.create_invoice');
-Route::post('/qlvan_hanh/tao_hoa_don', [\App\Http\Controllers\OperationManagementController::class, 'storeInvoice'])->name('qlvan_hanh.store_invoice');
-Route::post('/qlvan_hanh/update_payment_status', [\App\Http\Controllers\OperationManagementController::class, 'updatePaymentStatus'])->name('qlvan_hanh.update_payment_status');
+Route::get('/qlvan_hanh/tao_hoa_don', [\App\Http\Controllers\OperationManagementController::class, 'createInvoice'])->middleware('auth')->name('qlvan_hanh.create_invoice');
+Route::post('/qlvan_hanh/tao_hoa_don', [\App\Http\Controllers\OperationManagementController::class, 'storeInvoice'])->middleware('auth')->name('qlvan_hanh.store_invoice');
+Route::post('/qlvan_hanh/update_payment_status', [\App\Http\Controllers\OperationManagementController::class, 'updatePaymentStatus'])->middleware('auth')->name('qlvan_hanh.update_payment_status');
 
-Route::get('/tao-hoa-don', [\App\Http\Controllers\OperationManagementController::class, 'createInvoice'])->name('tao-hoa-don');
-Route::post('/tao-hoa-don', [\App\Http\Controllers\OperationManagementController::class, 'storeInvoice']);
+Route::get('/tao-hoa-don', [\App\Http\Controllers\OperationManagementController::class, 'createInvoice'])->middleware('auth')->name('tao-hoa-don');
+Route::post('/tao-hoa-don', [\App\Http\Controllers\OperationManagementController::class, 'storeInvoice'])->middleware('auth');
 
 $handleTaoHopDong = function (\Illuminate\Http\Request $request) {
+    if (!\Illuminate\Support\Facades\Auth::check()) {
+        return redirect()->route('login')->with('error', 'Vui lòng đăng nhập để tạo hợp đồng.');
+    }
+
     $user = \Illuminate\Support\Facades\Auth::user();
     $activeStatuses = ['active', 'approved'];
 
@@ -571,17 +579,24 @@ $handleTaoHopDong = function (\Illuminate\Http\Request $request) {
     ]);
 };
 
-Route::get('/qlvan_hanh/tao_hop_dong', $handleTaoHopDong)->name('qlvan_hanh.tao_hop_dong');
-Route::get('/tao-hop-dong', $handleTaoHopDong)->name('tao-hop-dong');
+Route::get('/qlvan_hanh/tao_hop_dong', $handleTaoHopDong)->middleware('auth')->name('qlvan_hanh.tao_hop_dong');
+Route::get('/tao-hop-dong', $handleTaoHopDong)->middleware('auth')->name('tao-hop-dong');
 
 
 
 
 Route::get('/sua_giao_dien', function () {
+    if (!Auth::check() || (Auth::user()->role !== 'admin' && !Auth::user()->isAdmin())) {
+        return redirect('/login')->with('error', 'Chỉ tài khoản Quản trị viên mới có quyền truy cập trang Cấu hình giao diện.');
+    }
     return view('Admin.sua_giao_dien');
-});
+})->middleware('auth');
 
 Route::post('/sua_giao_dien', function (\Illuminate\Http\Request $request) {
+    if (!Auth::check() || (Auth::user()->role !== 'admin' && !Auth::user()->isAdmin())) {
+        return response()->json(['error' => 'Unauthorized'], 403);
+    }
+
     $settings = $request->only([
         'banner_title',
         'banner_subtitle',
@@ -618,7 +633,7 @@ Route::post('/sua_giao_dien', function (\Illuminate\Http\Request $request) {
         'status' => 'success',
         'message' => 'Đã lưu cấu hình giao diện thành công! Giao diện ngoài đã được cập nhật.'
     ]);
-});
+})->middleware('auth');
 
 // Quản lý Lịch sử hoạt động của Admin
 Route::get('/lich_su', function () {
@@ -648,11 +663,11 @@ Route::get('/lich_su', function () {
         ->get();
 
     return view('Admin.lich_su', compact('activities', 'lockedUsers', 'deletedUsers'));
-})->name('admin.history');
+})->middleware('auth')->name('admin.history');
 
 Route::get('/Admin/lich-su', function () {
     return redirect('/lich_su');
-});
+})->middleware('auth');
 
 // Quản lý Thông báo hệ thống (Admin)
 Route::get('/thong_bao', function () {
@@ -661,11 +676,11 @@ Route::get('/thong_bao', function () {
     }
     $notifications = \App\Models\Notification::orderBy('created_at', 'desc')->get();
     return view('Admin.thong_bao', compact('notifications'));
-})->name('admin.notifications');
+})->middleware('auth')->name('admin.notifications');
 
 Route::get('/Admin/thong-bao', function () {
     return redirect('/thong_bao');
-});
+})->middleware('auth');
 
 Route::post('/Admin/thong-bao/send', function (\Illuminate\Http\Request $request) {
     if (!Auth::check() || Auth::user()->role !== 'admin') {
@@ -695,7 +710,7 @@ Route::post('/Admin/thong-bao/send', function (\Illuminate\Http\Request $request
     );
 
     return redirect()->back()->with('success', 'Đã phát thông báo thành công đến các tài khoản!');
-});
+})->middleware('auth');
 
 Route::delete('/api/admin/notifications/{id}', function ($id) {
     if (!Auth::check() || Auth::user()->role !== 'admin') {
@@ -755,7 +770,7 @@ Route::post('/qlnguoi_dung/unlock/{id}', function ($id) {
         return redirect()->back()->with('success', "Đã mở khóa thành công cho tài khoản!");
     }
     return redirect()->back()->with('error', "Không tìm thấy tài khoản!");
-});
+})->middleware('auth');
 
 Route::post('/qlnguoi_dung/restore/{id}', function ($id) {
     if (!Auth::check() || Auth::user()->role !== 'admin') {
@@ -782,7 +797,7 @@ Route::post('/qlnguoi_dung/restore/{id}', function ($id) {
         return redirect()->back()->with('success', "Đã khôi phục thành công tài khoản!");
     }
     return redirect()->back()->with('error', "Không tìm thấy tài khoản!");
-});
+})->middleware('auth');
 
 Route::delete('/qlnguoi_dung/force-delete/{id}', function ($id) {
     if (!Auth::check() || Auth::user()->role !== 'admin') {
@@ -806,79 +821,72 @@ Route::delete('/qlnguoi_dung/force-delete/{id}', function ($id) {
         return redirect()->back()->with('success', "Đã xóa vĩnh viễn tài khoản khỏi hệ thống!");
     }
     return redirect()->back()->with('error', "Không tìm thấy tài khoản!");
-});
+})->middleware('auth');
 
 // Quản lý Tài khoản con (NV) của Doanh nghiệp
-Route::get('/qltai_khoan_con', [\App\Http\Controllers\SubAccountController::class, 'viewPage'])->name('admin.sub_accounts');
-Route::get('/Admin/tai-khoan-con', [\App\Http\Controllers\SubAccountController::class, 'viewPage']);
+Route::get('/qltai_khoan_con', [\App\Http\Controllers\SubAccountController::class, 'viewPage'])->middleware('auth')->name('admin.sub_accounts');
+Route::get('/Admin/tai-khoan-con', [\App\Http\Controllers\SubAccountController::class, 'viewPage'])->middleware('auth');
 
 // Quản lý Bất Động Sản & Tòa Nhà của Doanh Nghiệp (Admin)
-Route::get('/qltoa_nha', [\App\Http\Controllers\BuildingController::class, 'adminView'])->name('admin.buildings');
-Route::get('/Admin/toa-nha', [\App\Http\Controllers\BuildingController::class, 'adminView']);
+Route::get('/qltoa_nha', [\App\Http\Controllers\BuildingController::class, 'adminView'])->middleware('auth')->name('admin.buildings');
+Route::get('/Admin/toa-nha', [\App\Http\Controllers\BuildingController::class, 'adminView'])->middleware('auth');
 
 // ==================== MODULE QUẢN LÝ TÀI CHÍNH & KẾ TOÁN (ADMIN) ====================
 // Luồng 1: Duyệt chuyển khoản (Bank Transfers)
-Route::get('/Admin/tai-chinh/duyet-chuyen-khoan', [\App\Http\Controllers\FinanceController::class, 'bankTransfers'])->name('admin.finance.bank_transfers');
-Route::get('/admin/tai-chinh/duyet-chuyen-khoan', [\App\Http\Controllers\FinanceController::class, 'bankTransfers']);
-Route::get('/Admin/finance/bank-transfers', [\App\Http\Controllers\FinanceController::class, 'bankTransfers']);
-Route::post('/Admin/tai-chinh/hoa-don/{id}/duyet', [\App\Http\Controllers\FinanceController::class, 'approveBankTransfer'])->name('admin.finance.approve_bank_transfer');
-Route::post('/Admin/tai-chinh/hoa-don/{id}/tu-choi', [\App\Http\Controllers\FinanceController::class, 'rejectBankTransfer'])->name('admin.finance.reject_bank_transfer');
+Route::get('/Admin/tai-chinh/duyet-chuyen-khoan', [\App\Http\Controllers\FinanceController::class, 'bankTransfers'])->middleware('auth')->name('admin.finance.bank_transfers');
+Route::get('/admin/tai-chinh/duyet-chuyen-khoan', [\App\Http\Controllers\FinanceController::class, 'bankTransfers'])->middleware('auth');
+Route::get('/Admin/finance/bank-transfers', [\App\Http\Controllers\FinanceController::class, 'bankTransfers'])->middleware('auth');
+Route::post('/Admin/tai-chinh/hoa-don/{id}/duyet', [\App\Http\Controllers\FinanceController::class, 'approveBankTransfer'])->middleware('auth')->name('admin.finance.approve_bank_transfer');
+Route::post('/Admin/tai-chinh/hoa-don/{id}/tu-choi', [\App\Http\Controllers\FinanceController::class, 'rejectBankTransfer'])->middleware('auth')->name('admin.finance.reject_bank_transfer');
 
 // Luồng 2: Công nợ nhân viên (Staff Cash Debts)
-Route::get('/Admin/tai-chinh/cong-no-nhan-vien', [\App\Http\Controllers\FinanceController::class, 'staffDebts'])->name('admin.finance.staff_debts');
-Route::get('/admin/tai-chinh/cong-no-nhan-vien', [\App\Http\Controllers\FinanceController::class, 'staffDebts']);
-Route::get('/Admin/finance/staff-debts', [\App\Http\Controllers\FinanceController::class, 'staffDebts']);
-Route::get('/Admin/tai-chinh/nhan-vien/{staffId}/hoa-don', [\App\Http\Controllers\FinanceController::class, 'staffInvoices'])->name('admin.finance.staff_invoices');
-Route::post('/Admin/tai-chinh/nhan-vien/{staffId}/xac-nhan-nop-tien', [\App\Http\Controllers\FinanceController::class, 'remitStaffDebt'])->name('admin.finance.remit_staff_debt');
+Route::get('/Admin/tai-chinh/cong-no-nhan-vien', [\App\Http\Controllers\FinanceController::class, 'staffDebts'])->middleware('auth')->name('admin.finance.staff_debts');
+Route::get('/admin/tai-chinh/cong-no-nhan-vien', [\App\Http\Controllers\FinanceController::class, 'staffDebts'])->middleware('auth');
+Route::get('/Admin/finance/staff-debts', [\App\Http\Controllers\FinanceController::class, 'staffDebts'])->middleware('auth');
+Route::get('/Admin/tai-chinh/nhan-vien/{staffId}/hoa-don', [\App\Http\Controllers\FinanceController::class, 'staffInvoices'])->middleware('auth')->name('admin.finance.staff_invoices');
+Route::post('/Admin/tai-chinh/nhan-vien/{staffId}/xac-nhan-nop-tien', [\App\Http\Controllers\FinanceController::class, 'remitStaffDebt'])->middleware('auth')->name('admin.finance.remit_staff_debt');
 
 // Luồng 3: Duyệt Hoàn Cọc (Kịch bản B: Deposit Refunds)
-Route::get('/Admin/tai-chinh/duyet-hoan-coc', [\App\Http\Controllers\FinanceController::class, 'refundRequests'])->name('admin.finance.refund_requests');
-Route::get('/admin/tai-chinh/duyet-hoan-coc', [\App\Http\Controllers\FinanceController::class, 'refundRequests']);
-Route::get('/Admin/finance/refund-requests', [\App\Http\Controllers\FinanceController::class, 'refundRequests']);
-Route::post('/Admin/tai-chinh/xac-nhan-hoan-coc/{id}', [\App\Http\Controllers\FinanceController::class, 'confirmRefund'])->name('admin.finance.confirm_refund');
-Route::post('/admin/tai-chinh/xac-nhan-hoan-coc/{id}', [\App\Http\Controllers\FinanceController::class, 'confirmRefund']);
+Route::get('/Admin/tai-chinh/duyet-hoan-coc', [\App\Http\Controllers\FinanceController::class, 'refundRequests'])->middleware('auth')->name('admin.finance.refund_requests');
+Route::get('/admin/tai-chinh/duyet-hoan-coc', [\App\Http\Controllers\FinanceController::class, 'refundRequests'])->middleware('auth');
+Route::get('/Admin/finance/refund-requests', [\App\Http\Controllers\FinanceController::class, 'refundRequests'])->middleware('auth');
+Route::post('/Admin/tai-chinh/xac-nhan-hoan-coc/{id}', [\App\Http\Controllers\FinanceController::class, 'confirmRefund'])->middleware('auth')->name('admin.finance.confirm_refund');
+Route::post('/admin/tai-chinh/xac-nhan-hoan-coc/{id}', [\App\Http\Controllers\FinanceController::class, 'confirmRefund'])->middleware('auth');
 
 // Tiện ích khách thuê báo chuyển khoản kèm ảnh biên lai
 Route::post('/api/invoices/{code}/report-transfer', [\App\Http\Controllers\FinanceController::class, 'reportTransfer'])->name('invoice.report_transfer');
 
-// APIs Quản lý Tài khoản con
-Route::get('/api/sub-accounts', [\App\Http\Controllers\SubAccountController::class, 'index'])->name('api.sub_accounts.index');
-Route::post('/api/sub-accounts', [\App\Http\Controllers\SubAccountController::class, 'store'])->name('api.sub_accounts.store');
-Route::put('/api/sub-accounts/{id}', [\App\Http\Controllers\SubAccountController::class, 'update'])->name('api.sub_accounts.update');
-Route::post('/api/sub-accounts/{id}/toggle-lock', [\App\Http\Controllers\SubAccountController::class, 'toggleLock'])->name('api.sub_accounts.toggle_lock');
-Route::delete('/api/sub-accounts/{id}', [\App\Http\Controllers\SubAccountController::class, 'destroy'])->name('api.sub_accounts.destroy');
-
 // APIs Quản lý Tài khoản Khách hàng Cá nhân
-Route::post('/api/customer-accounts/{id}/toggle-lock', [\App\Http\Controllers\SubAccountController::class, 'toggleLockCustomer'])->name('api.customer_accounts.toggle_lock');
-Route::delete('/api/customer-accounts/{id}', [\App\Http\Controllers\SubAccountController::class, 'destroyCustomer'])->name('api.customer_accounts.destroy');
+Route::post('/api/customer-accounts/{id}/toggle-lock', [\App\Http\Controllers\SubAccountController::class, 'toggleLockCustomer'])->middleware('auth')->name('api.customer_accounts.toggle_lock');
+Route::delete('/api/customer-accounts/{id}', [\App\Http\Controllers\SubAccountController::class, 'destroyCustomer'])->middleware('auth')->name('api.customer_accounts.destroy');
 
 // ==================== QUẢN LÝ TÀI KHOẢN CÁ NHÂN (KHÁCH THUÊ) - ADMIN ====================
-Route::get('/Admin/tai-khoan-ca-nhan', [\App\Http\Controllers\PersonalAccountController::class, 'index'])->name('admin.personal_accounts');
-Route::get('/admin/tai-khoan-ca-nhan', [\App\Http\Controllers\PersonalAccountController::class, 'index']);
-Route::get('/qltaikhoan_ca_nhan', [\App\Http\Controllers\PersonalAccountController::class, 'index'])->name('admin.qltaikhoan_ca_nhan');
-Route::get('/qltaikhoan-ca-nhan', [\App\Http\Controllers\PersonalAccountController::class, 'index']);
+Route::get('/Admin/tai-khoan-ca-nhan', [\App\Http\Controllers\PersonalAccountController::class, 'index'])->middleware('auth')->name('admin.personal_accounts');
+Route::get('/admin/tai-khoan-ca-nhan', [\App\Http\Controllers\PersonalAccountController::class, 'index'])->middleware('auth');
+Route::get('/qltaikhoan_ca_nhan', [\App\Http\Controllers\PersonalAccountController::class, 'index'])->middleware('auth')->name('admin.qltaikhoan_ca_nhan');
+Route::get('/qltaikhoan-ca-nhan', [\App\Http\Controllers\PersonalAccountController::class, 'index'])->middleware('auth');
 
 // APIs 4 chức năng cốt lõi Quản lý tài khoản cá nhân
-Route::get('/admin/customers/{id}/details', [\App\Http\Controllers\PersonalAccountController::class, 'showDetails'])->name('admin.customers.details');
-Route::get('/Admin/customers/{id}/details', [\App\Http\Controllers\PersonalAccountController::class, 'showDetails']);
-Route::get('/api/admin/personal-accounts/{id}', [\App\Http\Controllers\PersonalAccountController::class, 'showDetails'])->name('api.admin.personal_accounts.show');
-Route::post('/admin/users/{id}/lock', [\App\Http\Controllers\PersonalAccountController::class, 'toggleLock'])->name('admin.users.lock');
-Route::post('/Admin/users/{id}/lock', [\App\Http\Controllers\PersonalAccountController::class, 'toggleLock']);
-Route::post('/api/admin/personal-accounts/{id}/toggle-lock', [\App\Http\Controllers\PersonalAccountController::class, 'toggleLock'])->name('api.admin.personal_accounts.toggle_lock');
-Route::delete('/api/admin/personal-accounts/{id}', [\App\Http\Controllers\PersonalAccountController::class, 'destroy'])->name('api.admin.personal_accounts.destroy');
-Route::post('/api/admin/personal-accounts/{id}/takedown-posts', [\App\Http\Controllers\PersonalAccountController::class, 'takedownPosts'])->name('api.admin.personal_accounts.takedown_posts');
+Route::get('/admin/customers/{id}/details', [\App\Http\Controllers\PersonalAccountController::class, 'showDetails'])->middleware('auth')->name('admin.customers.details');
+Route::get('/Admin/customers/{id}/details', [\App\Http\Controllers\PersonalAccountController::class, 'showDetails'])->middleware('auth');
+Route::get('/api/admin/personal-accounts/{id}', [\App\Http\Controllers\PersonalAccountController::class, 'showDetails'])->middleware('auth')->name('api.admin.personal_accounts.show');
+Route::post('/admin/users/{id}/lock', [\App\Http\Controllers\PersonalAccountController::class, 'toggleLock'])->middleware('auth')->name('admin.users.lock');
+Route::post('/Admin/users/{id}/lock', [\App\Http\Controllers\PersonalAccountController::class, 'toggleLock'])->middleware('auth');
+Route::post('/api/admin/personal-accounts/{id}/toggle-lock', [\App\Http\Controllers\PersonalAccountController::class, 'toggleLock'])->middleware('auth')->name('api.admin.personal_accounts.toggle_lock');
+Route::delete('/api/admin/personal-accounts/{id}', [\App\Http\Controllers\PersonalAccountController::class, 'destroy'])->middleware('auth')->name('api.admin.personal_accounts.destroy');
+Route::post('/api/admin/personal-accounts/{id}/takedown-posts', [\App\Http\Controllers\PersonalAccountController::class, 'takedownPosts'])->middleware('auth')->name('api.admin.personal_accounts.takedown_posts');
 
 // ==================== QUẢN LÝ BÀI ĐĂNG NỔI BẬT (ADMIN) ====================
-Route::get('/Admin/bai-dang-noi-bat', [\App\Http\Controllers\PostController::class, 'adminFeaturedPosts'])->name('admin.featured_posts');
-Route::get('/admin/bai-dang-noi-bat', [\App\Http\Controllers\PostController::class, 'adminFeaturedPosts']);
-Route::get('/Admin/bai_dang_noi_bat', [\App\Http\Controllers\PostController::class, 'adminFeaturedPosts']);
-Route::get('/admin/bai_dang_noi_bat', [\App\Http\Controllers\PostController::class, 'adminFeaturedPosts']);
-Route::post('/admin/posts/{id}/toggle-featured', [\App\Http\Controllers\PostController::class, 'toggleFeatured'])->name('admin.posts.toggle_featured');
-Route::post('/Admin/posts/{id}/toggle-featured', [\App\Http\Controllers\PostController::class, 'toggleFeatured']);
+Route::get('/Admin/bai-dang-noi-bat', [\App\Http\Controllers\PostController::class, 'adminFeaturedPosts'])->middleware('auth')->name('admin.featured_posts');
+Route::get('/admin/bai-dang-noi-bat', [\App\Http\Controllers\PostController::class, 'adminFeaturedPosts'])->middleware('auth');
+Route::get('/Admin/bai_dang_noi_bat', [\App\Http\Controllers\PostController::class, 'adminFeaturedPosts'])->middleware('auth');
+Route::get('/admin/bai_dang_noi_bat', [\App\Http\Controllers\PostController::class, 'adminFeaturedPosts'])->middleware('auth');
+Route::post('/admin/posts/{id}/toggle-featured', [\App\Http\Controllers\PostController::class, 'toggleFeatured'])->middleware('auth')->name('admin.posts.toggle_featured');
+Route::post('/Admin/posts/{id}/toggle-featured', [\App\Http\Controllers\PostController::class, 'toggleFeatured'])->middleware('auth');
 
 Route::get('/Overview', function (\Illuminate\Http\Request $request) {
     if (!Auth::check()) {
-        return redirect()->guest(route('login'));
+        return redirect('/?logged_out=1');
     }
     // Nếu là tài khoản Admin và không yêu cầu tab cụ thể, chuyển đến trang Tổng quan Admin (/Admin)
     if (Auth::user()->role === 'admin' && !$request->has('tab')) {
@@ -889,7 +897,7 @@ Route::get('/Overview', function (\Illuminate\Http\Request $request) {
         return redirect('/kiem-duyet/tong-quan');
     }
     return view('qlbai_dang.Overview');
-})->name('overview');
+})->middleware('auth')->name('overview');
 
 // ========================================================
 // Routes Kênh Kiểm Duyệt Viên (Moderator)
@@ -1522,10 +1530,10 @@ Route::get('/dangbai', function(){
     }
     $buildings = \App\Models\Building::orderBy('created_at', 'desc')->get();
     return view('qlbai_dang.dangbai', compact('buildings'));
-})->name('dangbai');
+})->middleware('auth')->name('dangbai');
 
 // APIs for Posts
-Route::post('/api/posts', [\App\Http\Controllers\PostController::class, 'store'])->name('posts.store');
+Route::post('/api/posts', [\App\Http\Controllers\PostController::class, 'store'])->middleware('auth')->name('posts.store');
 Route::get('/posts/{id}/edit', function(\Illuminate\Http\Request $request, $id) {
     $buildingId = $request->query('building_id', '');
     $url = '/dangbai?edit=' . $id;
@@ -1533,9 +1541,9 @@ Route::get('/posts/{id}/edit', function(\Illuminate\Http\Request $request, $id) 
         $url .= '&building_id=' . $buildingId;
     }
     return redirect($url);
-})->name('posts.edit');
-Route::match(['put', 'patch', 'post'], '/api/posts/{id}', [\App\Http\Controllers\PostController::class, 'update'])->name('posts.update');
-Route::match(['put', 'patch', 'post'], '/posts/{id}', [\App\Http\Controllers\PostController::class, 'update']);
+})->middleware('auth')->name('posts.edit');
+Route::match(['put', 'patch', 'post'], '/api/posts/{id}', [\App\Http\Controllers\PostController::class, 'update'])->middleware('auth')->name('posts.update');
+Route::match(['put', 'patch', 'post'], '/posts/{id}', [\App\Http\Controllers\PostController::class, 'update'])->middleware('auth');
 Route::get('/api/posts/approved', [\App\Http\Controllers\PostController::class, 'getApproved'])->name('posts.approved');
 Route::get('/api/posts/featured', [\App\Http\Controllers\PostController::class, 'getFeatured'])->name('posts.featured');
 Route::post('/api/posts/{id}/unlink', [\App\Http\Controllers\PostController::class, 'unlink'])->middleware('auth')->name('posts.unlink');
@@ -1550,7 +1558,7 @@ Route::get('/api/favorites', [\App\Http\Controllers\FavoriteController::class, '
 Route::post('/api/favorites/toggle', [\App\Http\Controllers\FavoriteController::class, 'toggleFavorite'])->name('favorites.toggle');
 
 // User Dashboard APIs
-Route::get('/api/user/posts/stats', [\App\Http\Controllers\UserDashboardController::class, 'getStats']);
+Route::get('/api/user/posts/stats', [\App\Http\Controllers\UserDashboardController::class, 'getStats'])->middleware('auth');
 
 // Notification APIs & Routes
 Route::get('/api/notifications/unread', [\App\Http\Controllers\NotificationController::class, 'getUnread'])->middleware('auth');
@@ -1562,33 +1570,33 @@ Route::delete('/thong-bao-ca-nhan/delete-read', [\App\Http\Controllers\Notificat
 Route::post('/thong-bao-ca-nhan/{id}/read', [\App\Http\Controllers\NotificationController::class, 'markAsRead'])->middleware('auth')->name('thongbao.markRead');
 Route::delete('/thong-bao-ca-nhan/{id}', [\App\Http\Controllers\NotificationController::class, 'destroy'])->middleware('auth')->name('thongbao.destroy');
 
-Route::get('/api/notifications', [\App\Http\Controllers\UserDashboardController::class, 'getNotifications']);
-Route::post('/api/notifications/read', [\App\Http\Controllers\UserDashboardController::class, 'markNotificationsRead']);
+Route::get('/api/notifications', [\App\Http\Controllers\UserDashboardController::class, 'getNotifications'])->middleware('auth');
+Route::post('/api/notifications/read', [\App\Http\Controllers\UserDashboardController::class, 'markNotificationsRead'])->middleware('auth');
 Route::delete('/api/notifications/clear-read', [\App\Http\Controllers\UserDashboardController::class, 'clearReadNotifications'])->middleware('auth');
 Route::delete('/api/notifications/{id}', [\App\Http\Controllers\UserDashboardController::class, 'deleteNotification'])->middleware('auth');
 Route::post('/api/notifications/{id}/mark-read', [\App\Http\Controllers\UserDashboardController::class, 'markNotificationAsRead'])->middleware('auth');
-Route::get('/api/user/posts', [\App\Http\Controllers\UserDashboardController::class, 'getPosts']);
-Route::get('/api/user/posts/history', [\App\Http\Controllers\UserDashboardController::class, 'getHistory']);
+Route::get('/api/user/posts', [\App\Http\Controllers\UserDashboardController::class, 'getPosts'])->middleware('auth');
+Route::get('/api/user/posts/history', [\App\Http\Controllers\UserDashboardController::class, 'getHistory'])->middleware('auth');
 
 // ========================================================
 // APIs for Buildings (Quản lý Tòa nhà - Dành cho Doanh Nghiệp)
 // ========================================================
-Route::get('/api/buildings', [\App\Http\Controllers\BuildingController::class, 'index'])->name('api.buildings.index');
-Route::post('/api/buildings', [\App\Http\Controllers\BuildingController::class, 'store'])->name('api.buildings.store');
-Route::get('/api/buildings/{id}', [\App\Http\Controllers\BuildingController::class, 'getDetail'])->name('api.buildings.detail');
-Route::put('/api/buildings/{id}', [\App\Http\Controllers\BuildingController::class, 'update'])->name('api.buildings.update');
-Route::post('/api/buildings/{id}', [\App\Http\Controllers\BuildingController::class, 'update']);
-Route::delete('/api/buildings/{id}', [\App\Http\Controllers\BuildingController::class, 'destroy'])->name('api.buildings.destroy');
-Route::get('/api/buildings/{id}/rooms-detail', [\App\Http\Controllers\BuildingController::class, 'getRoomsDetail'])->name('api.buildings.rooms_detail');
+Route::get('/api/buildings', [\App\Http\Controllers\BuildingController::class, 'index'])->middleware('auth')->name('api.buildings.index');
+Route::post('/api/buildings', [\App\Http\Controllers\BuildingController::class, 'store'])->middleware('auth')->name('api.buildings.store');
+Route::get('/api/buildings/{id}', [\App\Http\Controllers\BuildingController::class, 'getDetail'])->middleware('auth')->name('api.buildings.detail');
+Route::put('/api/buildings/{id}', [\App\Http\Controllers\BuildingController::class, 'update'])->middleware('auth')->name('api.buildings.update');
+Route::post('/api/buildings/{id}', [\App\Http\Controllers\BuildingController::class, 'update'])->middleware('auth');
+Route::delete('/api/buildings/{id}', [\App\Http\Controllers\BuildingController::class, 'destroy'])->middleware('auth')->name('api.buildings.destroy');
+Route::get('/api/buildings/{id}/rooms-detail', [\App\Http\Controllers\BuildingController::class, 'getRoomsDetail'])->middleware('auth')->name('api.buildings.rooms_detail');
 
 // Chi tiết Vận hành Tòa nhà dành cho ADMIN (File: Admin/chi_tiet_toa_nha_admin.blade.php)
-Route::get('/Admin/chi-tiet-toa-nha/{id}', [\App\Http\Controllers\BuildingController::class, 'adminDetail'])->name('admin.buildings.operational_detail');
-Route::get('/admin/chi-tiet-toa-nha/{id}', [\App\Http\Controllers\BuildingController::class, 'adminDetail']);
+Route::get('/Admin/chi-tiet-toa-nha/{id}', [\App\Http\Controllers\BuildingController::class, 'adminDetail'])->middleware('auth')->name('admin.buildings.operational_detail');
+Route::get('/admin/chi-tiet-toa-nha/{id}', [\App\Http\Controllers\BuildingController::class, 'adminDetail'])->middleware('auth');
 
 // Quản lý Danh sách Bài đăng & Phòng dành cho ĐỐI TÁC / NHÂN VIÊN (File: qlbai_dang/BuildingDetail.blade.php)
-Route::get('/quan-ly-toa-nha/{id}', [\App\Http\Controllers\BuildingController::class, 'show'])->name('partner.buildings.room_management');
-Route::get('/quan_ly_toa_nha/{id}', [\App\Http\Controllers\BuildingController::class, 'show']);
-Route::get('/quan ly toa nha/{id}', [\App\Http\Controllers\BuildingController::class, 'show']);
+Route::get('/quan-ly-toa-nha/{id}', [\App\Http\Controllers\BuildingController::class, 'show'])->middleware('auth')->name('partner.buildings.room_management');
+Route::get('/quan_ly_toa_nha/{id}', [\App\Http\Controllers\BuildingController::class, 'show'])->middleware('auth');
+Route::get('/quan ly toa nha/{id}', [\App\Http\Controllers\BuildingController::class, 'show'])->middleware('auth');
 
 // APIs for Sub-Accounts (Quản lý tài khoản con của Doanh nghiệp RentHome)
 Route::get('/api/sub-accounts', [\App\Http\Controllers\SubAccountController::class, 'index'])->middleware('auth')->name('sub_accounts.index');
@@ -1606,11 +1614,11 @@ Route::post('/ai/reset', [\App\Http\Controllers\AiChatController::class, 'resetC
 // ========================================================
 // Quản lý Khách hàng liên hệ (Ticket Management - Dành cho Admin)
 // ========================================================
-Route::get('/Admin/khach-hang-lien-he', [\App\Http\Controllers\AdminContactMessageController::class, 'index'])->name('admin.contact_messages.index');
-Route::get('/admin/khach-hang-lien-he', [\App\Http\Controllers\AdminContactMessageController::class, 'index']);
-Route::patch('/admin/khach-hang-lien-he/{id}/status', [\App\Http\Controllers\AdminContactMessageController::class, 'updateStatus'])->name('admin.contact_messages.update_status');
-Route::get('/admin/khach-hang-lien-he/{id}', [\App\Http\Controllers\AdminContactMessageController::class, 'show'])->name('admin.contact_messages.show');
-Route::delete('/admin/khach-hang-lien-he/{id}', [\App\Http\Controllers\AdminContactMessageController::class, 'destroy'])->name('admin.contact_messages.destroy');
+Route::get('/Admin/khach-hang-lien-he', [\App\Http\Controllers\AdminContactMessageController::class, 'index'])->middleware('auth')->name('admin.contact_messages.index');
+Route::get('/admin/khach-hang-lien-he', [\App\Http\Controllers\AdminContactMessageController::class, 'index'])->middleware('auth');
+Route::patch('/admin/khach-hang-lien-he/{id}/status', [\App\Http\Controllers\AdminContactMessageController::class, 'updateStatus'])->middleware('auth')->name('admin.contact_messages.update_status');
+Route::get('/admin/khach-hang-lien-he/{id}', [\App\Http\Controllers\AdminContactMessageController::class, 'show'])->middleware('auth')->name('admin.contact_messages.show');
+Route::delete('/admin/khach-hang-lien-he/{id}', [\App\Http\Controllers\AdminContactMessageController::class, 'destroy'])->middleware('auth')->name('admin.contact_messages.destroy');
 Route::post('/api/contact-messages', [\App\Http\Controllers\AdminContactMessageController::class, 'store'])->name('contact_messages.store');
  
 // ========================================================
@@ -1652,10 +1660,10 @@ Route::middleware(['auth'])->prefix('cskh')->group(function () {
 // Chuyển hướng các URL cũ về Route CSKH mới
 Route::get('/Admin/khieu-nai', function () {
     return redirect('/cskh/khieu-nai');
-});
+})->middleware('auth');
 Route::get('/admin/khieu-nai', function () {
     return redirect('/cskh/khieu-nai');
-});
+})->middleware('auth');
 
 // API Khiếu nại (CSKH & Admin)
 Route::post('/api/cskh/complaints/{id}/resolve', [\App\Http\Controllers\ComplaintController::class, 'resolve'])->middleware('auth')->name('api.cskh.complaints.resolve');

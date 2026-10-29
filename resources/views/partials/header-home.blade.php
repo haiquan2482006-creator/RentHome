@@ -383,10 +383,61 @@
 
 <script>
     window.RENTHOME_IS_AUTH = {{ Auth::check() ? 'true' : 'false' }};
-    
+
+    if (window.RENTHOME_IS_AUTH) {
+        // Nếu đang đăng nhập hợp lệ: xóa cờ vừa đăng xuất
+        try { sessionStorage.removeItem('rentHome_just_logged_out'); } catch (e) {}
+    } else {
+        // Nếu chưa đăng nhập: Kiểm tra xem có phải vừa thực hiện đăng xuất không
+        const isJustLoggedOut = {{ session('logged_out') ? 'true' : 'false' }} ||
+                                new URLSearchParams(window.location.search).has('logged_out') ||
+                                (function() {
+                                    try { return sessionStorage.getItem('rentHome_just_logged_out') === 'true'; } catch(e) { return false; }
+                                })();
+
+        if (isJustLoggedOut) {
+            try { sessionStorage.setItem('rentHome_just_logged_out', 'true'); } catch (e) {}
+
+            // Dọn sạch query ?logged_out khỏi thanh địa chỉ URL mà không tải lại trang
+            if (window.location.search.includes('logged_out')) {
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+
+            // Đẩy trạng thái trang chủ vào history stack
+            window.history.pushState(null, document.title, window.location.href);
+
+            // Bắt sự kiện khi người dùng bấm nút Quay lại (Back) của Chrome
+            window.addEventListener('popstate', function(event) {
+                try {
+                    if (sessionStorage.getItem('rentHome_just_logged_out') === 'true') {
+                        // Khóa lịch sử: Luôn đẩy lại trang chủ để đứng im ở trang chủ, không lùi về trang chức năng cũ
+                        window.history.pushState(null, document.title, window.location.href);
+                    }
+                } catch(e) {
+                    window.history.pushState(null, document.title, window.location.href);
+                }
+            });
+        }
+    }
+
+    // Bắt sự kiện bấm nút Đăng xuất trên bất kỳ form hoặc liên kết nào
+    document.addEventListener('submit', function(e) {
+        const form = e.target;
+        if (form && form.action && form.action.includes('logout')) {
+            try { sessionStorage.setItem('rentHome_just_logged_out', 'true'); } catch(e) {}
+        }
+    }, true);
+
+    document.addEventListener('click', function(e) {
+        const link = e.target.closest('a');
+        if (link && link.href && link.href.includes('logout')) {
+            try { sessionStorage.setItem('rentHome_just_logged_out', 'true'); } catch(e) {}
+        }
+    }, true);
+
     // Tự động kiểm tra tính nhất quán phiên đăng nhập khi quay lại qua nút Back/Forward của trình duyệt
     function verifySessionConsistency() {
-        fetch('/api/auth/status')
+        fetch('/api/auth/status', { cache: 'no-store' })
             .then(function(res) { return res.json(); })
             .then(function(data) {
                 if (data && typeof data.authenticated === 'boolean') {

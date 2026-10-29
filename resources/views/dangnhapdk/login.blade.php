@@ -393,12 +393,23 @@
             }
         }
 
+        document.querySelector('form')?.addEventListener('submit', function() {
+            try {
+                localStorage.removeItem('rentHome_just_logged_out');
+                sessionStorage.removeItem('rentHome_just_logged_out');
+            } catch(e) {}
+        });
+
         // Tự động kiểm tra trạng thái đăng nhập khi người dùng bấm nút Quay lại (Back)
         window.addEventListener('pageshow', function (event) {
             fetch('/api/auth/status')
                 .then(function(res) { return res.json(); })
                 .then(function(data) {
                     if (data && data.authenticated) {
+                        try {
+                            localStorage.removeItem('rentHome_just_logged_out');
+                            sessionStorage.removeItem('rentHome_just_logged_out');
+                        } catch(e) {}
                         let targetUrl = '/';
                         if (data.role === 'admin') targetUrl = '/Admin';
                         else if (data.role === 'kiemduyet' || data.role === 'moderator') targetUrl = '/kiem-duyet/tong-quan';

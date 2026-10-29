@@ -20,12 +20,24 @@ use Illuminate\Support\Facades\Storage;
 class FinanceController extends Controller
 {
     /**
+     * Kiểm tra quyền quản trị Tài chính & Kế toán (Admin hoặc Doanh nghiệp RentHome)
+     */
+    private function checkPermission()
+    {
+        $user = Auth::user();
+        return $user && ($user->isAdmin() || $user->role === 'admin' || ($user->isEnterprise() && !$user->isSubAccount()));
+    }
+
+    /**
      * YÊU CẦU 2: Trang "Duyệt chuyển khoản" (Xử lý Luồng 1)
      * Lấy danh sách toàn bộ các Hóa đơn có trạng thái payment_method = 'bank_transfer' 
      * và status = 'pending_approval' (Chờ duyệt).
      */
     public function bankTransfers(Request $request)
     {
+        if (!$this->checkPermission()) {
+            return redirect('/login')->withErrors(['login_error' => 'Chỉ tài khoản Ban Quản Trị / Kế toán mới có quyền truy cập trang Duyệt chuyển khoản.']);
+        }
         $tab = $request->query('tab', 'pending'); // 'pending', 'approved', 'all'
         $search = trim($request->query('search', ''));
 
@@ -119,6 +131,12 @@ class FinanceController extends Controller
      */
     public function approveBankTransfer(Request $request, $id)
     {
+        if (!$this->checkPermission()) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => 'Bạn không có quyền duyệt chuyển khoản.'], 403);
+            }
+            return redirect('/login')->withErrors(['login_error' => 'Chỉ tài khoản Ban Quản Trị / Kế toán mới có quyền thực hiện.']);
+        }
         $cleanId = trim($id);
         $invoice = Invoice::where('_id', $cleanId)
             ->orWhere('id', $cleanId)
@@ -243,6 +261,12 @@ class FinanceController extends Controller
      */
     public function rejectBankTransfer(Request $request, $id)
     {
+        if (!$this->checkPermission()) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => 'Bạn không có quyền từ chối chuyển khoản.'], 403);
+            }
+            return redirect('/login')->withErrors(['login_error' => 'Chỉ tài khoản Ban Quản Trị / Kế toán mới có quyền thực hiện.']);
+        }
         $cleanId = trim($id);
         $invoice = Invoice::where('_id', $cleanId)
             ->orWhere('id', $cleanId)
@@ -285,6 +309,9 @@ class FinanceController extends Controller
      */
     public function staffDebts(Request $request)
     {
+        if (!$this->checkPermission()) {
+            return redirect('/login')->withErrors(['login_error' => 'Chỉ tài khoản Ban Quản Trị / Kế toán mới có quyền truy cập trang Công nợ nhân viên.']);
+        }
         // 1. Lấy toàn bộ các hóa đơn đã thu tiền mặt nhưng CHƯA nộp lại cho công ty
         $unremittedInvoices = Invoice::where(function ($q) {
                 $q->where('payment_method', 'cash')
@@ -388,6 +415,9 @@ class FinanceController extends Controller
      */
     public function staffInvoices(Request $request, $staffId)
     {
+        if (!$this->checkPermission()) {
+            return response()->json(['success' => false, 'message' => 'Chỉ tài khoản Ban Quản Trị / Kế toán mới có quyền xem hóa đơn nhân viên.'], 403);
+        }
         $invoices = Invoice::where(function ($q) use ($staffId) {
                 $q->where('collected_by', $staffId)
                   ->orWhere('created_by', $staffId);
@@ -440,6 +470,12 @@ class FinanceController extends Controller
      */
     public function remitStaffDebt(Request $request, $staffId)
     {
+        if (!$this->checkPermission()) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => 'Bạn không có quyền xác nhận nộp tiền.'], 403);
+            }
+            return redirect('/login')->withErrors(['login_error' => 'Chỉ tài khoản Ban Quản Trị / Kế toán mới có quyền thực hiện.']);
+        }
         $cleanStaffId = trim($staffId);
 
         // Lấy tất cả hóa đơn tiền mặt chưa nộp của nhân viên này
@@ -605,6 +641,9 @@ class FinanceController extends Controller
      */
     public function refundRequests(Request $request)
     {
+        if (!$this->checkPermission()) {
+            return redirect('/login')->withErrors(['login_error' => 'Chỉ tài khoản Ban Quản Trị / Kế toán mới có quyền truy cập trang Duyệt Hoàn Cọc.']);
+        }
         $tab = $request->query('tab', 'pending'); // 'pending', 'completed', 'all'
         $search = trim($request->query('search', ''));
 
@@ -755,12 +794,11 @@ class FinanceController extends Controller
      */
     public function confirmRefund(Request $request, $id)
     {
-        $user = Auth::user();
-        if (!$user) {
+        if (!$this->checkPermission()) {
             if ($request->wantsJson() || $request->ajax()) {
-                return response()->json(['success' => false, 'message' => 'Vui lòng đăng nhập hệ thống!'], 401);
+                return response()->json(['success' => false, 'message' => 'Bạn không có quyền xác nhận hoàn cọc.'], 403);
             }
-            return back()->with('error', 'Vui lòng đăng nhập hệ thống!');
+            return redirect('/login')->withErrors(['login_error' => 'Chỉ tài khoản Ban Quản Trị / Kế toán mới có quyền thực hiện.']);
         }
 
         $cleanId = trim($id);

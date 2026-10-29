@@ -811,17 +811,59 @@
         }
     }
 
-    // Tự động kiểm tra trạng thái đăng nhập khi quay lại qua nút Back/Forward
+    // Tự động kiểm tra trạng thái đăng nhập cho Admin
+    function checkAdminSession() {
+        try {
+            if (localStorage.getItem('rentHome_just_logged_out') === 'true' || sessionStorage.getItem('rentHome_just_logged_out') === 'true') {
+                window.location.replace('/login');
+                return;
+            }
+        } catch(e) {}
+
+        fetch('/api/auth/status', { cache: 'no-store' })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (!data || !data.authenticated) {
+                    try {
+                        localStorage.setItem('rentHome_just_logged_out', 'true');
+                        sessionStorage.setItem('rentHome_just_logged_out', 'true');
+                    } catch(e) {}
+                    window.location.replace('/login');
+                }
+            })
+            .catch(function() {
+                window.location.replace('/login');
+            });
+    }
+
+    // Kiểm tra ngay khi script chạy, khi quay lại (pageshow), và khi chuyển tab (visibilitychange)
+    checkAdminSession();
+
     window.addEventListener('pageshow', function(event) {
-        if (event.persisted) {
-            fetch('/api/auth/status')
-                .then(function(res) { return res.json(); })
-                .then(function(data) {
-                    if (data && !data.authenticated) {
-                        window.location.reload();
-                    }
-                })
-                .catch(function() {});
+        checkAdminSession();
+    });
+
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible') {
+            checkAdminSession();
         }
     });
+
+    // Đồng bộ tức thì giữa các tab khi đăng xuất ở tab khác
+    window.addEventListener('storage', function(e) {
+        if (e.key === 'rentHome_just_logged_out' && e.newValue === 'true') {
+            window.location.replace('/login');
+        }
+    });
+
+    // Bắt sự kiện bấm nút đăng xuất trên trang admin
+    document.addEventListener('submit', function(e) {
+        const form = e.target;
+        if (form && form.action && form.action.includes('logout')) {
+            try {
+                localStorage.setItem('rentHome_just_logged_out', 'true');
+                sessionStorage.setItem('rentHome_just_logged_out', 'true');
+            } catch(e) {}
+        }
+    }, true);
 </script>

@@ -183,10 +183,18 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        Auth::logout();
+        Auth::guard('web')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/')->with('success', 'Bạn đã đăng xuất thành công.');
+        $cookieName = config('session.cookie', 'laravel_session');
+
+        return redirect('/?logged_out=1')
+            ->with('success', 'Bạn đã đăng xuất thành công.')
+            ->withCookie(\Illuminate\Support\Facades\Cookie::forget($cookieName))
+            ->withCookie(\Illuminate\Support\Facades\Cookie::forget('remember_web'))
+            ->header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', 'Sun, 02 Jan 1990 00:00:00 GMT');
     }
 }
