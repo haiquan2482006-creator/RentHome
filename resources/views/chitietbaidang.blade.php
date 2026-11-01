@@ -174,8 +174,9 @@
                                 $isAuth = \Illuminate\Support\Facades\Auth::check();
                                 $curUser = $isAuth ? \Illuminate\Support\Facades\Auth::user() : null;
                                 $isEnterprise = $curUser && ($curUser->isEnterprise() || $curUser->role === 'doanhnghiep');
+                                $isStaff = $curUser && ($curUser->isSubAccount() || $curUser->isStaff() || in_array($curUser->role ?? '', ['nhansu', 'nhan su', 'nhan_su', 'sub_account', 'staff', 'admin', 'kiemduyet', 'moderator', 'cskh', 'chăm sóc kh']));
                                 $isMyPost = $isAuth && ($detailOwnerId === (string)\Illuminate\Support\Facades\Auth::id());
-                                $canFav = !$isEnterprise && !$isMyPost;
+                                $canFav = !$isEnterprise && !$isStaff && !$isMyPost;
                             @endphp
                             @if($canFav)
                             <button type="button"
@@ -1447,7 +1448,7 @@
                          onclick="document.getElementById('reportImagesInput').click()">
                         <i class="fa-solid fa-cloud-arrow-up text-2xl text-amber-500 mb-1"></i>
                         <p class="text-xs font-bold text-slate-700">Nhấn để chọn ảnh bằng chứng từ thiết bị</p>
-                        <p class="text-[10px] text-slate-400 mt-0.5">Cho phép tải lên nhiều ảnh (JPG, PNG, WEBP, tối đa 5MB/ảnh)</p>
+                        <p class="text-[10px] text-slate-400 mt-0.5">Cho phép tải lên nhiều ảnh (JPG, PNG, WEBP, tối đa 25MB/ảnh)</p>
                     </div>
                     <input type="file" id="reportImagesInput" name="images[]" multiple accept="image/*" class="hidden" onchange="handleReportImagesPreview(event)">
 
@@ -1498,31 +1499,100 @@
             }
         }
 
+        let reportImagesDT = new DataTransfer();
+
         function handleReportImagesPreview(event) {
-            const files = event.target.files;
+            const input = event.target;
+            const newFiles = Array.from(input.files || []);
+            const maxSizeBytes = 25 * 1024 * 1024; // 25MB
+
+            let hasOversized = false;
+            newFiles.forEach(file => {
+                if (!file.type.startsWith('image/')) return;
+
+                if (file.size > maxSizeBytes) {
+                    hasOversized = true;
+                    return;
+                }
+
+                // Tránh thêm ảnh trùng tên và kích thước
+                const exists = Array.from(reportImagesDT.files).some(f => f.name === file.name && f.size === file.size);
+                if (!exists) {
+                    reportImagesDT.items.add(file);
+                }
+            });
+
+            if (hasOversized) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Dung lượng ảnh vượt quá 25MB',
+                    text: 'Một số ảnh vượt quá dung lượng tối đa 25MB nên đã được bỏ qua. Vui lòng chọn ảnh có dung lượng dưới 25MB.',
+                    confirmButtonColor: '#f59e0b'
+                });
+            }
+
+            input.files = reportImagesDT.files;
+            renderReportImagesPreview();
+        }
+
+        // Hủy / Xóa 1 ảnh đã chọn
+        function removeReportImage(index) {
+            const newDT = new DataTransfer();
+            Array.from(reportImagesDT.files).forEach((file, idx) => {
+                if (idx !== index) {
+                    newDT.items.add(file);
+                }
+            });
+            reportImagesDT = newDT;
+            const input = document.getElementById('reportImagesInput');
+            if (input) input.files = reportImagesDT.files;
+            renderReportImagesPreview();
+        }
+
+        function renderReportImagesPreview() {
             const container = document.getElementById('reportImagesPreviewGrid');
+            if (!container) return;
             container.innerHTML = '';
 
-            if (files && files.length > 0) {
-                container.classList.remove('hidden');
-                Array.from(files).forEach((file, index) => {
-                    if (file.type.startsWith('image/')) {
-                        const reader = new FileReader();
-                        reader.onload = function(e) {
-                            const div = document.createElement('div');
-                            div.className = 'relative aspect-square rounded-lg overflow-hidden border border-slate-200 shadow-xs bg-slate-100 group';
-                            div.innerHTML = `
-                                <img src="${e.target.result}" class="w-full h-full object-cover" alt="Preview ${index + 1}">
-                                <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white text-[10px] font-bold">
-                                    Ảnh ${index + 1}
-                                </div>
-                            `;
-                            container.appendChild(div);
-                        };
-                        reader.readAsDataURL(file);
-                    }
-                });
-            } else {
+            const files = Array.from(reportImagesDT.files);
+            if (files.length === 0) {
+                container.classList.add('hidden');
+                return;
+            }
+
+            container.classList.remove('hidden');
+            files.forEach((file, idx) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const div = document.createElement('div');
+                    div.className = 'relative aspect-square rounded-xl overflow-hidden border border-slate-200 shadow-xs bg-slate-100 group';
+                    div.innerHTML = `
+                        <img src="${e.target.result}" class="w-full h-full object-cover" alt="Preview ${idx + 1}">
+                        <!-- Nút Hủy ảnh đã chọn -->
+                        <button type="button" 
+                                onclick="removeReportImage(${idx}); event.stopPropagation();" 
+                                class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center text-xs shadow-md transition-all cursor-pointer z-10 hover:scale-110 active:scale-95" 
+                                title="Hủy ảnh này">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                        <!-- Thông tin dung lượng ảnh -->
+                        <div class="absolute bottom-0 inset-x-0 bg-slate-900/70 backdrop-blur-xs px-1.5 py-0.5 text-[10px] font-bold text-white text-center truncate">
+                            ${(file.size / (1024 * 1024)).toFixed(1)}MB
+                        </div>
+                    `;
+                    container.appendChild(div);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function resetReportImages() {
+            reportImagesDT = new DataTransfer();
+            const input = document.getElementById('reportImagesInput');
+            if (input) input.value = '';
+            const container = document.getElementById('reportImagesPreviewGrid');
+            if (container) {
+                container.innerHTML = '';
                 container.classList.add('hidden');
             }
         }
@@ -1573,8 +1643,7 @@
                 if (response.ok && data && data.success) {
                     closeReportModal();
                     document.getElementById('reportPostForm').reset();
-                    document.getElementById('reportImagesPreviewGrid').innerHTML = '';
-                    document.getElementById('reportImagesPreviewGrid').classList.add('hidden');
+                    resetReportImages();
 
                     Swal.fire({
                         icon: 'success',

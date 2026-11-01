@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
+    @include('partials.modern-notification')
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Trung Tâm Thông Báo - Kiểm Duyệt Viên RentHome</title>
+    <link rel="icon" type="image/png" href="{{ asset('img/logo.png') }}">
 
     <!-- Google Fonts & FontAwesome 6 -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -82,6 +84,14 @@
             font-size: 20px;
             font-weight: 800;
             flex-shrink: 0;
+            overflow: hidden;
+            padding: 4px;
+        }
+
+        .brand-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
         }
 
         .brand-info h2 {
@@ -181,13 +191,16 @@
 
         .user-footer {
             margin-top: auto;
-            padding: 12px;
+            padding: 10px 12px;
             background: #f8fafc;
             border: 1px solid var(--border-color);
             border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 8px;
+            box-sizing: border-box;
+            width: 100%;
         }
 
         .user-footer-left {
@@ -195,11 +208,18 @@
             align-items: center;
             gap: 10px;
             overflow: hidden;
+            text-decoration: none;
+            min-width: 0;
+            flex: 1;
         }
 
         .avatar-circle {
-            width: 36px;
-            height: 36px;
+            width: 38px;
+            height: 38px;
+            min-width: 38px;
+            min-height: 38px;
+            max-width: 38px;
+            max-height: 38px;
             border-radius: 50%;
             background: var(--primary-light);
             color: var(--primary);
@@ -209,6 +229,22 @@
             font-weight: 700;
             font-size: 13px;
             flex-shrink: 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .avatar-circle img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+            display: block;
+        }
+
+        .user-meta {
+            min-width: 0;
+            flex: 1;
+            overflow: hidden;
         }
 
         .user-meta h4 {
@@ -218,6 +254,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            line-height: 1.3;
         }
 
         .user-meta p {
@@ -226,6 +263,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            line-height: 1.3;
         }
 
         .logout-btn {
@@ -829,7 +867,7 @@
     <aside class="sidebar">
         <div class="brand-box">
             <div class="brand-logo">
-                <i class="fa-solid fa-shield-halved"></i>
+                <img src="{{ asset('img/logo.png') }}" alt="RentHome Logo">
             </div>
             <div class="brand-info">
                 <h2>RentHome <span class="role-badge">Kiểm Duyệt</span></h2>
@@ -883,21 +921,38 @@
                     <span class="nav-badge badge-primary-pill" id="sidebarNotifBadge" style="{{ $unreadCount === 0 ? 'display: none;' : '' }}">{{ $unreadCount }}</span>
                 </a>
             </li>
+            <li>
+                <a href="{{ route('kiemduyet.profile') }}" class="nav-link {{ request()->routeIs('kiemduyet.profile') ? 'active' : '' }}">
+                    <span class="nav-link-left">
+                        <i class="fa-solid fa-user-gear"></i>
+                        <span>Hồ sơ cá nhân</span>
+                    </span>
+                </a>
+            </li>
         </ul>
 
         <div class="user-footer">
-            <div class="user-footer-left">
+            <a href="{{ route('kiemduyet.profile') }}" class="user-footer-left hover:opacity-85 transition-opacity" title="👤 Hồ sơ cá nhân">
                 <div class="avatar-circle">
-                    {{ strtoupper(mb_substr($userObj->account_name ?? 'KD', 0, 2)) }}
+                    @if(!empty($userObj->avatar ?? auth()->user()->avatar))
+                        <img src="{{ ($userObj ?? auth()->user())->display_avatar }}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block;">
+                    @else
+                        {{ strtoupper(mb_substr($userObj->account_name ?? 'KD', 0, 2)) }}
+                    @endif
                 </div>
                 <div class="user-meta">
-                    <h4>{{ $userObj->account_name ?? 'Kiểm Duyệt Viên' }}</h4>
+                    <h4>{{ $userObj->display_name ?: ($userObj->account_name ?? 'Kiểm Duyệt Viên') }}</h4>
                     <p>{{ $userObj->email ?? 'kiemduyet2006@gmail.com' }}</p>
                 </div>
-            </div>
-            <a href="{{ url('/logout') }}" class="logout-btn" title="Đăng xuất">
-                <i class="fa-solid fa-right-from-bracket"></i>
             </a>
+            <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+                <a href="{{ route('kiemduyet.profile') }}" class="logout-btn" title="👤 Hồ sơ cá nhân">
+                    <i class="fa-solid fa-user-pen" style="font-size: 12px;"></i>
+                </a>
+                <a href="{{ url('/logout') }}" class="logout-btn" title="Đăng xuất">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </a>
+            </div>
         </div>
     </aside>
 

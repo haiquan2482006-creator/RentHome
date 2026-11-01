@@ -28,13 +28,16 @@ class Complaint extends Model
         'resolved_by',
         'resolved_at',
         'is_valid',
+        'assigned_to',      // ID của CSKH đang giữ quyền xử lý (Claim Ticket)
+        'assigned_at',      // Thời điểm tiếp nhận
         'created_at',
         'updated_at',
     ];
 
     protected $casts = [
-        'images' => 'array',
-        'is_valid' => 'boolean',
+        'images'      => 'array',
+        'is_valid'    => 'boolean',
+        'assigned_at' => 'datetime',
     ];
 
     public function user()
@@ -60,6 +63,14 @@ class Complaint extends Model
     public function resolver()
     {
         return $this->belongsTo(User::class, 'resolved_by');
+    }
+
+    /**
+     * CSKH đang giữ quyền xử lý đơn này (Claim Ticket)
+     */
+    public function assignee()
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
     }
 
     public function replies()

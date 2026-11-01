@@ -33,18 +33,20 @@ class ContractLiquidationController extends Controller
 
         // Phân quyền theo nhân sự / doanh nghiệp nếu là tài khoản con
         if ($user->isSubAccount() || $user->isNhansu() || $user->isStaff() || in_array($user->role ?? '', ['nhansu', 'staff', 'sub_account'])) {
-            $assignedBuildings = (array) ($user->assigned_buildings ?? []);
-            if (!empty($assignedBuildings) && !in_array('all', $assignedBuildings, true) && !in_array('*', $assignedBuildings, true)) {
-                $assignedIds = array_map('strval', $assignedBuildings);
-                $postIds = Post::whereIn('building_id', $assignedIds)->pluck('_id')->map(fn($id) => (string)$id)->toArray();
-                $query->where(function ($q) use ($postIds, $assignedIds, $userId) {
-                    $q->whereIn('post_id', $postIds)
-                      ->orWhereIn('room_id', $postIds)
-                      ->orWhereIn('building_id', $assignedIds)
-                      ->orWhere('owner_id', $userId)
-                      ->orWhere('created_by', $userId);
-                });
-            }
+            $assignedBuildings = array_filter(array_map('strval', (array) ($user->assigned_buildings ?? [])));
+            $assignedBuildings = array_values(array_diff($assignedBuildings, ['all', '*']));
+            $query->where(function ($q) use ($assignedBuildings, $userId) {
+                if (!empty($assignedBuildings)) {
+                    $postIds = Post::whereIn('building_id', $assignedBuildings)->pluck('_id')->map(fn($id) => (string)$id)->toArray();
+                    if (!empty($postIds)) {
+                        $q->whereIn('post_id', $postIds)
+                          ->orWhereIn('room_id', $postIds);
+                    }
+                    $q->orWhereIn('building_id', $assignedBuildings);
+                }
+                $q->orWhere('owner_id', $userId)
+                  ->orWhere('created_by', $userId);
+            });
         } elseif (!$user->isAdmin() && !$user->isEnterprise()) {
             // Nếu là khách thuê thông thường, chỉ xem hợp đồng của chính mình
             $query->where(function ($q) use ($userId, $user) {
@@ -81,18 +83,20 @@ class ContractLiquidationController extends Controller
         // Thống kê nhanh theo phạm vi tài khoản hiện tại
         $baseQuery = Contract::query();
         if ($user->isSubAccount() || $user->isNhansu() || $user->isStaff() || in_array($user->role ?? '', ['nhansu', 'staff', 'sub_account'])) {
-            $assignedBuildings = (array) ($user->assigned_buildings ?? []);
-            if (!empty($assignedBuildings) && !in_array('all', $assignedBuildings, true) && !in_array('*', $assignedBuildings, true)) {
-                $assignedIds = array_map('strval', $assignedBuildings);
-                $postIds = Post::whereIn('building_id', $assignedIds)->pluck('_id')->map(fn($id) => (string)$id)->toArray();
-                $baseQuery->where(function ($q) use ($postIds, $assignedIds, $userId) {
-                    $q->whereIn('post_id', $postIds)
-                      ->orWhereIn('room_id', $postIds)
-                      ->orWhereIn('building_id', $assignedIds)
-                      ->orWhere('owner_id', $userId)
-                      ->orWhere('created_by', $userId);
-                });
-            }
+            $assignedBuildings = array_filter(array_map('strval', (array) ($user->assigned_buildings ?? [])));
+            $assignedBuildings = array_values(array_diff($assignedBuildings, ['all', '*']));
+            $baseQuery->where(function ($q) use ($assignedBuildings, $userId) {
+                if (!empty($assignedBuildings)) {
+                    $postIds = Post::whereIn('building_id', $assignedBuildings)->pluck('_id')->map(fn($id) => (string)$id)->toArray();
+                    if (!empty($postIds)) {
+                        $q->whereIn('post_id', $postIds)
+                          ->orWhereIn('room_id', $postIds);
+                    }
+                    $q->orWhereIn('building_id', $assignedBuildings);
+                }
+                $q->orWhere('owner_id', $userId)
+                  ->orWhere('created_by', $userId);
+            });
         } elseif (!$user->isAdmin() && !$user->isEnterprise()) {
             $baseQuery->where(function ($q) use ($userId, $user) {
                 $q->where('tenant_id', $userId)

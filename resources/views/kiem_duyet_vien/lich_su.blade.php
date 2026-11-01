@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
+    @include('partials.modern-notification')
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Lịch Sử Kiểm Duyệt - RentHome</title>
+    <link rel="icon" type="image/png" href="{{ asset('img/logo.png') }}">
 
     <!-- Google Fonts & FontAwesome 6 -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -82,6 +84,14 @@
             font-size: 20px;
             font-weight: 800;
             flex-shrink: 0;
+            overflow: hidden;
+            padding: 4px;
+        }
+
+        .brand-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
         }
 
         .brand-info h2 {
@@ -175,13 +185,16 @@
 
         .user-footer {
             margin-top: auto;
-            padding: 12px;
+            padding: 10px 12px;
             background: #f8fafc;
             border: 1px solid var(--border-color);
             border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 8px;
+            box-sizing: border-box;
+            width: 100%;
         }
 
         .user-footer-left {
@@ -189,11 +202,18 @@
             align-items: center;
             gap: 10px;
             overflow: hidden;
+            text-decoration: none;
+            min-width: 0;
+            flex: 1;
         }
 
         .avatar-circle {
-            width: 36px;
-            height: 36px;
+            width: 38px;
+            height: 38px;
+            min-width: 38px;
+            min-height: 38px;
+            max-width: 38px;
+            max-height: 38px;
             border-radius: 50%;
             background: var(--primary-light);
             color: var(--primary);
@@ -203,6 +223,22 @@
             font-weight: 700;
             font-size: 13px;
             flex-shrink: 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .avatar-circle img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+            display: block;
+        }
+
+        .user-meta {
+            min-width: 0;
+            flex: 1;
+            overflow: hidden;
         }
 
         .user-meta h4 {
@@ -212,6 +248,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            line-height: 1.3;
         }
 
         .user-meta p {
@@ -220,6 +257,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            line-height: 1.3;
         }
 
         .logout-btn {
@@ -525,23 +563,36 @@
 
     @php
         $userObj = Auth::user();
+        $currentUserId = (string)($userObj->_id ?? $userObj->id);
+        $isAdminUser = ($userObj->role === 'admin');
         $pCount = $pendingCount ?? \App\Models\Post::where('status', 'pending')->count();
         $cCount = $complaintCount ?? \App\Models\Complaint::where('status', 'pending')->count();
-        $activityList = $activities ?? \App\Models\AdminActivity::where('category', 'post')
-            ->orWhereIn('action_type', ['approve', 'reject'])
-            ->orderBy('created_at', 'desc')
-            ->get();
 
-        $totalActs = count($activityList);
-        $approvedActs = $activityList->filter(fn($a) => in_array($a->action_type, ['approve', 'duyet']))->count();
-        $rejectedActs = $activityList->filter(fn($a) => in_array($a->action_type, ['reject', 'tu_choi']))->count();
+        if (!isset($activities)) {
+            $actQuery = \App\Models\AdminActivity::query();
+            if (!$isAdminUser) {
+                $actQuery->where(function($q) use ($currentUserId) {
+                    $q->where('admin_id', $currentUserId)->orWhere('user_id', $currentUserId);
+                });
+            }
+            $actQuery->where(function($q) {
+                $q->where('category', 'post')->orWhereIn('action_type', ['approve', 'reject', 'duyet', 'tu_choi']);
+            });
+            $activityList = $actQuery->orderBy('created_at', 'desc')->get();
+        } else {
+            $activityList = $activities;
+        }
+
+        $totalActs = $totalActs ?? count($activityList);
+        $approvedActs = $approvedActs ?? $activityList->filter(fn($a) => in_array($a->action_type, ['approve', 'duyet']))->count();
+        $rejectedActs = $rejectedActs ?? $activityList->filter(fn($a) => in_array($a->action_type, ['reject', 'tu_choi']))->count();
     @endphp
 
     <!-- ================= SIDEBAR ================= -->
     <aside class="sidebar">
         <div class="brand-box">
             <div class="brand-logo">
-                <i class="fa-solid fa-shield-halved"></i>
+                <img src="{{ asset('img/logo.png') }}" alt="RentHome Logo">
             </div>
             <div class="brand-info">
                 <h2>RentHome <span class="role-badge">Kiểm Duyệt</span></h2>
@@ -594,21 +645,38 @@
                     </span>
                 </a>
             </li>
+            <li>
+                <a href="{{ route('kiemduyet.profile') }}" class="nav-link {{ request()->routeIs('kiemduyet.profile') ? 'active' : '' }}">
+                    <span class="nav-link-left">
+                        <i class="fa-solid fa-user-gear"></i>
+                        <span>Hồ sơ cá nhân</span>
+                    </span>
+                </a>
+            </li>
         </ul>
 
         <div class="user-footer">
-            <div class="user-footer-left">
+            <a href="{{ route('kiemduyet.profile') }}" class="user-footer-left hover:opacity-85 transition-opacity" title="👤 Hồ sơ cá nhân">
                 <div class="avatar-circle">
-                    {{ strtoupper(mb_substr($userObj->account_name ?? 'KD', 0, 2)) }}
+                    @if(!empty($userObj->avatar ?? auth()->user()->avatar))
+                        <img src="{{ ($userObj ?? auth()->user())->display_avatar }}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block;">
+                    @else
+                        {{ strtoupper(mb_substr($userObj->account_name ?? 'KD', 0, 2)) }}
+                    @endif
                 </div>
                 <div class="user-meta">
-                    <h4>{{ $userObj->account_name ?? 'Kiểm Duyệt Viên' }}</h4>
+                    <h4>{{ $userObj->display_name ?: ($userObj->account_name ?? 'Kiểm Duyệt Viên') }}</h4>
                     <p>{{ $userObj->email ?? 'kiemduyet2006@gmail.com' }}</p>
                 </div>
-            </div>
-            <a href="{{ url('/logout') }}" class="logout-btn" title="Đăng xuất">
-                <i class="fa-solid fa-right-from-bracket"></i>
             </a>
+            <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+                <a href="{{ route('kiemduyet.profile') }}" class="logout-btn" title="👤 Hồ sơ cá nhân">
+                    <i class="fa-solid fa-user-pen" style="font-size: 12px;"></i>
+                </a>
+                <a href="{{ url('/logout') }}" class="logout-btn" title="Đăng xuất">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </a>
+            </div>
         </div>
     </aside>
 
@@ -683,7 +751,7 @@
 
             <div class="search-box">
                 <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" id="searchAct" class="search-input" placeholder="Tìm theo tiêu đề, người duyệt, lý do..." oninput="handleSearchAct()">
+                <input type="text" id="searchAct" class="search-input" placeholder="Tìm theo tiêu đề, nội dung, lý do..." oninput="handleSearchAct()">
             </div>
         </div>
 
@@ -696,7 +764,6 @@
                             <th style="width: 170px;">Thời gian</th>
                             <th style="width: 140px;">Hành động</th>
                             <th>Nội dung / Bài viết tác động</th>
-                            <th style="width: 180px;">Kiểm duyệt viên</th>
                             <th style="width: 130px;">Trạng thái</th>
                         </tr>
                     </thead>
@@ -708,7 +775,7 @@
                                 $isReject = in_array($type, ['reject', 'tu_choi']);
                                 $actType = $isApprove ? 'approve' : ($isReject ? 'reject' : 'other');
                             @endphp
-                            <tr data-type="{{ $actType }}" data-search="{{ mb_strtolower(($act->title ?? '') . ' ' . ($act->description ?? '') . ' ' . ($act->admin_name ?? '')) }}">
+                            <tr data-type="{{ $actType }}" data-search="{{ mb_strtolower(($act->title ?? '') . ' ' . ($act->description ?? '')) }}">
                                 <td style="font-size: 12.5px; color: #64748b;">
                                     <i class="fa-regular fa-clock mr-1"></i>
                                     {{ $act->created_at ? $act->created_at->format('d/m/Y H:i:s') : 'Mới đây' }}
@@ -734,14 +801,6 @@
                                     </div>
                                     <div style="font-size: 12.5px; color: #475569;">
                                         {{ $act->description ?? 'Không có mô tả chi tiết' }}
-                                    </div>
-                                </td>
-                                <td>
-                                    <div style="font-weight: 600; font-size: 13px; color: #0f172a;">
-                                        {{ $act->admin_name ?? 'Kiểm duyệt viên' }}
-                                    </div>
-                                    <div style="font-size: 11.5px; color: #94a3b8;">
-                                        {{ $act->admin_email ?? '' }}
                                     </div>
                                 </td>
                                 <td>

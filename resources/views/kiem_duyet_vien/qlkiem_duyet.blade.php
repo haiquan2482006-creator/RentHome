@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
+    @include('partials.modern-notification')
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Quản Lý Kiểm Duyệt Bài Đăng - RentHome</title>
+    <link rel="icon" type="image/png" href="{{ asset('img/logo.png') }}">
 
     <!-- Google Fonts & FontAwesome 6 -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -143,6 +145,14 @@
             font-size: 20px;
             font-weight: 800;
             flex-shrink: 0;
+            overflow: hidden;
+            padding: 4px;
+        }
+
+        .brand-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
         }
 
         .brand-info h2 {
@@ -241,13 +251,16 @@
 
         .user-footer {
             margin-top: auto;
-            padding: 12px;
+            padding: 10px 12px;
             background: #f8fafc;
             border: 1px solid var(--border-color);
             border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 8px;
+            box-sizing: border-box;
+            width: 100%;
         }
 
         .user-footer-left {
@@ -255,11 +268,18 @@
             align-items: center;
             gap: 10px;
             overflow: hidden;
+            text-decoration: none;
+            min-width: 0;
+            flex: 1;
         }
 
         .avatar-circle {
-            width: 36px;
-            height: 36px;
+            width: 38px;
+            height: 38px;
+            min-width: 38px;
+            min-height: 38px;
+            max-width: 38px;
+            max-height: 38px;
             border-radius: 50%;
             background: var(--primary-light);
             color: var(--primary);
@@ -269,6 +289,22 @@
             font-weight: 700;
             font-size: 13px;
             flex-shrink: 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .avatar-circle img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+            display: block;
+        }
+
+        .user-meta {
+            min-width: 0;
+            flex: 1;
+            overflow: hidden;
         }
 
         .user-meta h4 {
@@ -278,6 +314,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            line-height: 1.3;
         }
 
         .user-meta p {
@@ -286,6 +323,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            line-height: 1.3;
         }
 
         .logout-btn {
@@ -795,6 +833,29 @@
             align-items: center;
             justify-content: flex-end;
             gap: 6px;
+        }
+
+        .badge-locked-by {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 11.5px;
+            font-weight: 700;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fde68a;
+            white-space: nowrap;
+        }
+
+        .row-locked {
+            opacity: 0.65;
+            background: #fffbeb !important;
+        }
+
+        .row-locked td {
+            background: #fffbeb !important;
         }
 
         .btn-act {
@@ -1598,7 +1659,7 @@
     <aside class="sidebar">
         <div class="brand-box">
             <div class="brand-logo">
-                <i class="fa-solid fa-shield-halved"></i>
+                <img src="{{ asset('img/logo.png') }}" alt="RentHome Logo">
             </div>
             <div class="brand-info">
                 <h2>RentHome <span class="role-badge">Kiểm Duyệt</span></h2>
@@ -1649,19 +1710,38 @@
                     </span>
                 </a>
             </li>
+            <li>
+                <a href="{{ route('kiemduyet.profile') }}" class="nav-link {{ request()->routeIs('kiemduyet.profile') ? 'active' : '' }}">
+                    <span class="nav-link-left">
+                        <i class="fa-solid fa-user-gear"></i>
+                        <span>Hồ sơ cá nhân</span>
+                    </span>
+                </a>
+            </li>
         </ul>
 
         <div class="user-footer">
-            <div class="user-footer-left">
-                <div class="avatar-circle">KD</div>
+            <a href="{{ route('kiemduyet.profile') }}" class="user-footer-left hover:opacity-85 transition-opacity" title="👤 Hồ sơ cá nhân">
+                <div class="avatar-circle">
+                    @if(!empty(auth()->user()->avatar))
+                        <img src="{{ auth()->user()->display_avatar }}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block;">
+                    @else
+                        KD
+                    @endif
+                </div>
                 <div class="user-meta">
-                    <h4>{{ auth()->user()->account_name ?? 'Kiểm Duyệt Viên' }}</h4>
+                    <h4>{{ auth()->user()->display_name ?: (auth()->user()->account_name ?? 'Kiểm Duyệt Viên') }}</h4>
                     <p>{{ auth()->user()->email ?? 'kiemduyet2006@gmail.com' }}</p>
                 </div>
-            </div>
-            <a href="{{ url('/logout') }}" class="logout-btn" title="Đăng xuất">
-                <i class="fa-solid fa-right-from-bracket"></i>
             </a>
+            <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+                <a href="{{ route('kiemduyet.profile') }}" class="logout-btn" title="👤 Hồ sơ cá nhân">
+                    <i class="fa-solid fa-user-pen" style="font-size: 12px;"></i>
+                </a>
+                <a href="{{ url('/logout') }}" class="logout-btn" title="Đăng xuất">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </a>
+            </div>
         </div>
     </aside>
 
@@ -1748,6 +1828,7 @@
                         </tr>
                     </thead>
                     <tbody>
+                        @php $allModalPayloads = []; @endphp
                         @forelse($postItems as $post)
                             @php
                                 $postId = (string)($post->_id ?? $post->id);
@@ -1928,14 +2009,26 @@
                                     'building_amenities' => $bAmenities,
                                     'building_images' => $buildingImages,
                                 ];
+                                $allModalPayloads[$postId] = $modalPayload;
+
+                                // BƯỚC 3: Tạo biến kiểm tra trạng thái đã xem (viewed_by) & Auto-lock (locked_by)
+                                $currentUserId = (string)auth()->id();
+                                $viewedByList = array_map('strval', (array)($post->viewed_by ?? []));
+                                $hasViewed = in_array($currentUserId, $viewedByList);
+                                $lockedByRaw = (string)($post->locked_by ?? '');
+                                $isLockedByOther = (!empty($lockedByRaw) && $lockedByRaw !== $currentUserId);
+                                $lockerUser = $isLockedByOther ? (\App\Models\User::where('_id', $lockedByRaw)->first() ?: \App\Models\User::find($lockedByRaw)) : null;
+                                $lockerName = $lockerUser ? ($lockerUser->display_name ?: ($lockerUser->ten_hien_thi ?: ($lockerUser->account_name ?: ($lockerUser->username ?: 'nhân sự khác')))) : 'nhân sự khác';
                             @endphp
 
-                            <tr class="post-row"
+                            <tr class="post-row {{ $isLockedByOther ? 'row-locked' : '' }}"
                                 data-id="{{ $postId }}"
                                 data-status="{{ $statusKey }}"
                                 data-building="{{ strtolower($bName) }}"
                                 data-type="{{ strtolower($bType) }}"
-                                style="{{ $statusKey !== 'pending' ? 'display: none;' : '' }}">
+                                data-has-viewed="{{ $hasViewed ? '1' : '0' }}"
+                                data-locked-by="{{ $lockedByRaw }}"
+                                style="{{ $statusKey !== 'pending' ? 'display: none;' : '' }}{{ $isLockedByOther ? ' opacity: 0.6;' : '' }}">
 
                                 <!-- Cột 1: Thông tin Phòng (Lớp Ruột) -->
                                 <td>
@@ -2011,26 +2104,26 @@
 
                                 <!-- Cột 7: Thao tác kiểm duyệt -->
                                 <td>
-                                    <div class="action-group">
-                                        <button type="button" class="btn-act btn-act-view"
-                                            onclick='openInspectModal(@json($modalPayload))'
-                                            title="Xem chi tiết & Đối chiếu Lớp Vỏ - Lớp Ruột">
-                                            <i class="fa-solid fa-eye"></i> Soi bài
-                                        </button>
-
-                                        @if($statusKey !== 'approved')
-                                            <button type="button" class="btn-act btn-act-approve"
-                                                onclick="approveSinglePost('{{ $postId }}', '{{ addslashes($post->title ?? 'Bài đăng') }}')"
-                                                title="Phê duyệt cho hiển thị lên Trang chủ">
-                                                <i class="fa-solid fa-check"></i> Duyệt
+                                    <div class="action-group" id="actionGroup_{{ $postId }}">
+                                        @if($isLockedByOther)
+                                            {{-- NẾU bị khóa bởi người khác (locked_by != auth()->id): Làm mờ card, chỉ hiện Badge vàng "🔒 Đang xem xét bởi: Tên user". Ẩn mọi nút. --}}
+                                            <span class="badge-locked-by" title="Bài đăng đang được xem xét bởi {{ $lockerName }}">
+                                                <i class="fa-solid fa-lock"></i>
+                                                <span>🔒 Đang xem xét bởi: {{ $lockerName }}</span>
+                                            </span>
+                                        @elseif(!$hasViewed && $statusKey === 'pending')
+                                            {{-- NẾU chưa xem ($hasViewed == false): Chỉ hiển thị 1 nút duy nhất: "👁️ Xem chi tiết" --}}
+                                            <button type="button" class="btn-act btn-act-view"
+                                                onclick='openInspectModal(@json($modalPayload))'
+                                                title="Xem chi tiết & Đối chiếu Lớp Vỏ - Lớp Ruột">
+                                                <i class="fa-solid fa-eye"></i> <span>👁️ Xem chi tiết</span>
                                             </button>
-                                        @endif
-
-                                        @if($statusKey !== 'rejected')
-                                            <button type="button" class="btn-act btn-act-reject"
-                                                onclick="openRejectModal('{{ $postId }}', '{{ addslashes($post->title ?? 'Bài đăng') }}')"
-                                                title="Từ chối & Yêu cầu nhân viên sửa lại">
-                                                <i class="fa-solid fa-xmark"></i> Từ chối
+                                        @else
+                                            {{-- Đã xem: Nút xem lại chi tiết --}}
+                                            <button type="button" class="btn-act btn-act-view"
+                                                onclick='openInspectModal(@json($modalPayload))'
+                                                title="Xem lại chi tiết bài đăng">
+                                                <i class="fa-solid fa-eye"></i> <span>👁️ Xem lại</span>
                                             </button>
                                         @endif
                                     </div>
@@ -2068,6 +2161,9 @@
                         </tr>
                     </tbody>
                 </table>
+                <script>
+                    window.postDataMap = @json($allModalPayloads);
+                </script>
             </div>
         </section>
     </main>
@@ -2398,8 +2494,67 @@
             if (bar) bar.classList.toggle('show', checked.length > 0);
         }
 
+        let currentInspectingPostId = null;
+
+        function escapeJs(str) {
+            if (!str) return '';
+            return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        }
+
+        function updateRowToViewed(data) {
+            const row = document.querySelector(`tr.post-row[data-id="${data.id}"]`);
+            if (row) {
+                row.setAttribute('data-has-viewed', '1');
+                row.classList.remove('row-locked');
+                row.style.opacity = '1';
+                const actionGroup = document.getElementById(`actionGroup_${data.id}`) || row.querySelector('.action-group');
+                if (actionGroup) {
+                    const payload = (window.postDataMap && window.postDataMap[data.id]) || data;
+                    const pTitle = data.title || payload.title || 'Bài đăng';
+                    actionGroup.innerHTML = `
+                        <button type="button" class="btn-act btn-act-view"
+                            onclick='openInspectModal(window.postDataMap["${data.id}"] || ${JSON.stringify(payload)})'
+                            title="Xem lại chi tiết bài đăng">
+                            <i class="fa-solid fa-eye"></i> <span>👁️ Xem lại</span>
+                        </button>
+                    `;
+                }
+            }
+        }
+
         // 4. Mở Modal Soi Chi Tiết & Đối Chiếu Vỏ - Ruột
-        function openInspectModal(data) {
+        async function openInspectModal(data) {
+            currentInspectingPostId = data.id;
+
+            // BƯỚC 2: Gọi API inspect để ghi nhận viewed_by và auto-lock bài đăng
+            try {
+                const res = await fetch(`/api/kiem-duyet/posts/${data.id}/inspect`, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                    }
+                });
+                const resData = await res.json().catch(() => ({}));
+                if (!res.ok || resData.success === false) {
+                    if (resData.is_locked) {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Đang xem xét',
+                            text: resData.message || 'Bài đăng đang được xem xét bởi nhân sự khác!',
+                            confirmButtonColor: '#f59e0b'
+                        });
+                        return;
+                    }
+                }
+
+                // Cập nhật ngay ngoài danh sách: hiển thị CẢ 3 nút "Xem lại", "Phê duyệt", "Từ chối"
+                updateRowToViewed(data);
+                modSyncChannel?.postMessage({ type: 'post_locked', postId: data.id });
+            } catch (err) {
+                console.error('Error recording inspect:', err);
+            }
             // 1. Tiêu đề & ID
             document.getElementById('insTitle').innerText = data.title;
             document.getElementById('insPostIdText').innerText = data.room_code || data.id;
@@ -2696,14 +2851,37 @@
                 if (res.ok) {
                     updateRowStatusUI(postId, 'approved');
                     showToast(`Đã phê duyệt bài đăng "${title}" thành công!`);
+                    modSyncChannel?.postMessage({ type: 'post_status_changed', postId: postId });
                 } else {
+                    const errData = await res.json().catch(() => ({}));
+                    if (res.status === 409) {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Thao tác không hợp lệ',
+                            text: errData.message || 'Bài đăng này đã được một Kiểm duyệt viên khác xử lý trước đó!',
+                            confirmButtonColor: '#f59e0b'
+                        });
+                        updateRowStatusUI(postId, 'approved');
+                        return;
+                    }
+                    if (res.status === 403) {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Đang bị khóa',
+                            text: errData.message || 'Bài đăng đang bị khóa bởi Kiểm duyệt viên khác!',
+                            confirmButtonColor: '#f59e0b'
+                        });
+                        return;
+                    }
                     // Fallback cập nhật UI nếu route API đang dùng URL khác
                     updateRowStatusUI(postId, 'approved');
                     showToast(`Đã chuyển trạng thái phê duyệt cho "${title}"!`);
+                    modSyncChannel?.postMessage({ type: 'post_status_changed', postId: postId });
                 }
             } catch (e) {
                 updateRowStatusUI(postId, 'approved');
                 showToast(`Đã phê duyệt bài đăng "${title}"!`);
+                modSyncChannel?.postMessage({ type: 'post_status_changed', postId: postId });
             }
         }
 
@@ -2776,7 +2954,7 @@
             const fullReason = note ? `${reason} (${note})` : reason;
 
             try {
-                await fetch(`/api/kiem-duyet/posts/${postId}/reject`, {
+                const res = await fetch(`/api/kiem-duyet/posts/${postId}/reject`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2785,11 +2963,24 @@
                     },
                     body: JSON.stringify({ reason: fullReason })
                 });
+                if (res.status === 409) {
+                    const errData = await res.json().catch(() => ({}));
+                    closeModal('rejectModal');
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Thao tác không hợp lệ',
+                        text: errData.message || 'Bài đăng này đã được một Kiểm duyệt viên khác xử lý trước đó!',
+                        confirmButtonColor: '#f59e0b'
+                    });
+                    updateRowStatusUI(postId, 'approved');
+                    return;
+                }
             } catch (e) {}
 
             closeModal('rejectModal');
             updateRowStatusUI(postId, 'rejected');
             showToast('Đã từ chối bài đăng và gửi yêu cầu chỉnh sửa cho nhân viên!', '#ef4444');
+            modSyncChannel?.postMessage({ type: 'post_status_changed', postId: postId });
         }
 
         // 8. Cập nhật lại giao diện dòng & bộ đếm sau khi Duyệt / Từ chối
@@ -2867,13 +3058,303 @@
             }
         }
 
+        window.updateRowStatusUI = updateRowStatusUI;
+        window.filterModerationTable = filterModerationTable;
+
         document.addEventListener('DOMContentLoaded', function () {
             filterModerationTable();
         });
 
+        // ================= ĐỒNG BỘ TRẠNG THÁI KIỂM DUYỆT THEO THỜI GIAN THỰC =================
+        const modSyncChannel = ('BroadcastChannel' in window) ? new BroadcastChannel('renthome_moderation_sync') : null;
+        if (modSyncChannel) {
+            modSyncChannel.onmessage = (event) => {
+                if (event.data && (event.data.type === 'post_locked' || event.data.type === 'post_unlocked' || event.data.type === 'post_status_changed')) {
+                    syncModerationStatus();
+                }
+            };
+        }
+
+        function prependModerationRow(p) {
+            const table = document.getElementById('moderationTable') || document.querySelector('table.moderation-table') || document.querySelector('table');
+            const tableBody = table ? table.querySelector('tbody') : null;
+            if (!tableBody) return;
+
+            // Kiểm tra tránh trùng lặp
+            if (document.querySelector(`tr.post-row[data-id="${p.id}"]`)) return;
+
+            // Ẩn mọi khối thông báo trống (Empty State) nếu đang có
+            const empty1 = document.getElementById('emptyDatabaseRow');
+            if (empty1) empty1.style.display = 'none';
+            const empty2 = document.getElementById('dynamicEmptyRow');
+            if (empty2) empty2.style.display = 'none';
+            const empty3 = document.getElementById('empty-row-initial') || tableBody.querySelector('.empty-placeholder')?.closest('tr');
+            if (empty3) empty3.style.display = 'none';
+
+            // Lưu payload để mở modal xem chi tiết
+            if (!window.postDataMap) window.postDataMap = {};
+            const payload = p.modal_payload || p.raw_payload;
+            window.postDataMap[p.id] = payload;
+
+            const tr = document.createElement('tr');
+            tr.className = 'post-row realtime-prepended';
+            tr.setAttribute('data-id', p.id);
+            tr.setAttribute('data-status', 'pending');
+            tr.setAttribute('data-building', (p.building_name || '').toLowerCase());
+            tr.setAttribute('data-type', (p.building_type || '').toLowerCase());
+            tr.setAttribute('data-has-viewed', p.has_viewed ? '1' : '0');
+            tr.setAttribute('data-locked-by', p.locked_by || '');
+
+            tr.innerHTML = `
+                <!-- Cột 1: Thông tin Phòng (Lớp Ruột) -->
+                <td>
+                    <div class="post-info-cell">
+                        <div class="thumb-wrapper">
+                            <img src="${p.thumb_url || 'https://placehold.co/160x120?text=No+Image'}" alt="${escapeHtml(p.title)}" onerror="this.src='https://placehold.co/160x120?text=No+Image'">
+                            <span class="img-count-tag"><i class="fa-solid fa-camera"></i> ${p.images_count || 1}</span>
+                        </div>
+                        <div>
+                            <span class="post-title">${escapeHtml(p.title)}</span>
+                            <div class="post-specs">
+                                <span><strong>Mã:</strong> ${escapeHtml(p.room_code || ('#' + p.id.slice(-5).toUpperCase()))}</span>
+                                <span>•</span>
+                                <span><i class="fa-solid fa-ruler-combined"></i> ${p.area || 0} m²</span>
+                                ${p.floor_text ? `<span>•</span><span>${escapeHtml(p.floor_text)}</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </td>
+
+                <!-- Cột 2: Tòa nhà mẹ (Lớp Vỏ) -->
+                <td>
+                    <div class="building-box">
+                        <div class="building-name">
+                            <i class="fa-solid fa-building"></i>
+                            <span>${escapeHtml(p.building_name)}</span>
+                        </div>
+                        <div class="building-addr">${escapeHtml(p.building_address)}</div>
+                        <span class="type-badge">${escapeHtml(p.building_type || 'Chung cư mini / Căn hộ dịch vụ')}</span>
+                    </div>
+                </td>
+
+                <!-- Cột 3: Giá -->
+                <td>
+                    <div class="price-val">${escapeHtml(p.price_formatted)}</div>
+                </td>
+
+                <!-- Cột 4: Nhân viên đăng -->
+                <td>
+                    <div class="staff-box">
+                        <div class="staff-avatar">${escapeHtml(p.author_initial || 'N')}</div>
+                        <div>
+                            <div style="font-weight: 700; font-size: 13px;">${escapeHtml(p.author_name)}</div>
+                            <div style="font-size: 11.5px; color: var(--text-muted, #64748b);">${escapeHtml(p.author_phone || 'Tài khoản con')}</div>
+                        </div>
+                    </div>
+                </td>
+
+                <!-- Cột 5: Thời gian gửi -->
+                <td style="font-size: 12.5px; color: var(--text-muted, #64748b); white-space: nowrap;">
+                    ${escapeHtml(p.created_at_formatted)}
+                </td>
+
+                <!-- Cột 6: Trạng thái -->
+                <td>
+                    <span class="status-badge status-pending" id="statusBadge_${p.id}">
+                        <i class="fa-solid fa-hourglass-half"></i>
+                        <span>Chờ phê duyệt</span>
+                    </span>
+                </td>
+
+                <!-- Cột 7: Thao tác kiểm duyệt -->
+                <td>
+                    <div class="action-group" id="actionGroup_${p.id}">
+                        <button type="button" class="btn-act btn-act-view"
+                            onclick='openInspectModal(window.postDataMap["${p.id}"])'
+                            title="Xem chi tiết & Đối chiếu Lớp Vỏ - Lớp Ruột">
+                            <i class="fa-solid fa-eye"></i> <span>👁️ Xem chi tiết</span>
+                        </button>
+                    </div>
+                </td>
+            `;
+
+            tableBody.prepend(tr);
+
+            // Cập nhật lại bộ lọc & đếm hiển thị
+            if (typeof filterModerationTable === 'function') {
+                filterModerationTable();
+            }
+
+            if (typeof showToast === 'function') {
+                showToast(`🔔 Bài đăng mới chờ duyệt: "${p.title}"`, '#0284c7');
+            }
+        }
+        window.prependModerationRow = prependModerationRow;
+
+        let isSyncing = false;
+        async function syncModerationStatus() {
+            if (isSyncing) return;
+            isSyncing = true;
+            try {
+                // Thu thập danh sách ID bài đăng đang hiển thị ở trạng thái pending trên bảng
+                const currentPendingRows = document.querySelectorAll('#moderationTable tbody tr.post-row[data-status="pending"]');
+                const clientIds = Array.from(currentPendingRows).map(r => r.getAttribute('data-id')).filter(Boolean);
+                const queryParam = clientIds.length > 0 ? `?client_ids=${encodeURIComponent(clientIds.join(','))}` : '';
+
+                const res = await fetch(`/api/kiem-duyet/posts/sync-status${queryParam}`, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (!data || !data.success || !Array.isArray(data.posts)) return;
+
+                const activePendingMap = new Map();
+                data.posts.forEach(p => activePendingMap.set(String(p.id), p));
+                const resolvedMap = data.resolved_statuses || {};
+
+                // 1. TỰ ĐỘNG XÓA / BIẾN MẤT CÁC BÀI ĐĂNG ĐÃ ĐƯỢC KIỂM DUYỆT VIÊN KHÁC XỬ LÝ (PHÊ DUYỆT / TỪ CHỐI)
+                currentPendingRows.forEach(row => {
+                    const rowId = row.getAttribute('data-id');
+                    if (!activePendingMap.has(rowId)) {
+                        const newStatus = resolvedMap[rowId] || 'approved';
+                        const postTitle = (window.postDataMap && window.postDataMap[rowId]?.title) || row.querySelector('.post-title')?.innerText || 'Bài đăng';
+
+                        // Nếu chính tab này đang mở modal xem chi tiết bài đăng đó -> Đóng ngay & cảnh báo
+                        if (currentInspectingPostId && currentInspectingPostId === rowId) {
+                            currentInspectingPostId = null;
+                            closeModal('inspectModal');
+                            if (typeof Swal !== 'undefined') {
+                                Swal.fire({
+                                    icon: 'info',
+                                    title: 'Bài đăng đã được xử lý',
+                                    text: `Bài đăng "${postTitle}" vừa được một Kiểm duyệt viên khác ${newStatus === 'approved' ? 'phê duyệt' : 'từ chối'}!`,
+                                    timer: 3500,
+                                    showConfirmButton: false
+                                });
+                            }
+                        }
+
+                        // Cập nhật UI & tự động biến mất với animation mượt
+                        updateRowStatusUI(rowId, newStatus);
+                        if (typeof showToast === 'function') {
+                            showToast(`🔔 "${postTitle}" đã được Kiểm duyệt viên khác ${newStatus === 'approved' ? 'phê duyệt' : 'xử lý'}!`, newStatus === 'approved' ? '#10b981' : '#f59e0b');
+                        }
+                    }
+                });
+
+                // 2. CẬP NHẬT TRẠNG THÁI KHÓA (AUTO-LOCK) & PREPEND BÀI ĐĂNG MỚI NẾU CHƯA CÓ TRÊN BẢNG
+                data.posts.forEach(p => {
+                    let row = document.querySelector(`tr.post-row[data-id="${p.id}"]`);
+                    if (!row) {
+                        // Bài đăng có trên server nhưng chưa có trong DOM -> Prepend ngay lập tức!
+                        prependModerationRow(p);
+                        row = document.querySelector(`tr.post-row[data-id="${p.id}"]`);
+                    }
+                    if (!row) return;
+
+                    // Nếu chính tab này đang mở modal xem chi tiết bài đăng thì không ghi đè
+                    if (currentInspectingPostId && currentInspectingPostId === p.id) {
+                        return;
+                    }
+
+                    const actionGroup = document.getElementById(`actionGroup_${p.id}`) || row.querySelector('.action-group');
+                    if (!actionGroup) return;
+
+                    if (p.is_locked_by_other) {
+                        row.classList.add('row-locked');
+                        row.style.opacity = '0.6';
+                        row.setAttribute('data-locked-by', p.locked_by);
+                        actionGroup.innerHTML = `
+                            <span class="badge-locked-by" title="Bài đăng đang được xem xét bởi ${escapeHtml(p.locker_name)}">
+                                <i class="fa-solid fa-lock"></i>
+                                <span>🔒 Đang xem xét bởi: ${escapeHtml(p.locker_name)}</span>
+                            </span>
+                        `;
+                    } else {
+                        row.classList.remove('row-locked');
+                        row.style.opacity = '1';
+                        row.setAttribute('data-locked-by', '');
+                        row.setAttribute('data-has-viewed', p.has_viewed ? '1' : '0');
+
+                        const payload = (window.postDataMap && window.postDataMap[p.id]) || { id: p.id };
+                        const pTitle = payload.title || 'Bài đăng';
+
+                        if (!p.has_viewed) {
+                            actionGroup.innerHTML = `
+                                <button type="button" class="btn-act btn-act-view"
+                                    onclick='openInspectModal(window.postDataMap["${p.id}"] || ${JSON.stringify(payload)})'
+                                    title="Xem chi tiết & Đối chiếu Lớp Vỏ - Lớp Ruột">
+                                    <i class="fa-solid fa-eye"></i> <span>👁️ Xem chi tiết</span>
+                                </button>
+                            `;
+                        } else {
+                            actionGroup.innerHTML = `
+                                <button type="button" class="btn-act btn-act-view"
+                                    onclick='openInspectModal(window.postDataMap["${p.id}"] || ${JSON.stringify(payload)})'
+                                    title="Xem lại chi tiết bài đăng">
+                                    <i class="fa-solid fa-eye"></i> <span>👁️ Xem lại</span>
+                                </button>
+                            `;
+                        }
+                    }
+                });
+
+                // Cập nhật số đếm bài chờ duyệt
+                const pendingBadge = document.getElementById('cardPendingCount');
+                if (pendingBadge && typeof data.pending_count === 'number') {
+                    pendingBadge.innerText = data.pending_count;
+                }
+                const sbBadge = document.getElementById('sidebarPendingBadge') || document.getElementById('sidebarPostBadge');
+                if (sbBadge && typeof data.pending_count === 'number') {
+                    sbBadge.innerText = data.pending_count;
+                    sbBadge.style.display = data.pending_count > 0 ? '' : 'none';
+                }
+            } catch (e) {
+                // Ignore transient errors
+            } finally {
+                isSyncing = false;
+            }
+        }
+
+        // Bắt đầu đồng bộ định kỳ mỗi 2.5 giây
+        setInterval(syncModerationStatus, 2500);
+
+        // Đồng bộ khi user quay lại tab
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                syncModerationStatus();
+            }
+        });
+        window.addEventListener('focus', () => {
+            syncModerationStatus();
+        });
+
         function closeModal(id) {
             document.getElementById(id)?.classList.remove('show');
+            // Auto-lock: Mở khóa bài đăng khi quay ra ngoài (đóng modal xem chi tiết)
+            if (id === 'inspectModal' && currentInspectingPostId) {
+                const unlockId = currentInspectingPostId;
+                currentInspectingPostId = null;
+                fetch(`/api/kiem-duyet/posts/${unlockId}/unlock`, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                    }
+                }).then(() => {
+                    modSyncChannel?.postMessage({ type: 'post_unlocked', postId: unlockId });
+                    syncModerationStatus();
+                }).catch(e => console.error(e));
+            }
         }
+
+        window.addEventListener('beforeunload', () => {
+            if (currentInspectingPostId) {
+                navigator.sendBeacon(`/api/kiem-duyet/posts/${currentInspectingPostId}/unlock`);
+                modSyncChannel?.postMessage({ type: 'post_unlocked', postId: currentInspectingPostId });
+            }
+        });
 
         function showToast(msg, bg = '#10b981') {
             const wrap = document.getElementById('toastWrap');

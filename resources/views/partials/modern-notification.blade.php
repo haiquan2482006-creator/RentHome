@@ -244,5 +244,9 @@
         };
     })();
 </script>
+
+@auth
+    @include('partials.realtime-short-polling')
+@endauth
 @endonce
 

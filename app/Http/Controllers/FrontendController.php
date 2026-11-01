@@ -20,17 +20,17 @@ class FrontendController extends Controller
      */
     public function submitKhieuNai(Request $request)
     {
-        // 1. Validate form: Nội dung không được để trống, mảng images phải là file ảnh
+        // 1. Validate form: Nội dung không được để trống, mảng images phải là file ảnh (tối đa 25MB/ảnh)
         $validated = $request->validate([
             'post_id'  => 'required',
             'staff_id' => 'nullable',
             'noidung'  => 'required|string|max:5000',
             'images'   => 'nullable|array',
-            'images.*' => 'image|mimes:jpeg,png,jpg,webp,gif|max:5120',
+            'images.*' => 'image|mimes:jpeg,png,jpg,webp,gif,bmp,jfif,svg|max:25600',
         ], [
             'noidung.required' => 'Vui lòng nhập nội dung chi tiết phản ánh bài đăng.',
             'images.*.image'   => 'Tất cả tệp đính kèm phải là định dạng hình ảnh.',
-            'images.*.max'     => 'Kích thước mỗi ảnh không được vượt quá 5MB.',
+            'images.*.max'     => 'Kích thước mỗi ảnh không được vượt quá 25MB.',
         ]);
 
         try {

@@ -17,7 +17,8 @@ class Post extends Model
         'payment_requirement',
         'approved_at', 'approved_by', 'rejected_at', 'rejected_by', 'reject_reason', 'admin_directive',
         'views', 'view_count', 'favorites_count', 'likes',
-        'is_featured', 'featured_at'
+        'is_featured', 'featured_at',
+        'viewed_by', 'locked_by', 'locked_at'
     ];
 
     protected $attributes = [
@@ -33,7 +34,14 @@ class Post extends Model
         'favorites_count' => 'integer',
         'is_featured' => 'boolean',
         'featured_at' => 'datetime',
+        'viewed_by' => 'array',
+        'locked_at' => 'datetime',
     ];
+
+    public function locker()
+    {
+        return $this->belongsTo(User::class, 'locked_by');
+    }
 
     public function getIsFeaturedAttribute($value)
     {

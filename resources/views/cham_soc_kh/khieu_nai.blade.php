@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Quản Lý Khiếu Nại - RentHome CSKH</title>
+    <link rel="icon" type="image/png" href="{{ asset('img/logo.png') }}">
 
     <!-- Google Fonts & FontAwesome 6 -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -189,13 +190,16 @@
 
         .user-footer {
             margin-top: auto;
-            padding: 12px;
+            padding: 10px 12px;
             background: #f8fafc;
             border: 1px solid var(--border-color);
             border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 8px;
+            box-sizing: border-box;
+            width: 100%;
         }
 
         .user-footer-left {
@@ -203,11 +207,18 @@
             align-items: center;
             gap: 10px;
             overflow: hidden;
+            text-decoration: none;
+            min-width: 0;
+            flex: 1;
         }
 
         .avatar-circle {
-            width: 36px;
-            height: 36px;
+            width: 38px;
+            height: 38px;
+            min-width: 38px;
+            min-height: 38px;
+            max-width: 38px;
+            max-height: 38px;
             border-radius: 50%;
             background: var(--primary-light);
             color: var(--primary);
@@ -217,6 +228,22 @@
             font-weight: 700;
             font-size: 12px;
             flex-shrink: 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .avatar-circle img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+            display: block;
+        }
+
+        .user-meta {
+            min-width: 0;
+            flex: 1;
+            overflow: hidden;
         }
 
         .user-meta h4 {
@@ -226,6 +253,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            line-height: 1.3;
         }
 
         .user-meta p {
@@ -234,6 +262,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            line-height: 1.3;
         }
 
         .logout-btn {
@@ -798,19 +827,38 @@
                     </span>
                 </a>
             </li>
+            <li>
+                <a href="{{ route('cskh.profile') }}" class="nav-link {{ request()->routeIs('cskh.profile') ? 'active' : '' }}">
+                    <span class="nav-link-left">
+                        <i class="fa-solid fa-user-gear"></i>
+                        <span>Hồ sơ cá nhân</span>
+                    </span>
+                </a>
+            </li>
         </ul>
 
         <div class="user-footer">
-            <div class="user-footer-left">
-                <div class="avatar-circle">CSKH</div>
+            <a href="{{ route('cskh.profile') }}" class="user-footer-left hover:opacity-85 transition-opacity" title="👤 Hồ sơ cá nhân">
+                <div class="avatar-circle">
+                    @if(!empty(auth()->user()->avatar))
+                        <img src="{{ auth()->user()->display_avatar }}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block;">
+                    @else
+                        CSKH
+                    @endif
+                </div>
                 <div class="user-meta">
-                    <h4>{{ auth()->user()->account_name ?? 'Chăm Sóc Khách Hàng' }}</h4>
+                    <h4>{{ auth()->user()->display_name ?: (auth()->user()->account_name ?? 'Chăm Sóc Khách Hàng') }}</h4>
                     <p>{{ auth()->user()->email ?? 'chamsockh@gmail.com' }}</p>
                 </div>
-            </div>
-            <a href="{{ url('/logout') }}" class="logout-btn" title="Đăng xuất">
-                <i class="fa-solid fa-right-from-bracket"></i>
             </a>
+            <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+                <a href="{{ route('cskh.profile') }}" class="logout-btn" title="👤 Hồ sơ cá nhân">
+                    <i class="fa-solid fa-user-pen" style="font-size: 12px;"></i>
+                </a>
+                <a href="{{ url('/logout') }}" class="logout-btn" title="Đăng xuất">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </a>
+            </div>
         </div>
     </aside>
 
@@ -876,7 +924,7 @@
 
             <div class="kpi-card" onclick="switchTab('all')">
                 <div>
-                    <div class="kpi-val">{{ $totalComplaints }}</div>
+                    <div class="kpi-val" id="kpiTotalComplaints">{{ $totalComplaints }}</div>
                     <div class="kpi-label">Tổng Đơn Khiếu Nại</div>
                 </div>
                 <div class="kpi-icon blue">
@@ -896,13 +944,6 @@
 
                 <div class="search-controls">
                     <input type="text" id="searchInput" class="input-search" placeholder="Tìm người khiếu nại, SĐT, bài đăng, mã khiếu nại..." oninput="filterComplaints()">
-                    <select id="reasonFilter" class="select-reason" onchange="filterComplaints()">
-                        <option value="">Tất cả lý do khiếu nại</option>
-                        <option value="sai giá">Giá thực tế khác giá niêm yết</option>
-                        <option value="hình ảnh">Hình ảnh / Thông tin sai thực tế</option>
-                        <option value="thái độ">Thái độ nhân viên phụ trách</option>
-                        <option value="đã thuê">Phòng đã cho thuê nhưng chưa gỡ</option>
-                    </select>
                 </div>
             </div>
 
@@ -954,6 +995,46 @@
                             $hasImages = count($imagesList) > 0;
                             $firstImage = $hasImages ? $imagesList[0] : null;
                             $moreCount = count($imagesList) > 1 ? (count($imagesList) - 1) : 0;
+
+                            // ─── Claim Ticket Logic ─────────────────────────────
+                            $currentUserId  = (string)(auth()->user()->_id ?? auth()->id());
+                            $assignedToRaw  = (string)($ticket->assigned_to ?? '');
+                            $isClaimed      = !empty($assignedToRaw);           // Đã có người nhận
+                            $isMineClaim    = $isClaimed && ($assignedToRaw === $currentUserId); // Chính mình nhận
+                            $isOthersClaim  = $isClaimed && !$isMineClaim;      // Người khác nhận
+                            // Tải tên người đang giữ ticket (nếu có)
+                            $assigneeName   = '';
+                            if ($isOthersClaim) {
+                                $assigneeUser = \App\Models\User::where('_id', $assignedToRaw)->first()
+                                             ?? \App\Models\User::find($assignedToRaw);
+                                $assigneeName = $assigneeUser
+                                    ? ($assigneeUser->display_name ?: ($assigneeUser->ten_hien_thi ?: ($assigneeUser->account_name ?: ($assigneeUser->name ?: ($assigneeUser->username ?: 'CSKH khác')))))
+                                    : 'CSKH khác';
+                            }
+
+                            // ─── Resolver Logic (Admin vs CSKH) ───────────────
+                            $resolver = $ticket->resolver ?? null;
+                            if (!$resolver && !empty($ticket->resolved_by)) {
+                                $resolver = \App\Models\User::where('_id', $ticket->resolved_by)->first()
+                                         ?? \App\Models\User::find($ticket->resolved_by);
+                            }
+                            if (!$resolver && !empty($ticket->assigned_to)) {
+                                $resolver = \App\Models\User::where('_id', $ticket->assigned_to)->first()
+                                         ?? \App\Models\User::find($ticket->assigned_to);
+                            }
+                            $isAdminResolved = false;
+                            if ($isEscalated || ($ticket->resolution_action ?? '') === 'admin_adjudicated') {
+                                $isAdminResolved = true;
+                            } elseif ($resolver) {
+                                $resolverRole = strtolower(trim($resolver->role ?? ''));
+                                if ($resolverRole === 'admin' || (method_exists($resolver, 'isAdmin') && $resolver->isAdmin())) {
+                                    $isAdminResolved = true;
+                                }
+                            }
+                            $resolverName = '';
+                            if ($resolver) {
+                                $resolverName = $resolver->display_name ?: ($resolver->ten_hien_thi ?: ($resolver->account_name ?: ($resolver->name ?: ($resolver->username ?: ''))));
+                            }
                         @endphp
 
                         <!-- Thẻ Khiếu Nại (Card Layout) -->
@@ -992,11 +1073,11 @@
                             <!-- 2. KHU VỰC TRẠNG THÁI & BÀI ĐĂNG (HEADER) -->
                             <div class="p-4 pb-2">
                                 <div class="flex items-center justify-between gap-2 mb-2.5">
-                                    @if(($ticket->is_escalated == true || $isEscalated) && $ticket->status == 'resolved')
+                                    @if($isResolved && $isAdminResolved)
                                         <span class="status-pill bg-teal-100 text-teal-800 border border-teal-200 font-bold" id="badge_{{ $cId }}">
                                             👑 Admin đã giải quyết
                                         </span>
-                                    @elseif(($ticket->is_escalated == true || $isEscalated) && ($ticket->status == 'pending' || $ticket->status == 'escalated' || $ticket->status != 'resolved'))
+                                    @elseif(($ticket->is_escalated == true || $isEscalated) && !$isResolved)
                                         <span class="status-pill bg-rose-100 text-rose-800 border border-rose-200" id="badge_{{ $cId }}">
                                             📌 Đang chờ Admin
                                         </span>
@@ -1069,28 +1150,77 @@
 
                             <!-- 4. KHU VỰC THAO TÁC (FOOTER) -->
                             <div class="mt-auto border-t border-slate-100 p-4 pt-3 bg-slate-50/50">
-                                @if(($ticket->is_escalated == true || $isEscalated) && $ticket->status == 'resolved')
+                                @php
+                                    $ticketStatus = strtolower($ticket->status ?? 'pending');
+                                    $isDone = in_array($ticketStatus, ['resolved', 'rejected', 'closed', 'da_giai_quyet', 'tu_choi']);
+                                @endphp
+
+                                {{-- ══════════════════════════════════════════════════════
+                                     ƯU TIÊN 1 (Check Status): Đơn đã xong (resolved / rejected / closed)
+                                     => Hiển thị nút "Xem Biên Bản Xử Lý" (Nút outline xám/trắng) cho tất cả user
+                                     ══════════════════════════════════════════════════════ --}}
+                                @if($isDone)
                                     @php
-                                        $verdictMsg = $ticket->reply_message ?? ($ticket->resolution_note ?? 'Ban Quản Trị RentHome đã trực tiếp thụ lý, giải quyết và đóng hồ sơ khiếu nại.');
+                                        $defaultVerdictMsg = $isAdminResolved
+                                            ? 'Ban Quản Trị RentHome đã trực tiếp thụ lý, giải quyết và đóng hồ sơ khiếu nại.'
+                                            : 'Bộ phận Chăm sóc khách hàng đã trực tiếp xử lý và hoàn tất hồ sơ khiếu nại.';
+                                        $verdictMsg = $ticket->reply_message ?? ($ticket->resolution_note ?? $defaultVerdictMsg);
                                         $resolvedTime = !empty($ticket->resolved_at) ? \Carbon\Carbon::parse($ticket->resolved_at)->format('H:i - d/m/Y') : (!empty($ticket->updated_at) ? \Carbon\Carbon::parse($ticket->updated_at)->format('H:i - d/m/Y') : 'Mới đây');
                                     @endphp
                                     <button type="button" 
-                                            onclick="openAdminVerdictModal('{{ $cId }}', @js($ticketCode), @js($verdictMsg), @js($resolvedTime))"
+                                            onclick="openAdminVerdictModal('{{ $cId }}', @js($ticketCode), @js($verdictMsg), @js($resolvedTime), {{ $isAdminResolved ? 'true' : 'false' }}, @js($resolverName))"
                                             class="w-full py-2.5 px-4 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 hover:text-blue-600 shadow-2xs transition-all active:scale-[0.98] cursor-pointer">
                                         <i class="fa-regular fa-file-lines text-blue-600"></i>
                                         <span>📄 Xem Biên Bản Xử Lý</span>
                                     </button>
-                                @elseif(($ticket->is_escalated == true || $isEscalated) && $ticket->status != 'resolved')
-                                    <div class="w-full text-center py-2 bg-gray-200 text-gray-500 rounded font-medium cursor-not-allowed select-none">
+
+                                @elseif($ticket->is_escalated == true || $isEscalated)
+                                    {{-- Đang chờ Admin giải quyết (chưa resolved) --}}
+                                    <div class="w-full text-center py-2.5 px-4 rounded-xl bg-slate-100 text-slate-500 text-xs sm:text-sm font-semibold cursor-not-allowed select-none border border-slate-200">
                                         🔒 Đang chờ Admin giải quyết
                                     </div>
-                                @else
+
+                                {{-- ══════════════════════════════════════════════════════
+                                     ƯU TIÊN 2 (Check Vô chủ): Chưa ai nhận (assigned_to == null)
+                                     => Hiển thị nút màu xanh dương "Tiếp Nhận Xử Lý"
+                                     ══════════════════════════════════════════════════════ --}}
+                                @elseif(empty($ticket->assigned_to))
+                                    <button type="button"
+                                            id="btn-claim-{{ $cId }}"
+                                            onclick="claimTicket('{{ $cId }}')"
+                                            class="w-full py-2.5 px-4 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-all active:scale-[0.98] bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">
+                                        <i class="fa-solid fa-hand-pointer"></i>
+                                        <span>Tiếp Nhận Xử Lý</span>
+                                    </button>
+
+                                {{-- ══════════════════════════════════════════════════════
+                                     ƯU TIÊN 3 (Check Owner): Đã nhận bởi chính mình (assigned_to == auth()->id())
+                                     => Hiển thị nút màu xanh lá "Xử lý & Phản hồi"
+                                     ══════════════════════════════════════════════════════ --}}
+                                @elseif($assignedToRaw === $currentUserId)
+                                    <div class="flex items-center gap-1.5 mb-2 px-1">
+                                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                                        <span class="text-[11px] text-emerald-700 font-semibold">Bạn đang xử lý đơn này</span>
+                                    </div>
                                     <button type="button" 
                                             onclick="openHandleModal('{{ $cId }}', 'complaint')"
-                                            class="w-full py-2.5 px-4 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-all active:scale-[0.98] {{ $isResolved ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-amber-500 hover:bg-amber-600 text-white' }}">
-                                        <i class="fa-solid {{ $isResolved ? 'fa-circle-check' : 'fa-file-signature' }}"></i>
+                                            class="w-full py-2.5 px-4 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-all active:scale-[0.98] bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer">
+                                        <i class="fa-solid fa-file-signature"></i>
                                         <span>Xử lý & Phản hồi</span>
                                     </button>
+
+                                {{-- ══════════════════════════════════════════════════════
+                                     ƯU TIÊN 4 (Lock UI): Đã nhận bởi người khác
+                                     => Hiển thị thẻ Badge vàng "🔒 Đang được xử lý bởi: {{ tên nhân viên đó }}"
+                                     ══════════════════════════════════════════════════════ --}}
+                                @else
+                                    <div class="w-full flex items-center gap-2.5 py-2.5 px-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold select-none">
+                                        <i class="fa-solid fa-lock text-amber-500 text-sm shrink-0"></i>
+                                        <div class="min-w-0">
+                                            <div class="font-bold text-[11px] text-amber-700 uppercase tracking-wide mb-0.5">Đang được xử lý</div>
+                                            <div class="truncate">bởi: <span class="font-bold text-amber-900">{{ $assigneeName ?: 'Nhân viên khác' }}</span></div>
+                                        </div>
+                                    </div>
                                 @endif
                             </div>
                         </div>
@@ -1402,7 +1532,7 @@
         </div>
     </div>
 
-    <!-- ================= MODAL XEM BIÊN BẢN XỬ LÝ (ADMIN VERDICT MODAL - READ ONLY) ================= -->
+    <!-- ================= MODAL XEM BIÊN BẢN XỬ LÝ (VERDICT MODAL - READ ONLY) ================= -->
     <div id="adminVerdictModalBackdrop" 
          class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[9999] transition-opacity duration-200 opacity-0 pointer-events-none flex items-center justify-center p-3 sm:p-6"
          onclick="if(event.target === this) closeAdminVerdictModal()">
@@ -1413,7 +1543,7 @@
             <!-- Header Modal -->
             <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center text-lg font-bold shadow-xs">
+                    <div id="verdictIconBox" class="w-10 h-10 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center text-lg font-bold shadow-xs">
                         👑
                     </div>
                     <div>
@@ -1421,7 +1551,7 @@
                             <h3 class="font-extrabold text-slate-800 text-base">Biên Bản Xử Lý Khiếu Nại</h3>
                             <span id="verdictTicketCode" class="text-xs font-mono font-bold px-2 py-0.5 rounded bg-teal-50 text-teal-800 border border-teal-200">#TK</span>
                         </div>
-                        <p class="text-xs text-slate-500 mt-0.5">Phán quyết chính thức từ Ban Quản Trị hệ thống</p>
+                        <p id="verdictSubtitle" class="text-xs text-slate-500 mt-0.5">Phán quyết chính thức từ Ban Quản Trị hệ thống</p>
                     </div>
                 </div>
 
@@ -1436,26 +1566,26 @@
             <div class="p-6 overflow-y-auto space-y-4 text-slate-700 flex-1">
                 
                 <!-- Status & Time Badge Card -->
-                <div class="bg-teal-50/70 rounded-xl p-3.5 border border-teal-200 flex items-center justify-between flex-wrap gap-2">
+                <div id="verdictStatusCard" class="bg-teal-50/70 rounded-xl p-3.5 border border-teal-200 flex items-center justify-between flex-wrap gap-2">
                     <div class="flex items-center gap-2">
-                        <span class="status-pill bg-teal-100 text-teal-800 border border-teal-200 text-xs font-bold">
+                        <span id="verdictRoleBadge" class="status-pill bg-teal-100 text-teal-800 border border-teal-200 text-xs font-bold">
                             👑 Admin đã giải quyết
                         </span>
                     </div>
                     <div class="text-xs text-slate-600 font-medium flex items-center gap-1.5">
-                        <i class="fa-regular fa-clock text-teal-600"></i>
+                        <i id="verdictTimeIcon" class="fa-regular fa-clock text-teal-600"></i>
                         <span>Thời gian: <strong id="verdictResolvedAt" class="text-slate-800 font-bold">--</strong></span>
                     </div>
                 </div>
 
-                <!-- Admin Reply Message Box (Read-only) -->
+                <!-- Reply Message Box (Read-only) -->
                 <div>
                     <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                        <i class="fa-solid fa-gavel text-teal-600"></i>
-                        Nội dung phản hồi / Biên bản từ Admin:
+                        <i id="verdictReplyIcon" class="fa-solid fa-gavel text-teal-600"></i>
+                        <span id="verdictReplyLabelText">Nội dung phản hồi / Biên bản từ Admin:</span>
                     </label>
                     <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs sm:text-sm text-slate-800 leading-relaxed whitespace-pre-wrap font-normal max-h-64 overflow-y-auto select-text" id="verdictReplyMessage">
-                        <!-- Admin's reply_message text -->
+                        <!-- Reply message text -->
                     </div>
                 </div>
 
@@ -1531,6 +1661,87 @@
                 btn.classList.toggle('active', btn.dataset.status === status);
             });
             filterComplaints();
+        }
+
+        // ══════════════════════════════════════════════════════
+        // CLAIM TICKET — Giành quyền xử lý đơn khiếu nại
+        // Đảm bảo tại 1 thời điểm chỉ 1 CSKH được can thiệp vào đơn
+        // ══════════════════════════════════════════════════════
+        async function claimTicket(ticketId) {
+            const btn = document.getElementById('btn-claim-' + ticketId);
+            if (!btn) return;
+
+            const origHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Đang tiếp nhận...';
+
+            try {
+                const res = await fetch(`/api/cskh/tickets/${ticketId}/claim`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    }
+                });
+
+                const data = await res.json();
+
+                if (res.status === 403 && data.already_claimed) {
+                    // Người khác đã nhận — thay nút bằng badge khóa
+                    showToast(`🔒 ${data.message}`, 'error');
+                    const footer = btn.closest('.mt-auto');
+                    if (footer) {
+                        footer.innerHTML = `
+                            <div class="w-full flex items-center gap-2.5 py-2.5 px-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold select-none">
+                                <i class="fa-solid fa-lock text-amber-500 text-sm shrink-0"></i>
+                                <div class="min-w-0">
+                                    <div class="font-bold text-[11px] text-amber-700 uppercase tracking-wide mb-0.5">Đang được xử lý</div>
+                                    <div class="truncate">bởi: <span class="font-bold text-amber-900">${data.assignee_name ?? 'CSKH khác'}</span></div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    return;
+                }
+
+                if (!res.ok || !data.success) {
+                    showToast(data.message || 'Có lỗi xảy ra khi tiếp nhận đơn.', 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = origHtml;
+                    return;
+                }
+
+                // Tiếp nhận thành công — thay nút bằng nút Xử lý & Phản hồi (màu xanh lá)
+                showToast(data.message || 'Bạn đã tiếp nhận đơn thành công!', 'success');
+                const footer = btn.closest('.mt-auto');
+                if (footer) {
+                    footer.innerHTML = `
+                        <div class="flex items-center gap-1.5 mb-2 px-1">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                            <span class="text-[11px] text-emerald-700 font-semibold">Bạn đang xử lý đơn này</span>
+                        </div>
+                        <button type="button"
+                                onclick="openHandleModal('${ticketId}', 'complaint')"
+                                class="w-full py-2.5 px-4 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-all active:scale-[0.98] bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer">
+                            <i class="fa-solid fa-file-signature"></i>
+                            <span>Xử lý &amp; Phản hồi</span>
+                        </button>
+                    `;
+                }
+                // Cập nhật badge trạng thái trên card
+                const badgeEl = document.getElementById('badge_' + ticketId);
+                if (badgeEl && badgeEl.classList.contains('status-pending')) {
+                    badgeEl.className = 'status-pill bg-blue-100 text-blue-800 border border-blue-200';
+                    badgeEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="font-size:10px"></i> Đang xử lý';
+                }
+
+            } catch (err) {
+                console.error('claimTicket error:', err);
+                showToast('Lỗi kết nối khi tiếp nhận đơn!', 'error');
+                btn.disabled = false;
+                btn.innerHTML = origHtml;
+            }
         }
 
         function filterComplaints() {
@@ -1842,8 +2053,12 @@
                     targetItem.setAttribute('data-status', 'resolved');
                     const cardBtn = targetItem.querySelector('button');
                     if (cardBtn && targetItem.classList.contains('complaint-card')) {
-                        cardBtn.className = 'w-full py-2.5 px-4 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-all active:scale-[0.98] bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200';
-                        cardBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i> <span>Xử lý & Phản hồi</span>';
+                        const ticketCode = targetItem.querySelector('.font-mono')?.innerText?.trim() || `#TK-${ticketId.substr(-5).toUpperCase()}`;
+                        cardBtn.className = 'w-full py-2.5 px-4 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 hover:text-blue-600 shadow-2xs transition-all active:scale-[0.98] cursor-pointer';
+                        cardBtn.innerHTML = '<i class="fa-regular fa-file-lines text-blue-600"></i> <span>📄 Xem Biên Bản Xử Lý</span>';
+                        cardBtn.onclick = function() {
+                            openAdminVerdictModal(ticketId, ticketCode, message, 'Vừa xong', false, @js(auth()->user()->display_name ?: (auth()->user()->ten_hien_thi ?: (auth()->user()->account_name ?? 'CSKH'))));
+                        };
                     }
                 }
                 const badge = document.getElementById(`badge_${ticketId}`);
@@ -2002,21 +2217,100 @@
             return text.toString().replace(/[&<>"']/g, m => map[m]);
         }
 
+        function updateVerdictModalStyle(isAdmin, resolverName = '') {
+            const iconBox = document.getElementById('verdictIconBox');
+            const ticketCodeEl = document.getElementById('verdictTicketCode');
+            const subtitleEl = document.getElementById('verdictSubtitle');
+            const statusCard = document.getElementById('verdictStatusCard');
+            const roleBadge = document.getElementById('verdictRoleBadge');
+            const timeIcon = document.getElementById('verdictTimeIcon');
+            const replyIcon = document.getElementById('verdictReplyIcon');
+            const replyLabelText = document.getElementById('verdictReplyLabelText');
+
+            const cleanName = (resolverName || '').trim();
+
+            if (isAdmin) {
+                if (iconBox) {
+                    iconBox.className = 'w-10 h-10 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center text-lg font-bold shadow-xs';
+                    iconBox.innerHTML = '👑';
+                }
+                if (ticketCodeEl) {
+                    ticketCodeEl.className = 'text-xs font-mono font-bold px-2 py-0.5 rounded bg-teal-50 text-teal-800 border border-teal-200';
+                }
+                if (subtitleEl) {
+                    subtitleEl.innerText = 'Phán quyết chính thức từ Ban Quản Trị hệ thống';
+                }
+                if (statusCard) {
+                    statusCard.className = 'bg-teal-50/70 rounded-xl p-3.5 border border-teal-200 flex items-center justify-between flex-wrap gap-2';
+                }
+                if (roleBadge) {
+                    roleBadge.className = 'status-pill bg-teal-100 text-teal-800 border border-teal-200 text-xs font-bold';
+                    roleBadge.innerHTML = cleanName ? `👑 Admin (${escapeHtml(cleanName)}) đã giải quyết` : '👑 Admin đã giải quyết';
+                }
+                if (timeIcon) {
+                    timeIcon.className = 'fa-regular fa-clock text-teal-600';
+                }
+                if (replyIcon) {
+                    replyIcon.className = 'fa-solid fa-gavel text-teal-600';
+                }
+                if (replyLabelText) {
+                    replyLabelText.innerText = 'Nội dung phản hồi / Biên bản từ Admin:';
+                }
+            } else {
+                if (iconBox) {
+                    iconBox.className = 'w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-lg font-bold shadow-xs';
+                    iconBox.innerHTML = '🎧';
+                }
+                if (ticketCodeEl) {
+                    ticketCodeEl.className = 'text-xs font-mono font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200';
+                }
+                if (subtitleEl) {
+                    subtitleEl.innerText = 'Biên bản xử lý khiếu nại từ Bộ phận Chăm sóc khách hàng';
+                }
+                if (statusCard) {
+                    statusCard.className = 'bg-emerald-50/70 rounded-xl p-3.5 border border-emerald-200 flex items-center justify-between flex-wrap gap-2';
+                }
+                if (roleBadge) {
+                    roleBadge.className = 'status-pill bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold';
+                    roleBadge.innerHTML = cleanName ? `🎧 CSKH (${escapeHtml(cleanName)}) đã giải quyết` : '🎧 CSKH đã giải quyết';
+                }
+                if (timeIcon) {
+                    timeIcon.className = 'fa-regular fa-clock text-emerald-600';
+                }
+                if (replyIcon) {
+                    replyIcon.className = 'fa-solid fa-clipboard-check text-emerald-600';
+                }
+                if (replyLabelText) {
+                    replyLabelText.innerText = 'Nội dung phản hồi / Biên bản từ Bộ phận CSKH:';
+                }
+            }
+        }
+
         // ========================================================
-        // LOGIC MODAL XEM BIÊN BẢN XỬ LÝ (ADMIN VERDICT - READ ONLY)
+        // LOGIC MODAL XEM BIÊN BẢN XỬ LÝ (VERDICT - READ ONLY)
         // ========================================================
-        function openAdminVerdictModal(ticketId, ticketCode, replyMessage, resolvedAt) {
+        function openAdminVerdictModal(ticketId, ticketCode, replyMessage, resolvedAt, isAdmin = false, resolverName = '') {
             const backdrop = document.getElementById('adminVerdictModalBackdrop');
             const container = document.getElementById('adminVerdictModalContainer');
             
             document.getElementById('verdictTicketCode').innerText = ticketCode || '#TK';
             document.getElementById('verdictResolvedAt').innerText = resolvedAt || 'Mới đây';
             
-            const messageEl = document.getElementById('verdictReplyMessage');
-            messageEl.innerText = replyMessage || 'Admin đã tiếp nhận, giải quyết và đóng hồ sơ khiếu nại thành công.';
+            updateVerdictModalStyle(isAdmin, resolverName);
 
-            // Nếu nội dung trống hoặc mẫu, chủ động fetch chi tiết mới nhất từ API
-            if (!replyMessage || replyMessage === 'Ban Quản Trị RentHome đã trực tiếp thụ lý, giải quyết và đóng hồ sơ khiếu nại.') {
+            const messageEl = document.getElementById('verdictReplyMessage');
+            const defaultMsg = isAdmin 
+                ? 'Ban Quản Trị RentHome đã trực tiếp thụ lý, giải quyết và đóng hồ sơ khiếu nại.' 
+                : 'Bộ phận Chăm sóc khách hàng đã trực tiếp xử lý và hoàn tất hồ sơ khiếu nại.';
+            messageEl.innerText = replyMessage || defaultMsg;
+
+            // Nếu nội dung trống hoặc mẫu mặc định, chủ động fetch chi tiết mới nhất từ API
+            const isDefaultMsg = !replyMessage || 
+                replyMessage === 'Ban Quản Trị RentHome đã trực tiếp thụ lý, giải quyết và đóng hồ sơ khiếu nại.' ||
+                replyMessage === 'Bộ phận Chăm sóc khách hàng đã trực tiếp xử lý và hoàn tất hồ sơ khiếu nại.' ||
+                replyMessage === 'Admin đã tiếp nhận, giải quyết và đóng hồ sơ khiếu nại thành công.';
+
+            if (isDefaultMsg) {
                 fetch(`/api/cskh/tickets/${ticketId}/chat`, {
                     headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
                 })
@@ -2028,6 +2322,9 @@
                         }
                         if (data.ticket.resolved_at_time) {
                             document.getElementById('verdictResolvedAt').innerText = data.ticket.resolved_at_time;
+                        }
+                        if (typeof data.ticket.is_admin_resolved !== 'undefined') {
+                            updateVerdictModalStyle(data.ticket.is_admin_resolved, data.ticket.resolver_name || resolverName);
                         }
                     }
                 })

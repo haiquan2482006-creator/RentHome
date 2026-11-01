@@ -42,6 +42,8 @@ class SupportTicket extends Model
         'cskh_note',
         'is_post_hidden',
         'is_staff_locked',
+        'assigned_to',      // ID của CSKH đang giữ quyền xử lý (Claim Ticket)
+        'assigned_at',      // Thời điểm tiếp nhận
         'created_at',
         'updated_at',
     ];
@@ -62,6 +64,7 @@ class SupportTicket extends Model
         'updated_at'      => 'datetime',
         'resolved_at'     => 'datetime',
         'escalated_at'    => 'datetime',
+        'assigned_at'     => 'datetime',
     ];
 
     /**
@@ -186,6 +189,14 @@ class SupportTicket extends Model
     public function resolver()
     {
         return $this->belongsTo(User::class, 'resolved_by');
+    }
+
+    /**
+     * CSKH đang giữ quyền xử lý đơn này (Claim Ticket)
+     */
+    public function assignee()
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
     }
 
     /**

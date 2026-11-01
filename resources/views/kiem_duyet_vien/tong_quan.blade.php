@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
+    @include('partials.modern-notification')
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Tổng Quan Kiểm Duyệt - RentHome</title>
+    <link rel="icon" type="image/png" href="{{ asset('img/logo.png') }}">
 
     <!-- Google Fonts & FontAwesome 6 -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -137,14 +139,19 @@
             width: 42px;
             height: 42px;
             background: #0f172a;
-            color: #38bdf8;
             border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
-            font-weight: 800;
             flex-shrink: 0;
+            overflow: hidden;
+            padding: 4px;
+        }
+
+        .brand-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
         }
 
         .brand-info h2 {
@@ -250,13 +257,16 @@
 
         .user-footer {
             margin-top: auto;
-            padding: 12px;
+            padding: 10px 12px;
             background: #f8fafc;
             border: 1px solid var(--border-color);
             border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 8px;
+            box-sizing: border-box;
+            width: 100%;
         }
 
         .user-footer-left {
@@ -264,11 +274,18 @@
             align-items: center;
             gap: 10px;
             overflow: hidden;
+            text-decoration: none;
+            min-width: 0;
+            flex: 1;
         }
 
         .avatar-circle {
-            width: 36px;
-            height: 36px;
+            width: 38px;
+            height: 38px;
+            min-width: 38px;
+            min-height: 38px;
+            max-width: 38px;
+            max-height: 38px;
             border-radius: 50%;
             background: var(--primary-light);
             color: var(--primary);
@@ -278,6 +295,22 @@
             font-weight: 700;
             font-size: 13px;
             flex-shrink: 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .avatar-circle img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+            display: block;
+        }
+
+        .user-meta {
+            min-width: 0;
+            flex: 1;
+            overflow: hidden;
         }
 
         .user-meta h4 {
@@ -287,6 +320,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            line-height: 1.3;
         }
 
         .user-meta p {
@@ -295,6 +329,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            line-height: 1.3;
         }
 
         .logout-btn {
@@ -853,7 +888,7 @@
     <aside class="sidebar">
         <div class="brand-box">
             <div class="brand-logo">
-                <i class="fa-solid fa-shield-halved"></i>
+                <img src="{{ asset('img/logo.png') }}" alt="RentHome Logo">
             </div>
             <div class="brand-info">
                 <h2>RentHome <span class="role-badge">Kiểm Duyệt</span></h2>
@@ -904,23 +939,42 @@
                     </span>
                 </a>
             </li>
+            <li>
+                <a href="{{ route('kiemduyet.profile') }}" class="nav-link {{ request()->routeIs('kiemduyet.profile') ? 'active' : '' }}">
+                    <span class="nav-link-left">
+                        <i class="fa-solid fa-user-gear"></i>
+                        <span>Hồ sơ cá nhân</span>
+                    </span>
+                </a>
+            </li>
         </ul>
 
         <div class="user-footer">
-            <div class="user-footer-left">
+            <a href="{{ route('kiemduyet.profile') }}" class="user-footer-left hover:opacity-85 transition-opacity" title="👤 Hồ sơ cá nhân">
                 @php
-                    $uName = auth()->user()->account_name ?? auth()->user()->username ?? 'Kiểm Duyệt Viên';
+                    $uName = auth()->user()->display_name ?: (auth()->user()->account_name ?? (auth()->user()->username ?? 'Kiểm Duyệt Viên'));
                     $uInitials = strtoupper(mb_substr($uName, 0, 2, 'UTF-8'));
                 @endphp
-                <div class="avatar-circle">{{ $uInitials ?: 'KD' }}</div>
+                <div class="avatar-circle">
+                    @if(!empty(auth()->user()->avatar))
+                        <img src="{{ auth()->user()->display_avatar }}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block;">
+                    @else
+                        {{ $uInitials ?: 'KD' }}
+                    @endif
+                </div>
                 <div class="user-meta">
                     <h4>{{ $uName }}</h4>
                     <p>{{ auth()->user()->email ?? 'kiemduyet2006@gmail.com' }}</p>
                 </div>
-            </div>
-            <a href="{{ url('/logout') }}" class="logout-btn" title="Đăng xuất">
-                <i class="fa-solid fa-right-from-bracket"></i>
             </a>
+            <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+                <a href="{{ route('kiemduyet.profile') }}" class="logout-btn" title="👤 Hồ sơ cá nhân">
+                    <i class="fa-solid fa-user-pen" style="font-size: 12px;"></i>
+                </a>
+                <a href="{{ url('/logout') }}" class="logout-btn" title="Đăng xuất">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </a>
+            </div>
         </div>
     </aside>
 
@@ -1133,8 +1187,16 @@
                                     $staffName = $post->user->account_name ?? ($post->user->username ?? 'Nhân viên');
                                     $priceText = number_format((float)($post->price ?? 0), 0, ',', '.') . ' đ/' . ($post->price_unit ?? 'tháng');
                                     $imgSrc = $post->display_image ?: ($post->thumbnail ?: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=200&q=80');
+
+                                    $currentUserId = (string)auth()->id();
+                                    $viewedByList = array_map('strval', (array)($post->viewed_by ?? []));
+                                    $hasViewed = in_array($currentUserId, $viewedByList);
+                                    $lockedByRaw = (string)($post->locked_by ?? '');
+                                    $isLockedByOther = (!empty($lockedByRaw) && $lockedByRaw !== $currentUserId);
+                                    $lockerUser = $isLockedByOther ? (\App\Models\User::where('_id', $lockedByRaw)->first() ?: \App\Models\User::find($lockedByRaw)) : null;
+                                    $lockerName = $lockerUser ? ($lockerUser->display_name ?: ($lockerUser->ten_hien_thi ?: ($lockerUser->account_name ?: ($lockerUser->username ?: 'nhân sự khác')))) : 'nhân sự khác';
                                 @endphp
-                                <tr data-id="{{ $postId }}" data-type="{{ $post->property_type ?? 'Căn hộ' }}">
+                                <tr data-id="{{ $postId }}" data-type="{{ $post->property_type ?? 'Căn hộ' }}" style="{{ $isLockedByOther ? 'opacity: 0.6;' : '' }}">
                                     <td>
                                         <div class="post-cell">
                                             <img src="{{ $imgSrc }}" class="post-thumb" alt="Room" onerror="this.src='https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=200&q=80'">
@@ -1154,17 +1216,22 @@
                                     </td>
                                     <td style="color: var(--text-muted); font-size: 12.5px;">{{ $post->created_at ? $post->created_at->diffForHumans() : 'Mới đây' }}</td>
                                     <td>
-                                        <div class="action-btns" style="justify-content: flex-end;">
-                                            <button class="btn-icon btn-view" title="Xem chi tiết bài đăng"
-                                                onclick="openPreviewModal('{{ addslashes($post->title) }}', '{{ addslashes($bName) }}', '{{ addslashes($staffName) }}', '{{ $priceText }}', '{{ addslashes(\Illuminate\Support\Str::limit($post->description ?? '', 150)) }}')">
-                                                <i class="fa-solid fa-eye"></i>
-                                            </button>
-                                            <button class="btn-icon btn-approve" title="Phê duyệt ngay" onclick="approvePostQuick(this, '{{ addslashes($post->title) }}')">
-                                                <i class="fa-solid fa-check"></i>
-                                            </button>
-                                            <button class="btn-icon btn-reject" title="Từ chối bài đăng" onclick="openRejectModal(this, '{{ addslashes($post->title) }}')">
-                                                <i class="fa-solid fa-xmark"></i>
-                                            </button>
+                                        <div class="action-btns" style="justify-content: flex-end;" id="quickActionGroup_{{ $postId }}">
+                                            @if($isLockedByOther)
+                                                <span class="badge-locked-by" title="Bài đăng đang được xem xét bởi {{ $lockerName }}" style="font-size: 11px; padding: 4px 8px; background: #fef3c7; color: #92400e; border: 1px solid #fde68a; border-radius: 6px; font-weight: 700; white-space: nowrap;">
+                                                    <i class="fa-solid fa-lock"></i> <span>🔒 Đang xem xét bởi: {{ $lockerName }}</span>
+                                                </span>
+                                            @elseif(!$hasViewed)
+                                                <button class="btn-icon btn-view" title="Xem chi tiết bài đăng"
+                                                    onclick="inspectAndOpenPreview('{{ $postId }}', '{{ addslashes($post->title) }}', '{{ addslashes($bName) }}', '{{ addslashes($staffName) }}', '{{ $priceText }}', '{{ addslashes(\Illuminate\Support\Str::limit($post->description ?? '', 150)) }}')">
+                                                    <i class="fa-solid fa-eye"></i>
+                                                </button>
+                                            @else
+                                                <button class="btn-icon btn-view" title="Xem lại chi tiết bài đăng"
+                                                    onclick="inspectAndOpenPreview('{{ $postId }}', '{{ addslashes($post->title) }}', '{{ addslashes($bName) }}', '{{ addslashes($staffName) }}', '{{ $priceText }}', '{{ addslashes(\Illuminate\Support\Str::limit($post->description ?? '', 150)) }}')">
+                                                    <i class="fa-solid fa-eye"></i>
+                                                </button>
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>
@@ -1440,7 +1507,55 @@
             });
         }
 
-        // 5. Xem nhanh bài đăng
+        // 5. Xem nhanh bài đăng & Ghi nhận đã xem (Auto-lock)
+        let currentQuickInspectingId = null;
+
+        async function inspectAndOpenPreview(postId, title, building, staff, price, desc) {
+            currentQuickInspectingId = postId;
+            try {
+                const res = await fetch(`/api/kiem-duyet/posts/${postId}/inspect`, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    }
+                });
+                const resData = await res.json().catch(() => ({}));
+                if (!res.ok || resData.success === false) {
+                    if (resData.is_locked) {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Đang xem xét',
+                            text: resData.message || 'Bài đăng đang được xem xét bởi nhân sự khác!',
+                            confirmButtonColor: '#f59e0b'
+                        });
+                        return;
+                    }
+                }
+                // Cập nhật group nút sang hiển thị 3 nút (Xem lại, Phê duyệt, Từ chối)
+                const grp = document.getElementById(`quickActionGroup_${postId}`);
+                if (grp) {
+                    const escTitle = (title || '').replace(/'/g, "\\'");
+                    const escB = (building || '').replace(/'/g, "\\'");
+                    const escS = (staff || '').replace(/'/g, "\\'");
+                    const escP = (price || '').replace(/'/g, "\\'");
+                    const escD = (desc || '').replace(/'/g, "\\'");
+                    grp.innerHTML = `
+                        <button class="btn-icon btn-view" title="Xem lại chi tiết bài đăng"
+                            onclick="inspectAndOpenPreview('${postId}', '${escTitle}', '${escB}', '${escS}', '${escP}', '${escD}')">
+                            <i class="fa-solid fa-eye"></i>
+                        </button>
+                    `;
+                }
+                modSyncChannel?.postMessage({ type: 'post_locked', postId: postId });
+            } catch (err) {
+                console.error(err);
+            }
+
+            openPreviewModal(title, building, staff, price, desc);
+        }
+
         function openPreviewModal(title, building, staff, price, desc) {
             document.getElementById('pvTitle').innerText = title;
             document.getElementById('pvBuilding').innerText = building;
@@ -1575,9 +1690,31 @@
             }
         }
 
+        const modSyncChannel = ('BroadcastChannel' in window) ? new BroadcastChannel('renthome_moderation_sync') : null;
+
         function closeModal(modalId) {
             document.getElementById(modalId).classList.remove('show');
+            if (modalId === 'previewModal' && currentQuickInspectingId) {
+                const unlockId = currentQuickInspectingId;
+                currentQuickInspectingId = null;
+                fetch(`/api/kiem-duyet/posts/${unlockId}/unlock`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    }
+                }).then(() => {
+                    modSyncChannel?.postMessage({ type: 'post_unlocked', postId: unlockId });
+                }).catch(() => {});
+            }
         }
+
+        window.addEventListener('beforeunload', function() {
+            if (currentQuickInspectingId) {
+                navigator.sendBeacon(`/api/kiem-duyet/posts/${currentQuickInspectingId}/unlock`);
+                modSyncChannel?.postMessage({ type: 'post_unlocked', postId: currentQuickInspectingId });
+            }
+        });
 
         // Cập nhật lại số đếm trên các thẻ KPI & Biểu đồ khi duyệt/từ chối
         function decrementPendingCounter(isApproved) {
@@ -1635,6 +1772,88 @@
             const currentRange = rangeSelect ? rangeSelect.value : '7';
             updateBarChartRange(currentRange);
         }
+
+        async function syncTongQuanStatus() {
+            try {
+                const currentRows = document.querySelectorAll('#pendingPostsTable tbody tr[data-id]');
+                const clientIds = Array.from(currentRows).map(r => r.getAttribute('data-id')).filter(Boolean);
+                const queryParam = clientIds.length > 0 ? `?client_ids=${encodeURIComponent(clientIds.join(','))}` : '';
+
+                const res = await fetch(`/api/kiem-duyet/posts/sync-status${queryParam}`, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (!data || !data.success || !Array.isArray(data.posts)) return;
+
+                const activeMap = new Map();
+                data.posts.forEach(p => activeMap.set(String(p.id), p));
+
+                // Tự động làm biến mất dòng nếu bài đăng đã được Kiểm duyệt viên khác duyệt hoặc từ chối
+                currentRows.forEach(row => {
+                    const rowId = row.getAttribute('data-id');
+                    if (!activeMap.has(rowId)) {
+                        row.style.transition = '0.3s';
+                        row.style.opacity = '0';
+                        setTimeout(() => {
+                            row.remove();
+                            if (typeof decrementPendingCounter === 'function') {
+                                decrementPendingCounter(true);
+                            }
+                        }, 300);
+                    }
+                });
+
+                data.posts.forEach(p => {
+                    const row = document.querySelector(`tr[data-id="${p.id}"]`);
+                    if (!row) return;
+
+                    if (currentQuickInspectingId && currentQuickInspectingId === p.id) {
+                        return;
+                    }
+
+                    const grp = document.getElementById(`quickActionGroup_${p.id}`);
+                    if (!grp) return;
+
+                    if (p.is_locked_by_other) {
+                        row.style.opacity = '0.6';
+                        grp.innerHTML = `
+                            <span class="badge-locked-by" title="Bài đăng đang được xem xét bởi ${p.locker_name}" style="font-size: 11px; padding: 4px 8px; background: #fef3c7; color: #92400e; border: 1px solid #fde68a; border-radius: 6px; font-weight: 700; white-space: nowrap;">
+                                <i class="fa-solid fa-lock"></i> <span>🔒 Đang xem xét bởi: ${p.locker_name}</span>
+                            </span>
+                        `;
+                    } else {
+                        row.style.opacity = '1';
+                        const isLocked = grp.querySelector('.badge-locked-by');
+                        if (isLocked) {
+                            // Khôi phục nút xem khi unlock
+                            const title = row.querySelector('.post-title')?.innerText || '';
+                            const bName = row.querySelector('.post-sub')?.innerText || '';
+                            const price = row.querySelector('.price-text')?.innerText || '';
+                            const staff = row.querySelector('td:nth-child(3) strong')?.innerText || '';
+                            const escTitle = title.replace(/'/g, "\\'");
+                            const escB = bName.replace(/'/g, "\\'");
+                            const escS = staff.replace(/'/g, "\\'");
+                            const escP = price.replace(/'/g, "\\'");
+                            const btnLabel = p.has_viewed ? 'Xem lại chi tiết bài đăng' : 'Xem chi tiết bài đăng';
+                            grp.innerHTML = `
+                                <button class="btn-icon btn-view" title="${btnLabel}"
+                                    onclick="inspectAndOpenPreview('${p.id}', '${escTitle}', '${escB}', '${escS}', '${escP}', '')">
+                                    <i class="fa-solid fa-eye"></i>
+                                </button>
+                            `;
+                        }
+                    }
+                });
+            } catch (e) {}
+        }
+
+        if (modSyncChannel) {
+            modSyncChannel.onmessage = (event) => {
+                syncTongQuanStatus();
+            };
+        }
+        setInterval(syncTongQuanStatus, 3000);
     </script>
 </body>
 </html>

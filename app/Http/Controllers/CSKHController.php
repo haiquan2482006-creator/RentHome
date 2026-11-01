@@ -18,10 +18,42 @@ class CSKHController extends ComplaintController
 {
     /**
      * Helper gửi thông báo trực tiếp tới kênh CSKH
+     * Tự động gửi bản sao độc lập tới từng tài khoản CSKH (mỗi CSKH có 1 bản ghi riêng có user_id)
+     * Đảm bảo tài khoản này xóa/đọc thông báo sẽ KHÔNG ảnh hưởng tới tài khoản khác.
      */
     public static function notifyCskh($category, $title, $message, $targetId = null, $postId = null, $type = 'info')
     {
         $actionUrl = $targetId ? url('/cskh/khieu-nai?ticket_id=' . $targetId) : url('/cskh/khieu-nai');
+
+        $cskhUsers = \App\Models\User::where(function($q) {
+            $q->where('role', 'cskh')
+              ->orWhere('role', 'chăm sóc kh')
+              ->orWhere('role', 'chamsockh')
+              ->orWhere('staff_role', 'LIKE', '%chăm sóc%')
+              ->orWhere('staff_role', 'LIKE', '%cskh%');
+        })->where(function($q) {
+            $q->whereNull('is_deleted')->orWhere('is_deleted', false);
+        })->get();
+
+        if ($cskhUsers->isNotEmpty()) {
+            $lastCreated = null;
+            foreach ($cskhUsers as $u) {
+                $lastCreated = Notification::create([
+                    'user_id'    => (string)($u->_id ?? $u->id),
+                    'role'       => 'cskh',
+                    'category'   => $category,
+                    'type'       => $type,
+                    'title'      => $title,
+                    'message'    => $message,
+                    'target_id'  => $targetId ? (string)$targetId : null,
+                    'post_id'    => $postId ? (string)$postId : null,
+                    'action_url' => $actionUrl,
+                    'is_read'    => false,
+                    'created_at' => now(),
+                ]);
+            }
+            return $lastCreated;
+        }
 
         return Notification::create([
             'user_id'    => null,
@@ -53,24 +85,29 @@ class CSKHController extends ComplaintController
         $this->ensureInitialNotificationsExist();
 
         // 1. Thống kê KPI tổng thể
+        $currentUserId = (string)($currentUser->_id ?? $currentUser->id);
+
+        // Tổng đơn toàn hệ thống (bể chung — không phân user)
         $totalComplaints = SupportTicket::where('type', 'khieu_nai')->count() + Complaint::count();
 
-        // Đơn chờ xử lý cấp 1 (Pending tại CSKH)
+        // Đơn chờ xử lý cấp 1 — BỂ CHUNG: chưa ai nhận (assigned_to = null)
         $pendingCount = SupportTicket::where('type', 'khieu_nai')
             ->whereNotIn('status', ['resolved', 'rejected', 'da_giai_quyet', 'tu_choi'])
             ->where(function($q) {
                 $q->whereNull('is_escalated')->orWhere('is_escalated', false);
             })
             ->where('status', '!=', 'escalated')
+            ->whereNull('assigned_to')        // ← Chỉ đơn chưa ai nhận
             ->count()
             + Complaint::whereNotIn('status', ['resolved', 'rejected', 'da_giai_quyet', 'tu_choi'])
             ->where(function($q) {
                 $q->whereNull('is_escalated')->orWhere('is_escalated', false);
             })
             ->where('status', '!=', 'escalated')
+            ->whereNull('assigned_to')        // ← Chỉ đơn chưa ai nhận
             ->count();
 
-        // Đơn đã chuyển tiếp lên Admin cấp 2 (Trình Admin / Đẩy lên Admin)
+        // Đơn đã chuyển tiếp lên Admin cấp 2
         $escalatedCount = SupportTicket::where('type', 'khieu_nai')
             ->where(function($q) {
                 $q->where('is_escalated', true)->orWhere('status', 'escalated');
@@ -81,37 +118,42 @@ class CSKHController extends ComplaintController
             })
             ->count();
 
-        // Đơn do CSKH tự giải quyết (Không leo thang lên Admin)
+        // KPI CÁ NHÂN: Đơn do CHÍNH MÌNH (CSKH đang đăng nhập) giải quyết
         $cskhResolvedCount = SupportTicket::where('type', 'khieu_nai')
             ->whereIn('status', ['resolved', 'da_giai_quyet', 'closed'])
-            ->where(function($q) {
-                $q->whereNull('is_escalated')->orWhere('is_escalated', false);
+            ->where(function($q) use ($currentUserId) {
+                $q->where('assigned_to', $currentUserId)->orWhere('resolved_by', $currentUserId);
             })
-            ->where('status', '!=', 'escalated')
             ->count()
             + Complaint::whereIn('status', ['resolved', 'da_giai_quyet', 'closed'])
-            ->where(function($q) {
-                $q->whereNull('is_escalated')->orWhere('is_escalated', false);
+            ->where(function($q) use ($currentUserId) {
+                $q->where('assigned_to', $currentUserId)->orWhere('resolved_by', $currentUserId);
             })
-            ->where('status', '!=', 'escalated')
             ->count();
 
-        // Đơn đã giải quyết thành công (Tổng thể cả CSKH & Admin)
+        // Tổng đã giải quyết toàn hệ thống (dùng cho tham chiếu)
         $resolvedCount = SupportTicket::where('type', 'khieu_nai')
             ->whereIn('status', ['resolved', 'da_giai_quyet', 'closed'])
             ->count()
             + Complaint::whereIn('status', ['resolved', 'da_giai_quyet', 'closed'])
             ->count();
 
-        // Đơn đã bác bỏ / từ chối (Rejected)
+        // Đơn bác bỏ / từ chối của CÁ NHÂN CSKH này
         $rejectedCount = SupportTicket::where('type', 'khieu_nai')
             ->whereIn('status', ['rejected', 'tu_choi', 'cancelled'])
+            ->where(function($q) use ($currentUserId) {
+                $q->where('assigned_to', $currentUserId)->orWhere('resolved_by', $currentUserId);
+            })
             ->count()
             + Complaint::whereIn('status', ['rejected', 'tu_choi', 'cancelled'])
+            ->where(function($q) use ($currentUserId) {
+                $q->where('assigned_to', $currentUserId)->orWhere('resolved_by', $currentUserId);
+            })
             ->count();
 
-        // Tỷ lệ giải quyết
-        $resolutionRate = $totalComplaints > 0 ? round(($resolvedCount / $totalComplaints) * 100, 1) : 100;
+        // Tỷ lệ giải quyết cá nhân của CSKH này
+        $myTotalHandled = $cskhResolvedCount + $rejectedCount;
+        $resolutionRate = $myTotalHandled > 0 ? round(($cskhResolvedCount / $myTotalHandled) * 100, 1) : 100;
 
         // 2. Dữ liệu biểu đồ 7 ngày gần nhất
         $chartDays = [];
@@ -126,16 +168,24 @@ class CSKHController extends ComplaintController
 
             $chartDays[] = $dayLabel;
 
+            // Đơn mới tiếp nhận — BỂ CHUNG (tất cả CSKH đều thấy)
             $inCount = SupportTicket::where('type', 'khieu_nai')
                 ->whereBetween('created_at', [$dateStart, $dateEnd])
                 ->count()
                 + Complaint::whereBetween('created_at', [$dateStart, $dateEnd])->count();
 
+            // Đơn đã xử lý — CÁ NHÂN: chỉ đếm đơn CHÍNH MÌNH giải quyết
             $resCount = SupportTicket::where('type', 'khieu_nai')
                 ->whereBetween('resolved_at', [$dateStart, $dateEnd])
+                ->where(function($q) use ($currentUserId) {
+                    $q->where('assigned_to', $currentUserId)->orWhere('resolved_by', $currentUserId);
+                })
                 ->count()
                 + Complaint::whereBetween('updated_at', [$dateStart, $dateEnd])
                     ->whereIn('status', ['resolved', 'da_giai_quyet'])
+                    ->where(function($q) use ($currentUserId) {
+                        $q->where('assigned_to', $currentUserId)->orWhere('resolved_by', $currentUserId);
+                    })
                     ->count();
 
             $incomingData[] = $inCount;
@@ -176,14 +226,9 @@ class CSKHController extends ComplaintController
             ->take(6)
             ->get();
 
-        // 5. Số thông báo chưa đọc cho Badge Sidebar
+        // 5. Số thông báo chưa đọc cho Badge Sidebar (riêng của tài khoản này)
         $userId = (string)($currentUser->_id ?? $currentUser->id);
-        $unreadCount = Notification::where(function ($q) use ($userId) {
-            $q->where('role', 'cskh')
-              ->orWhere('role', 'cham_soc_kh')
-              ->orWhere('role', 'chamsockh')
-              ->orWhere('user_id', $userId);
-        })->where('is_read', false)->count();
+        $unreadCount = Notification::where('user_id', $userId)->where('is_read', false)->count();
 
         return view('cham_soc_kh.tong_quan', compact(
             'currentUser',
@@ -219,23 +264,10 @@ class CSKHController extends ComplaintController
         // Tự động đồng bộ các khiếu nại hiện có thành thông báo nếu chưa có thông báo nào trong hệ thống
         $this->ensureInitialNotificationsExist();
 
-        // Truy vấn tất cả thông báo thuộc kênh CSKH
-        $baseQuery = Notification::where(function ($q) use ($userId) {
-            $q->where('role', 'cskh')
-              ->orWhere('role', 'cham_soc_kh')
-              ->orWhere('role', 'chamsockh')
-              ->orWhere('user_id', $userId)
-              ->orWhereIn('category', [
-                  'new_complaint',
-                  'admin_verdict',
-                  'admin_rejected',
-                  'admin_sanction',
-                  'customer_reply',
-                  'complaint_escalated'
-              ]);
-        });
+        // Truy vấn tất cả thông báo của CHÍNH tài khoản CSKH này (100% độc lập, không dính tài khoản khác)
+        $baseQuery = Notification::where('user_id', $userId);
 
-        // Thống kê số lượng theo KPI
+        // Thống kê số lượng theo KPI (hoàn toàn theo tài khoản này)
         $totalCount = (clone $baseQuery)->count();
         $unreadCount = (clone $baseQuery)->where('is_read', false)->count();
         $newComplaintCount = (clone $baseQuery)->where('category', 'new_complaint')->count();
@@ -266,11 +298,16 @@ class CSKHController extends ComplaintController
 
         $notifications = $query->orderBy('created_at', 'desc')->paginate(10)->withQueryString();
 
-        // Thống kê hồ sơ khiếu nại chờ xử lý để hiển thị badge trên sidebar
+        // Thống kê hồ sơ khiếu nại chờ xử lý để hiển thị badge trên sidebar (chưa ai nhận hoặc do chính mình nhận)
         $pendingComplaints = SupportTicket::where('type', 'khieu_nai')
             ->where('status', '!=', 'resolved')
             ->where(function ($q) {
                 $q->whereNull('is_escalated')->orWhere('is_escalated', false);
+            })
+            ->where(function ($q) use ($userId) {
+                $q->whereNull('assigned_to')
+                  ->orWhere('assigned_to', '')
+                  ->orWhere('assigned_to', $userId);
             })
             ->count();
 
@@ -336,7 +373,7 @@ class CSKHController extends ComplaintController
     }
 
     /**
-     * API: Đánh dấu 1 thông báo là đã đọc
+     * API: Đánh dấu 1 thông báo là đã đọc (hoàn toàn riêng biệt theo tài khoản)
      * Route: POST /cskh/notifications/{id}/read
      */
     public function markNotificationAsRead($id)
@@ -346,7 +383,14 @@ class CSKHController extends ComplaintController
             return response()->json(['success' => false, 'message' => 'Vui lòng đăng nhập'], 401);
         }
 
-        $notif = Notification::where('_id', $id)->first() ?: Notification::find($id);
+        $userId = (string)($currentUser->_id ?? $currentUser->id);
+
+        $notif = Notification::where('_id', $id)
+            ->where(function($q) use ($userId) {
+                $q->where('user_id', $userId)->orWhereNull('user_id');
+            })
+            ->first() ?: Notification::find($id);
+
         if (!$notif) {
             return response()->json(['success' => false, 'message' => 'Không tìm thấy thông báo'], 404);
         }
@@ -362,7 +406,7 @@ class CSKHController extends ComplaintController
     }
 
     /**
-     * API: Đánh dấu tất cả thông báo CSKH là đã đọc
+     * API: Đánh dấu tất cả thông báo CSKH là đã đọc (chỉ cho tài khoản đang đăng nhập)
      * Route: POST /cskh/notifications/mark-all-read
      */
     public function markAllNotificationsAsRead()
@@ -374,23 +418,12 @@ class CSKHController extends ComplaintController
 
         $userId = (string)($currentUser->_id ?? $currentUser->id);
 
-        Notification::where(function ($q) use ($userId) {
-            $q->where('role', 'cskh')
-              ->orWhere('role', 'cham_soc_kh')
-              ->orWhere('role', 'chamsockh')
-              ->orWhere('user_id', $userId)
-              ->orWhereIn('category', [
-                  'new_complaint',
-                  'admin_verdict',
-                  'admin_rejected',
-                  'admin_sanction',
-                  'customer_reply',
-                  'complaint_escalated'
-              ]);
-        })->where('is_read', false)->update([
-            'is_read' => true,
-            'read_at' => now(),
-        ]);
+        Notification::where('user_id', $userId)
+            ->where('is_read', false)
+            ->update([
+                'is_read' => true,
+                'read_at' => now(),
+            ]);
 
         return response()->json([
             'success' => true,
@@ -399,7 +432,7 @@ class CSKHController extends ComplaintController
     }
 
     /**
-     * API: Xóa 1 thông báo
+     * API: Xóa 1 thông báo (chỉ xóa của tài khoản đang đăng nhập, tài khoản khác không bị mất)
      * Route: DELETE /cskh/notifications/{id}
      */
     public function deleteNotification($id)
@@ -409,12 +442,18 @@ class CSKHController extends ComplaintController
             return response()->json(['success' => false, 'message' => 'Vui lòng đăng nhập'], 401);
         }
 
+        $userId = (string)($currentUser->_id ?? $currentUser->id);
+
         $notif = Notification::where('_id', $id)->first() ?: Notification::find($id);
         if (!$notif) {
             return response()->json(['success' => false, 'message' => 'Không tìm thấy thông báo'], 404);
         }
 
-        $notif->delete();
+        // Xóa bản ghi thông báo của chính tài khoản này
+        if ((string)$notif->user_id === $userId || empty($notif->user_id)) {
+            $notif->delete();
+            return response()->json(['success' => true, 'message' => 'Đã xóa thông báo thành công!']);
+        }
 
         return response()->json([
             'success' => true,
@@ -423,7 +462,7 @@ class CSKHController extends ComplaintController
     }
 
     /**
-     * API: Xóa toàn bộ thông báo đã đọc
+     * API: Xóa toàn bộ thông báo đã đọc (chỉ dọn của tài khoản đang đăng nhập)
      * Route: DELETE /cskh/notifications/clear-read
      */
     public function clearReadNotifications()
@@ -435,20 +474,9 @@ class CSKHController extends ComplaintController
 
         $userId = (string)($currentUser->_id ?? $currentUser->id);
 
-        Notification::where(function ($q) use ($userId) {
-            $q->where('role', 'cskh')
-              ->orWhere('role', 'cham_soc_kh')
-              ->orWhere('role', 'chamsockh')
-              ->orWhere('user_id', $userId)
-              ->orWhereIn('category', [
-                  'new_complaint',
-                  'admin_verdict',
-                  'admin_rejected',
-                  'admin_sanction',
-                  'customer_reply',
-                  'complaint_escalated'
-              ]);
-        })->where('is_read', true)->delete();
+        Notification::where('user_id', $userId)
+            ->where('is_read', true)
+            ->delete();
 
         return response()->json([
             'success' => true,
@@ -469,25 +497,19 @@ class CSKHController extends ComplaintController
 
         $userId = (string)($currentUser->_id ?? $currentUser->id);
 
-        $unreadCount = Notification::where(function ($q) use ($userId) {
-            $q->where('role', 'cskh')
-              ->orWhere('role', 'cham_soc_kh')
-              ->orWhere('role', 'chamsockh')
-              ->orWhere('user_id', $userId)
-              ->orWhereIn('category', [
-                  'new_complaint',
-                  'admin_verdict',
-                  'admin_rejected',
-                  'admin_sanction',
-                  'customer_reply',
-                  'complaint_escalated'
-              ]);
-        })->where('is_read', false)->count();
+        $unreadCount = Notification::where('user_id', $userId)
+            ->where('is_read', false)
+            ->count();
 
         $pendingComplaints = SupportTicket::where('type', 'khieu_nai')
             ->where('status', '!=', 'resolved')
             ->where(function ($q) {
                 $q->whereNull('is_escalated')->orWhere('is_escalated', false);
+            })
+            ->where(function ($q) use ($userId) {
+                $q->whereNull('assigned_to')
+                  ->orWhere('assigned_to', '')
+                  ->orWhere('assigned_to', $userId);
             })
             ->count();
 
@@ -499,7 +521,7 @@ class CSKHController extends ComplaintController
     }
 
     /**
-     * Màn hình Lịch sử hoạt động của tài khoản Chăm Sóc Khách Hàng
+     * Màn hình Lịch sử hoạt động của tài khoản Chăm Sóc Khách Hàng (hoàn toàn độc lập theo tài khoản)
      * Route: GET /cskh/lich-su (name: cskh.history)
      */
     public function history(Request $request)
@@ -514,14 +536,8 @@ class CSKHController extends ComplaintController
         // Đảm bảo các hoạt động cơ bản được đồng bộ
         $this->ensureInitialActivitiesExist($currentUser);
 
-        // 1. Base Query: Tìm các hoạt động của CSKH hoặc liên quan đến khiếu nại / liên hệ
-        $query = AdminActivity::where(function($q) use ($userId) {
-            $q->where('admin_id', $userId)
-              ->orWhere('category', 'cskh')
-              ->orWhereIn('category', ['complaint', 'support_ticket', 'contact'])
-              ->orWhere('admin_name', 'LIKE', '%Chăm Sóc%')
-              ->orWhere('admin_name', 'LIKE', '%CSKH%');
-        });
+        // 1. Base Query: Tìm các hoạt động của CHÍNH tài khoản CSKH này (không lẫn lộn với CSKH khác)
+        $query = AdminActivity::where('admin_id', $userId);
 
         // 2. Bộ lọc tìm kiếm từ khóa
         $search = trim((string)$request->input('search', ''));
@@ -530,8 +546,7 @@ class CSKHController extends ComplaintController
                 $q->where('title', 'LIKE', "%{$search}%")
                   ->orWhere('description', 'LIKE', "%{$search}%")
                   ->orWhere('target_name', 'LIKE', "%{$search}%")
-                  ->orWhere('target_id', 'LIKE', "%{$search}%")
-                  ->orWhere('admin_name', 'LIKE', "%{$search}%");
+                  ->orWhere('target_id', 'LIKE', "%{$search}%");
             });
         }
 
@@ -563,14 +578,8 @@ class CSKHController extends ComplaintController
             $query->where('created_at', '>=', now()->subDays(30)->startOfDay());
         }
 
-        // 5. Thống kê nhanh cho các thẻ KPI trên trang Lịch sử
-        $statsBase = AdminActivity::where(function($q) use ($userId) {
-            $q->where('admin_id', $userId)
-              ->orWhere('category', 'cskh')
-              ->orWhereIn('category', ['complaint', 'support_ticket', 'contact'])
-              ->orWhere('admin_name', 'LIKE', '%Chăm Sóc%')
-              ->orWhere('admin_name', 'LIKE', '%CSKH%');
-        });
+        // 5. Thống kê nhanh cho các thẻ KPI trên trang Lịch sử (cá nhân hóa 100%)
+        $statsBase = AdminActivity::where('admin_id', $userId);
 
         $totalActivities = (clone $statsBase)->count();
         $escalatedCount = (clone $statsBase)->whereIn('action_type', ['escalate', 'escalate_ticket'])->count();
@@ -587,28 +596,25 @@ class CSKHController extends ComplaintController
                 $q->whereNull('is_escalated')->orWhere('is_escalated', false);
             })
             ->where('status', '!=', 'escalated')
+            ->where(function($q) use ($userId) {
+                $q->whereNull('assigned_to')
+                  ->orWhere('assigned_to', '')
+                  ->orWhere('assigned_to', $userId);
+            })
             ->count()
             + Complaint::whereNotIn('status', ['resolved', 'rejected', 'da_giai_quyet', 'tu_choi'])
             ->where(function($q) {
                 $q->whereNull('is_escalated')->orWhere('is_escalated', false);
             })
             ->where('status', '!=', 'escalated')
+            ->where(function($q) use ($userId) {
+                $q->whereNull('assigned_to')
+                  ->orWhere('assigned_to', '')
+                  ->orWhere('assigned_to', $userId);
+            })
             ->count();
 
-        $unreadCount = Notification::where(function ($q) use ($userId) {
-            $q->where('role', 'cskh')
-              ->orWhere('role', 'cham_soc_kh')
-              ->orWhere('role', 'chamsockh')
-              ->orWhere('user_id', $userId)
-              ->orWhereIn('category', [
-                  'new_complaint',
-                  'admin_verdict',
-                  'admin_rejected',
-                  'admin_sanction',
-                  'customer_reply',
-                  'complaint_escalated'
-              ]);
-        })->where('is_read', false)->count();
+        $unreadCount = Notification::where('user_id', $userId)->where('is_read', false)->count();
 
         return view('cham_soc_kh.lich_su', compact(
             'currentUser',

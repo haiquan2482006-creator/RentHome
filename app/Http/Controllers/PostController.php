@@ -108,6 +108,43 @@ class PostController extends Controller
             $building = \App\Models\Building::find($buildingId);
         }
 
+        // RÀNG BUỘC CỐ ĐỊNH QUY MÔ: Không cho phép đăng vượt quá số phòng tối đa của tòa nhà
+        if ($building) {
+            $maxRooms = max((int)($building->total_rooms ?? 1), 1);
+            $bRoomQuery = Post::where(function($q) use ($buildingId) {
+                $q->where('building_id', (string)$buildingId);
+                if (strlen($buildingId) === 24 && ctype_xdigit($buildingId)) {
+                    try {
+                        $q->orWhere('building_id', new \MongoDB\BSON\ObjectId($buildingId));
+                    } catch (\Exception $e) {}
+                }
+            })
+            ->whereNotIn('status', ['rejected', 'tu_choi', 'từ chối', 'deleted', 'cancelled', 'da_huy', 'huy', 'cancel'])
+            ->where(function ($q) {
+                $q->whereNull('is_deleted')->orWhere('is_deleted', false);
+            });
+
+            if (!empty($postId)) {
+                $bRoomQuery->where(function($q) use ($postId) {
+                    $q->where('_id', '!=', (string)$postId);
+                    if (strlen($postId) === 24 && ctype_xdigit($postId)) {
+                        try {
+                            $q->where('_id', '!=', new \MongoDB\BSON\ObjectId($postId));
+                        } catch (\Exception $e) {}
+                    }
+                });
+            }
+
+            $currentBuildingRooms = $bRoomQuery->count();
+            if ($currentBuildingRooms >= $maxRooms) {
+                return response()->json([
+                    'success' => false,
+                    'error'   => "Tòa nhà '{$building->name}' đã đầy ({$currentBuildingRooms}/{$maxRooms} phòng). Không thể đăng thêm phòng mới!",
+                    'message' => "Tòa nhà '{$building->name}' đã đầy ({$currentBuildingRooms}/{$maxRooms} phòng). Không thể đăng thêm phòng mới!"
+                ], 422);
+            }
+        }
+
         // Tự động kế thừa tiện ích Tòa nhà VÀ gộp với tiện ích riêng của phòng
         $buildingAmenities = ($building && is_array($building->amenities)) ? $building->amenities : [];
         $submittedAmenities = !empty($validatedData['amenities']) ? (array)$validatedData['amenities'] : [];
@@ -777,6 +814,37 @@ class PostController extends Controller
             return response()->json(['success' => false, 'message' => 'Phòng này hiện đã thuộc cơ sở được chọn!'], 422);
         }
 
+        // RÀNG BUỘC CỐ ĐỊNH QUY MÔ: Kiểm tra tòa nhà đích đã đủ số phòng chưa
+        $targetMaxRooms = max((int)($targetBuilding->total_rooms ?? 1), 1);
+        $targetCount = Post::where(function($q) use ($newBuildingId) {
+            $q->where('building_id', (string)$newBuildingId);
+            if (strlen($newBuildingId) === 24 && ctype_xdigit($newBuildingId)) {
+                try {
+                    $q->orWhere('building_id', new \MongoDB\BSON\ObjectId($newBuildingId));
+                } catch (\Exception $e) {}
+            }
+        })
+        ->where(function($q) use ($postId) {
+            $q->where('_id', '!=', (string)$postId);
+            if (strlen($postId) === 24 && ctype_xdigit($postId)) {
+                try {
+                    $q->where('_id', '!=', new \MongoDB\BSON\ObjectId($postId));
+                } catch (\Exception $e) {}
+            }
+        })
+        ->whereNotIn('status', ['rejected', 'tu_choi', 'từ chối', 'deleted', 'cancelled', 'da_huy', 'huy', 'cancel'])
+        ->where(function ($q) {
+            $q->whereNull('is_deleted')->orWhere('is_deleted', false);
+        })
+        ->count();
+
+        if ($targetCount >= $targetMaxRooms) {
+            return response()->json([
+                'success' => false,
+                'message' => "Tòa nhà '{$targetBuilding->name}' đã đầy ({$targetCount}/{$targetMaxRooms} phòng). Không thể chuyển thêm phòng vào tòa nhà này!"
+            ], 422);
+        }
+
         // Kiểm tra quyền đối với tòa nhà đích nếu là nhân viên con
         if ($user->isSubAccount() && method_exists($user, 'canManageBuilding') && !$user->canManageBuilding($newBuildingId)) {
             return response()->json(['success' => false, 'message' => 'Bạn không có quyền phân công sang tòa nhà đích này!'], 403);
@@ -997,12 +1065,33 @@ class PostController extends Controller
             return response()->json(['success' => false, 'message' => 'Không thể hủy hoặc xóa bài đăng khi đang có người thuê!'], 400);
         }
 
+        $oldBuildingId = $post->building_id;
         $post->status = 'cancelled';
+        $post->building_id = null; // Gỡ triệt để bài đăng khỏi tòa nhà khi bị hủy
+        $post->cancelled_at = now();
+        $post->locked_by = null;
+        $post->locked_at = null;
         $post->save();
 
-        // Xóa cache danh sách
+        // Cập nhật và ngắt liên kết trong collection rooms (nếu có)
+        try {
+            \App\Models\Room::where('post_id', (string)($post->_id ?? $post->id))
+                ->orWhere('_id', (string)($post->_id ?? $post->id))
+                ->update(['building_id' => null, 'status' => 'cancelled']);
+        } catch (\Exception $e) {}
+
+        // Xóa cache danh sách & cache thống kê người dùng
         Cache::forget('home_featured_posts');
         Cache::forget('home_approved_posts_default');
+
+        $userId = (string)($user->_id ?? $user->id);
+        Cache::forget("user_dashboard_stats_{$userId}");
+        if (!empty($user->parent_id)) {
+            Cache::forget("user_dashboard_stats_" . (string)$user->parent_id);
+        }
+        if (!empty($post->user_id)) {
+            Cache::forget("user_dashboard_stats_" . (string)$post->user_id);
+        }
 
         return response()->json([
             'success' => true,
@@ -1030,6 +1119,25 @@ class PostController extends Controller
         // Xóa cache (nếu có) để trang chủ & danh sách luôn hiển thị số lượt xem thật mới nhất
         Cache::forget('home_approved_posts_default');
         Cache::forget('home_featured_posts');
+
+        // Ghi nhận viewed_by & Auto-lock cho nhân sự kiểm duyệt / admin khi xem chi tiết bài đăng
+        if (Auth::check()) {
+            $curAuthUser = Auth::user();
+            if ($curAuthUser->isModerator() || $curAuthUser->isAdmin() || in_array($curAuthUser->role, ['kiemduyet', 'moderator', 'admin'], true)) {
+                $uid = (string)Auth::id();
+                $viewedBy = is_array($post->viewed_by) ? $post->viewed_by : [];
+                if (!in_array($uid, array_map('strval', $viewedBy))) {
+                    $viewedBy[] = $uid;
+                    $post->viewed_by = $viewedBy;
+                }
+                $currentLock = (string)($post->locked_by ?? '');
+                if (empty($currentLock) || $currentLock === $uid) {
+                    $post->locked_by = $uid;
+                    $post->locked_at = now();
+                }
+                $post->save();
+            }
+        }
 
         $hasContacted = false;
         $contactId = '';

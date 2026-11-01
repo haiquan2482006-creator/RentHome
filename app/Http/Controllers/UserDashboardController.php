@@ -22,27 +22,18 @@ class UserDashboardController extends Controller
 
         $stats = Cache::remember("user_dashboard_stats_{$userId}", 15, function () use ($user, $userId) {
             if ($user->isSubAccount()) {
-                $assignedIds = (array) ($user->assigned_buildings ?? []);
-                $isAll = empty($assignedIds) || in_array('all', $assignedIds, true) || in_array('*', $assignedIds, true);
+                $assignedIds = array_filter(array_map('strval', (array) ($user->assigned_buildings ?? [])));
+                $assignedIds = array_values(array_diff($assignedIds, ['all', '*']));
 
-                if ($isAll) {
-                    $parentId = (string)($user->parent_id ?: $userId);
-                    $query = Post::where(function($q) use ($parentId, $userId) {
-                        $q->where('parent_id', $parentId)
-                          ->orWhere('user_id', $userId)
-                          ->orWhere('staff_id', $userId)
-                          ->orWhere('author_id', $userId);
-                    });
-                    $totalBuildingsCount = \App\Models\Building::count();
-                } else {
-                    $query = Post::where(function($q) use ($assignedIds, $userId) {
-                        $q->whereIn('building_id', $assignedIds)
-                          ->orWhere('user_id', $userId)
-                          ->orWhere('staff_id', $userId)
-                          ->orWhere('author_id', $userId);
-                    });
-                    $totalBuildingsCount = count($assignedIds);
-                }
+                $query = Post::where(function($q) use ($assignedIds, $userId) {
+                    if (!empty($assignedIds)) {
+                        $q->whereIn('building_id', $assignedIds);
+                    }
+                    $q->orWhere('user_id', $userId)
+                      ->orWhere('staff_id', $userId)
+                      ->orWhere('author_id', $userId);
+                });
+                $totalBuildingsCount = count($assignedIds);
 
                 $activePostsCount = (clone $query)->where(function ($q) {
                         $q->whereIn('status', ['active', 'approved', 'đã cho thuê', 'rented', 'dang_thue'])
@@ -141,23 +132,16 @@ class UserDashboardController extends Controller
         $query = Post::with(['building', 'user']);
 
         if ($user->isSubAccount()) {
-            $assignedIds = (array) ($user->assigned_buildings ?? []);
-            if (!empty($assignedIds) && !in_array('all', $assignedIds, true) && !in_array('*', $assignedIds, true)) {
-                $query->where(function($q) use ($assignedIds, $userId) {
-                    $q->whereIn('building_id', $assignedIds)
-                      ->orWhere('user_id', $userId)
-                      ->orWhere('staff_id', $userId)
-                      ->orWhere('author_id', $userId);
-                });
-            } else {
-                $parentId = (string)($user->parent_id ?: $userId);
-                $query->where(function($q) use ($parentId, $userId) {
-                    $q->where('parent_id', $parentId)
-                      ->orWhere('user_id', $userId)
-                      ->orWhere('staff_id', $userId)
-                      ->orWhere('author_id', $userId);
-                });
-            }
+            $assignedIds = array_filter(array_map('strval', (array) ($user->assigned_buildings ?? [])));
+            $assignedIds = array_values(array_diff($assignedIds, ['all', '*']));
+            $query->where(function($q) use ($assignedIds, $userId) {
+                if (!empty($assignedIds)) {
+                    $q->whereIn('building_id', $assignedIds);
+                }
+                $q->orWhere('user_id', $userId)
+                  ->orWhere('staff_id', $userId)
+                  ->orWhere('author_id', $userId);
+            });
         } elseif (!$user->isEnterprise() && !$user->isAdmin()) {
             $query->where(function($q) use ($userId) {
                 $q->where('user_id', $userId)
@@ -214,14 +198,22 @@ class UserDashboardController extends Controller
             ->whereIn('status', ['approved', 'active', 'rejected', 'hidden', 'deleted', 'pending', 'đã cho thuê', 'rented', 'dang_thue']);
 
         if ($user->isSubAccount()) {
-            $assignedIds = (array) ($user->assigned_buildings ?? []);
-            if (!empty($assignedIds) && !in_array('all', $assignedIds, true) && !in_array('*', $assignedIds, true)) {
-                $query->whereIn('building_id', $assignedIds);
-            } else {
-                $query->where('user_id', $userId)->orWhere('staff_id', $userId);
-            }
+            $assignedIds = array_filter(array_map('strval', (array) ($user->assigned_buildings ?? [])));
+            $assignedIds = array_values(array_diff($assignedIds, ['all', '*']));
+            $query->where(function($q) use ($assignedIds, $userId) {
+                if (!empty($assignedIds)) {
+                    $q->whereIn('building_id', $assignedIds);
+                }
+                $q->orWhere('user_id', $userId)
+                  ->orWhere('staff_id', $userId)
+                  ->orWhere('author_id', $userId);
+            });
         } elseif (!$user->isEnterprise() && !$user->isAdmin()) {
-            $query->where('user_id', $userId)->orWhere('staff_id', $userId);
+            $query->where(function($q) use ($userId) {
+                $q->where('user_id', $userId)
+                  ->orWhere('staff_id', $userId)
+                  ->orWhere('author_id', $userId);
+            });
         }
 
         $posts = $query->orderBy('updated_at', 'desc')->get();

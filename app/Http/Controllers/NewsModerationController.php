@@ -421,6 +421,14 @@ class NewsModerationController extends Controller
             return response()->json(['success' => false, 'message' => 'Không tìm thấy bài báo!'], 404);
         }
 
+        // BƯỚC 1: Double-check trạng thái bài viết phòng ngừa Race Condition
+        if ($article->status !== 'pending') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Thao tác thất bại: Bài viết này đã được một Kiểm duyệt viên khác xử lý!'
+            ], 409);
+        }
+
         $user = Auth::user();
         $adminId = $user ? (string)($user->_id ?? $user->id) : 'moderator';
 
@@ -453,6 +461,53 @@ class NewsModerationController extends Controller
     }
 
     /**
+     * Từ chối bài báo tin tức (Reject)
+     * POST /api/kiem-duyet/news/{id}/reject
+     */
+    public function reject(Request $request, $id)
+    {
+        $article = NewsArticle::where('_id', $id)->first() ?: NewsArticle::find($id);
+        if (!$article) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy bài báo!'], 404);
+        }
+
+        // BƯỚC 1: Double-check trạng thái bài viết phòng ngừa Race Condition
+        if ($article->status !== 'pending') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Thao tác thất bại: Bài viết này đã được một Kiểm duyệt viên khác xử lý!'
+            ], 409);
+        }
+
+        $user = Auth::user();
+        $adminId = $user ? (string)($user->_id ?? $user->id) : 'moderator';
+
+        $article->status = 'rejected';
+        $article->is_featured = false;
+        $article->moderated_by = $adminId;
+        $article->moderated_at = now();
+        $article->reject_reason = $request->input('reason', 'Không đạt tiêu chuẩn kiểm duyệt');
+        $article->save();
+
+        Cache::forget('home_approved_news');
+
+        AdminActivity::log(
+            'reject',
+            'news',
+            'Từ chối bài báo tin tức',
+            "Kiểm duyệt viên đã từ chối bài báo [{$article->title}]. Lý do: {$article->reject_reason}",
+            $article,
+            ['news_id' => (string)$id, 'title' => $article->title]
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => "Đã từ chối bài báo [{$article->title}] thành công!",
+            'article' => $article,
+        ]);
+    }
+
+    /**
      * Xóa bài báo khỏi hệ thống
      * DELETE /api/kiem-duyet/news/{id}
      */
@@ -461,6 +516,14 @@ class NewsModerationController extends Controller
         $article = NewsArticle::where('_id', $id)->first() ?: NewsArticle::find($id);
         if (!$article) {
             return response()->json(['success' => false, 'message' => 'Không tìm thấy bài báo!'], 404);
+        }
+
+        // BƯỚC 1: Double-check trạng thái bài viết phòng ngừa Race Condition
+        if ($article->status !== 'pending') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Thao tác thất bại: Bài viết này đã được một Kiểm duyệt viên khác xử lý!'
+            ], 409);
         }
 
         $title = $article->title;

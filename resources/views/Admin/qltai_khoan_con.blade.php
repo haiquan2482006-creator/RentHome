@@ -1291,7 +1291,7 @@
                                                     title="{{ $isLocked ? 'Mở khóa tài khoản' : 'Khóa tài khoản' }}">
                                                 <i class="fa-solid {{ $isLocked ? 'fa-lock-open' : 'fa-lock' }}" id="lock-icon-{{ $accId }}"></i>
                                             </button>
-                                            <button type="button" class="btn-act btn-delete" onclick="deleteAccount('{{ $accId }}')" title="Xóa tài khoản con">
+                                            <button type="button" class="btn-act btn-delete" onclick="deleteAccount('{{ $accId }}')" title="Xóa tài khoản">
                                                 <i class="fa-regular fa-trash-can"></i>
                                             </button>
                                         </div>
@@ -1485,10 +1485,47 @@
                     </div>
 
 
-                    <!-- Mục 2: Phân công tòa nhà phụ trách -->
+                    <!-- Mục 1.5: Chọn vai trò tài khoản -->
+                    <div id="rolePickerSection" style="margin-top: 20px; margin-bottom: 4px;">
+                        <div class="form-section-title" style="margin-bottom: 10px;">
+                            <i class="fa-solid fa-user-tag"></i> 2. Vai Trò Tài Khoản <span style="color: var(--accent-red)">*</span>
+                        </div>
+                        <div id="rolePickerGroup" style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <!-- Nhân sự (default) -->
+                            <label id="role-pill-nhansu"
+                                onclick="handleRoleChange('nhansu')"
+                                style="display: inline-flex; align-items: center; gap: 7px; padding: 9px 18px; border-radius: 999px; border: 2px solid #16a34a; background: #dcfce7; color: #15803d; font-weight: 700; font-size: 0.825rem; cursor: pointer; transition: all 0.2s; user-select: none;">
+                                <input type="radio" name="acc_role_radio" value="nhansu" checked style="display:none">
+                                <i class="fa-solid fa-user-tie"></i> Nhân sự
+                            </label>
+                            <!-- CSKH -->
+                            <label id="role-pill-cskh"
+                                onclick="handleRoleChange('cskh')"
+                                style="display: inline-flex; align-items: center; gap: 7px; padding: 9px 18px; border-radius: 999px; border: 2px solid #d1d5db; background: #f9fafb; color: #6b7280; font-weight: 600; font-size: 0.825rem; cursor: pointer; transition: all 0.2s; user-select: none;">
+                                <input type="radio" name="acc_role_radio" value="cskh" style="display:none">
+                                <i class="fa-solid fa-headset"></i> Chăm sóc KH
+                            </label>
+                            <!-- Kiểm duyệt -->
+                            <label id="role-pill-kiemduyet"
+                                onclick="handleRoleChange('kiemduyet')"
+                                style="display: inline-flex; align-items: center; gap: 7px; padding: 9px 18px; border-radius: 999px; border: 2px solid #d1d5db; background: #f9fafb; color: #6b7280; font-weight: 600; font-size: 0.825rem; cursor: pointer; transition: all 0.2s; user-select: none;">
+                                <input type="radio" name="acc_role_radio" value="kiemduyet" style="display:none">
+                                <i class="fa-solid fa-shield-halved"></i> Kiểm duyệt
+                            </label>
+                        </div>
+                        <!-- Hidden inputs gửi lên server -->
+                        <input type="hidden" id="acc_role_hidden" value="nhansu">
+                        <input type="hidden" id="acc_staff_role_hidden" value="Nhân sự">
+                        <!-- Mô tả vai trò -->
+                        <div id="rolePillDesc" style="margin-top: 10px; font-size: 0.775rem; color: var(--text-secondary); background: #f8fafc; border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px;">
+                            <i class="fa-solid fa-circle-info"></i> <span id="rolePillDescText">Nhân sự phụ trách quản lý bài đăng và hợp đồng cho tòa nhà được phân công.</span>
+                        </div>
+                    </div>
+
+                    <!-- Mục 3: Phân công tòa nhà phụ trách -->
                     <div id="buildingSectionContainer">
                         <div class="form-section-title" style="margin-top: 20px;">
-                            <i class="fa-solid fa-city"></i> 2. Phân Công Tòa Nhà Phụ Trách
+                            <i class="fa-solid fa-city"></i> 3. Phân Công Tòa Nhà Phụ Trách
                         </div>
 
                         <div class="form-group">
@@ -1504,9 +1541,17 @@
                             <select id="acc_building_select" class="form-select" onchange="handleBuildingSelect(this.value)">
                                 <option value="">-- Chọn tòa nhà để phân công --</option>
                                 @forelse($allBuildings ?? [] as $b)
-                                    @php $bId = (string)($b->_id ?? $b->id); @endphp
-                                    <option value="{{ $bId }}">
+                                    @php 
+                                        $bId = (string)($b->_id ?? $b->id);
+                                        $hasManager = !empty($b->current_manager_id);
+                                        $mgrName = $b->current_manager_name ?? '';
+                                    @endphp
+                                    <option value="{{ $bId }}"
+                                        data-manager-id="{{ $b->current_manager_id ?? '' }}"
+                                        data-manager-name="{{ $mgrName }}"
+                                        @if($hasManager) disabled style="color: #94a3b8; background-color: #f8fafc;" @endif>
                                         🏢 {{ $b->name ?? 'Tòa nhà' }}{{ !empty($b->address_detail) ? ' - ' . $b->address_detail : '' }}
+                                        @if($hasManager) (Đang có người phụ trách: {{ $mgrName }}) @endif
                                     </option>
                                 @empty
                                     <option value="" disabled>Chưa có tòa nhà nào trong hệ thống</option>
@@ -1517,7 +1562,7 @@
                             <div id="selectedBuildingsTags" style="display: none; margin-top: 8px; flex-wrap: wrap; gap: 6px;"></div>
 
                             <small id="buildingHelperText" style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-top: 5px;">
-                                <i class="fa-solid fa-circle-info"></i> Chọn một hoặc nhiều tòa nhà từ danh sách đổ xuống để giao cho nhân viên trực tiếp quản lý.
+                                <i class="fa-solid fa-circle-info"></i> Chọn một hoặc nhiều tòa nhà từ danh sách đổ xuống để giao cho nhân viên trực tiếp quản lý. Lưu ý: Tòa nhà đã có người phụ trách sẽ không thể chọn.
                             </small>
                         </div>
                     </div>
@@ -1536,7 +1581,7 @@
                     <!-- Mục 3: Quyền hạn nghiệp vụ cố định -->
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 22px; margin-bottom: 6px;">
                         <div class="form-section-title" style="margin: 0;">
-                            <i class="fa-solid fa-shield-halved"></i> 3. Quyền Hạn Nghiệp Vụ Nhân Viên (Cố Định)
+                            <i class="fa-solid fa-shield-halved"></i> 4. Quyền Hạn Nghiệp Vụ Nhân Viên (Cố Định)
                         </div>
                         <span style="font-size: 0.725rem; font-weight: 700; color: #0284c7; background: #e0f2fe; padding: 2px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;">
                             <i class="fa-solid fa-lock" style="font-size: 10px;"></i> Cố định toàn quyền
@@ -1862,9 +1907,59 @@
         // Tòa nhà Phân công Logic (Dropdown & Tags)
         let selectedBuildingIds = [];
 
+        function renderBuildingSelectOptions(currentStaffId = null) {
+            const selectEl = document.getElementById('acc_building_select');
+            if (!selectEl) return;
+
+            let html = '<option value="">-- Chọn tòa nhà để phân công --</option>';
+            if (!allBuildingsData || allBuildingsData.length === 0) {
+                html += '<option value="" disabled>Chưa có tòa nhà nào trong hệ thống</option>';
+            } else {
+                allBuildingsData.forEach(b => {
+                    const bId = (b._id || b.id).toString();
+                    const mgrId = b.current_manager_id ? b.current_manager_id.toString() : '';
+                    const mgrName = b.current_manager_name || 'Nhân sự khác';
+                    const bName = b.name || 'Tòa nhà';
+                    const bAddr = b.address_detail ? ` - ${b.address_detail}` : '';
+
+                    // Đang có người khác phụ trách: nếu mgrId có giá trị và khác currentStaffId
+                    const isAssignedToOther = Boolean(mgrId && (!currentStaffId || mgrId !== currentStaffId.toString()));
+
+                    if (isAssignedToOther) {
+                        html += `<option value="${bId}" data-manager-id="${mgrId}" data-manager-name="${mgrName}" disabled style="color: #94a3b8; background-color: #f8fafc;">
+                            🏢 ${bName}${bAddr} (Đang có người phụ trách: ${mgrName})
+                        </option>`;
+                    } else {
+                        html += `<option value="${bId}" data-manager-id="${mgrId}" data-manager-name="${mgrName}">
+                            🏢 ${bName}${bAddr}
+                        </option>`;
+                    }
+                });
+            }
+            selectEl.innerHTML = html;
+        }
+
         function handleBuildingSelect(val) {
             if (!val) return;
             if (val === 'all') return;
+
+            const selectEl = document.getElementById('acc_building_select');
+            const opt = selectEl ? selectEl.querySelector(`option[value="${val}"]`) : null;
+            const mgrId = opt ? opt.getAttribute('data-manager-id') : '';
+            const mgrName = opt ? opt.getAttribute('data-manager-name') : '';
+            const currentEditId = document.getElementById('editAccountId')?.value || '';
+
+            // Ràng buộc: Không cho phép chọn tòa nhà đang có nhân sự khác phụ trách
+            if (mgrId && (!currentEditId || mgrId !== currentEditId)) {
+                if (typeof showToast === 'function') {
+                    showToast(`Tòa nhà này hiện đang có nhân sự "${mgrName}" phụ trách, không thể phân công!`, 'warning');
+                } else {
+                    alert(`Tòa nhà này hiện đang có nhân sự "${mgrName}" phụ trách, không thể phân công!`);
+                }
+                if (selectEl) selectEl.value = '';
+                return;
+            }
+
             if (!selectedBuildingIds.includes(val)) {
                 selectedBuildingIds.push(val);
             }
@@ -1927,6 +2022,82 @@
             }
         }
 
+        // ===== Chọn vai trò (role picker) =====
+        function handleRoleChange(role) {
+            const pillStyles = {
+                nhansu:    { border: '#16a34a', bg: '#dcfce7', color: '#15803d' },
+                cskh:      { border: '#ea580c', bg: '#fff7ed', color: '#c2410c' },
+                kiemduyet: { border: '#0284c7', bg: '#e0f2fe', color: '#0369a1' }
+            };
+            const inactiveStyle = { border: '#d1d5db', bg: '#f9fafb', color: '#6b7280' };
+
+            ['nhansu', 'cskh', 'kiemduyet'].forEach(r => {
+                const el = document.getElementById('role-pill-' + r);
+                if (!el) return;
+                if (r === role) {
+                    el.style.borderColor = pillStyles[r].border;
+                    el.style.background  = pillStyles[r].bg;
+                    el.style.color       = pillStyles[r].color;
+                    el.style.fontWeight  = '700';
+                    const radio = el.querySelector('input[type=radio]');
+                    if (radio) radio.checked = true;
+                } else {
+                    el.style.borderColor = inactiveStyle.border;
+                    el.style.background  = inactiveStyle.bg;
+                    el.style.color       = inactiveStyle.color;
+                    el.style.fontWeight  = '600';
+                }
+            });
+
+            const bldContainer = document.getElementById('buildingSectionContainer');
+            const modNotice    = document.getElementById('moderatorBuildingNotice');
+            const roleHidden   = document.getElementById('acc_role_hidden');
+            const staffHidden  = document.getElementById('acc_staff_role_hidden');
+            const descText     = document.getElementById('rolePillDescText');
+
+            if (role === 'nhansu') {
+                if (roleHidden)  roleHidden.value = 'nhansu';
+                if (staffHidden) staffHidden.value = 'Nhân sự';
+                if (bldContainer) bldContainer.style.display = 'block';
+                if (modNotice)    modNotice.style.display = 'none';
+                if (descText) descText.innerText = 'Nhân sự phụ trách quản lý bài đăng và hợp đồng cho tòa nhà được phân công.';
+            } else if (role === 'cskh') {
+                if (roleHidden)  roleHidden.value = 'chăm sóc kh';
+                if (staffHidden) staffHidden.value = 'Chăm sóc KH';
+                if (bldContainer) bldContainer.style.display = 'none';
+                if (modNotice) {
+                    modNotice.style.display = 'block';
+                    modNotice.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 10px; color: #334155;">
+                            <i class="fa-solid fa-headset" style="color: #ea580c; font-size: 1.25rem;"></i>
+                            <div>
+                                <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">Toàn hệ thống (Chăm sóc khách hàng)</div>
+                                <div style="font-size: 0.775rem; color: var(--text-secondary); margin-top: 2px;">Tài khoản CSKH trực tổng đài và xử lý khiếu nại trên toàn hệ thống, không quản lý tòa nhà cụ thể.</div>
+                            </div>
+                        </div>
+                    `;
+                }
+                if (descText) descText.innerText = 'Tài khoản CSKH trực tổng đài và xử lý khiếu nại trên toàn hệ thống.';
+            } else if (role === 'kiemduyet') {
+                if (roleHidden)  roleHidden.value = 'kiemduyet';
+                if (staffHidden) staffHidden.value = 'Kiểm duyệt viên';
+                if (bldContainer) bldContainer.style.display = 'none';
+                if (modNotice) {
+                    modNotice.style.display = 'block';
+                    modNotice.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 10px; color: #334155;">
+                            <i class="fa-solid fa-shield-halved" style="color: #0284c7; font-size: 1.25rem;"></i>
+                            <div>
+                                <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">Toàn hệ thống (Chỉ kiểm duyệt)</div>
+                                <div style="font-size: 0.775rem; color: var(--text-secondary); margin-top: 2px;">Tài khoản Kiểm duyệt viên làm nhiệm vụ duyệt bài đăng và xử lý khiếu nại trên toàn hệ thống, không trực tiếp quản lý tòa nhà.</div>
+                            </div>
+                        </div>
+                    `;
+                }
+                if (descText) descText.innerText = 'Tài khoản Kiểm duyệt viên duyệt bài đăng và xử lý khiếu nại toàn hệ thống.';
+            }
+        }
+
         // Modal Controls
         function openCreateModal() {
             document.getElementById('editAccountId').value = '';
@@ -1948,7 +2119,11 @@
             if (bldContainer) bldContainer.style.display = 'block';
             if (modNotice) modNotice.style.display = 'none';
 
+            // Reset role picker về mặc định "Nhân sự"
+            handleRoleChange('nhansu');
+
             selectedBuildingIds = [];
+            renderBuildingSelectOptions(null);
             renderBuildingSelection();
 
             document.getElementById('subAccountModal').classList.add('active');
@@ -1989,6 +2164,10 @@
             const modNotice = document.getElementById('moderatorBuildingNotice');
 
             if (isMod || isCskh) {
+                // Pre-select pill cho edit modal
+                if (isMod) handleRoleChange('kiemduyet');
+                else if (isCskh) handleRoleChange('cskh');
+
                 if (bldContainer) bldContainer.style.display = 'none';
                 if (modNotice) {
                     modNotice.style.display = 'block';
@@ -2016,12 +2195,16 @@
                 }
                 selectedBuildingIds = [];
             } else {
+                // Nhân sự thường — pre-select pill nhansu
+                handleRoleChange('nhansu');
+
                 if (bldContainer) bldContainer.style.display = 'block';
                 if (modNotice) modNotice.style.display = 'none';
 
                 // Tòa nhà phụ trách của nhân viên
                 const assigned = (acc.assigned_buildings || []).filter(b => b !== 'all' && b !== '*');
                 selectedBuildingIds = assigned.map(String);
+                renderBuildingSelectOptions(accId);
                 renderBuildingSelection();
             }
 
@@ -2042,6 +2225,8 @@
                 if (data.success) {
                     subAccountsData = data.sub_accounts || [];
                     allBuildingsData = data.all_buildings || [];
+                    const currentEditAccId = document.getElementById('editAccountId')?.value || null;
+                    renderBuildingSelectOptions(currentEditAccId);
                     location.reload(); // Reload nhẹ để đồng bộ cả thống kê Blade
                 }
             } catch (e) {
@@ -2073,25 +2258,36 @@
                 (existingAcc.staff_role || '').toLowerCase().includes('cskh')
             );
 
+            // Với tài khoản MỚI: đọc vai trò từ hidden inputs của role picker
+            const selectedRole      = !isEdit ? (document.getElementById('acc_role_hidden')?.value      || 'nhansu')  : null;
+            const selectedStaffRole = !isEdit ? (document.getElementById('acc_staff_role_hidden')?.value || 'Nhân sự') : null;
+
+            const isNewMod  = !isEdit && selectedRole === 'kiemduyet';
+            const isNewCskh = !isEdit && (selectedRole === 'chăm sóc kh' || selectedRole === 'cskh');
+
             const name = document.getElementById('acc_name').value.trim();
             const email = document.getElementById('acc_email').value.trim();
             const phone = document.getElementById('acc_phone').value.trim();
             const password = document.getElementById('acc_password').value;
 
             // Tòa nhà phụ trách: Nếu là Kiểm duyệt viên hoặc CSKH thì luôn là [], nếu là Sales thì lấy theo danh sách đã chọn
-            let assignedBuildings = (isMod || isCskh) ? [] : selectedBuildingIds.filter(b => b !== 'all' && b !== '*');
+            const effectiveMod  = isEdit ? isMod  : isNewMod;
+            const effectiveCskh = isEdit ? isCskh : isNewCskh;
+            let assignedBuildings = (effectiveMod || effectiveCskh) ? [] : selectedBuildingIds.filter(b => b !== 'all' && b !== '*');
 
             // Permissions cố định toàn bộ 4 quyền cốt lõi
             const permissions = ['manage_posts', 'manage_contacts', 'manage_contracts', 'manage_invoices'];
 
-            let roleToSave = 'nhansu';
-            let staffRoleToSave = 'Nhân sự';
-            if (isMod) {
-                roleToSave = 'kiemduyet';
-                staffRoleToSave = 'Kiểm duyệt viên';
-            } else if (isCskh) {
-                roleToSave = 'chăm sóc kh';
-                staffRoleToSave = 'Chăm sóc KH';
+            let roleToSave = isEdit ? 'nhansu' : (selectedRole || 'nhansu');
+            let staffRoleToSave = isEdit ? 'Nhân sự' : (selectedStaffRole || 'Nhân sự');
+            if (isEdit) {
+                if (isMod) {
+                    roleToSave = 'kiemduyet';
+                    staffRoleToSave = 'Kiểm duyệt viên';
+                } else if (isCskh) {
+                    roleToSave = 'chăm sóc kh';
+                    staffRoleToSave = 'Chăm sóc KH';
+                }
             }
 
             const payload = {
@@ -2153,11 +2349,11 @@
             }
         }
 
-        // Xóa tài khoản con
+        // Xóa tài khoản nhân sự / kiểm duyệt / CSKH
         async function deleteAccount(accId) {
             const confirmed = await showConfirmDialog({
                 title: 'Xóa tài khoản nhân sự?',
-                text: 'Bạn có chắc chắn muốn xóa tài khoản con này khỏi hệ thống? Dữ liệu bài đăng và hợp đồng vẫn thuộc doanh nghiệp.',
+                text: 'Bạn có chắc chắn muốn xóa tài khoản này khỏi hệ thống? Dữ liệu liên quan vẫn được bảo toàn theo quy định.',
                 icon: 'warning',
                 confirmText: 'Xác nhận xóa',
                 cancelText: 'Hủy',

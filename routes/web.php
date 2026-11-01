@@ -523,9 +523,18 @@ $handleTaoHopDong = function (\Illuminate\Http\Request $request) {
         ->where('status', '!=', 'đã cho thuê')
         ->whereNull('deleted_at');
 
-    if ($user && $user->isSubAccount() && !empty($user->assigned_buildings) && !in_array('all', $user->assigned_buildings, true)) {
-        $assignedIds = array_map('strval', (array)$user->assigned_buildings);
-        $postsQuery->whereIn('building_id', $assignedIds);
+    if ($user && $user->isSubAccount()) {
+        $assignedIds = array_filter(array_map('strval', (array)($user->assigned_buildings ?? [])));
+        $assignedIds = array_values(array_diff($assignedIds, ['all', '*']));
+        $uId = (string)($user->_id ?? $user->id);
+        $postsQuery->where(function($q) use ($assignedIds, $uId) {
+            if (!empty($assignedIds)) {
+                $q->whereIn('building_id', $assignedIds);
+            }
+            $q->orWhere('user_id', $uId)
+              ->orWhere('staff_id', $uId)
+              ->orWhere('author_id', $uId);
+        });
     }
 
     $posts = $postsQuery->get();
@@ -538,7 +547,7 @@ $handleTaoHopDong = function (\Illuminate\Http\Request $request) {
         $contactsQuery->whereIn('post_id', $postIds);
     }
     $contacts = $contactsQuery->latest()->get();
-    if ($contacts->isEmpty()) {
+    if ($contacts->isEmpty() && !$user->isSubAccount()) {
         $contacts = \App\Models\Contact::where(function($q) {
             $q->whereNull('is_hidden')->orWhere('is_hidden', '!=', true);
         })->whereNotIn('status', ['đã ký hợp đồng', 'liquidated', 'cancelled', 'terminated', 'hidden'])->latest()->get();
@@ -929,6 +938,9 @@ Route::middleware(['auth'])->group(function () {
             return redirect('/')->with('error', 'Chỉ tài khoản Kiểm duyệt viên mới có quyền truy cập trang này.');
         }
 
+        $currentUserId = (string)($user->_id ?? $user->id);
+        $isAdmin = ($user->role === 'admin');
+
         // Danh sách các trạng thái bài đăng
         $approvedStatuses = ['approved', 'active', 'đã cho thuê', 'rented', 'dang_thue', 'da cho thue', 'da_cho_thue', 'da_duyet', 'đã duyệt'];
         $rejectedStatuses = ['rejected', 'tuchoi', 'tu_choi', 'từ chối', 'tu choi'];
@@ -936,10 +948,19 @@ Route::middleware(['auth'])->group(function () {
 
         // Thống kê bài đăng thực tế từ DB
         $pendingCount = \App\Models\Post::whereIn('status', $pendingStatuses)->count();
-        $approvedCount = \App\Models\Post::whereIn('status', $approvedStatuses)->count();
-        $rejectedCount = \App\Models\Post::whereIn('status', $rejectedStatuses)->count();
         $totalCount = \App\Models\Post::count();
         $complaintCount = \App\Models\Complaint::where('status', 'pending')->count();
+
+        if ($isAdmin) {
+            $approvedCount = \App\Models\Post::whereIn('status', $approvedStatuses)->count();
+            $rejectedCount = \App\Models\Post::whereIn('status', $rejectedStatuses)->count();
+        } else {
+            // Đối với tài khoản Kiểm duyệt viên cụ thể: Thống kê số bài do chính nhân sự này duyệt / từ chối
+            $approvedCount = \App\Models\Post::whereIn('status', $approvedStatuses)
+                ->where('approved_by', $currentUserId)->count();
+            $rejectedCount = \App\Models\Post::whereIn('status', $rejectedStatuses)
+                ->where('rejected_by', $currentUserId)->count();
+        }
 
         // 1. Phân loại ngày duyệt bài & từ chối bài thực tế
         $allPosts = \App\Models\Post::with(['user', 'building'])->get();
@@ -953,6 +974,10 @@ Route::middleware(['auth'])->group(function () {
         foreach ($allPosts as $p) {
             $st = strtolower(trim((string)($p->status ?? '')));
             if (in_array($st, $approvedStatuses)) {
+                // Nếu không phải admin, chỉ tính các bài do chính tài khoản này duyệt
+                if (!$isAdmin && (string)($p->approved_by ?? '') !== $currentUserId) {
+                    continue;
+                }
                 $d = null;
                 if (!empty($p->approved_at)) {
                     $d = \Carbon\Carbon::parse($p->approved_at)->format('Y-m-d');
@@ -974,6 +999,10 @@ Route::middleware(['auth'])->group(function () {
         foreach ($allPosts as $p) {
             $st = strtolower(trim((string)($p->status ?? '')));
             if (in_array($st, $rejectedStatuses)) {
+                // Nếu không phải admin, chỉ tính các bài do chính tài khoản này từ chối
+                if (!$isAdmin && (string)($p->rejected_by ?? '') !== $currentUserId) {
+                    continue;
+                }
                 $d = null;
                 if (!empty($p->rejected_at)) {
                     $d = \Carbon\Carbon::parse($p->rejected_at)->format('Y-m-d');
@@ -990,6 +1019,9 @@ Route::middleware(['auth'])->group(function () {
 
         foreach ($postActivities as $act) {
             if ($act->action_type === 'reject') {
+                if (!$isAdmin && (string)($act->user_id ?? '') !== $currentUserId) {
+                    continue;
+                }
                 $d = !empty($act->created_at) ? \Carbon\Carbon::parse($act->created_at)->format('Y-m-d') : null;
                 if ($d && empty($postsRejectedByDate[$d])) {
                     $postsRejectedByDate[$d] = ($postsRejectedByDate[$d] ?? 0) + 1;
@@ -1002,10 +1034,15 @@ Route::middleware(['auth'])->group(function () {
 
         // Thống kê tin tức (NewsArticle) cho Kiểm duyệt viên
         $totalNewsCount = \App\Models\NewsArticle::where('status', '!=', 'expired')->count();
-        $approvedNewsCount = \App\Models\NewsArticle::where('status', 'approved')->count();
         $pendingNewsCount = \App\Models\NewsArticle::where('status', 'pending')->count();
-        $rejectedNewsCount = \App\Models\NewsArticle::where('status', 'rejected')->count();
-        $newsApprovalRate = $totalNewsCount > 0 ? round(($approvedNewsCount / $totalNewsCount) * 100, 1) : 0;
+        if ($isAdmin) {
+            $approvedNewsCount = \App\Models\NewsArticle::where('status', 'approved')->count();
+            $rejectedNewsCount = \App\Models\NewsArticle::where('status', 'rejected')->count();
+        } else {
+            $approvedNewsCount = \App\Models\NewsArticle::where('status', 'approved')->where('moderated_by', $currentUserId)->count();
+            $rejectedNewsCount = \App\Models\NewsArticle::where('status', 'rejected')->where('moderated_by', $currentUserId)->count();
+        }
+        $newsApprovalRate = ($approvedNewsCount + $pendingNewsCount) > 0 ? round(($approvedNewsCount / ($approvedNewsCount + $pendingNewsCount)) * 100, 1) : 0;
 
         $allNews = \App\Models\NewsArticle::all();
         $newsApprovedByDate = [];
@@ -1015,6 +1052,9 @@ Route::middleware(['auth'])->group(function () {
         foreach ($allNews as $n) {
             $st = strtolower(trim((string)($n->status ?? '')));
             if ($st === 'approved') {
+                if (!$isAdmin && (string)($n->moderated_by ?? '') !== $currentUserId) {
+                    continue;
+                }
                 $d = null;
                 if (!empty($n->moderated_at)) {
                     $d = \Carbon\Carbon::parse($n->moderated_at)->format('Y-m-d');
@@ -1117,7 +1157,7 @@ Route::middleware(['auth'])->group(function () {
         }
 
         $totalReviewed = $approvedCount + $rejectedCount;
-        $approvalRate = $totalReviewed > 0 ? round(($approvedCount / $totalReviewed) * 100) : 100;
+        $approvalRate = $totalReviewed > 0 ? round(($approvedCount / $totalReviewed) * 100) : 0;
 
         $stats = [
             'pending_posts'      => $pendingCount,
@@ -1162,21 +1202,35 @@ Route::middleware(['auth'])->group(function () {
             return redirect('/')->with('error', 'Chỉ tài khoản Kiểm duyệt viên mới có quyền truy cập.');
         }
 
+        $currentUserId = (string)($user->_id ?? $user->id);
+        $isAdmin = ($user->role === 'admin');
+
         // Danh sách các trạng thái bài đăng
         $approvedStatuses = ['approved', 'active', 'đã cho thuê', 'rented', 'dang_thue', 'da cho thue', 'da_cho_thue', 'da_duyet', 'đã duyệt'];
         $rejectedStatuses = ['rejected', 'tuchoi', 'tu_choi', 'từ chối', 'tu choi'];
         $pendingStatuses = ['pending', 'cho_duyet', 'chờ duyệt', 'waiting', 'cho duyet'];
 
-        // Ưu tiên bài đăng pending lên đầu, sau đó đến các bài khác theo created_at desc
+        // Ưu tiên bài đăng pending lên đầu (toàn hệ thống để các kiểm duyệt viên cùng nhận xử lý)
         $pendingPosts = \App\Models\Post::whereIn('status', $pendingStatuses)->with(['user', 'building'])->orderBy('created_at', 'desc')->get();
-        $otherPosts = \App\Models\Post::whereNotIn('status', $pendingStatuses)->with(['user', 'building'])->orderBy('created_at', 'desc')->get();
-        $posts = $pendingPosts->merge($otherPosts);
-
         $pendingCount = $pendingPosts->count();
-        $approvedCount = \App\Models\Post::whereIn('status', $approvedStatuses)->count();
-        $rejectedCount = \App\Models\Post::whereIn('status', $rejectedStatuses)->count();
         $totalPosts = \App\Models\Post::count();
         $complaintCount = \App\Models\Complaint::where('status', 'pending')->count();
+
+        if ($isAdmin) {
+            $approvedCount = \App\Models\Post::whereIn('status', $approvedStatuses)->count();
+            $rejectedCount = \App\Models\Post::whereIn('status', $rejectedStatuses)->count();
+            $otherPosts = \App\Models\Post::whereNotIn('status', $pendingStatuses)->with(['user', 'building'])->orderBy('created_at', 'desc')->get();
+        } else {
+            // Đối với kiểm duyệt viên: chỉ thống kê và hiển thị các bài do chính tài khoản này duyệt hoặc từ chối
+            $approvedCount = \App\Models\Post::whereIn('status', $approvedStatuses)->where('approved_by', $currentUserId)->count();
+            $rejectedCount = \App\Models\Post::whereIn('status', $rejectedStatuses)->where('rejected_by', $currentUserId)->count();
+
+            $myApprovedPosts = \App\Models\Post::whereIn('status', $approvedStatuses)->where('approved_by', $currentUserId)->with(['user', 'building'])->orderBy('created_at', 'desc')->get();
+            $myRejectedPosts = \App\Models\Post::whereIn('status', $rejectedStatuses)->where('rejected_by', $currentUserId)->with(['user', 'building'])->orderBy('created_at', 'desc')->get();
+            $otherPosts = $myApprovedPosts->merge($myRejectedPosts);
+        }
+
+        $posts = $pendingPosts->merge($otherPosts);
 
         $stats = [
             'pending_posts'      => $pendingCount,
@@ -1187,7 +1241,7 @@ Route::middleware(['auth'])->group(function () {
         ];
 
         $buildings = \App\Models\Building::orderBy('name')->get();
-        return view('kiem_duyet_vien.qlkiem_duyet', compact('posts', 'buildings', 'stats', 'pendingCount', 'complaintCount'));
+        return view('kiem_duyet_vien.qlkiem_duyet', compact('posts', 'buildings', 'stats', 'pendingCount', 'approvedCount', 'rejectedCount', 'complaintCount'));
     })->name('moderator.posts');
 
     Route::get('/kiem-duyet/qlbai-dang', function () {
@@ -1217,13 +1271,69 @@ Route::middleware(['auth'])->group(function () {
         if (!$user->isModerator() && $user->role !== 'admin') {
             return redirect('/')->with('error', 'Chỉ tài khoản Kiểm duyệt viên mới có quyền truy cập.');
         }
+
+        $userId = (string)($user->_id ?? $user->id);
+        $isAdmin = ($user->role === 'admin');
+
+        // BƯỚC 1: Sửa Query Lấy Danh sách Lịch sử - Scoping bắt buộc theo user đang đăng nhập (admin_id)
+        $activitiesQuery = \App\Models\AdminActivity::query();
+        if (!$isAdmin) {
+            $activitiesQuery->where(function ($q) use ($userId) {
+                $q->where('admin_id', $userId)
+                  ->orWhere('user_id', $userId);
+            });
+        }
+        $activitiesQuery->where(function ($q) {
+            $q->where('category', 'post')
+              ->orWhereIn('action_type', ['approve', 'reject', 'duyet', 'tu_choi']);
+        });
+
+        $activities = $activitiesQuery->orderBy('created_at', 'desc')->get();
+
+        // BƯỚC 2: Sửa Query Thống kê KPI (Các thẻ đếm số trên cùng) theo tài khoản hiện tại
+        if ($isAdmin) {
+            $totalActs = \App\Models\AdminActivity::where(function ($q) {
+                $q->where('category', 'post')->orWhereIn('action_type', ['approve', 'reject', 'duyet', 'tu_choi']);
+            })->count();
+
+            $approvedActs = \App\Models\AdminActivity::where(function ($q) {
+                $q->where('category', 'post')->orWhereIn('action_type', ['approve', 'reject', 'duyet', 'tu_choi']);
+            })->whereIn('action_type', ['approve', 'duyet'])->count();
+
+            $rejectedActs = \App\Models\AdminActivity::where(function ($q) {
+                $q->where('category', 'post')->orWhereIn('action_type', ['approve', 'reject', 'duyet', 'tu_choi']);
+            })->whereIn('action_type', ['reject', 'tu_choi'])->count();
+        } else {
+            $totalActs = \App\Models\AdminActivity::where(function ($q) use ($userId) {
+                    $q->where('admin_id', $userId)->orWhere('user_id', $userId);
+                })
+                ->where(function ($q) {
+                    $q->where('category', 'post')->orWhereIn('action_type', ['approve', 'reject', 'duyet', 'tu_choi']);
+                })->count();
+
+            $approvedActs = \App\Models\AdminActivity::where(function ($q) use ($userId) {
+                    $q->where('admin_id', $userId)->orWhere('user_id', $userId);
+                })
+                ->whereIn('action_type', ['approve', 'duyet'])->count();
+
+            $rejectedActs = \App\Models\AdminActivity::where(function ($q) use ($userId) {
+                    $q->where('admin_id', $userId)->orWhere('user_id', $userId);
+                })
+                ->whereIn('action_type', ['reject', 'tu_choi'])->count();
+        }
+
         $pendingCount = \App\Models\Post::where('status', 'pending')->count();
         $complaintCount = \App\Models\Complaint::where('status', 'pending')->count();
-        $activities = \App\Models\AdminActivity::where('category', 'post')
-            ->orWhereIn('action_type', ['approve', 'reject'])
-            ->orderBy('created_at', 'desc')
-            ->get();
-        return view('kiem_duyet_vien.lich_su', compact('activities', 'pendingCount', 'complaintCount', 'user'));
+
+        return view('kiem_duyet_vien.lich_su', compact(
+            'activities',
+            'totalActs',
+            'approvedActs',
+            'rejectedActs',
+            'pendingCount',
+            'complaintCount',
+            'user'
+        ));
     })->name('moderator.history');
 
     Route::get('/kiem-duyet/thong-bao', function () {
@@ -1371,6 +1481,352 @@ Route::middleware(['auth'])->group(function () {
         return response()->json(['success' => true, 'message' => 'Đã xóa thông báo']);
     })->middleware('auth');
 
+    // API Kiểm Duyệt: Ghi nhận đã xem bài đăng (viewed_by) & Auto-lock khi click "Xem chi tiết"
+    Route::post('/api/kiem-duyet/posts/{id}/inspect', function ($id) {
+        $user = Auth::user();
+        if (!$user || (!$user->isModerator() && $user->role !== 'admin')) {
+            return response()->json(['success' => false, 'message' => 'Chỉ Kiểm duyệt viên mới có quyền thực hiện.'], 403);
+        }
+
+        $post = \App\Models\Post::where('_id', $id)->first() ?: \App\Models\Post::find($id);
+        if (!$post) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy bài đăng.'], 404);
+        }
+
+        $userId = (string)($user->_id ?? $user->id);
+        $lockedBy = (string)($post->locked_by ?? '');
+
+        // Kiểm tra kép locked_by: Nếu đang bị người khác khóa -> Trả về lỗi 403
+        if (!empty($lockedBy) && $lockedBy !== $userId) {
+            $locker = \App\Models\User::where('_id', $lockedBy)->first() ?: \App\Models\User::find($lockedBy);
+            $lockerName = $locker ? ($locker->display_name ?: ($locker->ten_hien_thi ?: ($locker->account_name ?: ($locker->username ?: 'nhân sự khác')))) : 'nhân sự khác';
+            return response()->json([
+                'success' => false,
+                'is_locked' => true,
+                'locked_by' => $lockedBy,
+                'locker_name' => $lockerName,
+                'message' => "Bài đăng đang được xem xét bởi: {$lockerName}."
+            ], 403);
+        }
+
+        // BƯỚC 2.1: Lấy mảng viewed_by hiện tại, nếu chưa có auth()->id() -> Push vào và lưu
+        $viewedBy = is_array($post->viewed_by) ? $post->viewed_by : [];
+        if (!in_array($userId, array_map('strval', $viewedBy))) {
+            $viewedBy[] = $userId;
+            $post->viewed_by = $viewedBy;
+        }
+
+        // Logic Auto-lock: cập nhật locked_by khi vào xem
+        $post->locked_by = $userId;
+        $post->locked_at = now();
+        $post->save();
+
+        return response()->json([
+            'success'    => true,
+            'has_viewed' => true,
+            'post_id'    => (string)($post->_id ?? $post->id),
+            'viewed_by'  => $post->viewed_by,
+            'locked_by'  => $post->locked_by,
+            'message'    => 'Đã ghi nhận xem chi tiết và khóa bài đăng để xem xét.'
+        ]);
+    })->middleware('auth');
+
+    // API Kiểm Duyệt: Mở khóa bài đăng (unlock khi quay ra ngoài)
+    Route::post('/api/kiem-duyet/posts/{id}/unlock', function ($id) {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Chưa đăng nhập.'], 401);
+        }
+
+        $post = \App\Models\Post::where('_id', $id)->first() ?: \App\Models\Post::find($id);
+        if (!$post) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy bài đăng.'], 404);
+        }
+
+        $userId = (string)($user->_id ?? $user->id);
+        if ((string)($post->locked_by ?? '') === $userId || $user->role === 'admin') {
+            $post->locked_by = null;
+            $post->locked_at = null;
+            $post->save();
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã mở khóa bài đăng.'
+        ]);
+    })->middleware('auth');
+
+    // API Kiểm Duyệt: Đồng bộ trạng thái bài đăng theo thời gian thực (Auto-lock / Viewed / Status)
+    Route::get('/api/kiem-duyet/posts/sync-status', function () {
+        $user = Auth::user();
+        if (!$user || (!$user->isModerator() && $user->role !== 'admin')) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $currentUserId = (string)($user->_id ?? $user->id);
+
+        $pendingStatuses = ['pending', 'cho_duyet', 'chờ duyệt', 'waiting', 'cho duyet'];
+        $posts = \App\Models\Post::whereIn('status', $pendingStatuses)
+            ->with(['building', 'user'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $lockerIds = $posts->pluck('locked_by')->filter()->unique()->values()->all();
+        $lockers = [];
+        if (!empty($lockerIds)) {
+            $users = \App\Models\User::whereIn('_id', $lockerIds)->get();
+            foreach ($users as $u) {
+                $uId = (string)($u->_id ?? $u->id);
+                $lockers[$uId] = $u->display_name ?: ($u->ten_hien_thi ?: ($u->account_name ?: ($u->username ?: 'nhân sự khác')));
+            }
+        }
+
+        $now = now();
+        $data = [];
+        foreach ($posts as $p) {
+            $pId = (string)($p->_id ?? $p->id);
+            $lockedBy = (string)($p->locked_by ?? '');
+
+            // Tự động giải phóng nếu lock quá 15 phút mà không thao tác
+            if (!empty($lockedBy) && !empty($p->locked_at)) {
+                $lockedTime = \Carbon\Carbon::parse($p->locked_at);
+                if ($now->diffInMinutes($lockedTime) > 15) {
+                    $p->locked_by = null;
+                    $p->locked_at = null;
+                    $p->save();
+                    $lockedBy = '';
+                }
+            }
+
+            $isLockedByOther = (!empty($lockedBy) && $lockedBy !== $currentUserId);
+            $lockerName = $isLockedByOther ? ($lockers[$lockedBy] ?? 'nhân sự khác') : '';
+            $viewedByList = array_map('strval', (array)($p->viewed_by ?? []));
+            $hasViewed = in_array($currentUserId, $viewedByList);
+
+            $bld = $p->building ?? null;
+            if (!$bld && !empty($p->building_id)) {
+                $bld = \App\Models\Building::find($p->building_id);
+            }
+            $author = $p->user ?? null;
+            if (!$author && !empty($p->user_id)) {
+                $author = \App\Models\User::find($p->user_id);
+            }
+
+            $staffName = $author ? ($author->account_name ?: ($author->username ?: $author->email)) : 'Nhân viên Sale';
+            $staffContact = $author ? ($author->phone ?: $author->email) : 'Chưa cập nhật';
+            $staffInitial = mb_strtoupper(mb_substr($staffName, 0, 1, 'UTF-8'));
+
+            $bldName = $bld->name ?? ($p->title ?? 'Tòa nhà / Cơ sở');
+            $bldAddress = $bld->full_address ?? ($bld->address_detail ?? ($bld->province ?? 'Hà Nội'));
+
+            $rawBType = $bld->type ?? ($bld->business_type ?? ($p->property_type ?? 'can_ho'));
+            $typeMap = [
+                'can_ho'           => 'Chung cư mini / Căn hộ dịch vụ',
+                'can_ho_dich_vu'   => 'Chung cư mini / Căn hộ dịch vụ',
+                'chung_cu_mini'    => 'Chung cư mini / Căn hộ dịch vụ',
+                'nha_tro'          => 'Nhà trọ / Khu trọ',
+                'day_tro'          => 'Nhà trọ / Khu trọ',
+                'ky_tuc_xa'        => 'Ký túc xá / Sleepbox',
+                'nha_rieng'        => 'Nhà ở / Nhà riêng lẻ',
+                'nha_nguyen_can'   => 'Nhà ở / Nhà riêng lẻ',
+                'cum_nha_lien_ke'  => 'Cụm nhà liền kề / Dự án',
+                'dat_phan_lo'      => 'Đất phân lô / Đất nền',
+                'dat_nen'          => 'Mặt bằng kinh doanh / Đất nền',
+                'toa_nha_van_phong'=> 'Tòa nhà văn phòng',
+            ];
+            $bldType = $typeMap[$rawBType] ?? ($rawBType ?: 'Chung cư mini / Căn hộ dịch vụ');
+
+            // Bảng giá dịch vụ Lớp Vỏ
+            $bElec = (float)($bld->electricity_price ?? 0);
+            $bWater = (float)($bld->water_price ?? 0);
+            $bWaterType = $bld->water_calc_type ?? 'm3';
+            $bService = (float)($bld->service_fee ?? 0);
+            $bInternet = (float)($bld->internet_fee ?? 0);
+            $bParking = (float)($bld->parking_fee ?? 0);
+
+            $hasAnyService = ($bElec > 0 || $bWater > 0 || $bService > 0 || $bInternet > 0 || $bParking > 0);
+            $hasServicePricingExplicit = isset($bld->has_service_pricing) && $bld->has_service_pricing !== null ? (bool)$bld->has_service_pricing : null;
+
+            if ($hasServicePricingExplicit !== null) {
+                $noServicePricing = !$hasServicePricingExplicit;
+            } elseif ($hasAnyService) {
+                $noServicePricing = false;
+            } else {
+                $isExcludedBType = in_array($rawBType, ['dat_phan_lo', 'dat_nen', 'nha_rieng', 'nha_nguyen_can', 'cum_nha_lien_ke']);
+                $noServicePricing = $isExcludedBType || !$hasAnyService;
+            }
+
+            $bAmenities = is_array($bld->amenities ?? null) 
+                ? $bld->amenities 
+                : (is_string($bld->amenities ?? null) ? json_decode($bld->amenities, true) : []);
+            $bAmenities = is_array($bAmenities) ? array_values(array_filter($bAmenities)) : [];
+
+            $buildingImages = [];
+            if (!empty($bld->images) && is_iterable($bld->images)) {
+                foreach ($bld->images as $rawBIm) {
+                    $s = is_array($rawBIm) ? ($rawBIm['url'] ?? ($rawBIm['path'] ?? '')) : (string)$rawBIm;
+                    if (!$s) continue;
+                    if (\Illuminate\Support\Str::startsWith($s, ['http', 'data:', '/images/', '/storage/'])) {
+                        $buildingImages[] = $s;
+                    } elseif (preg_match('/^[a-f\d]{24}$/i', $s)) {
+                        $buildingImages[] = url('/images/' . $s);
+                    } else {
+                        $buildingImages[] = asset('storage/' . ltrim($s, '/'));
+                    }
+                }
+            }
+            if (!empty($bld->image)) {
+                $s = $bld->image;
+                if (\Illuminate\Support\Str::startsWith($s, ['http', 'data:', '/images/', '/storage/'])) {
+                    array_unshift($buildingImages, $s);
+                } elseif (preg_match('/^[a-f\d]{24}$/i', $s)) {
+                    array_unshift($buildingImages, url('/images/' . $s));
+                } else {
+                    array_unshift($buildingImages, asset('storage/' . ltrim($s, '/')));
+                }
+            }
+            $buildingImages = array_values(array_unique($buildingImages));
+
+            // Danh sách ảnh bài đăng phòng (Lớp Ruột)
+            $postImages = [];
+            if (!empty($p->all_images) && is_iterable($p->all_images)) {
+                foreach ($p->all_images as $im) {
+                    $u = is_array($im) ? ($im['url'] ?? '') : ($im->url ?? '');
+                    if ($u) $postImages[] = $u;
+                }
+            }
+            if (empty($postImages) && !empty($p->images) && is_iterable($p->images)) {
+                foreach ($p->images as $rawIm) {
+                    $s = is_array($rawIm) ? ($rawIm['id'] ?? ($rawIm['url'] ?? '')) : (string)$rawIm;
+                    if (!$s) continue;
+                    if (\Illuminate\Support\Str::startsWith($s, ['http', 'data:', '/images/', '/storage/'])) {
+                        $postImages[] = $s;
+                    } elseif (preg_match('/^[a-f\d]{24}$/i', $s)) {
+                        $postImages[] = url('/images/' . $s);
+                    } else {
+                        $postImages[] = asset('storage/' . ltrim($s, '/'));
+                    }
+                }
+            }
+            $thumbUrl = $p->display_image ?: ($postImages[0] ?? 'https://placehold.co/160x120?text=No+Image');
+            if (empty($postImages)) $postImages[] = $thumbUrl;
+
+            $rawPrice = $p->price ?? 0;
+            $pUnit = $p->price_unit ?? 'thang';
+            $unitLabel = match($pUnit) {
+                'nam' => '/ năm',
+                'tong' => '(Tổng tiền)',
+                'm2' => '/ m²',
+                default => '/ tháng',
+            };
+            $priceFormatted = !empty($rawPrice) ? (number_format($rawPrice, 0, ',', '.') . ' đ ' . $unitLabel) : 'Thỏa thuận';
+
+            $pFloor = $p->floor ?? $p->floor_number;
+            $floorText = ($pFloor !== null && $pFloor !== '') 
+                ? ((int)$pFloor === 0 ? 'Tầng trệt' : ('Tầng ' . $pFloor))
+                : '';
+
+            $roomCode = $p->room_number ?? ('#' . strtoupper(substr($pId, -5)));
+            $roomArea = (float)($p->area ?? 0);
+
+            $roomAmenities = is_array($p->amenities ?? null) 
+                ? $p->amenities 
+                : (is_string($p->amenities ?? null) ? json_decode($p->amenities, true) : []);
+            $roomAmenities = is_array($roomAmenities) ? array_values(array_filter($roomAmenities)) : [];
+
+            $modalPayload = [
+                'id' => $pId,
+                'title' => $p->title ?? 'Phòng cho thuê',
+                'room_code' => $roomCode,
+                'area' => $roomArea . ' m²',
+                'floor' => $floorText ?: 'Chưa rõ tầng',
+                'price_formatted' => $priceFormatted,
+                'price' => $priceFormatted,
+                'deposit' => !empty($p->deposit) ? (number_format($p->deposit, 0, ',', '.') . ' VNĐ') : 'Thỏa thuận',
+                'payment_requirement' => $p->payment_requirement ?? null,
+                'bedroom' => (int)($p->bedroom ?? ($p->bedrooms ?? 1)),
+                'bathroom' => (int)($p->bathroom ?? ($p->bathrooms ?? 1)),
+                'is_land' => in_array($rawBType, ['dat_phan_lo', 'dat_nen']),
+                'desc' => $p->description ?? 'Không có mô tả chi tiết.',
+                'room_amenities' => $roomAmenities,
+                'created_time' => $p->created_at ? $p->created_at->format('d/m/Y H:i') : now()->format('d/m/Y H:i'),
+                'status' => 'pending',
+                'status_label' => 'Chờ phê duyệt',
+                'reject_reason' => $p->reject_reason ?? '',
+                'staff_name' => $staffName,
+                'staff_contact' => $staffContact,
+                'images' => $postImages,
+                'building_name' => $bldName,
+                'building_type' => $bldType,
+                'building_type_raw' => $rawBType,
+                'building_address' => $bldAddress,
+                'no_service_pricing' => $noServicePricing,
+                'electricity_price' => $bElec,
+                'water_price' => $bWater,
+                'water_calc_type' => $bWaterType,
+                'service_fee' => $bService,
+                'internet_fee' => $bInternet,
+                'parking_fee' => $bParking,
+                'building_amenities' => $bAmenities,
+                'building_images' => $buildingImages,
+            ];
+
+            $data[] = [
+                'id'                   => $pId,
+                'status'               => 'pending',
+                'title'                => $p->title ?? 'Bài đăng',
+                'is_locked'            => !empty($lockedBy),
+                'is_locked_by_other'   => $isLockedByOther,
+                'locked_by'            => $lockedBy,
+                'locker_name'          => $lockerName,
+                'has_viewed'           => $hasViewed,
+                'room_code'            => $roomCode,
+                'area'                 => $roomArea,
+                'floor_text'           => $floorText,
+                'thumb_url'            => $thumbUrl,
+                'images_count'         => count($postImages),
+                'building_name'        => $bldName,
+                'building_address'     => $bldAddress,
+                'building_type'        => $bldType,
+                'raw_btype'            => $rawBType,
+                'author_name'          => $staffName,
+                'author_phone'         => $staffContact,
+                'author_initial'       => $staffInitial,
+                'price'                => $rawPrice,
+                'price_formatted'      => $priceFormatted,
+                'created_at_formatted' => $p->created_at ? $p->created_at->format('d/m/Y H:i') : now()->format('d/m/Y H:i'),
+                'modal_payload'        => $modalPayload,
+                'raw_payload'          => $modalPayload,
+            ];
+        }
+
+        // Kiểm tra trạng thái của các ID mà client đang hiển thị (nếu có)
+        $clientIdsParam = request()->query('client_ids');
+        $resolvedStatuses = [];
+        if (!empty($clientIdsParam)) {
+            $clientIds = is_array($clientIdsParam) ? $clientIdsParam : explode(',', $clientIdsParam);
+            $clientIds = array_filter(array_map('trim', $clientIds));
+            if (!empty($clientIds)) {
+                $nonPending = \App\Models\Post::whereIn('_id', $clientIds)
+                    ->whereNotIn('status', $pendingStatuses)
+                    ->select(['_id', 'status', 'title'])
+                    ->get();
+                foreach ($nonPending as $np) {
+                    $s = strtolower(trim((string)$np->status));
+                    $resolvedStatuses[(string)($np->_id ?? $np->id)] = in_array($s, ['approved', 'active', 'da_duyet', 'đã duyệt', 'đã cho thuê', 'da cho thue', 'da_cho_thue', 'rented', 'dang_thue']) ? 'approved' : 'rejected';
+                }
+            }
+        }
+
+        return response()->json([
+            'success'           => true,
+            'current_user_id'   => $currentUserId,
+            'posts'             => $data,
+            'pending_count'     => count($data),
+            'resolved_statuses' => $resolvedStatuses,
+        ]);
+    })->middleware('auth');
+
     // API Kiểm Duyệt: Phê duyệt bài đăng (Step 3)
     Route::post('/api/kiem-duyet/posts/{id}/approve', function ($id) {
         $user = Auth::user();
@@ -1383,9 +1839,30 @@ Route::middleware(['auth'])->group(function () {
             return response()->json(['success' => false, 'message' => 'Không tìm thấy bài đăng.'], 404);
         }
 
+        // BƯỚC 1: Double-check tránh xung đột duyệt đồng thời - NẾU trạng thái khác 'pending' thì báo lỗi 409
+        $pendingStatuses = ['pending', 'cho_duyet', 'chờ duyệt', 'waiting', 'cho duyet'];
+        if (!in_array(strtolower(trim((string)$post->status)), $pendingStatuses)) {
+            return response()->json([
+                'success' => false,
+                'status_conflict' => true,
+                'message' => 'Thao tác thất bại: Bài đăng này đã được một Kiểm duyệt viên khác xử lý trước đó!'
+            ], 409);
+        }
+
+        // BƯỚC 2.2: Bắt buộc kiểm tra kép locked_by. Nếu đang bị người khác khóa -> Trả về lỗi 403
+        $userId = (string)($user->_id ?? $user->id);
+        $lockedBy = (string)($post->locked_by ?? '');
+        if (!empty($lockedBy) && $lockedBy !== $userId) {
+            $locker = \App\Models\User::where('_id', $lockedBy)->first() ?: \App\Models\User::find($lockedBy);
+            $lockerName = $locker ? ($locker->display_name ?: ($locker->ten_hien_thi ?: ($locker->account_name ?: ($locker->username ?: 'nhân sự khác')))) : 'nhân sự khác';
+            return response()->json(['success' => false, 'message' => "Bài đăng này đang bị khóa kiểm duyệt bởi: {$lockerName}."], 403);
+        }
+
         $post->status = 'approved';
         $post->approved_at = now();
-        $post->approved_by = (string)($user->_id ?? $user->id);
+        $post->approved_by = $userId;
+        $post->locked_by = null;
+        $post->locked_at = null;
         $post->save();
 
         // 1. Lưu lịch sử hành động duyệt bài vào AdminActivity
@@ -1453,13 +1930,34 @@ Route::middleware(['auth'])->group(function () {
             return response()->json(['success' => false, 'message' => 'Không tìm thấy bài đăng.'], 404);
         }
 
+        // BƯỚC 1: Double-check tránh xung đột xử lý đồng thời - NẾU trạng thái khác 'pending' thì báo lỗi 409
+        $pendingStatuses = ['pending', 'cho_duyet', 'chờ duyệt', 'waiting', 'cho duyet'];
+        if (!in_array(strtolower(trim((string)$post->status)), $pendingStatuses)) {
+            return response()->json([
+                'success' => false,
+                'status_conflict' => true,
+                'message' => 'Thao tác thất bại: Bài đăng này đã được một Kiểm duyệt viên khác xử lý trước đó!'
+            ], 409);
+        }
+
+        // BƯỚC 2.2: Bắt buộc kiểm tra kép locked_by. Nếu đang bị người khác khóa -> Trả về lỗi 403
+        $userId = (string)($user->_id ?? $user->id);
+        $lockedBy = (string)($post->locked_by ?? '');
+        if (!empty($lockedBy) && $lockedBy !== $userId) {
+            $locker = \App\Models\User::where('_id', $lockedBy)->first() ?: \App\Models\User::find($lockedBy);
+            $lockerName = $locker ? ($locker->display_name ?: ($locker->ten_hien_thi ?: ($locker->account_name ?: ($locker->username ?: 'nhân sự khác')))) : 'nhân sự khác';
+            return response()->json(['success' => false, 'message' => "Bài đăng này đang bị khóa kiểm duyệt bởi: {$lockerName}."], 403);
+        }
+
         $reason = $request->input('reason', 'Nội dung chưa đáp ứng quy chuẩn hệ thống');
 
         $post->status = 'rejected';
         $post->reject_reason = $reason;
         $post->rejected_at = now();
-        $post->rejected_by = (string)($user->_id ?? $user->id);
+        $post->rejected_by = $userId;
         $post->building_id = null; // Gỡ bài đăng khỏi tòa nhà khi bị từ chối
+        $post->locked_by = null;
+        $post->locked_at = null;
         $post->save();
 
         try {
@@ -1529,17 +2027,106 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/api/kiem-duyet/news/fetch-rss', [\App\Http\Controllers\NewsModerationController::class, 'fetchRss'])->name('moderator.news.fetch_rss');
     Route::put('/api/kiem-duyet/news/{id}', [\App\Http\Controllers\NewsModerationController::class, 'update'])->name('moderator.news.update');
     Route::post('/api/kiem-duyet/news/{id}/approve', [\App\Http\Controllers\NewsModerationController::class, 'approve'])->name('moderator.news.approve');
+    Route::post('/api/kiem-duyet/news/{id}/reject', [\App\Http\Controllers\NewsModerationController::class, 'reject'])->name('moderator.news.reject');
     Route::delete('/api/kiem-duyet/news/{id}', [\App\Http\Controllers\NewsModerationController::class, 'destroy'])->name('moderator.news.destroy');
+
+    // Hồ sơ cá nhân Kiểm duyệt viên
+    Route::get('/kiem-duyet/ho-so', [\App\Http\Controllers\ProfileController::class, 'index'])->name('kiemduyet.profile');
+    Route::post('/kiem-duyet/ho-so/update', [\App\Http\Controllers\ProfileController::class, 'updateProfile'])->name('kiemduyet.profile.update');
+    Route::post('/kiem-duyet/ho-so/password', [\App\Http\Controllers\ProfileController::class, 'updatePassword'])->name('kiemduyet.profile.password');
+
+    // Hồ sơ nhân sự nội bộ (Generic Internal Profile)
+    Route::get('/internal/ho-so', [\App\Http\Controllers\ProfileController::class, 'index'])->name('internal.profile');
+    Route::post('/internal/ho-so/update', [\App\Http\Controllers\ProfileController::class, 'updateProfile'])->name('internal.profile.update');
+    Route::post('/internal/ho-so/password', [\App\Http\Controllers\ProfileController::class, 'updatePassword'])->name('internal.profile.password');
 });
 
 // API Public: Tin tức BĐS đã phê duyệt cho Trang chủ
 Route::get('/api/news/approved', [\App\Http\Controllers\NewsModerationController::class, 'getApprovedNews'])->name('news.approved');
 
-Route::get('/dangbai', function(){
+Route::get('/dangbai', function(\Illuminate\Http\Request $request){
     if (!Auth::check()) {
         return redirect()->guest(route('login'));
     }
-    $buildings = \App\Models\Building::orderBy('created_at', 'desc')->get();
+    $user = Auth::user();
+
+    // RÀNG BUỘC CỐ ĐỊNH QUY MÔ: Nếu truy cập tạo bài cho tòa nhà đã đạt số lượng tối đa thì chuyển hướng báo lỗi
+    $preselectedBuildingId = $request->query('building_id', '');
+    $isEdit = $request->has('edit');
+    if (!empty($preselectedBuildingId) && !$isEdit) {
+        $targetBld = \App\Models\Building::find($preselectedBuildingId);
+        if ($targetBld) {
+            $maxRooms = max((int)($targetBld->total_rooms ?? 1), 1);
+            $tbId = (string)($targetBld->_id ?? $targetBld->id);
+            $curCount = \App\Models\Post::where(function($q) use ($tbId) {
+                    $q->where('building_id', $tbId);
+                    if (strlen($tbId) === 24 && ctype_xdigit($tbId)) {
+                        try {
+                            $q->orWhere('building_id', new \MongoDB\BSON\ObjectId($tbId));
+                        } catch (\Exception $e) {}
+                    }
+                })
+                ->whereNotIn('status', ['rejected', 'tu_choi', 'từ chối', 'deleted', 'cancelled', 'da_huy', 'huy', 'cancel'])
+                ->where(function($q) {
+                    $q->whereNull('is_deleted')->orWhere('is_deleted', false);
+                })
+                ->count();
+            if ($curCount >= $maxRooms) {
+                return redirect('/quan ly toa nha/' . $tbId . '?ref=buildings')
+                    ->with('error', "Tòa nhà '{$targetBld->name}' đã đầy ({$curCount}/{$maxRooms} phòng). Không thể đăng thêm phòng mới!");
+            }
+        }
+    }
+
+    $bQuery = \App\Models\Building::where(function($q) {
+        $q->whereNull('is_deleted')->orWhere('is_deleted', false);
+    });
+
+    if (method_exists($user, 'isSubAccount') && $user->isSubAccount()) {
+        $assigned = array_filter(array_map('strval', (array)($user->assigned_buildings ?? $user->building_ids ?? [])));
+        $assigned = array_values(array_diff($assigned, ['all', '*']));
+        if (!empty($assigned)) {
+            $bQuery->whereIn('_id', $assigned);
+        } else {
+            $bQuery->whereRaw(['_id' => null]);
+        }
+    }
+
+    $buildings = $bQuery->orderBy('created_at', 'desc')->get();
+
+    // Gắn sẵn số bài đăng hiện tại cho từng tòa nhà để phục vụ hiển thị & kiểm tra nhanh trên giao diện
+    $buildingIds = $buildings->map(fn($b) => (string)($b->_id ?? $b->id))->toArray();
+    $postsCountMap = [];
+    if (!empty($buildingIds)) {
+        $objIds = [];
+        foreach ($buildingIds as $idStr) {
+            if (strlen($idStr) === 24 && ctype_xdigit($idStr)) {
+                try {
+                    $objIds[] = new \MongoDB\BSON\ObjectId($idStr);
+                } catch (\Exception $e) {}
+            }
+        }
+        $activePosts = \App\Models\Post::where(function($q) use ($buildingIds, $objIds) {
+                $q->whereIn('building_id', $buildingIds);
+                if (!empty($objIds)) {
+                    $q->orWhereIn('building_id', $objIds);
+                }
+            })
+            ->whereNotIn('status', ['rejected', 'tu_choi', 'từ chối', 'deleted', 'cancelled', 'da_huy', 'huy', 'cancel'])
+            ->where(function($q) {
+                $q->whereNull('is_deleted')->orWhere('is_deleted', false);
+            })
+            ->get(['building_id']);
+        foreach ($activePosts as $p) {
+            $bIdStr = (string)$p->building_id;
+            $postsCountMap[$bIdStr] = ($postsCountMap[$bIdStr] ?? 0) + 1;
+        }
+    }
+    foreach ($buildings as $b) {
+        $bIdStr = (string)($b->_id ?? $b->id);
+        $b->current_posts_count = $postsCountMap[$bIdStr] ?? 0;
+    }
+
     return view('qlbai_dang.dangbai', compact('buildings'));
 })->middleware('auth')->name('dangbai');
 
@@ -1570,6 +2157,9 @@ Route::post('/api/favorites/toggle', [\App\Http\Controllers\FavoriteController::
 
 // User Dashboard APIs
 Route::get('/api/user/posts/stats', [\App\Http\Controllers\UserDashboardController::class, 'getStats'])->middleware('auth');
+
+// Realtime Short Polling API (Toàn hệ thống & tất cả tài khoản)
+Route::get('/api/realtime/poll', [\App\Http\Controllers\RealtimePollController::class, 'poll'])->middleware('auth')->name('api.realtime.poll');
 
 // Notification APIs & Routes
 Route::get('/api/notifications/unread', [\App\Http\Controllers\NotificationController::class, 'getUnread'])->middleware('auth');
@@ -1676,6 +2266,11 @@ Route::middleware(['auth'])->prefix('cskh')->group(function () {
     Route::get('/lich_su', function () {
         return redirect()->route('cskh.history');
     });
+
+    // Hồ sơ cá nhân CSKH
+    Route::get('/ho-so', [\App\Http\Controllers\ProfileController::class, 'index'])->name('cskh.profile');
+    Route::post('/ho-so/update', [\App\Http\Controllers\ProfileController::class, 'updateProfile'])->name('cskh.profile.update');
+    Route::post('/ho-so/password', [\App\Http\Controllers\ProfileController::class, 'updatePassword'])->name('cskh.profile.password');
 });
 
 // Chuyển hướng các URL cũ về Route CSKH mới
@@ -1692,6 +2287,9 @@ Route::get('/api/cskh/complaints/{id}', [\App\Http\Controllers\ComplaintControll
 Route::delete('/api/cskh/complaints/{id}', [\App\Http\Controllers\ComplaintController::class, 'destroy'])->middleware('auth')->name('api.cskh.complaints.destroy');
 Route::post('/api/cskh/tickets/{id}/escalate', [\App\Http\Controllers\ComplaintController::class, 'escalateTicket'])->middleware('auth')->name('api.cskh.tickets.escalate');
 Route::post('/api/cskh/tickets/{id}/reject', [\App\Http\Controllers\ComplaintController::class, 'rejectTicket'])->middleware('auth')->name('api.cskh.tickets.reject');
+// ★ Claim Ticket — Giành quyền xử lý đơn (chỉ 1 CSKH/đơn tại 1 thời điểm)
+Route::post('/api/cskh/tickets/{id}/claim', [\App\Http\Controllers\ComplaintController::class, 'claim'])->middleware('auth')->name('api.cskh.tickets.claim');
+Route::post('/api/cskh/complaints/{id}/claim', [\App\Http\Controllers\ComplaintController::class, 'claim'])->middleware('auth')->name('api.cskh.complaints.claim');
 
 // API Chat & Phản hồi Ticket
 Route::get('/api/cskh/tickets/{id}/chat', [\App\Http\Controllers\ComplaintController::class, 'getTicketChat'])->middleware('auth')->name('api.cskh.tickets.chat');

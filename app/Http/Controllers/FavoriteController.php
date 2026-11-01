@@ -15,7 +15,9 @@ class FavoriteController extends Controller
      */
     public function getFavorites(Request $request)
     {
-        if (!Auth::check() || Auth::user()->isEnterprise() || Auth::user()->role === 'doanhnghiep') {
+        $user = Auth::user();
+        $isInternal = $user && ($user->isEnterprise() || $user->isSubAccount() || $user->isStaff() || in_array($user->role ?? '', ['doanhnghiep', 'enterprise', 'nhansu', 'staff', 'sub_account', 'admin', 'kiemduyet', 'moderator']));
+        if (!Auth::check() || $isInternal) {
             return response()->json([
                 'success' => true,
                 'favorites' => [],
@@ -122,11 +124,18 @@ class FavoriteController extends Controller
 
         $user = Auth::user();
 
-        // 1. Tài khoản Doanh nghiệp không thể thích bài đăng
+        // 1. Tài khoản Doanh nghiệp hoặc Nhân sự không thể thích bài đăng
         if ($user->isEnterprise() || $user->role === 'doanhnghiep') {
             return response()->json([
                 'success' => false,
                 'message' => 'Tài khoản Doanh nghiệp không thể thực hiện chức năng yêu thích bài đăng.'
+            ], 403);
+        }
+
+        if ($user->isSubAccount() || $user->isStaff() || in_array($user->role ?? '', ['nhansu', 'staff', 'sub_account', 'admin', 'kiemduyet', 'moderator'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tài khoản Nhân sự không thể thực hiện chức năng yêu thích bài đăng.'
             ], 403);
         }
 

@@ -116,7 +116,7 @@ class BuildingController extends Controller
                         $bPostsQuery = $bPostsQuery->orWhere('building_id', new \MongoDB\BSON\ObjectId($bId));
                     } catch (\Exception $e) {}
                 }
-                $postsList = $bPostsQuery->whereNotIn('status', ['rejected', 'tu_choi', 'từ chối', 'deleted'])
+                $postsList = $bPostsQuery->whereNotIn('status', ['rejected', 'tu_choi', 'từ chối', 'deleted', 'cancelled', 'da_huy', 'huy', 'cancel'])
                     ->where(function($q) {
                         $q->whereNull('is_deleted')->orWhere('is_deleted', false);
                     })->get();
@@ -186,9 +186,10 @@ class BuildingController extends Controller
             }
 
             if ($user->isSubAccount()) {
-                $assignedIds = (array) ($user->assigned_buildings ?? []);
-                if (empty($assignedIds) || in_array('all', $assignedIds, true) || in_array('*', $assignedIds, true)) {
-                    $buildings = Building::orderBy('created_at', 'desc')->get();
+                $assignedIds = array_filter(array_map('strval', (array) ($user->assigned_buildings ?? [])));
+                $assignedIds = array_values(array_diff($assignedIds, ['all', '*']));
+                if (empty($assignedIds)) {
+                    $buildings = collect();
                 } else {
                     $buildings = Building::whereIn('_id', $assignedIds)->orderBy('created_at', 'desc')->get();
                 }
@@ -201,7 +202,7 @@ class BuildingController extends Controller
             $buildings->transform(function ($b) {
                 $bId = (string)($b->_id ?? $b->id);
                 $actualCount = Post::where('building_id', $bId)
-                    ->whereNotIn('status', ['rejected', 'tu_choi', 'từ chối', 'deleted'])
+                    ->whereNotIn('status', ['rejected', 'tu_choi', 'từ chối', 'deleted', 'cancelled', 'da_huy', 'huy', 'cancel'])
                     ->where(function($q) {
                         $q->whereNull('is_deleted')->orWhere('is_deleted', false);
                     })->count();
@@ -393,7 +394,7 @@ class BuildingController extends Controller
                 'parking_fee' => ($hasServicePricing && $request->filled('parking_fee')) ? (float)$validated['parking_fee'] : null,
 
                 'total_floors' => !empty($validated['total_floors']) ? (int)$validated['total_floors'] : 1,
-                'total_rooms' => !empty($validated['total_rooms']) ? (int)$validated['total_rooms'] : 0,
+                'total_rooms' => !empty($validated['total_rooms']) ? max((int)$validated['total_rooms'], 1) : 1,
                 'amenities' => !empty($validated['amenities']) ? array_values(array_unique($validated['amenities'])) : [],
                 'description' => $validated['description'] ?? '',
 
@@ -699,7 +700,7 @@ class BuildingController extends Controller
                 $building->total_floors = (int)$validated['total_floors'];
             }
             if (isset($validated['total_rooms'])) {
-                $building->total_rooms = (int)$validated['total_rooms'];
+                $building->total_rooms = max((int)$validated['total_rooms'], 1);
             }
             if (isset($validated['amenities'])) {
                 $building->amenities = array_values(array_unique($validated['amenities']));
@@ -1026,7 +1027,7 @@ class BuildingController extends Controller
                         $q->orWhere('building_id', new \MongoDB\BSON\ObjectId($bId));
                     } catch (\Exception $e) {}
                 }
-            })->whereNotIn('status', ['rejected', 'tu_choi', 'từ chối', 'deleted'])
+            })->whereNotIn('status', ['rejected', 'tu_choi', 'từ chối', 'deleted', 'cancelled', 'da_huy', 'huy', 'cancel'])
             ->where(function($q) {
                 $q->whereNull('is_deleted')->orWhere('is_deleted', false);
             });
@@ -1169,7 +1170,7 @@ class BuildingController extends Controller
                              $q->where('building_id', $bId)
                                ->orWhere('building_id', (string)$id);
                          })
-                         ->whereNotIn('status', ['rejected', 'tu_choi', 'từ chối', 'deleted'])
+                         ->whereNotIn('status', ['rejected', 'tu_choi', 'từ chối', 'deleted', 'cancelled', 'da_huy', 'huy', 'cancel'])
                          ->where(function($q) {
                              $q->whereNull('is_deleted')->orWhere('is_deleted', false);
                          })
@@ -1222,9 +1223,12 @@ class BuildingController extends Controller
                 });
 
             if ($user->isSubAccount()) {
-                $assignedIds = (array)($user->assigned_buildings ?? $user->building_ids ?? []);
+                $assignedIds = array_filter(array_map('strval', (array)($user->assigned_buildings ?? $user->building_ids ?? [])));
+                $assignedIds = array_values(array_diff($assignedIds, ['all', '*']));
                 if (!empty($assignedIds)) {
                     $otherBuildingsQuery->whereIn('_id', $assignedIds);
+                } else {
+                    $otherBuildingsQuery->whereRaw(['_id' => null]);
                 }
             }
 
@@ -1294,7 +1298,7 @@ class BuildingController extends Controller
                          $q->where('building_id', $bId)
                            ->orWhere('building_id', (string)$id);
                      })
-                     ->whereNotIn('status', ['rejected', 'tu_choi', 'từ chối', 'deleted'])
+                     ->whereNotIn('status', ['rejected', 'tu_choi', 'từ chối', 'deleted', 'cancelled', 'da_huy', 'huy', 'cancel'])
                      ->where(function($q) {
                          $q->whereNull('is_deleted')->orWhere('is_deleted', false);
                      })

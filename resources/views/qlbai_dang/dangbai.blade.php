@@ -138,6 +138,25 @@
                                     if (empty($bAmenities)) {
                                         $bAmenities = ['Thang máy', 'Bảo vệ 24/7', 'Hầm để xe', 'Camera an ninh'];
                                     }
+                                    $bTotalRooms = max((int)($b->total_rooms ?? 1), 1);
+                                    $bCurrentPosts = isset($b->current_posts_count) ? (int)$b->current_posts_count : null;
+                                    if ($bCurrentPosts === null) {
+                                        $bIdStr = (string)($b->_id ?? $b->id);
+                                        $bCurrentPosts = \App\Models\Post::where(function($q) use ($bIdStr) {
+                                                $q->where('building_id', $bIdStr);
+                                                if (strlen($bIdStr) === 24 && ctype_xdigit($bIdStr)) {
+                                                    try {
+                                                        $q->orWhere('building_id', new \MongoDB\BSON\ObjectId($bIdStr));
+                                                    } catch (\Exception $e) {}
+                                                }
+                                            })
+                                            ->whereNotIn('status', ['rejected', 'tu_choi', 'từ chối', 'deleted', 'cancelled', 'da_huy', 'huy', 'cancel'])
+                                            ->where(function($q) {
+                                                $q->whereNull('is_deleted')->orWhere('is_deleted', false);
+                                            })->count();
+                                    }
+                                    $isThisBuildingFull = ($bCurrentPosts >= $bTotalRooms);
+                                    $isEditingThisBuilding = ($editingPost && (string)($editingPost->building_id ?? '') === (string)($b->_id ?? $b->id));
                                 @endphp
                                 <option value="{{ $b->_id ?? $b->id }}" 
                                     data-address="{{ $bFullAddr ?: ($b->address_detail ?? '') }}"
@@ -145,6 +164,9 @@
                                     data-type="{{ $b->type ?? $b->business_type ?? $b->property_group ?? 'nha_o' }}"
                                     data-business-type="{{ $b->business_type ?? ($b->type ?? '') }}"
                                     data-floors="{{ $b->total_floors ?? $b->floors ?? 0 }}"
+                                    data-total-rooms="{{ $bTotalRooms }}"
+                                    data-current-posts="{{ $bCurrentPosts }}"
+                                    data-is-full="{{ ($isThisBuildingFull && !$isEditingThisBuilding) ? '1' : '0' }}"
                                     data-amenities="{{ json_encode($bAmenities, JSON_UNESCAPED_UNICODE) }}"
                                     data-elec="{{ $b->electricity_price ?? '' }}"
                                     data-water="{{ $b->water_price ?? '' }}"
@@ -153,7 +175,7 @@
                                     data-internet="{{ $b->internet_fee ?? '' }}"
                                     data-parking="{{ $b->parking_fee ?? '' }}"
                                     {{ ($preselectedBuildingId == ($b->_id ?? $b->id)) ? 'selected' : '' }}>
-                                    🏢 {{ $b->name }} ({{ $b->province }} - {{ $b->total_rooms ?? 0 }} phòng)
+                                    🏢 {{ $b->name }} ({{ $b->province }} - {{ $bCurrentPosts }}/{{ $bTotalRooms }} phòng{{ ($isThisBuildingFull && !$isEditingThisBuilding) ? ' - ĐÃ ĐẦY' : '' }})
                                 </option>
                             @endforeach
                         </select>
@@ -182,6 +204,27 @@
                                     <i class="fa-solid fa-circle-check"></i>
                                     <span>Hệ thống tự động kế thừa 100% địa chỉ từ tòa nhà đã chọn</span>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cảnh báo khi tòa nhà đã đủ số lượng phòng -->
+                    <div id="building-full-warning" class="hidden mt-3.5 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 shadow-xs transition-all">
+                        <div class="flex items-start gap-3">
+                            <div class="w-9 h-9 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 mt-0.5 text-base font-bold">
+                                <i class="fa-solid fa-ban"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between gap-2 mb-1">
+                                    <h4 class="font-extrabold text-rose-900 text-xs uppercase tracking-wide">Tòa nhà đã đạt quy mô tối đa</h4>
+                                    <span id="warning-building-scale-badge" class="px-2 py-0.5 rounded-full bg-rose-200 text-rose-800 font-extrabold text-[10px]"></span>
+                                </div>
+                                <p class="text-xs text-rose-700 leading-relaxed font-medium" id="warning-building-message">
+                                    Tòa nhà này đã đủ số lượng bài đăng theo quy mô được cấu hình. Hệ thống không cho phép đăng thêm phòng mới vào cơ sở này!
+                                </p>
+                                <p class="text-[11px] text-rose-600 font-medium mt-1.5 flex items-center gap-1">
+                                    <i class="fa-solid fa-circle-exclamation"></i> Vui lòng nâng quy mô số lượng phòng tại Quản lý Tòa nhà hoặc chọn cơ sở khác.
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -1083,6 +1126,7 @@
 
         function goToStepDetails() {
             const bSelect = document.getElementById('select-building-id');
+            const selectedOption = bSelect ? bSelect.options[bSelect.selectedIndex] : null;
             const buildingId = bSelect ? bSelect.value : '';
             const isSubAccount = @json($isSubAccount);
             const isEditing = Boolean(document.getElementById('edit-post-id')?.value || '{{ $editingPost ? "1" : "" }}');
@@ -1090,6 +1134,26 @@
             if (isSubAccount && !buildingId && !isEditing) {
                 showToast('Vui lòng chọn Tòa nhà được phân công quản lý trước khi tiếp tục!', 'warning');
                 bSelect?.focus();
+                return;
+            }
+
+            if (!isEditing && selectedOption && selectedOption.getAttribute('data-is-full') === '1') {
+                const bName = selectedOption.getAttribute('data-name') || selectedOption.innerText.trim();
+                const cur = selectedOption.getAttribute('data-current-posts') || '0';
+                const max = selectedOption.getAttribute('data-total-rooms') || '1';
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Tòa nhà đã đầy!',
+                        html: `Tòa nhà <b>${bName}</b> có quy mô <b>${max} phòng</b> và hiện đã được đăng đủ <b>${cur}/${max} phòng</b>.<br><br><span class="text-xs text-slate-500">Hệ thống đã cố định số lượng bài đăng theo quy mô tòa nhà. Không thể tiếp tục đăng bài cho tòa nhà này!</span>`,
+                        confirmButtonText: 'Đã hiểu',
+                        confirmButtonColor: '#e11d48'
+                    });
+                } else if (typeof showToast === 'function') {
+                    showToast(`Tòa nhà "${bName}" đã đầy (${cur}/${max} phòng). Không thể đăng thêm!`, 'error');
+                } else {
+                    alert(`Tòa nhà "${bName}" đã đầy (${cur}/${max} phòng). Không thể đăng thêm!`);
+                }
                 return;
             }
 
@@ -1437,6 +1501,17 @@
 
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
+            // Chặn gửi lên server nếu tòa nhà đã đầy
+            const bSelect = document.getElementById('select-building-id');
+            const selectedOption = bSelect ? bSelect.options[bSelect.selectedIndex] : null;
+            if (!isEditing && selectedOption && selectedOption.getAttribute('data-is-full') === '1') {
+                const bName = selectedOption.getAttribute('data-name') || selectedOption.innerText.trim();
+                const cur = selectedOption.getAttribute('data-current-posts') || '0';
+                const max = selectedOption.getAttribute('data-total-rooms') || '1';
+                showToast(`Tòa nhà "${bName}" đã đầy (${cur}/${max} phòng). Không thể đăng thêm bài!`, 'error');
+                return;
+            }
+
             // Hiệu ứng Loading nút bấm
             const btn = document.querySelector('button[onclick="submitPost()"]');
             const originalText = btn.innerHTML;
@@ -1608,6 +1683,8 @@
                     previewCard.classList.add('d-none');
                     previewCard.classList.add('hidden');
                 }
+                const fullWarn = document.getElementById('building-full-warning');
+                if (fullWarn) fullWarn.classList.add('hidden');
                 if (s2Box) s2Box.classList.add('hidden');
                 if (s1FloorsBadge) s1FloorsBadge.classList.add('hidden');
                 if (s2FloorsBadge) s2FloorsBadge.classList.add('hidden');
@@ -1662,6 +1739,34 @@
 
             // 1. Tự động mapping Loại hình BĐS & Ẩn/Hiện Số phòng ngủ, Số phòng tắm
             applyPropertyTypeMapping(bType);
+
+            // Kiểm tra quy mô phòng của Tòa nhà và cảnh báo nếu đã đầy
+            const isFull = selectedOption.getAttribute('data-is-full') === '1';
+            const fullWarn = document.getElementById('building-full-warning');
+            const fullMsg = document.getElementById('warning-building-message');
+            const fullBadge = document.getElementById('warning-building-scale-badge');
+            const totalRooms = selectedOption.getAttribute('data-total-rooms') || '1';
+            const currentPosts = selectedOption.getAttribute('data-current-posts') || '0';
+
+            if (isFull) {
+                if (fullWarn) fullWarn.classList.remove('hidden');
+                if (fullBadge) fullBadge.innerText = `${currentPosts}/${totalRooms} phòng (ĐÃ ĐẦY)`;
+                if (fullMsg) fullMsg.innerHTML = `Tòa nhà / Cơ sở <b>${bName}</b> có quy mô <b>${totalRooms} phòng</b> và hiện đã được đăng đủ <b>${currentPosts}/${totalRooms} bài đăng (đã đầy)</b>. Hệ thống không cho phép đăng thêm phòng mới cho cơ sở này!`;
+
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Tòa nhà đã đầy!',
+                        html: `Tòa nhà <b>${bName}</b> có quy mô <b>${totalRooms} phòng</b> và hiện đã được đăng đủ <b>${currentPosts}/${totalRooms} phòng (đã đầy)</b>.<br><br><span class="text-xs text-slate-500">Hệ thống đã cố định số lượng bài đăng theo quy mô tòa nhà. Bạn không thể đăng thêm bài mới cho tòa nhà này!</span>`,
+                        confirmButtonText: 'Đã hiểu',
+                        confirmButtonColor: '#e11d48'
+                    });
+                } else if (typeof showToast === 'function') {
+                    showToast(`Tòa nhà "${bName}" đã đầy (${currentPosts}/${totalRooms} phòng). Không thể đăng thêm!`, 'error');
+                }
+            } else {
+                if (fullWarn) fullWarn.classList.add('hidden');
+            }
 
             // 2. Cập nhật Preview Card ở Bước 1
             if (previewCard) {

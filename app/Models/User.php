@@ -36,6 +36,8 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
+        'name',
+        'display_name',
         'username',
         'ten_hien_thi',
         'email',
@@ -209,15 +211,16 @@ class User extends Authenticatable
             return true;
         }
         if ($this->isSubAccount()) {
-            $assigned = (array) ($this->assigned_buildings ?? []);
-            // Nếu chưa chỉ định danh sách hoặc chứa 'all' / '*' thì nhân viên được quản lý tất cả tòa nhà
-            if (empty($assigned) || in_array('all', $assigned, true) || in_array('*', $assigned, true)) {
-                return true;
+            $assigned = array_filter(array_map('strval', (array) ($this->assigned_buildings ?? [])));
+            $assigned = array_values(array_diff($assigned, ['all', '*']));
+            // Nếu không có tòa nhà được phân công hoặc không nằm trong danh sách thì không có quyền
+            if (empty($assigned)) {
+                return false;
             }
-            if ($buildingId === null || $buildingId === 'all') {
-                return true;
+            if ($buildingId === null || $buildingId === 'all' || $buildingId === '*') {
+                return false;
             }
-            return in_array((string)$buildingId, array_map('strval', $assigned), true);
+            return in_array((string)$buildingId, $assigned, true);
         }
         return false;
     }
@@ -269,10 +272,27 @@ class User extends Authenticatable
         $this->attributes['username'] = $value;
     }
 
+    public function getNameAttribute()
+    {
+        return $this->attributes['name'] 
+            ?? ($this->attributes['ho_ten'] 
+            ?? ($this->attributes['account_name'] 
+            ?? ($this->attributes['username'] ?? '')));
+    }
+
     public function getDisplayNameAttribute()
     {
+        if (!empty($this->attributes['display_name'])) {
+            return $this->attributes['display_name'];
+        }
+        if (!empty($this->attributes['ten_hien_thi'])) {
+            return $this->attributes['ten_hien_thi'];
+        }
         if ($this->isAdmin()) {
             return $this->ten_hien_thi ?: ($this->ho_ten ?: ($this->account_name ?: ($this->username ?: 'Ban Quản Trị Admin')));
+        }
+        if (method_exists($this, 'isCskh') && $this->isCskh()) {
+            return $this->ten_hien_thi ?: ($this->ho_ten ?: ($this->account_name ?: ($this->username ?: 'Nhân viên CSKH')));
         }
         if ($this->isEnterprise()) {
             return $this->company_name ?: ($this->representative ?: ($this->account_name ?: 'RentHome'));

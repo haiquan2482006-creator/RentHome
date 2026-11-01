@@ -438,7 +438,7 @@
                         const isFav = window.RentHomeFavorites && window.RentHomeFavorites.has(postId);
                         const isEnterprise = window.currentUserType === 'doanhnghiep';
                         const isMyPost = Boolean(window.currentUserId && postOwnerId && postOwnerId === String(window.currentUserId));
-                        const canFavorite = !isEnterprise && !isMyPost;
+                        const canFavorite = !isEnterprise && !Boolean(window.isStaffUser) && !isMyPost;
 
                         let favButtonHtml = '';
                         if (canFavorite) {

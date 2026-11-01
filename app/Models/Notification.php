@@ -24,13 +24,17 @@ class Notification extends Model
         'type', // success, error, warning, info, building
         'is_read',
         'category',
-        'changes'
+        'changes',
+        'deleted_by',
+        'read_by'
     ];
 
     protected $casts = [
         'is_read' => 'boolean',
         'data' => 'array',
         'read_at' => 'datetime',
+        'deleted_by' => 'array',
+        'read_by' => 'array',
     ];
 
     protected $appends = [

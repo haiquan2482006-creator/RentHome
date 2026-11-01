@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Tổng Quan Chăm Sóc Khách Hàng - RentHome CSKH</title>
+    <link rel="icon" type="image/png" href="{{ asset('img/logo.png') }}">
 
     <!-- Google Fonts & FontAwesome 6 -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -631,19 +632,38 @@
                     </span>
                 </a>
             </li>
+            <li>
+                <a href="{{ route('cskh.profile') }}" class="nav-link {{ request()->routeIs('cskh.profile') ? 'active' : '' }}">
+                    <span class="nav-link-left">
+                        <i class="fa-solid fa-user-gear"></i>
+                        <span>Hồ sơ cá nhân</span>
+                    </span>
+                </a>
+            </li>
         </ul>
 
         <div class="user-footer">
-            <div class="user-footer-left">
-                <div class="avatar-circle">CSKH</div>
+            <a href="{{ route('cskh.profile') }}" class="user-footer-left hover:opacity-85 transition-opacity" title="👤 Hồ sơ cá nhân">
+                <div class="avatar-circle">
+                    @if(!empty($currentUser->avatar))
+                        <img src="{{ $currentUser->display_avatar }}" alt="Avatar" class="w-full h-full rounded-full object-cover">
+                    @else
+                        CSKH
+                    @endif
+                </div>
                 <div class="user-meta">
-                    <h4>{{ $currentUser->account_name ?? 'Chăm Sóc Khách Hàng' }}</h4>
+                    <h4>{{ $currentUser->display_name ?: ($currentUser->account_name ?? 'Chăm Sóc Khách Hàng') }}</h4>
                     <p>{{ $currentUser->email ?? 'chamsockh@gmail.com' }}</p>
                 </div>
-            </div>
-            <a href="{{ url('/logout') }}" class="logout-btn" title="Đăng xuất">
-                <i class="fa-solid fa-right-from-bracket"></i>
             </a>
+            <div class="flex items-center gap-1">
+                <a href="{{ route('cskh.profile') }}" class="logout-btn" title="👤 Hồ sơ cá nhân">
+                    <i class="fa-solid fa-user-pen text-xs"></i>
+                </a>
+                <a href="{{ url('/logout') }}" class="logout-btn" title="Đăng xuất">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </a>
+            </div>
         </div>
     </aside>
 
@@ -741,7 +761,7 @@
                 </div>
                 <div>
                     <div class="kpi-title">Đã giải quyết thành công</div>
-                    <div class="kpi-value text-emerald-600">{{ number_format($resolvedCount) }}</div>
+                    <div class="kpi-value text-emerald-600">{{ number_format($cskhResolvedCount ?? 0) }}</div>
                 </div>
                 <div class="kpi-footer">
                     <i class="fa-solid fa-shield-check text-emerald-500"></i>
@@ -1007,16 +1027,16 @@
             // 3. Cấu hình Biểu đồ Doughnut Trạng thái
             const statusCtx = document.getElementById('statusDoughnutChart');
             if (statusCtx) {
-                // Kiểm tra nếu tổng = 0 thì hiển thị 1 lát trống nhẹ
-                const totalForChart = pendingCount + escalatedCount + cskhResolvedCount + rejectedCount;
-                const statusData = totalForChart > 0 
-                    ? [pendingCount, escalatedCount, cskhResolvedCount, rejectedCount]
-                    : [0, 0, 1, 0];
+                // Chỉ giữ lại 2 trạng thái: Trình Admin & CSKH xử lý
+                const totalForChart = escalatedCount + cskhResolvedCount;
+                const statusData = totalForChart > 0
+                    ? [escalatedCount, cskhResolvedCount]
+                    : [0, 1];
                 const bgColors = totalForChart > 0
-                    ? ['#f59e0b', '#8b5cf6', '#10b981', '#ef4444']
+                    ? ['#8b5cf6', '#10b981']
                     : ['#e2e8f0'];
                 const labels = totalForChart > 0
-                    ? ['Chờ CSKH', 'Trình Admin', 'CSKH xử lý', 'Từ chối / Bác bỏ']
+                    ? ['Trình Admin', 'CSKH xử lý']
                     : ['Chưa có hồ sơ'];
 
                 new Chart(statusCtx.getContext('2d'), {

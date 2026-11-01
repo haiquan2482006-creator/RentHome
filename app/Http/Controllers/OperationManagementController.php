@@ -29,14 +29,20 @@ class OperationManagementController extends Controller
         // 1. Truy xuất danh sách các hợp đồng đang active của doanh nghiệp chung
         $contractsQuery = Contract::whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly']);
 
-        // Nếu là tài khoản con và có phân quyền theo tòa nhà chỉ định
-        if ($user->isSubAccount() && !empty($user->assigned_buildings) && !in_array('all', $user->assigned_buildings, true)) {
-            $assignedIds = array_map('strval', (array)$user->assigned_buildings);
-            $postIds = Post::whereIn('building_id', $assignedIds)->pluck('_id')->map(fn($id) => (string)$id)->toArray();
-            $contractsQuery->where(function ($q) use ($postIds, $user) {
-                $q->whereIn('post_id', $postIds)
-                  ->orWhere('owner_id', (string)$user->id)
-                  ->orWhere('created_by', (string)$user->id);
+        // Nếu là tài khoản con
+        if ($user->isSubAccount()) {
+            $assignedIds = array_filter(array_map('strval', (array)($user->assigned_buildings ?? [])));
+            $assignedIds = array_values(array_diff($assignedIds, ['all', '*']));
+            $userId = (string)($user->_id ?? $user->id);
+            $contractsQuery->where(function ($q) use ($assignedIds, $userId) {
+                if (!empty($assignedIds)) {
+                    $postIds = Post::whereIn('building_id', $assignedIds)->pluck('_id')->map(fn($id) => (string)$id)->toArray();
+                    if (!empty($postIds)) {
+                        $q->whereIn('post_id', $postIds);
+                    }
+                }
+                $q->orWhere('owner_id', $userId)
+                  ->orWhere('created_by', $userId);
             });
         }
 
@@ -355,9 +361,18 @@ class OperationManagementController extends Controller
             $q->whereNull('is_rented')->orWhere('is_rented', false);
         });
 
-        if ($user->isSubAccount() && !empty($user->assigned_buildings) && !in_array('all', $user->assigned_buildings, true)) {
-            $assignedIds = array_map('strval', (array)$user->assigned_buildings);
-            $roomsQuery->whereIn('building_id', $assignedIds);
+        if ($user->isSubAccount()) {
+            $assignedIds = array_filter(array_map('strval', (array)($user->assigned_buildings ?? [])));
+            $assignedIds = array_values(array_diff($assignedIds, ['all', '*']));
+            $userId = (string)($user->_id ?? $user->id);
+            $roomsQuery->where(function ($q) use ($assignedIds, $userId) {
+                if (!empty($assignedIds)) {
+                    $q->whereIn('building_id', $assignedIds);
+                }
+                $q->orWhere('user_id', $userId)
+                  ->orWhere('staff_id', $userId)
+                  ->orWhere('author_id', $userId);
+            });
         }
 
         $availableRooms = $roomsQuery->get();
@@ -376,13 +391,19 @@ class OperationManagementController extends Controller
         $currentMonthStr = $now->format('m/Y');
 
         $contractsQuery = Contract::whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly']);
-        if ($user && $user->isSubAccount() && !empty($user->assigned_buildings) && !in_array('all', $user->assigned_buildings, true)) {
-            $assignedIds = array_map('strval', (array)$user->assigned_buildings);
-            $postIds = Post::whereIn('building_id', $assignedIds)->pluck('_id')->map(fn($id) => (string)$id)->toArray();
-            $contractsQuery->where(function($q) use ($postIds, $user) {
-                $q->whereIn('post_id', $postIds)
-                  ->orWhere('owner_id', (string)$user->id)
-                  ->orWhere('created_by', (string)$user->id);
+        if ($user && $user->isSubAccount()) {
+            $assignedIds = array_filter(array_map('strval', (array)($user->assigned_buildings ?? [])));
+            $assignedIds = array_values(array_diff($assignedIds, ['all', '*']));
+            $userId = (string)($user->_id ?? $user->id);
+            $contractsQuery->where(function($q) use ($assignedIds, $userId) {
+                if (!empty($assignedIds)) {
+                    $postIds = Post::whereIn('building_id', $assignedIds)->pluck('_id')->map(fn($id) => (string)$id)->toArray();
+                    if (!empty($postIds)) {
+                        $q->whereIn('post_id', $postIds);
+                    }
+                }
+                $q->orWhere('owner_id', $userId)
+                  ->orWhere('created_by', $userId);
             });
         }
         $contracts = $contractsQuery->get();
@@ -496,13 +517,19 @@ class OperationManagementController extends Controller
 
         // 1. Lấy danh sách hợp đồng hoạt động của doanh nghiệp
         $contractsQuery = Contract::whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly']);
-        if ($user->isSubAccount() && !empty($user->assigned_buildings) && !in_array('all', $user->assigned_buildings, true)) {
-            $assignedIds = array_map('strval', (array)$user->assigned_buildings);
-            $postIds = Post::whereIn('building_id', $assignedIds)->pluck('_id')->map(fn($id) => (string)$id)->toArray();
-            $contractsQuery->where(function ($q) use ($postIds, $user) {
-                $q->whereIn('post_id', $postIds)
-                  ->orWhere('owner_id', (string)$user->id)
-                  ->orWhere('created_by', (string)$user->id);
+        if ($user->isSubAccount()) {
+            $assignedIds = array_filter(array_map('strval', (array)($user->assigned_buildings ?? [])));
+            $assignedIds = array_values(array_diff($assignedIds, ['all', '*']));
+            $userId = (string)($user->_id ?? $user->id);
+            $contractsQuery->where(function ($q) use ($assignedIds, $userId) {
+                if (!empty($assignedIds)) {
+                    $postIds = Post::whereIn('building_id', $assignedIds)->pluck('_id')->map(fn($id) => (string)$id)->toArray();
+                    if (!empty($postIds)) {
+                        $q->whereIn('post_id', $postIds);
+                    }
+                }
+                $q->orWhere('owner_id', $userId)
+                  ->orWhere('created_by', $userId);
             });
         }
 

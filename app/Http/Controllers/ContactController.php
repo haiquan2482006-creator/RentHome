@@ -277,14 +277,23 @@ class ContactController extends Controller
         // Truy xuất các bài đăng có liên hệ dựa trên phân quyền doanh nghiệp & tài khoản con
         $postsQuery = Post::query();
 
-        if ($user->isSubAccount() && !empty($user->assigned_buildings) && !in_array('all', $user->assigned_buildings, true)) {
-            $assignedIds = array_map('strval', (array)$user->assigned_buildings);
+        if ($user->isSubAccount()) {
+            $assignedIds = array_filter(array_map('strval', (array)($user->assigned_buildings ?? [])));
+            $assignedIds = array_values(array_diff($assignedIds, ['all', '*']));
             $postsQuery->where(function($q) use ($assignedIds, $userId) {
-                $q->whereIn('building_id', $assignedIds)
-                  ->orWhere('user_id', (string)$userId);
+                if (!empty($assignedIds)) {
+                    $q->whereIn('building_id', $assignedIds);
+                }
+                $q->orWhere('user_id', (string)$userId)
+                  ->orWhere('staff_id', (string)$userId)
+                  ->orWhere('author_id', (string)$userId);
             });
-        } elseif (!$user->isAdmin() && !$user->isEnterprise() && !$user->isSubAccount()) {
-            $postsQuery->where('user_id', (string)$userId);
+        } elseif (!$user->isAdmin() && !$user->isEnterprise()) {
+            $postsQuery->where(function($q) use ($userId) {
+                $q->where('user_id', (string)$userId)
+                  ->orWhere('staff_id', (string)$userId)
+                  ->orWhere('author_id', (string)$userId);
+            });
         }
 
         $posts = $postsQuery->get();
@@ -467,9 +476,9 @@ class ContactController extends Controller
         if ($user->isAdmin() || $user->isEnterprise()) {
             $canUpdate = true;
         } elseif ($user->isSubAccount()) {
-            if ($contact->post && (!empty($contact->post->building_id) ? $user->canManageBuilding($contact->post->building_id) : true)) {
+            if ($contact->post && !empty($contact->post->building_id) && $user->canManageBuilding($contact->post->building_id)) {
                 $canUpdate = true;
-            } elseif ($contact->post && $contact->post->user_id == $user->id) {
+            } elseif ($contact->post && (string)$contact->post->user_id === (string)$user->id) {
                 $canUpdate = true;
             }
         } elseif (($contact->post->user_id ?? $contact->owner_id) == Auth::id()) {

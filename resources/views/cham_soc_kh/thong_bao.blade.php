@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Trung Tâm Thông Báo - RentHome CSKH</title>
+    <link rel="icon" type="image/png" href="{{ asset('img/logo.png') }}">
 
     <!-- Google Fonts & FontAwesome 6 -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -385,19 +386,38 @@
                     </span>
                 </a>
             </li>
+            <li>
+                <a href="{{ route('cskh.profile') }}" class="nav-link {{ request()->routeIs('cskh.profile') ? 'active' : '' }}">
+                    <span class="nav-link-left">
+                        <i class="fa-solid fa-user-gear"></i>
+                        <span>Hồ sơ cá nhân</span>
+                    </span>
+                </a>
+            </li>
         </ul>
 
         <div class="user-footer">
-            <div class="user-footer-left">
-                <div class="avatar-circle">CSKH</div>
+            <a href="{{ route('cskh.profile') }}" class="user-footer-left hover:opacity-85 transition-opacity" title="👤 Hồ sơ cá nhân">
+                <div class="avatar-circle">
+                    @if(!empty(auth()->user()->avatar))
+                        <img src="{{ auth()->user()->display_avatar }}" alt="Avatar" class="w-full h-full rounded-full object-cover">
+                    @else
+                        CSKH
+                    @endif
+                </div>
                 <div class="user-meta">
-                    <h4>{{ auth()->user()->account_name ?? 'Chăm Sóc Khách Hàng' }}</h4>
+                    <h4>{{ auth()->user()->display_name ?: (auth()->user()->account_name ?? 'Chăm Sóc Khách Hàng') }}</h4>
                     <p>{{ auth()->user()->email ?? 'chamsockh@gmail.com' }}</p>
                 </div>
-            </div>
-            <a href="{{ url('/logout') }}" class="logout-btn" title="Đăng xuất">
-                <i class="fa-solid fa-right-from-bracket"></i>
             </a>
+            <div class="flex items-center gap-1">
+                <a href="{{ route('cskh.profile') }}" class="logout-btn" title="👤 Hồ sơ cá nhân">
+                    <i class="fa-solid fa-user-pen text-xs"></i>
+                </a>
+                <a href="{{ url('/logout') }}" class="logout-btn" title="Đăng xuất">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </a>
+            </div>
         </div>
     </aside>
 

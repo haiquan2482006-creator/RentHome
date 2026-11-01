@@ -136,10 +136,10 @@
         // 4. XỬ LÝ DANH SÁCH PHÒNG (LỚP RUỘT) & HỢP ĐỒNG ĐANG THUÊ
         $rooms = $rooms ?? ($posts ?? collect());
         $roomItems = $rooms instanceof \Illuminate\Pagination\LengthAwarePaginator ? collect($rooms->items()) : collect($rooms);
-        // Loại bỏ triệt để các bài đăng bị từ chối / đã xóa để không hiển thị trong trang chi tiết tòa nhà
+        // Loại bỏ triệt để các bài đăng bị từ chối / đã xóa / đã hủy để không hiển thị trong trang chi tiết tòa nhà
         $roomItems = $roomItems->reject(function($r) {
             $st = strtolower($r->status ?? '');
-            return in_array($st, ['rejected', 'tu_choi', 'từ chối', 'deleted']) || !empty($r->is_deleted);
+            return in_array($st, ['rejected', 'tu_choi', 'từ chối', 'deleted', 'cancelled', 'da_huy', 'huy', 'cancel']) || !empty($r->is_deleted);
         })->values();
         $rooms = $roomItems;
 
@@ -172,6 +172,9 @@
         $createdCount  = $rooms instanceof \Illuminate\Pagination\LengthAwarePaginator ? $rooms->total() : $roomItems->count();
         $missingCount  = max($totalCapacity - $createdCount, 0);
         $progressPct   = min(round(($createdCount / $totalCapacity) * 100, 1), 100);
+
+        $buildingTotalRooms = max((int)($building->total_rooms ?? 1), 1);
+        $isBuildingFull = ($createdCount >= $buildingTotalRooms);
 
         $rentedCount    = 0;
         $availableCount = 0;
@@ -295,6 +298,18 @@
                     <span class="text-sm font-bold">{{ session('success') }}</span>
                 </div>
                 <button onclick="this.parentElement.remove()" class="text-emerald-500 hover:text-emerald-700 cursor-pointer">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+        @endif
+
+        @if(session('error'))
+            <div class="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 flex items-center justify-between shadow-sm">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-triangle-exclamation text-rose-600 text-lg"></i>
+                    <span class="text-sm font-bold">{{ session('error') }}</span>
+                </div>
+                <button onclick="this.parentElement.remove()" class="text-rose-500 hover:text-rose-700 cursor-pointer">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
@@ -525,9 +540,15 @@
                     </select>
 
                     <!-- Nút Thêm phòng mới -->
-                    <a href="{{ url('dangbai?building_id=' . ($building->id ?? $building->_id)) }}" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-sm shadow-md shadow-sky-500/20 transition-all flex items-center gap-2">
-                        <i class="fa-solid fa-plus"></i> Thêm {{ $unitName }} mới
-                    </a>
+                    @if($isBuildingFull)
+                        <button type="button" onclick="alertBuildingFull('{{ addslashes($building->name) }}', {{ $createdCount }}, {{ $buildingTotalRooms }})" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-sm border border-slate-200 transition-all flex items-center gap-2 cursor-pointer shadow-xs" title="Tòa nhà đã đạt quy mô tối đa ({{ $createdCount }}/{{ $buildingTotalRooms }} {{ $unitName }})">
+                            <i class="fa-solid fa-ban text-rose-500"></i> Thêm {{ $unitName }} mới <span class="text-[11px] font-bold bg-rose-50 text-rose-600 px-2 py-0.5 rounded-full border border-rose-200">Đã đủ {{ $createdCount }}/{{ $buildingTotalRooms }}</span>
+                        </button>
+                    @else
+                        <a href="{{ url('dangbai?building_id=' . ($building->id ?? $building->_id)) }}" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-sm shadow-md shadow-sky-500/20 transition-all flex items-center gap-2">
+                            <i class="fa-solid fa-plus"></i> Thêm {{ $unitName }} mới
+                        </a>
+                    @endif
                 </div>
             </div>
 
@@ -593,7 +614,7 @@
                                     }
                                 @endphp
 
-                                <tr class="room-row {{ $isRented ? 'opacity-40 bg-slate-100/70 border-l-4 border-l-amber-500 cursor-not-allowed select-none' : 'hover:bg-slate-50/90' }} transition-colors"
+                                <tr id="room-row-{{ $rId }}" data-room-id="{{ $rId }}" class="room-row {{ $isRented ? 'opacity-40 bg-slate-100/70 border-l-4 border-l-amber-500 cursor-not-allowed select-none' : 'hover:bg-slate-50/90' }} transition-colors"
                                     data-occupancy="{{ $occKey }}"
                                     data-moderation="{{ $modKey }}">
 
@@ -731,6 +752,11 @@
                                                         <i class="fa-solid fa-trash-can text-xs"></i>
                                                     </button>
                                                 @else
+                                                    @if($modKey === 'pending')
+                                                        <button type="button" onclick="cancelRoom('{{ $rId }}')" class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white flex items-center justify-center transition-colors cursor-pointer" title="Hủy đăng bài chờ duyệt này">
+                                                            <i class="fa-solid fa-ban text-xs"></i>
+                                                        </button>
+                                                    @endif
                                                     <button type="button" onclick="openTransferModal('{{ $rId }}', '{{ addslashes($room->title ?? ($unitNameCap . ' #' . strtoupper(substr($rId, -5)))) }}')" class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-500 hover:text-white flex items-center justify-center transition-colors cursor-pointer" title="Chuyển sang tòa nhà khác">
                                                         <i class="fa-solid fa-right-left text-xs"></i>
                                                     </button>
@@ -1248,16 +1274,39 @@
             }
         }
 
+        function alertBuildingFull(buildingName, currentCount, maxCount) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Tòa nhà đã đạt số lượng tối đa!',
+                    html: `Tòa nhà <b>${buildingName}</b> có quy mô thiết lập <b>${maxCount} phòng</b> và hiện đã được đăng đủ <b>${currentCount}/${maxCount} phòng</b>.<br><br><span class="text-xs text-slate-500">Hệ thống đã cố định số lượng bài đăng theo quy mô tòa nhà. Không thể tạo thêm phòng mới!</span>`,
+                    confirmButtonText: 'Đã hiểu',
+                    confirmButtonColor: '#0284c7'
+                });
+            } else {
+                alert(`Tòa nhà "${buildingName}" đã đạt số lượng tối đa (${currentCount}/${maxCount} phòng). Không thể đăng thêm phòng mới!`);
+            }
+        }
+
         async function cancelRoom(id) {
             const confirmed = await showConfirmDialog({
                 title: "Hủy đăng bài?",
-                text: "Bạn có muốn hủy đăng bài này không?",
+                text: "Bạn có muốn hủy đăng bài này không? Bài đăng sẽ bị gỡ khỏi danh sách chờ duyệt và tách khỏi tòa nhà.",
                 icon: "question",
                 confirmText: "Đồng ý hủy",
                 confirmColor: "#ef4444",
                 danger: true
             });
             if (!confirmed) return;
+
+            // Hiệu ứng ẩn hàng ngay lập tức
+            const targetRow = document.getElementById(`room-row-${id}`);
+            if (targetRow) {
+                targetRow.style.transition = 'all 0.3s ease';
+                targetRow.style.opacity = '0';
+                targetRow.style.transform = 'translateX(20px)';
+            }
+
             fetch(`/api/posts/${id}/cancel`, {
                 method: 'POST',
                 headers: {
@@ -1269,16 +1318,76 @@
             .then(data => {
                 if (data.success) {
                     showToast('Đã hủy đăng bài thành công!', 'success');
-                    window.location.reload();
+                    if (targetRow) {
+                        targetRow.remove();
+                        const remaining = document.querySelectorAll('#roomsTableBody tr.room-row');
+                        if (remaining.length === 0) {
+                            const tbody = document.getElementById('roomsTableBody');
+                            if (tbody) {
+                                tbody.innerHTML = `<tr><td colspan="7" class="p-12 text-center text-slate-400 font-medium"><i class="fa-solid fa-door-open text-3xl mb-2 block text-sky-400"></i>Chưa có phòng nào trong cơ sở này.</td></tr>`;
+                            }
+                        }
+                    }
+                    setTimeout(() => window.location.reload(), 800);
                 } else {
+                    if (targetRow) {
+                        targetRow.style.opacity = '1';
+                        targetRow.style.transform = 'none';
+                    }
                     showToast(data.message || 'Có lỗi xảy ra!', 'error');
                 }
             })
             .catch(err => {
                 console.error(err);
+                if (targetRow) {
+                    targetRow.style.opacity = '1';
+                    targetRow.style.transform = 'none';
+                }
                 showToast('Lỗi kết nối máy chủ!', 'error');
             });
         }
+
+        // Short polling đồng bộ danh sách phòng của tòa nhà theo thời gian thực (Real-time Short Polling)
+        let isSyncingBuildingRooms = false;
+        async function syncBuildingRooms() {
+            if (isSyncingBuildingRooms) return;
+            isSyncingBuildingRooms = true;
+            try {
+                const bId = '{{ $building->_id ?? $building->id }}';
+                const res = await fetch(`/api/buildings/${bId}/rooms-detail`);
+                if (!res.ok) return;
+                const data = await res.json();
+                if (!data || !data.success || !Array.isArray(data.rooms)) return;
+
+                const currentRoomRows = document.querySelectorAll('#roomsTableBody tr.room-row');
+                const serverRoomIds = new Set(data.rooms.map(r => String(r.id)));
+
+                // Tự động gỡ các phòng đã bị xóa / bị hủy khỏi tòa nhà
+                currentRoomRows.forEach(row => {
+                    const rId = row.getAttribute('data-room-id');
+                    if (rId && !serverRoomIds.has(rId)) {
+                        row.style.transition = 'all 0.4s ease';
+                        row.style.opacity = '0';
+                        row.style.transform = 'translateX(20px)';
+                        setTimeout(() => {
+                            row.remove();
+                            const remaining = document.querySelectorAll('#roomsTableBody tr.room-row');
+                            if (remaining.length === 0) {
+                                const tbody = document.getElementById('roomsTableBody');
+                                if (tbody) {
+                                    tbody.innerHTML = `<tr><td colspan="7" class="p-12 text-center text-slate-400 font-medium"><i class="fa-solid fa-door-open text-3xl mb-2 block text-sky-400"></i>Chưa có phòng nào trong cơ sở này.</td></tr>`;
+                                }
+                            }
+                        }, 400);
+                    }
+                });
+            } catch (e) {
+                console.error("Lỗi đồng bộ phòng tòa nhà:", e);
+            } finally {
+                isSyncingBuildingRooms = false;
+            }
+        }
+        setInterval(syncBuildingRooms, 3500);
     </script>
 </body>
 </html>

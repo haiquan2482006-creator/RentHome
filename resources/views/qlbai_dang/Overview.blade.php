@@ -184,25 +184,17 @@
             $cUserId = (string)($currentUser->_id ?? $currentUser->id);
 
             if ($isSubAccount) {
-                $assignedIds = (array) ($currentUser->assigned_buildings ?? []);
-                if (!empty($assignedIds) && !in_array('all', $assignedIds, true) && !in_array('*', $assignedIds, true)) {
-                    $userPendingPostsCount = \App\Models\Post::where('status', 'pending')
-                        ->where(function($q) use ($assignedIds, $cUserId) {
-                            $q->whereIn('building_id', $assignedIds)
-                              ->orWhere('user_id', $cUserId)
-                              ->orWhere('staff_id', $cUserId)
-                              ->orWhere('author_id', $cUserId);
-                        })->count();
-                } else {
-                    $parentId = (string)($currentUser->parent_id ?: $cUserId);
-                    $userPendingPostsCount = \App\Models\Post::where('status', 'pending')
-                        ->where(function($q) use ($parentId, $cUserId) {
-                            $q->where('parent_id', $parentId)
-                              ->orWhere('user_id', $cUserId)
-                              ->orWhere('staff_id', $cUserId)
-                              ->orWhere('author_id', $cUserId);
-                        })->count();
-                }
+                $assignedIds = array_filter(array_map('strval', (array) ($currentUser->assigned_buildings ?? [])));
+                $assignedIds = array_values(array_diff($assignedIds, ['all', '*']));
+                $userPendingPostsCount = \App\Models\Post::where('status', 'pending')
+                    ->where(function($q) use ($assignedIds, $cUserId) {
+                        if (!empty($assignedIds)) {
+                            $q->whereIn('building_id', $assignedIds);
+                        }
+                        $q->orWhere('user_id', $cUserId)
+                          ->orWhere('staff_id', $cUserId)
+                          ->orWhere('author_id', $cUserId);
+                    })->count();
             } elseif ($isEnterprise || $isAdmin) {
                 $userPendingPostsCount = \App\Models\Post::where('status', 'pending')->count();
             } else {
@@ -1923,13 +1915,42 @@
             }
             const confirmed = await showConfirmDialog({
                 title: "Hủy đăng bài?",
-                text: "Bạn có chắc chắn muốn hủy đăng bài này không?",
+                text: "Bạn có chắc chắn muốn hủy đăng bài này không? Bài đăng sẽ bị hủy và gỡ khỏi danh sách chờ duyệt cũng như chi tiết tòa nhà.",
                 icon: "question",
                 confirmText: "Hủy đăng bài",
                 confirmColor: "#ef4444",
                 danger: true
             });
             if (!confirmed) return;
+
+            const pId = String(postId);
+            // 1. Hiệu ứng làm mờ và ẩn hàng ngay lập tức (Optimistic UI)
+            const row = document.getElementById(`pending-post-row-${pId}`) ||
+                        document.querySelector(`#pending-posts-tbody tr:has(button[onclick*="${pId}"])`) ||
+                        Array.from(document.querySelectorAll('#pending-posts-tbody tr')).find(r => r.innerHTML.includes(pId));
+            if (row) {
+                row.style.transition = 'all 0.3s ease';
+                row.style.opacity = '0';
+                row.style.transform = 'translateX(20px)';
+            }
+
+            // 2. Cập nhật số đếm thống kê ngay lập tức
+            const heading = document.getElementById('pending-count-heading');
+            const sidebarBadge = document.getElementById('sidebar-pending-count');
+            const pendingStatCount = document.getElementById('pending-posts-count');
+            let curCount = parseInt(sidebarBadge ? sidebarBadge.innerText : '1') || 1;
+            curCount = Math.max(0, curCount - 1);
+            if (sidebarBadge) {
+                if (curCount > 0) {
+                    sidebarBadge.innerText = curCount;
+                    sidebarBadge.classList.remove('hidden');
+                } else {
+                    sidebarBadge.classList.add('hidden');
+                }
+            }
+            if (heading) heading.innerText = `Danh sách bài đăng đang chờ ban quản trị duyệt (${curCount})`;
+            if (pendingStatCount) pendingStatCount.innerText = curCount;
+
             try {
                 const res = await fetch(`/api/posts/${postId}/cancel`, {
                     method: "POST",
@@ -1941,11 +1962,28 @@
                 const data = await res.json();
                 if (data.success) {
                     showToast(data.message || 'Đã hủy bài đăng thành công!', 'success');
+                    if (row) {
+                        row.remove();
+                        const tbody = document.getElementById('pending-posts-tbody');
+                        const remaining = tbody ? tbody.querySelectorAll('tr') : [];
+                        if (remaining.length === 0 && tbody) {
+                            tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400 font-medium"><i class="fa-solid fa-folder-open text-3xl mb-2 block"></i>Không có bài đăng nào đang chờ duyệt.</td></tr>`;
+                        }
+                    }
                 } else {
+                    if (row) {
+                        row.style.opacity = '1';
+                        row.style.transform = 'none';
+                    }
                     showToast(data.message || 'Không thể hủy bài đăng!', 'error');
                 }
             } catch (err) {
                 console.error("Lỗi hủy bài:", err);
+                if (row) {
+                    row.style.opacity = '1';
+                    row.style.transform = 'none';
+                }
+                showToast('Lỗi kết nối máy chủ khi hủy bài đăng!', 'error');
             }
             fetchPendingPosts();
             fetchHistoryPosts();
@@ -2675,9 +2713,10 @@ function fetchPendingPosts() {
                 const pUnitStr = pUnitMap[post.price_unit] || (post.formatted_price_unit || '/tháng');
                 const price = new Intl.NumberFormat('vi-VN').format(post.price) + ' đ ' + pUnitStr;
                 const imgUrl = post.display_image || (post.images && post.images.length > 0 ? (typeof post.images[0] === 'string' ? post.images[0] : (post.images[0].url || '')) : '') || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=300&q=80';
+                const pId = String(post.id || post._id);
                 return `
-                    <tr class="hover:bg-slate-50 transition-colors">
-                        <td class="p-4 font-bold text-slate-900">${post.id || post._id}</td>
+                    <tr id="pending-post-row-${pId}" data-id="${pId}" class="hover:bg-slate-50 transition-colors">
+                        <td class="p-4 font-bold text-slate-900">${pId}</td>
                         <td class="p-4">
                             <div class="flex items-center gap-3">
                                 <img src="${imgUrl}" class="w-10 h-10 rounded-lg object-cover border border-slate-200 shadow-xs" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=300&q=80';">
@@ -2694,7 +2733,7 @@ function fetchPendingPosts() {
                             </span>
                         </td>
                         <td class="p-4 text-right">
-                            <button onclick="cancelPendingPost('${post.id || post._id}')" class="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs transition-colors">
+                            <button onclick="cancelPendingPost('${pId}')" class="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs transition-colors">
                                 <i class="fa-solid fa-ban mr-1"></i> Hủy đăng
                             </button>
                         </td>
@@ -2708,6 +2747,106 @@ function fetchPendingPosts() {
             if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-rose-500 font-medium"><i class="fa-solid fa-triangle-exclamation text-3xl mb-2 block"></i>Có lỗi khi tải danh sách. Vui lòng thử lại.</td></tr>`;
         });
 }
+
+// ==================== REAL-TIME SHORT POLLING FOR PENDING POSTS ====================
+let isOverviewPolling = false;
+function pollOverviewPendingPosts() {
+    if (isOverviewPolling) return;
+    const pendingSection = document.getElementById('content-pending-posts');
+    if (!pendingSection || pendingSection.classList.contains('hidden')) return;
+
+    isOverviewPolling = true;
+    fetch('/api/user/posts?status=pending')
+        .then(res => res.json())
+        .then(data => {
+            isOverviewPolling = false;
+            if (!data || !data.success || !Array.isArray(data.posts)) return;
+
+            const tbody = document.getElementById('pending-posts-tbody');
+            if (!tbody) return;
+
+            const serverPosts = data.posts;
+            const serverIds = new Set(serverPosts.map(p => String(p.id || p._id)));
+
+            // 1. Tự động gỡ các bài không còn ở trạng thái chờ duyệt (được duyệt, bị từ chối hoặc đã hủy)
+            const currentRows = tbody.querySelectorAll('tr[data-id]');
+            currentRows.forEach(row => {
+                const rId = row.getAttribute('data-id');
+                if (rId && !serverIds.has(rId)) {
+                    row.style.transition = 'all 0.3s ease';
+                    row.style.opacity = '0';
+                    row.style.transform = 'translateX(20px)';
+                    setTimeout(() => {
+                        row.remove();
+                        if (tbody.querySelectorAll('tr').length === 0) {
+                            tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400 font-medium"><i class="fa-solid fa-folder-open text-3xl mb-2 block"></i>Không có bài đăng nào đang chờ duyệt.</td></tr>`;
+                        }
+                    }, 300);
+                }
+            });
+
+            // 2. Prepend bài đăng mới nếu có
+            serverPosts.forEach(post => {
+                const pId = String(post.id || post._id);
+                if (!tbody.querySelector(`tr[data-id="${pId}"]`)) {
+                    const emptyRow = tbody.querySelector('td[colspan="5"]');
+                    if (emptyRow) emptyRow.closest('tr').remove();
+
+                    const pUnitMap = { 'thang': '/tháng', '2_nam': '/2 năm', '3_nam': '/3 năm', '5_nam': '/5 năm', 'tren_5_nam': '/trên 5 năm', 'nam': '/năm', 'm2': '/m²', 'tong': '' };
+                    const pUnitStr = pUnitMap[post.price_unit] || (post.formatted_price_unit || '/tháng');
+                    const price = new Intl.NumberFormat('vi-VN').format(post.price) + ' đ ' + pUnitStr;
+                    const imgUrl = post.display_image || (post.images && post.images.length > 0 ? (typeof post.images[0] === 'string' ? post.images[0] : (post.images[0].url || '')) : '') || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=300&q=80';
+
+                    const tr = document.createElement('tr');
+                    tr.id = `pending-post-row-${pId}`;
+                    tr.setAttribute('data-id', pId);
+                    tr.className = 'hover:bg-slate-50 transition-colors';
+                    tr.innerHTML = `
+                        <td class="p-4 font-bold text-slate-900">${pId}</td>
+                        <td class="p-4">
+                            <div class="flex items-center gap-3">
+                                <img src="${imgUrl}" class="w-10 h-10 rounded-lg object-cover border border-slate-200 shadow-xs" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=300&q=80';">
+                                <div>
+                                    <p class="font-bold text-slate-900">${post.title}</p>
+                                    <p class="text-[10px] text-slate-400">${post.location || post.address || 'Đang cập nhật'}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="p-4 font-bold text-brand-600">${price}</td>
+                        <td class="p-4">
+                            <span class="px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 font-bold text-[10px] inline-flex items-center gap-1.5">
+                                <i class="fa-solid fa-clock animate-spin"></i> Chờ phê duyệt
+                            </span>
+                        </td>
+                        <td class="p-4 text-right">
+                            <button onclick="cancelPendingPost('${pId}')" class="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs transition-colors">
+                                <i class="fa-solid fa-ban mr-1"></i> Hủy đăng
+                            </button>
+                        </td>
+                    `;
+                    tbody.prepend(tr);
+                }
+            });
+
+            // 3. Cập nhật số đếm
+            const count = serverPosts.length;
+            const heading = document.getElementById('pending-count-heading');
+            const sidebarBadge = document.getElementById('sidebar-pending-count');
+            const pendingStatCount = document.getElementById('pending-posts-count');
+            if (sidebarBadge) {
+                if (count > 0) {
+                    sidebarBadge.innerText = count;
+                    sidebarBadge.classList.remove('hidden');
+                } else {
+                    sidebarBadge.classList.add('hidden');
+                }
+            }
+            if (heading) heading.innerText = `Danh sách bài đăng đang chờ ban quản trị duyệt (${count})`;
+            if (pendingStatCount) pendingStatCount.innerText = count;
+        })
+        .catch(() => { isOverviewPolling = false; });
+}
+setInterval(pollOverviewPendingPosts, 3000);
 
 // ==================== API FETCH: LỊCH SỬ (HISTORY) ====================
 function fetchHistoryPosts() {

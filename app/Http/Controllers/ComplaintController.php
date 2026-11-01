@@ -18,6 +18,103 @@ use App\Models\SupportTicket;
 class ComplaintController extends Controller
 {
     /**
+     * CSKH giành quyền xử lý đơn (Claim Ticket)
+     * Endpoint: POST /api/cskh/tickets/{id}/claim
+     * Đảm bảo tại 1 thời điểm chỉ có 1 CSKH được phép can thiệp vào đơn.
+     */
+    public function claim($id)
+    {
+        $currentUser = Auth::user();
+        if (!$currentUser || (!$currentUser->isCskh() && !$currentUser->isAdmin() && $currentUser->role !== 'admin')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bạn không có quyền tiếp nhận xử lý đơn khiếu nại này.',
+            ], 403);
+        }
+
+        $currentUserId = (string)($currentUser->_id ?? $currentUser->id);
+
+        // Tìm đơn trong Complaint trước, sau đó SupportTicket
+        $record = Complaint::where('_id', $id)->first() ?: Complaint::find($id);
+        $isSupportTicket = false;
+        if (!$record) {
+            $record = SupportTicket::where('_id', $id)->first() ?: SupportTicket::find($id);
+            $isSupportTicket = true;
+        }
+
+        if (!$record) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy đơn khiếu nại.',
+            ], 404);
+        }
+
+        $assignedTo = (string)($record->assigned_to ?? '');
+
+        // Kiểm tra: đã có người khác nhận rồi
+        if (!empty($assignedTo) && $assignedTo !== $currentUserId) {
+            // Tải thông tin người đang xử lý
+            $assignee = User::where('_id', $assignedTo)->first() ?: User::find($assignedTo);
+            $assigneeName = $assignee
+                ? ($assignee->display_name ?: ($assignee->ten_hien_thi ?: ($assignee->account_name ?: ($assignee->name ?: ($assignee->username ?: 'CSKH khác')))))
+                : 'CSKH khác';
+
+            return response()->json([
+                'success'       => false,
+                'already_claimed' => true,
+                'message'       => "Đơn này đã được {$assigneeName} tiếp nhận xử lý. Bạn không thể can thiệp vào đơn này.",
+                'assignee_name' => $assigneeName,
+            ], 403);
+        }
+
+        // Nếu chính mình đã nhận rồi thì không cần claim lại
+        if (!empty($assignedTo) && $assignedTo === $currentUserId) {
+            return response()->json([
+                'success' => true,
+                'already_mine' => true,
+                'message' => 'Bạn đã tiếp nhận đơn này trước đó.',
+            ]);
+        }
+
+        // Hợp lệ — tiếp nhận đơn
+        $code = $isSupportTicket
+            ? ($record->formatted_ticket_code ?? ('#TK-' . strtoupper(substr((string)($record->_id ?? $record->id), -5))))
+            : ($record->complaint_code ?? ('KN-' . substr((string)($record->_id ?? $record->id), -6)));
+
+        $record->assigned_to = $currentUserId;
+        $record->assigned_at = now();
+        // Chỉ đổi sang "processing" nếu đang ở "pending"
+        if (($record->status ?? 'pending') === 'pending') {
+            $record->status = 'processing';
+        }
+        $record->save();
+
+        $currentUserDisplayName = $currentUser->display_name ?: ($currentUser->ten_hien_thi ?: ($currentUser->account_name ?: ($currentUser->username ?: 'CSKH')));
+
+        // Ghi nhật ký AdminActivity
+        AdminActivity::log(
+            'update',
+            'complaint',
+            'Tiếp nhận xử lý đơn khiếu nại',
+            "CSKH [{$currentUserDisplayName}] đã tiếp nhận (claim) đơn {$code}. Trạng thái: Đang xử lý.",
+            $record,
+            [
+                'ticket_id'   => (string)($record->_id ?? $record->id),
+                'code'        => $code,
+                'assigned_to' => $currentUserId,
+            ]
+        );
+
+        return response()->json([
+            'success'        => true,
+            'message'        => "Bạn đã tiếp nhận thành công đơn {$code}. Bắt đầu xử lý!",
+            'assigned_to'    => $currentUserId,
+            'assignee_name'  => $currentUserDisplayName,
+            'new_status'     => $record->status,
+        ]);
+    }
+
+    /**
      * Màn hình danh sách Khiếu nại & Liên hệ dành cho Chăm sóc khách hàng (CSKH)
      * Gộp chung dữ liệu từ Form "Liên hệ chung" (Ký gửi, Hợp tác) và "Khiếu nại/Phản ánh bài đăng"
      * View: cham_soc_kh.khieu_nai
@@ -35,18 +132,47 @@ class ComplaintController extends Controller
         $keyword = trim((string)$request->query('keyword', ''));
 
         // 1. Thống kê KPI tổng hợp (Đơn chờ xử lý của CSKH không bao gồm các đơn đã trình lên Admin)
+        $userId = (string)($user->_id ?? $user->id);
+        $isCskhRole = method_exists($user, 'isCskh') ? $user->isCskh() : false;
+
         $complaintPendingCount = Complaint::where('status', '!=', 'resolved')
                                           ->where('status', '!=', 'escalated')
                                           ->where('is_escalated', '!=', true)
+                                          ->when($isCskhRole, function($q) use ($userId) {
+                                              $q->where(function($sq) use ($userId) {
+                                                  $sq->whereNull('assigned_to')
+                                                     ->orWhere('assigned_to', '')
+                                                     ->orWhere('assigned_to', $userId);
+                                              });
+                                          })
                                           ->count()
                                + SupportTicket::where('type', 'khieu_nai')
                                               ->where('status', '!=', 'resolved')
                                               ->where('status', '!=', 'escalated')
                                               ->where('is_escalated', '!=', true)
+                                              ->when($isCskhRole, function($q) use ($userId) {
+                                                  $q->where(function($sq) use ($userId) {
+                                                      $sq->whereNull('assigned_to')
+                                                         ->orWhere('assigned_to', '')
+                                                         ->orWhere('assigned_to', $userId);
+                                                  });
+                                              })
                                               ->count();
         $totalPendingCount     = $complaintPendingCount;
-        $totalResolvedCount    = Complaint::where('status', 'resolved')->count()
-                               + SupportTicket::where('type', 'khieu_nai')->where('status', 'resolved')->count();
+
+        if ($isCskhRole) {
+            $totalResolvedCount = Complaint::where('status', 'resolved')
+                ->where(function($q) use ($userId) {
+                    $q->where('assigned_to', $userId)->orWhere('resolved_by', $userId);
+                })->count()
+                + SupportTicket::where('type', 'khieu_nai')->where('status', 'resolved')
+                ->where(function($q) use ($userId) {
+                    $q->where('assigned_to', $userId)->orWhere('resolved_by', $userId);
+                })->count();
+        } else {
+            $totalResolvedCount    = Complaint::where('status', 'resolved')->count()
+                                   + SupportTicket::where('type', 'khieu_nai')->where('status', 'resolved')->count();
+        }
 
         $totalComplaintCount = Complaint::count()
                              + SupportTicket::where('type', 'khieu_nai')->count();
@@ -675,6 +801,10 @@ class ComplaintController extends Controller
                 }
             }
 
+            $ticketResolver = $supportTicket->resolver ?? (!empty($supportTicket->resolved_by) ? User::find($supportTicket->resolved_by) : (!empty($supportTicket->assigned_to) ? User::find($supportTicket->assigned_to) : null));
+            $ticketIsAdminResolved = (!empty($supportTicket->is_escalated) || ($supportTicket->status ?? '') === 'escalated' || ($supportTicket->resolution_action ?? '') === 'admin_adjudicated' || ($ticketResolver && ($ticketResolver->isAdmin() || $ticketResolver->role === 'admin')));
+            $ticketResolverName = $ticketResolver ? ($ticketResolver->display_name ?: ($ticketResolver->ten_hien_thi ?: ($ticketResolver->account_name ?: ($ticketResolver->name ?: ($ticketResolver->username ?: ''))))) : '';
+
             $ticketData = [
                 'id'              => (string)($supportTicket->_id ?? $supportTicket->id),
                 'code'            => $supportTicket->formatted_ticket_code,
@@ -696,6 +826,9 @@ class ComplaintController extends Controller
                 'resolved_at_time'=> optional($supportTicket->resolved_at ?? $supportTicket->responded_at)->format('H:i - d/m/Y') ?? null,
                 'status'          => $supportTicket->status ?? 'pending',
                 'is_escalated'    => !empty($supportTicket->is_escalated) || ($supportTicket->status ?? '') === 'escalated',
+                'is_admin_resolved'     => (bool)$ticketIsAdminResolved,
+                'resolver_name'         => $ticketResolverName,
+                'resolver_display_role' => $ticketIsAdminResolved ? 'Admin' : 'CSKH',
                 'status_label'    => $supportTicket->status_label ?? ($supportTicket->status === 'resolved' ? 'Đã giải quyết' : 'Chờ xử lý'),
                 'created_at_time' => optional($supportTicket->created_at)->format('H:i - d/m/Y') ?? 'Mới đây',
                 'created_at_human'=> optional($supportTicket->created_at)->diffForHumans() ?? '',
@@ -759,6 +892,10 @@ class ComplaintController extends Controller
                 }
             }
 
+            $complaintResolver = $complaint->resolver ?? (!empty($complaint->resolved_by) ? User::find($complaint->resolved_by) : (!empty($complaint->assigned_to) ? User::find($complaint->assigned_to) : null));
+            $complaintIsAdminResolved = (!empty($complaint->is_escalated) || ($complaint->status ?? '') === 'escalated' || ($complaint->resolution_action ?? '') === 'admin_adjudicated' || ($complaintResolver && ($complaintResolver->isAdmin() || $complaintResolver->role === 'admin')));
+            $complaintResolverName = $complaintResolver ? ($complaintResolver->display_name ?: ($complaintResolver->ten_hien_thi ?: ($complaintResolver->account_name ?: ($complaintResolver->name ?: ($complaintResolver->username ?: ''))))) : '';
+
             $ticketData = [
                 'id'              => (string)($complaint->_id ?? $complaint->id),
                 'code'            => $complaint->complaint_code ?? ('#KN-' . strtoupper(substr((string)($complaint->_id ?? $complaint->id), -5))),
@@ -780,6 +917,9 @@ class ComplaintController extends Controller
                 'resolved_at_time'=> optional($complaint->resolved_at)->format('H:i - d/m/Y') ?? null,
                 'status'          => $complaint->status ?? 'pending',
                 'is_escalated'    => !empty($complaint->is_escalated) || ($complaint->status ?? '') === 'escalated',
+                'is_admin_resolved'     => (bool)$complaintIsAdminResolved,
+                'resolver_name'         => $complaintResolverName,
+                'resolver_display_role' => $complaintIsAdminResolved ? 'Admin' : 'CSKH',
                 'status_label'    => $complaint->status === 'resolved' ? 'Đã giải quyết' : ($complaint->status === 'processing' ? 'Đang xử lý' : 'Chờ xử lý'),
                 'created_at_time' => optional($complaint->created_at)->format('H:i - d/m/Y') ?? 'Mới đây',
                 'created_at_human'=> optional($complaint->created_at)->diffForHumans() ?? '',
@@ -853,7 +993,7 @@ class ComplaintController extends Controller
         }
 
         $adminId = (string)($currentUser->_id ?? $currentUser->id);
-        $adminName = $currentUser->account_name ?: ($currentUser->username ?: 'Nhân viên CSKH');
+        $adminName = $currentUser->display_name ?: ($currentUser->ten_hien_thi ?: ($currentUser->account_name ?: ($currentUser->username ?: 'Nhân viên CSKH')));
         $ticketCode = method_exists($ticket, 'getFormattedTicketCodeAttribute') 
             ? $ticket->formatted_ticket_code 
             : ($ticketType === 'contact' 
@@ -1003,12 +1143,12 @@ class ComplaintController extends Controller
             'content'   => 'required|string|min:5|max:3000',
             'reason'    => 'nullable|string|max:255',
             'images'    => 'nullable|array',
-            'images.*'  => 'nullable|image|mimes:jpeg,png,jpg,webp,gif|max:5120',
+            'images.*'  => 'nullable|image|mimes:jpeg,png,jpg,webp,gif,bmp,jfif,svg|max:25600',
         ], [
             'content.required' => 'Vui lòng nhập nội dung lý do khiếu nại.',
             'content.min'      => 'Nội dung khiếu nại tối thiểu 5 ký tự.',
             'images.*.image'   => 'File tải lên phải là hình ảnh hợp lệ.',
-            'images.*.max'     => 'Kích thước mỗi ảnh tải lên tối đa 5MB.',
+            'images.*.max'     => 'Kích thước mỗi ảnh tải lên tối đa 25MB.',
         ]);
 
         $content = trim((string)$request->input('content'));

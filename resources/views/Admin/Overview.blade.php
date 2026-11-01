@@ -663,6 +663,32 @@
                                 $initials = mb_substr($displayName ?: 'U', 0, 2, 'UTF-8');
                                 $userHandle = $user->username ?? explode('@', $user->email ?? 'user')[0];
                                 $isLocked = $user->is_locked || in_array(($user->status ?? ''), ['locked', 'khoa', 'vi_pham', 'banned']);
+
+                                $r = strtolower(trim((string)($user->role ?? '')));
+                                $sr = trim((string)($user->staff_role ?? ''));
+                                $srLower = mb_strtolower($sr, 'UTF-8');
+
+                                $isModAccount = !empty($user->is_moderator)
+                                    || (method_exists($user, 'isModerator') && $user->isModerator())
+                                    || in_array($r, ['kiemduyet', 'moderator', 'kiem_duyet'], true)
+                                    || str_contains($srLower, 'kiểm duyệt')
+                                    || str_contains($srLower, 'kiem duyet');
+
+                                $isCskhAccount = !empty($user->is_cskh)
+                                    || (method_exists($user, 'isCskh') && $user->isCskh())
+                                    || in_array($r, ['chăm sóc kh', 'chamsockh', 'cskh', 'cham_soc_kh'], true)
+                                    || str_contains($srLower, 'chăm sóc')
+                                    || str_contains($srLower, 'cskh');
+
+                                $isEnterpriseAccount = ($user->isEnterprise() || $r === 'doanhnghiep');
+
+                                $isStaffAccount = !$isModAccount && !$isCskhAccount && (
+                                    (method_exists($user, 'isNhansu') && $user->isNhansu())
+                                    || in_array($r, ['nhansu', 'nhan su', 'nhan_su', 'sub_account', 'staff'], true)
+                                    || str_contains($srLower, 'nhân sự')
+                                    || str_contains($srLower, 'nhan su')
+                                    || $user->isSubAccount()
+                                );
                             @endphp
                             <tr>
                                 <td>
@@ -679,11 +705,13 @@
                                 <td>{{ $user->email ?? '---' }}</td>
                                 <td>{{ $user->phone ?? '---' }}</td>
                                 <td>
-                                    @if(in_array(($user->role ?? ''), ['kiemduyet', 'moderator']) || (method_exists($user, 'isModerator') && $user->isModerator()))
+                                    @if($isModAccount)
                                         <span class="badge" style="background: rgba(217, 119, 6, 0.12); color: #d97706; font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem;">Kiểm duyệt</span>
-                                    @elseif($user->isSubAccount() || in_array(($user->role ?? ''), ['nhansu', 'nhan su', 'nhan_su', 'sub_account', 'staff']))
+                                    @elseif($isCskhAccount)
+                                        <span class="badge" style="background: rgba(234, 88, 12, 0.12); color: #c2410c; font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem;">Chăm sóc KH</span>
+                                    @elseif($isStaffAccount)
                                         <span class="badge" style="background: rgba(5, 150, 105, 0.12); color: #059669; font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem;">Nhân sự</span>
-                                    @elseif($user->isEnterprise() || ($user->role ?? '') === 'doanhnghiep')
+                                    @elseif($isEnterpriseAccount)
                                         <span class="badge badge-business">Doanh nghiệp</span>
                                     @else
                                         <span class="badge badge-personal">Khách hàng / Cá nhân</span>

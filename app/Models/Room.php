@@ -24,6 +24,14 @@ class Room extends Model
         'water_index',
         'amenities',
         'notes',
+        'viewed_by',
+        'locked_by',
+        'locked_at',
+    ];
+
+    protected $casts = [
+        'viewed_by' => 'array',
+        'locked_at' => 'datetime',
     ];
 
     public function building()

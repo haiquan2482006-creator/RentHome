@@ -58,7 +58,6 @@
         ['url' => url('/#featured-posts-section'), 'label' => 'Nhà nổi bật', 'active' => false],
         ['url' => url('/#features'), 'label' => 'Ưu điểm', 'active' => false],
         ['url' => url('/tintuc'), 'label' => 'Tin tức', 'active' => Request::is('tintuc*') || Request::is('tin-tuc*')],
-        ['url' => url('/#contact'), 'label' => 'Liên hệ', 'active' => false],
     ];
 @endphp
 
@@ -93,7 +92,16 @@
 
         <!-- Action Buttons -->
         <div class="flex items-center gap-2 sm:gap-3">
-            @if (!Auth::check() || (!Auth::user()->isEnterprise() && Auth::user()->role !== 'doanhnghiep'))
+            @php
+                $curUserFav = Auth::user();
+                $isInternalAccountFav = $curUserFav && (
+                    $curUserFav->isEnterprise() ||
+                    $curUserFav->isSubAccount() ||
+                    $curUserFav->isStaff() ||
+                    in_array($curUserFav->role ?? '', ['doanhnghiep', 'enterprise', 'nhansu', 'nhan su', 'nhan_su', 'sub_account', 'staff', 'admin', 'kiemduyet', 'moderator', 'cskh', 'chăm sóc kh'])
+                );
+            @endphp
+            @if (!Auth::check() || !$isInternalAccountFav)
             <!-- Favorites Dropdown Container (Dành riêng cho khách vãng lai và Tài khoản Cá nhân) -->
             <div class="relative inline-block text-left" id="favorite-dropdown-container">
                 <button type="button" id="favorite-menu-button" onclick="toggleFavoriteDropdown(event)"
@@ -245,9 +253,26 @@
                             </a>
                         @endif
 
-                        <a href="{{ route('user.dashboard') }}"
+                        @if (Auth::user()->isCskh())
+                            <a href="{{ url('/cskh/tong-quan') }}"
+                                class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-sky-700 bg-sky-50/70 hover:bg-sky-100 hover:text-sky-800 transition-colors">
+                                <i class="fa-solid fa-headset text-sky-600 w-4 text-center"></i>
+                                <span>Kênh Chăm Sóc Khách Hàng</span>
+                            </a>
+                        @endif
+
+                        @php
+                            $profileRoute = route('user.dashboard');
+                            if (Auth::user()->isCskh()) {
+                                $profileRoute = route('cskh.profile');
+                            } elseif (Auth::user()->isModerator()) {
+                                $profileRoute = route('kiemduyet.profile');
+                            }
+                        @endphp
+
+                        <a href="{{ $profileRoute }}"
                             class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors">
-                            <i class="fa-solid fa-circle-user text-brand-600 w-4 text-center"></i>
+                            <span class="w-4 text-center text-base">👤</span>
                             <span>Hồ sơ cá nhân</span>
                         </a>
 
@@ -574,11 +599,18 @@
     window.isUserLoggedIn = {{ Auth::check() ? 'true' : 'false' }};
     window.currentUserId = "{{ Auth::check() ? (string)Auth::id() : '' }}";
     window.currentUserType = "{{ Auth::check() ? (Auth::user()->role ?? 'user') : '' }}";
+    window.isStaffUser = {{ (Auth::check() && (Auth::user()->isSubAccount() || Auth::user()->isStaff() || in_array(Auth::user()->role ?? '', ['nhansu', 'nhan su', 'nhan_su', 'sub_account', 'staff', 'admin', 'kiemduyet', 'moderator', 'cskh', 'chăm sóc kh']))) ? 'true' : 'false' }};
     window.csrfToken = "{{ csrf_token() }}";
 
     @php
         $serverFavIds = [];
-        if (Auth::check() && !Auth::user()->isEnterprise() && Auth::user()->role !== 'doanhnghiep') {
+        $isInternalFavUser = Auth::check() && (
+            Auth::user()->isEnterprise() ||
+            Auth::user()->isSubAccount() ||
+            Auth::user()->isStaff() ||
+            in_array(Auth::user()->role ?? '', ['doanhnghiep', 'enterprise', 'nhansu', 'nhan su', 'nhan_su', 'sub_account', 'staff', 'admin', 'kiemduyet', 'moderator', 'cskh', 'chăm sóc kh'])
+        );
+        if (Auth::check() && !$isInternalFavUser) {
             $serverFavIds = \App\Models\Favorite::where('user_id', (string)Auth::id())
                 ->pluck('post_id')
                 ->filter()
@@ -596,7 +628,7 @@
         isLoaded: false,
 
         async init() {
-            if (window.isUserLoggedIn && window.currentUserType !== 'doanhnghiep') {
+            if (window.isUserLoggedIn && window.currentUserType !== 'doanhnghiep' && !window.isStaffUser) {
                 await this.fetchFavorites();
             } else {
                 this.favorites = [];
@@ -606,7 +638,7 @@
         },
 
         async fetchFavorites() {
-            if (window.currentUserType === 'doanhnghiep') return;
+            if (window.currentUserType === 'doanhnghiep' || window.isStaffUser) return;
 
             try {
                 const res = await fetch('/api/favorites');
@@ -643,9 +675,13 @@
                 return;
             }
 
-            // 1. Kiểm tra tài khoản Doanh nghiệp: không được phép yêu thích
+            // 1. Kiểm tra tài khoản Doanh nghiệp / Nhân sự: không được phép yêu thích
             if (window.currentUserType === 'doanhnghiep') {
                 this.showToast('Tài khoản Doanh nghiệp không thể thực hiện chức năng yêu thích.', 'warning');
+                return;
+            }
+            if (window.isStaffUser) {
+                this.showToast('Tài khoản Nhân sự không thể thực hiện chức năng yêu thích.', 'warning');
                 return;
             }
 
@@ -862,8 +898,8 @@
                 const isFav = this.has(id);
                 const icon = btn.querySelector('i');
 
-                // 1. Tài khoản Doanh nghiệp: ẩn hoàn toàn nút yêu thích
-                if (window.currentUserType === 'doanhnghiep') {
+                // 1. Tài khoản Doanh nghiệp / Nhân sự: ẩn hoàn toàn nút yêu thích
+                if (window.currentUserType === 'doanhnghiep' || window.isStaffUser) {
                     btn.style.display = 'none';
                     return;
                 }
@@ -899,7 +935,7 @@
             detailBtns.forEach(btn => {
                 const id = btn.getAttribute('data-fav-id');
                 const ownerId = btn.getAttribute('data-owner-id');
-                if (window.currentUserType === 'doanhnghiep' || (window.currentUserId && ownerId && String(ownerId) === String(window.currentUserId))) {
+                if (window.currentUserType === 'doanhnghiep' || window.isStaffUser || (window.currentUserId && ownerId && String(ownerId) === String(window.currentUserId))) {
                     btn.style.display = 'none';
                     return;
                 }
