@@ -21,40 +21,21 @@ class AiChatController extends Controller
     public function sendMessage(Request $request): JsonResponse
     {
         $request->validate([
-            'message' => 'nullable|string|max:1000',
-            'images.*' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
+            'message' => 'required|string|max:1000',
         ]);
 
         $userMessage = trim((string)$request->input('message', ''));
         $history = session()->get('ai_chat_history', []);
         $currentUser = auth()->user();
 
-        // Xử lý upload ảnh phòng từ người dùng (nếu có)
-        $uploadedImageIds = [];
-        if ($request->hasFile('images')) {
-            foreach ($request->file('images') as $file) {
-                try {
-                    if ($file && $file->isValid()) {
-                        $path = $file->store('ai_uploads', 'public');
-                        $uploadedImageIds[] = '/storage/' . $path;
-                    }
-                } catch (\Exception $e) {
-                    \Illuminate\Support\Facades\Log::error("AI Chat image upload error: " . $e->getMessage());
-                }
-            }
-            if (empty($userMessage)) {
-                $userMessage = 'Tôi gửi kèm ' . count($uploadedImageIds) . ' ảnh phòng trọ để đăng tin cho thuê.';
-            }
-        }
-
         if (empty($userMessage)) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Vui lòng nhập nội dung tin nhắn hoặc tải ảnh lên!',
+                'message' => 'Vui lòng nhập nội dung tin nhắn!',
             ], 422);
         }
 
-        $result = $this->aiService->ask($userMessage, $history, $currentUser, $uploadedImageIds);
+        $result = $this->aiService->ask($userMessage, $history, $currentUser);
 
         // Lưu lịch sử hội thoại vào session
         $history[] = ['role' => 'user', 'text' => $userMessage];
@@ -68,8 +49,6 @@ class AiChatController extends Controller
             'status' => 'success',
             'reply' => $result['reply'],
             'cards' => $result['cards'] ?? [],
-            'post_created' => $result['post_created'] ?? null,
-            'has_draft' => session()->has('ai_auto_posting_draft'),
         ]);
     }
 
@@ -79,7 +58,7 @@ class AiChatController extends Controller
     public function resetChat(): JsonResponse
     {
         session()->forget('ai_chat_history');
-        session()->forget('ai_auto_posting_draft');
+        session()->forget('ai_search_waiting_criteria');
         return response()->json([
             'status' => 'success',
             'message' => 'Cuộc trò chuyện đã được làm mới.',

@@ -182,8 +182,10 @@ class RealtimePollController extends Controller
                     foreach ($bld->images as $rawBIm) {
                         $s = is_array($rawBIm) ? ($rawBIm['url'] ?? ($rawBIm['path'] ?? '')) : (string)$rawBIm;
                         if (!$s) continue;
-                        if (\Illuminate\Support\Str::startsWith($s, ['http', 'data:', '/images/', '/storage/'])) {
+                        if (\Illuminate\Support\Str::startsWith($s, ['http', 'data:'])) {
                             $buildingImages[] = $s;
+                        } elseif (\Illuminate\Support\Str::startsWith($s, ['/images/', 'images/'])) {
+                            $buildingImages[] = url('/' . ltrim($s, '/'));
                         } elseif (preg_match('/^[a-f\d]{24}$/i', $s)) {
                             $buildingImages[] = url('/images/' . $s);
                         } else {
@@ -191,14 +193,16 @@ class RealtimePollController extends Controller
                         }
                     }
                 }
-                if (!empty($bld->image)) {
+                if (empty($buildingImages) && !empty($bld->image)) {
                     $s = $bld->image;
-                    if (\Illuminate\Support\Str::startsWith($s, ['http', 'data:', '/images/', '/storage/'])) {
-                        array_unshift($buildingImages, $s);
+                    if (\Illuminate\Support\Str::startsWith($s, ['http', 'data:'])) {
+                        $buildingImages[] = $s;
+                    } elseif (\Illuminate\Support\Str::startsWith($s, ['/images/', 'images/'])) {
+                        $buildingImages[] = url('/' . ltrim($s, '/'));
                     } elseif (preg_match('/^[a-f\d]{24}$/i', $s)) {
-                        array_unshift($buildingImages, url('/images/' . $s));
+                        $buildingImages[] = url('/images/' . $s);
                     } else {
-                        array_unshift($buildingImages, asset('storage/' . ltrim($s, '/')));
+                        $buildingImages[] = asset('storage/' . ltrim($s, '/'));
                     }
                 }
                 $buildingImages = array_values(array_unique($buildingImages));

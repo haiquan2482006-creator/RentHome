@@ -18,11 +18,11 @@ class RentHomeAiService
     }
 
     /**
-     * Nhận tin nhắn chat từ người dùng và xử lý thông minh:
-     * 1. Nhận diện FAQ / Giải đáp thắc mắc: Chào hỏi tên người dùng, gợi ý câu hỏi, trả lời 100% sự thật chuẩn xác.
-     * 2. Nhận diện luồng Tự động đăng tin / Sửa bài / Hủy bài / Xác nhận đăng bài.
-     * 3. Nhận diện khiếu nại, phản ánh tin giả, lừa đảo.
-     * 4. Tìm kiếm phòng trọ trong Database và tư vấn chuyên nghiệp.
+     * Nhận tin nhắn chat từ người dùng và xử lý chuyên sâu:
+     * 1. Lọc tòa nhà theo yêu cầu (Chung cư mini, căn hộ, phòng trọ, KTX, nhà riêng, biệt thự liền kề, mặt bằng kinh doanh).
+     * 2. Lọc mức giá (dưới, trên, khoảng giá, tầm giá).
+     * 3. Tìm bài đăng trong cơ sở dữ liệu và hiển thị thẻ phòng trực quan.
+     * 4. Hướng dẫn khách thuê nhà (FAQ thủ tục, hợp đồng, tiền cọc, giá điện nước, lưu ý khi đi xem phòng).
      */
     public function ask(string $message, array $history = [], $currentUser = null, array $uploadedImageIds = []): array
     {
@@ -30,118 +30,89 @@ class RentHomeAiService
         $userSalutation = $this->resolveUserSalutation($currentUser);
         $qLower = mb_strtolower($cleanMsg, 'UTF-8');
 
-        // 0.0 NẾU ĐANG CHỜ TIÊU CHÍ TÌM PHÒNG (KHU VỰC & MỨC GIÁ): TRÁNH BỊ LUỒNG ĐĂNG BÀI BẮT NHẦM
+        // 1. NẾU ĐANG CHỜ TIÊU CHÍ TÌM PHÒNG (KHU VỰC & MỨC GIÁ)
         if (session()->get('ai_search_waiting_criteria', false) === true) {
-            $isExplicitPostCommand = (
-                $qLower === 'đăng bài' || $qLower === 'dang bai' ||
-                str_starts_with($qLower, 'tôi muốn đăng') || str_starts_with($qLower, 'muốn đăng') ||
-                str_starts_with($qLower, 'cần đăng') || str_starts_with($qLower, 'hãy giúp tôi đăng') ||
-                str_starts_with($qLower, 'giúp tôi đăng')
-            );
-            $isExplicitComplaintCommand = (
-                $qLower === 'khiếu nại' || $qLower === 'tố cáo' ||
-                str_starts_with($qLower, 'tôi muốn khiếu nại') || str_starts_with($qLower, 'muốn khiếu nại')
-            );
+            session()->forget('ai_search_waiting_criteria');
+            $searchResult = $this->searchPostsInDatabase($cleanMsg);
+            $cards = $searchResult['cards'];
+            $meta = $searchResult['meta'];
 
-            if (!$isExplicitPostCommand && !$isExplicitComplaintCommand) {
-                // Người dùng đang trả lời thông tin tìm phòng (ví dụ: "Quận 1, TP.HCM tầm 5 - 8 triệu")
-                // Xóa cờ chờ và chuyển thẳng xuống tìm kiếm phòng trong Database, TUYỆT ĐỐI KHÔNG nhảy vào handleAutoPostingFlow()
-                session()->forget('ai_search_waiting_criteria');
-                $searchResult = $this->searchPostsInDatabase($cleanMsg);
-                $cards = $searchResult['cards'];
-                $meta = $searchResult['meta'];
-
-                if (!empty($meta['needs_clarification'])) {
-                    return [
-                        'reply' => $this->generateSoftConsultantReply($cleanMsg, [], $meta, $userSalutation),
-                        'cards' => [],
-                    ];
-                }
-
-                if (!empty($this->geminiApiKey)) {
-                    try {
-                        $geminiReply = $this->callGemini($cleanMsg, $history, $cards, $meta, $currentUser, $userSalutation);
-                        if (!empty($geminiReply)) {
-                            return [
-                                'reply' => $geminiReply,
-                                'cards' => $cards,
-                            ];
-                        }
-                    } catch (\Exception $e) {
-                        Log::error('Gemini Consultant Error: ' . $e->getMessage());
-                    }
-                }
-
-                $consultantReply = $this->generateSoftConsultantReply($cleanMsg, $cards, $meta, $userSalutation);
+            if (!empty($meta['needs_clarification'])) {
                 return [
-                    'reply' => $consultantReply,
-                    'cards' => $cards,
+                    'reply' => $this->generateSoftConsultantReply($cleanMsg, [], $meta, $userSalutation),
+                    'cards' => [],
                 ];
-            } else {
-                session()->forget('ai_search_waiting_criteria');
             }
-        }
 
-        // 0. ƯU TIÊN TIẾP NHẬN KHI ĐANG TRONG TIẾN TRÌNH KHIẾU NẠI HOẶC NGƯỜI DÙNG NÊU Ý ĐỊNH KHIẾU NẠI RÕ RÀNG
-        if (session()->has('ai_complaint_pending') || 
-            session()->has('ai_complaint_confirming') ||
-            str_starts_with($qLower, 'tôi muốn khiếu nại') || 
-            str_starts_with($qLower, 'tôi cần khiếu nại') || 
-            str_starts_with($qLower, 'muốn khiếu nại') || 
-            $qLower === 'khiếu nại' || 
-            $qLower === 'tố cáo' ||
-            str_contains($qLower, 'khiếu nại chủ trọ') ||
-            str_contains($qLower, 'khiếu nại bài đăng')) {
-            $complaintResult = $this->handleComplaintFlow($cleanMsg, $currentUser, $userSalutation, $uploadedImageIds);
-            if ($complaintResult !== null) {
-                return $complaintResult;
-            }
-        }
-
-        // 1. NHẬN DIỆN CÂU HỎI THẮC MẮC CỤ THỂ (SỰ THẬT 100%, ĐÚNG TRỌNG TÂM, KHÔNG ẢO - 4 PHẦN CHUYÊN GIA)
-        $specificFaqReply = $this->matchSpecificFaqQuestion($cleanMsg, $userSalutation);
-        if ($specificFaqReply !== null) {
-            if (session()->has('ai_auto_posting_draft')) {
-                $draft = session()->get('ai_auto_posting_draft');
-                if (empty($draft['price']) && empty($draft['area'])) {
-                    session()->forget('ai_auto_posting_draft');
+            if (!empty($this->geminiApiKey)) {
+                try {
+                    $geminiReply = $this->callGemini($cleanMsg, $history, $cards, $meta, $currentUser, $userSalutation);
+                    if (!empty($geminiReply)) {
+                        return [
+                            'reply' => $geminiReply,
+                            'cards' => $cards,
+                        ];
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Gemini Consultant Error: ' . $e->getMessage());
                 }
             }
 
+            $consultantReply = $this->generateSoftConsultantReply($cleanMsg, $cards, $meta, $userSalutation);
+            return [
+                'reply' => $consultantReply,
+                'cards' => $cards,
+            ];
+        }
+
+        // 2. NHẬN DIỆN CÂU HỎI THẮC MẮC CỤ THỂ (HƯỚNG DẪN KHÁCH THUÊ NHÀ, FAQ)
+        $specificFaqReply = $this->matchSpecificFaqQuestion($cleanMsg, $userSalutation, $currentUser);
+        if ($specificFaqReply !== null) {
             return [
                 'reply' => $specificFaqReply,
                 'cards' => [],
             ];
         }
 
-        // 2. NHẬN DIỆN YÊU CẦU TRỢ GIÚP / TƯ VẤN / GIẢI ĐÁP CHUNG (FAQ / CẦN TRỢ GIÚP / HỖ TRỢ)
-        if ($this->isGeneralFaqPrompt($cleanMsg)) {
-            if (session()->has('ai_auto_posting_draft')) {
-                $draft = session()->get('ai_auto_posting_draft');
-                if (empty($draft['price']) && empty($draft['area'])) {
-                    session()->forget('ai_auto_posting_draft');
-                }
-            }
+        // 3. HƯỚNG DẪN KHI NGƯỜI DÙNG YÊU CẦU ĐĂNG BÀI QUA CHATBOT (HƯỚNG DẪN ĐĂNG TRÊN WEBSITE)
+        $isPostingRequest = str_contains($qLower, 'đăng bài') || str_contains($qLower, 'dang bai') ||
+                            str_contains($qLower, 'đăng tin') || str_contains($qLower, 'dang tin') ||
+                            str_contains($qLower, 'lên bài') || str_contains($qLower, 'tạo bài');
+        if ($isPostingRequest) {
+            return [
+                'reply' => "Dạ chào **{$userSalutation}**! RentHome hỗ trợ Chủ nhà / Quản lý tòa nhà đăng tin cho thuê trực tiếp trên website tại mục **[Đăng tin cho thuê](/dang-tin)** (hoàn toàn miễn phí 100%, kiểm duyệt nhanh chóng trong 15 - 30 phút).\n\n"
+                         . "🤖 **Chatbot RentHome hiện chuyên sâu phục vụ 4 chức năng chính:**\n"
+                         . "• 🏢 **Lọc tòa nhà & loại hình:** Chung cư mini, phòng trọ, KTX, nhà riêng, biệt thự liền kề, mặt bằng kinh doanh...\n"
+                         . "• 💰 **Lọc mức giá:** Dưới mức giá, trên mức giá, khoảng giá phù hợp với ngân sách.\n"
+                         . "• 🔍 **Tìm kiếm bài đăng:** Tìm phòng theo khu vực quận/huyện, tỉnh thành trên Toàn quốc.\n"
+                         . "• 📖 **Hướng dẫn thuê nhà:** Giải đáp hợp đồng, tiền cọc, giá điện nước và lưu ý khi đi xem phòng.\n\n"
+                         . "👉 {$userSalutation} hãy nhắn khu vực hoặc tầm giá bạn muốn tìm phòng để mình hỗ trợ ngay nhé!",
+                'cards' => [],
+            ];
+        }
 
+        // 4. HƯỚNG DẪN KHI NGƯỜI DÙNG CÓ NHU CẦU KHIẾU NẠI / BÁO CÁO (HƯỚNG DẪN KÊNH CHÍNH THỨC)
+        $isComplaintRequest = str_contains($qLower, 'khiếu nại') || str_contains($qLower, 'khieu nai') ||
+                              str_contains($qLower, 'tố cáo') || str_contains($qLower, 'to cao');
+        if ($isComplaintRequest) {
+            return [
+                'reply' => "Dạ chào **{$userSalutation}**! Để bảo vệ quyền lợi người thuê và xử lý nhanh chóng, RentHome tiếp nhận khiếu nại qua các kênh chính thức sau:\n\n"
+                         . "• 🚨 **Báo cáo trực tiếp trên bài đăng:** Bấm nút **\"Báo cáo bài đăng\"** tại trang chi tiết phòng để Ban Kiểm duyệt đối chất và tạm khóa bài đăng vi phạm.\n"
+                         . "• 📞 **Hotline hỗ trợ khẩn cấp:** Liên hệ tổng đài **1900 8888** để được chuyên viên hỗ trợ can thiệp xử lý ngay.\n\n"
+                         . "👉 Nếu bạn cần tư vấn pháp lý về hợp đồng thuê nhà hoặc giải quyết tranh chấp đòi lại tiền cọc (theo Điều 328 BLDS 2015), bạn cứ nhắn cho mình nhé!",
+                'cards' => [],
+            ];
+        }
+
+        // 5. NHẬN DIỆN YÊU CẦU TRỢ GIÚP / TƯ VẤN / GIẢI ĐÁP CHUNG (FAQ / CẦN TRỢ GIÚP / HỖ TRỢ)
+        if ($this->isGeneralFaqPrompt($cleanMsg)) {
             return [
                 'reply' => $this->generateFaqIntroReply($userSalutation),
                 'cards' => [],
             ];
         }
 
-        // 3. XỬ LÝ LUỒNG TỰ ĐỘNG ĐĂNG BÀI QUA AI (ĐĂNG / SỬA / HỦY / XÁC NHẬN)
-        $postingResult = $this->handleAutoPostingFlow($cleanMsg, $currentUser, $uploadedImageIds, $userSalutation);
-        if ($postingResult !== null) {
-            return $postingResult;
-        }
-
-        // 4. XỬ LÝ LUỒNG KHIẾU NẠI & BÁO CÁO SỰ CỐ THÔNG MINH
-        $complaintResult = $this->handleComplaintFlow($cleanMsg, $currentUser, $userSalutation, $uploadedImageIds);
-        if ($complaintResult !== null) {
-            return $complaintResult;
-        }
-
-        // 5. TÌM KIẾM PHÒNG TRONG DATABASE (CHỈ KHI CÓ NHU CẦU TÌM KIẾM THỰC SỰ)
+        // 6. TÌM KIẾM PHÒNG TRONG DATABASE (LỌC TÒA NHÀ THEO YÊU CẦU, LỌC GIÁ, TÌM BÀI ĐĂNG)
         $searchResult = $this->searchPostsInDatabase($cleanMsg);
         $cards = $searchResult['cards'];
         $meta = $searchResult['meta'];
@@ -154,7 +125,7 @@ class RentHomeAiService
             ];
         }
 
-        // 6. NẾU CÓ GEMINI API KEY, ƯU TIÊN GEMINI PHẢN HỒI THEO KIẾN THỨC CHUẨN THỰC TẾ
+        // 7. NẾU CÓ GEMINI API KEY, ƯU TIÊN GEMINI PHẢN HỒI THEO KIẾN THỨC CHUẨN THỰC TẾ
         if (!empty($this->geminiApiKey)) {
             try {
                 $geminiReply = $this->callGemini($cleanMsg, $history, $cards, $meta, $currentUser, $userSalutation);
@@ -169,7 +140,7 @@ class RentHomeAiService
             }
         }
 
-        // 7. KỊCH BẢN TƯ VẤN CHUYÊN VIÊN BẤT ĐỘNG SẢN THỰC THẾ (FALLBACK)
+        // 8. KỊCH BẢN TƯ VẤN CHUYÊN VIÊN BẤT ĐỘNG SẢN THỰC TẾ (FALLBACK)
         $consultantReply = $this->generateSoftConsultantReply($cleanMsg, $cards, $meta, $userSalutation);
 
         return [
@@ -238,34 +209,30 @@ class RentHomeAiService
      */
     protected function generateFaqIntroReply(string $userName): string
     {
-        return "Xin chào **{$userName}**! Tôi là **Chuyên gia Tư vấn Cấp cao RentHome**. Bạn cần giải đáp thắc mắc hoặc tư vấn chuyên sâu về vấn đề gì ạ? 💡✨\n\n"
-             . "Tôi sẵn sàng phân tích và giải đáp chuẩn xác, thấu đáo theo quy định pháp luật Việt Nam và cơ chế vận hành của RentHome về:\n"
-             . "• 📝 **Đăng bài cho thuê:** Hướng dẫn cách đăng bài, đăng tin miễn phí qua web & AI Chat...\n"
-             . "• 💰 **Chi phí & Thời gian:** Đăng tin có mất phí không, thời gian duyệt bài bao lâu...\n"
-             . "• 🤝 **Phí môi giới & Thuê phòng:** RentHome có thu phí người thuê không, kết nối chính chủ...\n"
-             . "• 📝 **Hợp đồng & Tiền cọc:** Thuê nhà có phải cọc không, mức cọc, quy trình lập hợp đồng, lấy lại tiền cọc (Bộ luật Dân sự 2015)...\n"
-             . "• ⚡ **Điện nước & Giá phòng:** Quy định giá điện nước, chủ trọ có được tự ý tăng giá không...\n"
-             . "• 🏢 **Quản lý vận hành:** Quản lý tòa nhà, phòng trọ, chốt số điện nước, xuất hóa đơn...\n"
-             . "• 🚨 **An toàn & Khiếu nại:** Báo cáo tin giả, xử lý tranh chấp phòng trọ...\n\n"
+        return "Xin chào **{$userName}**! Tôi là **Chuyên gia Tư vấn Cấp cao RentHome**. Bạn cần giải đáp thắc mắc hoặc tư vấn về thủ tục thuê nhà ạ? 💡✨\n\n"
+             . "Tôi sẵn sàng tư vấn và hướng dẫn khách thuê chi tiết, chuẩn xác theo quy định pháp luật Việt Nam và chính sách RentHome về:\n"
+             . "• 📝 **Hợp đồng & Tiền cọc:** Quy định đặt cọc (Điều 328 BLDS 2015), điều khoản hợp đồng bắt buộc, cách lấy lại cọc...\n"
+             . "• ⚡ **Điện nước & Chi phí:** Quy định giá điện nước phòng trọ, chủ trọ có được tự ý tăng giá không...\n"
+             . "• 🤝 **Phí môi giới & Xem phòng:** RentHome kết nối trực tiếp chính chủ với **0 VNĐ phí môi giới**, hướng dẫn xem phòng...\n"
+             . "• 📋 **Giấy tờ & Thủ tục thuê:** Cần chuẩn bị CCCD, thủ tục đăng ký tạm trú (Luật Cư trú 2020)...\n"
+             . "• 🏢 **Lọc tòa nhà & Mức giá:** Tra cứu căn hộ, chung cư mini, phòng trọ theo khoảng ngân sách và địa điểm...\n\n"
              . "👉 **{$userName} hãy nhắn trực tiếp câu hỏi cụ thể**, hoặc bấm nhanh vào các câu hỏi thường gặp bên dưới:\n"
              . "<div style=\"margin-top: 10px; display: flex; flex-direction: column; gap: 6px;\">\n"
-             . "  <button type=\"button\" onclick=\"sendQuickPrompt('Hướng dẫn cách đăng bài')\" style=\"text-align: left; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 8px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.2s;\" onmouseover=\"this.style.background='#dcfce7'\" onmouseout=\"this.style.background='#f0fdf4'\">📝 Hướng dẫn cách đăng bài cho thuê trên RentHome?</button>\n"
-             . "  <button type=\"button\" onclick=\"sendQuickPrompt('RentHome hỗ trợ những tính năng gì?')\" style=\"text-align: left; background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; padding: 8px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.2s;\" onmouseover=\"this.style.background='#dbeafe'\" onmouseout=\"this.style.background='#eff6ff'\">🏠 RentHome hỗ trợ những tính năng gì cho người thuê và chủ nhà?</button>\n"
-             . "  <button type=\"button\" onclick=\"sendQuickPrompt('Thuê nhà có phải đặt cọc không?')\" style=\"text-align: left; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 8px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.2s;\" onmouseover=\"this.style.background='#dcfce7'\" onmouseout=\"this.style.background='#f0fdf4'\">📝 Thuê nhà có phải đặt cọc không? Cọc bao nhiêu?</button>\n"
-             . "  <button type=\"button\" onclick=\"sendQuickPrompt('Hợp đồng thuê nhà làm như thế nào?')\" style=\"text-align: left; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 8px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.2s;\" onmouseover=\"this.style.background='#dcfce7'\" onmouseout=\"this.style.background='#f0fdf4'\">📑 Hợp đồng thuê nhà làm như thế nào? Lưu ý gì?</button>\n"
-             . "  <button type=\"button\" onclick=\"sendQuickPrompt('Thời gian duyệt bài đăng là bao lâu?')\" style=\"text-align: left; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 8px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.2s;\" onmouseover=\"this.style.background='#dcfce7'\" onmouseout=\"this.style.background='#f0fdf4'\">⏳ Thời gian duyệt bài đăng là bao lâu?</button>\n"
-             . "  <button type=\"button\" onclick=\"sendQuickPrompt('Đăng tin trên RentHome có mất phí không?')\" style=\"text-align: left; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 8px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.2s;\" onmouseover=\"this.style.background='#dcfce7'\" onmouseout=\"this.style.background='#f0fdf4'\">💰 Đăng tin trên RentHome có mất phí không?</button>\n"
-             . "  <button type=\"button\" onclick=\"sendQuickPrompt('RentHome có thu phí môi giới không?')\" style=\"text-align: left; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 8px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.2s;\" onmouseover=\"this.style.background='#dcfce7'\" onmouseout=\"this.style.background='#f0fdf4'\">🤝 Thuê phòng có mất phí môi giới không?</button>\n"
-             . "  <button type=\"button\" onclick=\"sendQuickPrompt('Chủ nhà không trả tiền cọc thì làm thế nào?')\" style=\"text-align: left; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 8px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.2s;\" onmouseover=\"this.style.background='#dcfce7'\" onmouseout=\"this.style.background='#f0fdf4'\">⚖️ Chủ trọ không trả tiền cọc thì làm thế nào?</button>\n"
-             . "  <button type=\"button\" onclick=\"sendQuickPrompt('Chủ trọ có được tự ý tăng giá phòng không?')\" style=\"text-align: left; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 8px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.2s;\" onmouseover=\"this.style.background='#dcfce7'\" onmouseout=\"this.style.background='#f0fdf4'\">📈 Chủ trọ có được tự ý tăng giá phòng không?</button>\n"
-             . "  <button type=\"button\" onclick=\"sendQuickPrompt('Quy định về giá điện nước phòng trọ như thế nào?')\" style=\"text-align: left; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 8px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.2s;\" onmouseover=\"this.style.background='#dcfce7'\" onmouseout=\"this.style.background='#f0fdf4'\">⚡ Quy định về giá điện nước phòng trọ?</button>\n"
+             . "  <button type=\"button\" onclick=\"sendQuickPrompt('Làm sao để thuê nhà trên RentHome?')\" style=\"text-align: left; background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; padding: 8px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.2s;\">🏠 Làm sao để thuê nhà? Quy trình 5 bước thuê nhà an toàn?</button>\n"
+             . "  <button type=\"button\" onclick=\"sendQuickPrompt('Thuê nhà có phải đặt cọc không?')\" style=\"text-align: left; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 8px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.2s;\">📝 Thuê nhà có phải đặt cọc không? Cọc bao nhiêu?</button>\n"
+             . "  <button type=\"button\" onclick=\"sendQuickPrompt('Hợp đồng thuê nhà làm như thế nào?')\" style=\"text-align: left; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 8px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.2s;\">📑 Hợp đồng thuê nhà làm như thế nào? Lưu ý gì?</button>\n"
+             . "  <button type=\"button\" onclick=\"sendQuickPrompt('Chủ nhà không trả tiền cọc thì làm thế nào?')\" style=\"text-align: left; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 8px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.2s;\">⚖️ Chủ trọ không trả tiền cọc thì làm thế nào?</button>\n"
+             . "  <button type=\"button\" onclick=\"sendQuickPrompt('Quy định về giá điện nước phòng trọ như thế nào?')\" style=\"text-align: left; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 8px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.2s;\">⚡ Quy định về giá điện nước phòng trọ?</button>\n"
+             . "  <button type=\"button\" onclick=\"sendQuickPrompt('Chủ trọ có được tự ý tăng giá phòng không?')\" style=\"text-align: left; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 8px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.2s;\">📈 Chủ trọ có được tự ý tăng giá phòng không?</button>\n"
+             . "  <button type=\"button\" onclick=\"sendQuickPrompt('Khi đi thuê phòng cần chuẩn bị giấy tờ gì?')\" style=\"text-align: left; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 8px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.2s;\">📋 Khi đi thuê phòng cần chuẩn bị giấy tờ gì?</button>\n"
+             . "  <button type=\"button\" onclick=\"sendQuickPrompt('RentHome có thu phí môi giới không?')\" style=\"text-align: left; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 8px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.2s;\">🤝 Thuê phòng có mất phí môi giới không?</button>\n"
              . "</div>";
     }
 
     /**
      * Khớp chính xác câu hỏi cụ thể và giải đáp theo cấu trúc chuẩn chuyên gia tư vấn cấp cao (4 phần)
      */
-    protected function matchSpecificFaqQuestion(string $msg, string $userName): ?string
+    protected function matchSpecificFaqQuestion(string $msg, string $userName, $currentUser = null): ?string
     {
         $q = mb_strtolower(trim($msg), 'UTF-8');
 
@@ -277,13 +244,36 @@ class RentHomeAiService
         $normalized = preg_replace('/\b(p|phg|ptro)\b/ui', 'phòng', $normalized);
         $normalized = trim($normalized);
 
+        // 0.A CHỦ ĐỀ ĐẶC BIỆT: HƯỚNG DẪN CÁC BƯỚC THUÊ NHÀ / QUY TRÌNH THUÊ NHÀ TRÊN RENTHOME
+        // (Ví dụ: "tôi muốn thuê nhà thì làm sao để có thể thuê nhà", "cách để thuê nhà", "làm sao để thuê nhà", "các bước thuê nhà")
+        $isHowToRentGuide = (
+            preg_match('/(?:làm sao|làm như thế nào|làm thế nào|làm cách nào|cách nào|bước nào|cần làm gì|cần làm những gì|bắt đầu từ đâu|hướng dẫn|các bước|quy trình|thủ tục)\s*.*(?:để|được|có thể)?\s*(?:thuê nhà|thuê phòng|thuê trọ|thuê căn hộ)/ui', $q) ||
+            preg_match('/(?:muốn thuê|cần thuê|đi thuê)\s*(?:nhà|phòng|trọ|căn hộ)?\s*(?:thì|phải)?\s*.*(?:làm sao|làm như thế nào|làm thế nào|làm cách nào|bước nào|cần làm gì|cần làm những gì|bắt đầu từ đâu|làm gì|làm những gì)/ui', $q) ||
+            preg_match('/^(?:hướng dẫn|cách|quy trình|các bước)\s*(?:để\s*)?(?:thuê|tìm thuê)\s*(?:nhà|phòng|trọ|căn hộ)/ui', $q) ||
+            preg_match('/(?:làm sao|làm thế nào|làm cách nào)\s*(?:để\s*)?(?:có thể\s*)?(?:thuê|tìm thuê)\s*(?:được\s*)?(?:nhà|phòng|trọ|căn hộ)/ui', $q) ||
+            preg_match('/cách thuê nhà trên (?:web|website|renthome)/ui', $q) ||
+            preg_match('/(?:biết|cho tôi biết|chỉ tôi)?\s*cách\s*(?:để\s*)?(?:thuê|tìm thuê)\s*(?:nhà|phòng|trọ|căn hộ)/ui', $q) ||
+            str_contains($q, 'cách để thuê nhà') || str_contains($q, 'cách để thuê phòng') || str_contains($q, 'cách thuê nhà') || str_contains($q, 'cách thuê phòng')
+        );
+
+        if ($isHowToRentGuide) {
+            return "🎯 **Quy trình các bước thuê nhà trên RentHome:**\n\n"
+                 . "Để thuê nhà hoặc phòng trọ trên hệ thống RentHome, bạn thực hiện theo các bước sau nhé:\n\n"
+                 . "1. **Vào trang chi tiết bài đăng muốn chọn:** Tìm kiếm và bấm vào bài đăng phòng trọ / căn hộ phù hợp với nhu cầu của bạn.\n"
+                 . "2. **Điền thông tin yêu cầu liên hệ, hoặc gọi điện trao đổi với người đăng:** Bạn có thể bấm gửi yêu cầu liên hệ hoặc gọi điện / nhắn tin trực tiếp cho chủ bài đăng để trao đổi chi tiết và hẹn xem phòng.\n"
+                 . "3. **Chờ phản hồi từ người đăng:** Chủ bài đăng sẽ tiếp nhận thông tin và phản hồi lại cho bạn.\n"
+                 . "4. **Nếu người đăng chấp nhận, chờ hóa đơn và hợp đồng điện tử:** Sau khi hai bên thống nhất, người đăng sẽ khởi tạo và gửi hóa đơn cùng hợp đồng điện tử trực tiếp trên hệ thống cho bạn xác nhận.\n\n"
+                 . "👉 Bây giờ, {$userName} đang muốn tìm phòng/nhà ở khu vực quận/huyện nào và khoảng mức giá bao nhiêu? Hãy nhắn cho mình để mình hỗ trợ lọc danh sách các bài đăng tốt nhất gửi bạn ngay nhé!";
+        }
+
         // Bỏ qua giải đáp FAQ tĩnh nếu người dùng đang có nhu cầu tìm phòng cụ thể:
         // (Có động từ tìm phòng HOẶC có địa điểm quận/huyện đi kèm mức giá / diện tích)
         $hasSearchIntent = preg_match('/\b(tìm|tim|kiếm|kiem|cần thuê|can thue|muốn thuê|muon thue|gợi ý phòng|có phòng nào|co phong nao|những phòng nào|còn phòng nào)\b/ui', $q);
         $hasLocationKeyword = preg_match('/\b(cầu giấy|đống đa|ba đình|hai bà trưng|thanh xuân|hoàng mai|hà đông|nam từ liêm|bắc từ liêm|tây hồ|long biên|gia lâm|quận 1|quận 2|quận 3|quận 4|quận 5|quận 7|quận 10|bình thạnh|gò vấp|tân bình|thủ đức|hà nội|hồ chí minh|sài gòn|đà nẵng)\b/ui', $q);
         $hasPriceKeyword = preg_match('/(\d+(?:[.,]\d+)?)\s*(?:triệu|tr|k|nghìn)\b/ui', $q);
+        $hasAreaKeyword = preg_match('/(\d+(?:[.,]\d+)?)\s*(?:m2|m²|mét\s*vuông|met\s*vuong)\b/ui', $q) || preg_match('/\bdiện\s*tích\b/ui', $q);
 
-        if ($hasSearchIntent || ($hasLocationKeyword && $hasPriceKeyword)) {
+        if ($hasSearchIntent || ($hasLocationKeyword && ($hasPriceKeyword || $hasAreaKeyword)) || $hasAreaKeyword) {
             return null;
         }
 
@@ -344,16 +334,16 @@ class RentHomeAiService
             if ($isStrictSecret) {
                 return "Chào **{$userName}** nha! Mình là **Trợ lý ảo RentHome**, do đội ngũ kỹ sư của nền tảng phát triển để đồng hành hỗ trợ bạn tìm phòng ưng ý và giải đáp mọi thủ tục thuê trọ. 😊\n\n"
                      . "Chuyện \"bếp núc\" công nghệ hay thông tin cá nhân của các anh kỹ sư thì mình xin phép được giữ bí mật nội bộ một chút nhé ạ! Đổi lại, chuyện tìm phòng ở đâu đẹp, giá thuê hợp lý, hợp đồng ra sao, cách giữ cọc an toàn hay quy định giá điện nước chuẩn thì mình nắm rất rõ trong lòng bàn tay luôn. 🏠✨\n\n"
-                     . "Hôm nay {$userName} đang cần mình hỗ trợ tìm phòng ở khu vực nào, hay đang muốn đăng bài cho thuê phòng thế nào nè?";
+                     . "Hôm nay {$userName} đang cần mình hỗ trợ tìm phòng ở khu vực nào, hay cần tư vấn thủ tục gì nè?";
             }
 
             // Giới thiệu chung về RentHome
             return "Chào **{$userName}**! **RentHome** là nền tảng kết nối trực tiếp và minh bạch giữa người thuê và chính chủ nhà trọ, giúp loại bỏ hoàn toàn các khâu trung gian ăn chênh lệch giá. 🏠✨\n\n"
                  . "**Các tiện ích nổi bật RentHome hỗ trợ bạn:**\n"
-                 . "• **Dành cho Người tìm phòng:** Tìm kiếm thông minh theo khu vực, mức giá, diện tích; kết nối trực tiếp chính chủ xem phòng với **0 VNĐ phí môi giới**.\n"
-                 . "• **Dành cho Chủ trọ:** Đăng tin cho thuê hoàn toàn **miễn phí 100%**, tiếp cận nhanh chóng hàng ngàn khách thuê có nhu cầu thực tế.\n"
+                 . "• **Dành cho Người tìm phòng (Tài khoản cá nhân):** Tìm kiếm thông minh theo khu vực, mức giá, diện tích; kết nối trực tiếp chính chủ xem phòng với **0 VNĐ phí môi giới** *(Lưu ý: Tài khoản cá nhân chỉ dùng để thuê nhà, không được đăng bài)*.\n"
+                 . "• **Dành cho Doanh nghiệp & Chủ cơ sở:** Đăng tin cho thuê hoàn toàn **miễn phí 100%**, tiếp cận nhanh chóng hàng ngàn khách thuê có nhu cầu thực tế.\n"
                  . "• **Tư vấn & Hỗ trợ pháp lý:** Hướng dẫn hợp đồng thuê, quy định tiền cọc (Điều 328 BLDS 2015), định mức điện nước và hỗ trợ giải quyết sự cố, phản ánh vi phạm.\n\n"
-                 . "👉 {$userName} có thể thử ngay bằng cách nhắn ví dụ: *\"Tìm phòng Cầu Giấy tầm 4 triệu\"* hoặc *\"Tôi muốn đăng tin cho thuê phòng\"* nhé!";
+                 . "👉 {$userName} có thể thử ngay bằng cách nhắn ví dụ: *\"Tìm phòng Cầu Giấy tầm 4 triệu\"* hoặc *\"Quy định về tiền cọc thế nào\"* nhé!";
         }
 
         // 1. CHỦ ĐỀ: TIỀN ĐẶT CỌC / THUÊ NHÀ CÓ PHẢI CỌC KHÔNG / CỌC BAO NHIÊU / MẤT CỌC
@@ -440,22 +430,47 @@ class RentHomeAiService
                  . "• *Bài đăng sau khi duyệt sẽ xuất hiện ở đâu?* -> Hiển thị ngay tại Trang chủ, trang Tìm kiếm và được Trợ lý AI ưu tiên gợi ý cho khách tìm phòng.";
         }
 
+        // 3B. CHỦ ĐỀ: TÀI KHOẢN CÁ NHÂN CÓ ĐƯỢC ĐĂNG BÀI / ĐĂNG TIN KHÔNG? AI ĐƯỢC ĐĂNG BÀI?
+        $isPersonalAccountPostingFaq = (
+            (str_contains($q, 'cá nhân') || str_contains($q, 'ca nhan')) &&
+            (str_contains($q, 'đăng bài') || str_contains($q, 'dang bai') || str_contains($q, 'đăng tin') || str_contains($q, 'dang tin') || str_contains($q, 'cho thuê') || str_contains($q, 'lên bài') || str_contains($q, 'tạo bài') || str_contains($q, 'có quyền') || str_contains($q, 'được làm gì') || str_contains($q, 'thuê nhà'))
+        ) || (
+            (str_contains($q, 'ai được') || str_contains($q, 'ai có quyền') || str_contains($q, 'ai mới được') || str_contains($q, 'ai có thể') || str_contains($q, 'đối tượng nào') || str_contains($q, 'tài khoản nào')) &&
+            (str_contains($q, 'đăng bài') || str_contains($q, 'dang bai') || str_contains($q, 'đăng tin') || str_contains($q, 'dang tin'))
+        ) || (
+            str_contains($q, 'tài khoản cá nhân') && (str_contains($q, 'đăng') || str_contains($q, 'thuê') || str_contains($q, 'quyền'))
+        );
+
+        if ($isPersonalAccountPostingFaq) {
+            return "🎯 **1. Kết luận chính xác:**\n"
+                 . "**KHÔNG ĐƯỢC PHÉP.** Trên nền tảng RentHome, **Tài khoản cá nhân chỉ được tìm và thuê nhà, KHÔNG ĐƯỢC đăng bài hay đăng tin cho thuê**.\n\n"
+                 . "⚖️ **2. Quy định phân quyền tài khoản RentHome:**\n"
+                 . "• 👤 **Tài khoản Cá nhân (Người tìm thuê):** Được tìm kiếm phòng trọ, căn hộ, liên hệ chính chủ, đặt lịch xem phòng, ký hợp đồng và thanh toán tiền thuê. Quyền đăng tin cho thuê bị khóa đối với tài khoản cá nhân nhằm loại bỏ triệt để tin ảo, môi giới tự do hoặc lừa đảo.\n"
+                 . "• 🏢 **Tài khoản Doanh nghiệp (Chủ nhà / Chủ cơ sở):** Được tạo cơ sở, tòa nhà, quản lý phòng và đăng tin cho thuê.\n"
+                 . "• 🔑 **Quản lý tòa nhà (Nhân sự phân quyền):** Được Doanh nghiệp phân công quản lý các cơ sở cụ thể để đăng bài và vận hành phòng.\n\n"
+                 . "📋 **3. Kế hoạch hành động:**\n"
+                 . "• Nếu bạn là Chủ cơ sở / Chủ nhà muốn đăng tin: Vui lòng đăng ký tài khoản **Doanh nghiệp**, hoặc liên hệ Ban Quản trị RentHome qua Hotline `1900 8888` để được hỗ trợ nâng cấp tài khoản.\n"
+                 . "• Nếu {$userName} đang cần tìm thuê phòng: Bạn chỉ cần nhắn khu vực (quận/huyện, tỉnh thành) và mức giá mong muốn, mình sẽ lọc danh sách các căn tốt nhất gửi bạn ngay nhé!\n\n"
+                 . "🔮 **Lường trước băn khoăn tiếp theo của bạn:**\n"
+                 . "• *Tại sao tài khoản cá nhân không được đăng bài?* -> Nhằm đảm bảo 100% bài đăng trên RentHome đều là cơ sở có thật, được xác thực bởi Doanh nghiệp/Chủ tòa nhà uy tín và qua Ban Kiểm duyệt thẩm định.\n"
+                 . "• *Muốn chuyển đổi từ tài khoản cá nhân sang tài khoản cho thuê?* -> Liên hệ Hotline `1900 8888` hoặc đăng xuất và đăng ký tài khoản mới với vai trò Doanh nghiệp.";
+        }
+
         // 4. CHỦ ĐỀ: PHÍ ĐĂNG TIN TRÊN RENTHOME
         if ((str_contains($q, 'đăng tin') || str_contains($q, 'đăng bài') || str_contains($q, 'tạo bài')) &&
             (str_contains($q, 'mất phí') || str_contains($q, 'chi phí') || str_contains($q, 'bao nhiêu tiền') || str_contains($q, 'có tốn phí') || str_contains($q, 'tính phí') || str_contains($q, 'miễn phí') || str_contains($q, 'mất tiền') || str_contains($q, 'tốn tiền'))) {
             return "🎯 **1. Kết luận / Giải pháp nhanh:**\n"
-                 . "**HOÀN TOÀN MIỄN PHÍ 100% (0 VNĐ).** Bất kỳ cá nhân, chủ trọ hay doanh nghiệp cho thuê nào đều được đăng tin miễn phí không giới hạn trên RentHome.\n\n"
+                 . "**HOÀN TOÀN MIỄN PHÍ 100% (0 VNĐ)** dành cho tài khoản **Doanh nghiệp & Quản lý tòa nhà**.\n\n"
+                 . "*(Lưu ý quan trọng: Tài khoản cá nhân chỉ được tìm và thuê nhà, KHÔNG ĐƯỢC đăng bài hay đăng tin cho thuê)*.\n\n"
                  . "🔍 **2. Chi tiết & Phân tích chính sách:**\n"
-                 . "• Miễn phí toàn bộ cả hình thức tự đăng bài trên website và đăng bài tự động qua Trợ lý AI Chat.\n"
+                 . "• Miễn phí toàn bộ việc đăng tin trên website dành cho Chủ nhà / Doanh nghiệp.\n"
                  . "• Không phát sinh bất kỳ khoản phí khởi tạo, phí duy trì bài đăng hay hoa hồng chiết khấu nào khi tìm được khách thuê.\n\n"
                  . "📋 **3. Kế hoạch hành động:**\n"
-                 . "• **Cách 1 (Qua AI Chat):** Bạn chỉ cần nhắn thông tin phòng (địa chỉ, giá, diện tích...) và gửi kèm ảnh tại khung chat này, AI sẽ tự động soạn tin chuẩn SEO và đăng lên hệ thống giúp bạn.\n"
-                 . "• **Cách 2 (Qua Website):** Truy cập mục **\"Đăng bài\"** trên thanh điều hướng để điền form chi tiết.\n\n"
-                 . "💡 **4. Lưu ý & Khuyến nghị chuyên gia:**\n"
-                 . "Cung cấp đầy đủ tiện ích có sẵn (điều hòa, nóng lạnh, giờ tự do) và hình ảnh thật của phòng để tin đăng tiếp cận khách thuê nhanh hơn gấp 3 lần.\n\n"
+                 . "• **Dành cho Doanh nghiệp & Quản lý tòa nhà:** Bạn có thể đăng bài trực tiếp tại mục **[Đăng tin](/dang-tin)** trên website.\n"
+                 . "• **Dành cho Khách thuê:** Sử dụng khung chat này để tìm kiếm phòng, lọc giá và hướng dẫn thủ tục thuê nhà với 0 VNĐ phí môi giới.\n\n"
                  . "🔮 **Lường trước băn khoăn tiếp theo của bạn:**\n"
-                 . "• *Tôi có thể đăng tối đa bao nhiêu bài?* -> Không giới hạn số lượng bài đăng, bạn có thể tạo nhiều bài cho từng phòng khác nhau.\n"
-                 . "• *Khi có khách thuê rồi thì xử lý bài đăng thế nào?* -> Vào trang Quản lý bài đăng chọn \"Đã cho thuê\" để ẩn bài, tránh bị làm phiền.";
+                 . "• *Tài khoản cá nhân có đăng bài được không?* -> Không, tài khoản cá nhân chỉ được dùng để thuê nhà.\n"
+                 . "• *Làm sao để đăng bài nếu là chủ nhà?* -> Đăng ký tài khoản Doanh nghiệp hoặc liên hệ Hotline `1900 8888`.";
         }
 
         // 4B. CHỦ ĐỀ: HƯỚNG DẪN CÁCH ĐĂNG BÀI / QUY TRÌNH ĐĂNG BÀI TRÊN RENTHOME
@@ -463,14 +478,20 @@ class RentHomeAiService
                          (str_contains($q, 'hướng dẫn') || str_contains($q, 'cách') || str_contains($q, 'làm sao') || str_contains($q, 'thế nào') || str_contains($q, 'như nào') || str_contains($q, 'như thế nào') || str_contains($q, 'quy trình') || str_contains($q, 'thủ tục') || str_contains($q, 'ở đâu') || str_contains($q, 'bước nào'));
 
         if ($isGuideToPost) {
-            return "Chào **{$userName}**! Để đăng bài cho thuê phòng/nhà trên RentHome hoàn toàn miễn phí 100%, bạn có thể chọn 1 trong 2 cách sau nhé: 📝✨\n\n"
-                 . "🔹 **Cách 1: Tự đăng qua Website** (Chủ động điền form)\n"
-                 . "• Bấm vào nút **'Đăng tin'** ở thanh menu trên cùng.\n"
-                 . "• Điền địa chỉ, giá thuê, diện tích, tải ảnh thực tế và bấm Xác nhận.\n\n"
-                 . "🔹 **Cách 2: Đăng tự động qua Trợ lý AI** (Nhanh chóng & Tiện lợi nhất)\n"
-                 . "• Bạn không cần điền form, chỉ cần nhắn thông tin phòng và gửi ảnh trực tiếp tại khung chat này, mình sẽ tự động soạn tin chuẩn SEO và lên bài giúp bạn luôn!\n\n"
-                 . "👉 Nếu bạn muốn mình hỗ trợ đăng bài tự động ngay bây giờ, hãy nhắn: **'Hãy giúp tôi đăng bài'** hoặc bấm vào nút bên dưới nhé!\n"
-                 . "<div style=\"margin-top: 8px;\"><button type=\"button\" onclick=\"sendQuickPrompt('Hãy giúp tôi đăng bài')\" style=\"background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 8px 14px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer;\">🚀 Hãy giúp tôi đăng bài</button></div>";
+            if ($currentUser && $currentUser->isIndividual()) {
+                return "Chào **{$userName}**! Tài khoản của bạn hiện tại là **Tài khoản Cá nhân (Người tìm thuê)**.\n\n"
+                     . "🚫 Theo quy định của RentHome, **Tài khoản cá nhân chỉ được tìm và thuê nhà, KHÔNG ĐƯỢC đăng bài hay đăng tin cho thuê**.\n\n"
+                     . "📌 **Lưu ý phân quyền:**\n"
+                     . "• Chức năng đăng bài dành riêng cho **Tài khoản Doanh nghiệp (Chủ nhà / Chủ cơ sở)** và **Quản lý tòa nhà**.\n"
+                     . "• Nếu bạn là Chủ nhà muốn đăng tin: Vui lòng liên hệ BQT RentHome qua Hotline `1900 8888` để đăng ký tài khoản Doanh nghiệp.\n"
+                     . "• Nếu {$userName} đang cần **tìm phòng thuê**, bạn cứ nhắn khu vực và mức giá mong muốn để mình hỗ trợ tìm phòng ngay nhé!";
+            }
+
+            return "Chào **{$userName}**! Để đăng bài cho thuê phòng/nhà trên RentHome hoàn toàn miễn phí 100% *(chỉ áp dụng cho tài khoản Doanh nghiệp & Quản lý tòa nhà; tài khoản cá nhân chỉ được thuê nhà)*, bạn thực hiện trực tiếp trên website theo các bước sau nhé: 📝✨\n\n"
+                 . "• **Bước 1:** Đăng nhập tài khoản Doanh nghiệp hoặc Quản lý tòa nhà.\n"
+                 . "• **Bước 2:** Bấm vào mục **[Đăng tin cho thuê](/dang-tin)** trên thanh menu website.\n"
+                 . "• **Bước 3:** Điền đầy đủ địa chỉ, loại hình, giá thuê, diện tích, hình ảnh thực tế và bấm Gửi duyệt.\n\n"
+                 . "💡 *Lưu ý*: Chatbot RentHome hiện chuyên phục vụ các chức năng cốt lõi: **Lọc tòa nhà / loại hình BĐS**, **Lọc giá**, **Lọc diện tích (m²)**, **Tìm bài đăng** và **Hướng dẫn thủ tục thuê nhà**; chức năng đăng tin được thực hiện trực tiếp qua giao diện website để bài được kiểm duyệt nhanh nhất!";
         }
 
         // 5. CHỦ ĐỀ: CHỦ TRỌ CÓ ĐƯỢC TỰ Ý TĂNG GIÁ PHÒNG KHÔNG
@@ -627,1081 +648,6 @@ class RentHomeAiService
     }
 
     /**
-     * Xử lý trọn vẹn luồng Tự động đăng tin qua AI Chat
-     */
-    protected function handleAutoPostingFlow(string $message, $currentUser, array $uploadedImageIds = [], string $userName = 'bạn'): ?array
-    {
-        $q = mb_strtolower(trim($message), 'UTF-8');
-        $draft = session()->get('ai_auto_posting_draft', null);
-
-        // 1. Kiểm tra ý định HỦY đăng bài
-        $cancelKeywords = ['hủy', 'hủy bài', 'hủy đăng', 'không đăng nữa', 'thôi không đăng', 'dừng lại', 'bỏ qua', 'cancel'];
-        foreach ($cancelKeywords as $ck) {
-            if ($q === $ck || preg_match('/\b' . preg_quote($ck, '/') . '\b/u', $q)) {
-                if ($draft !== null) {
-                    session()->forget('ai_auto_posting_draft');
-                    return [
-                        'reply' => "Dạ mình đã **hủy bản nháp đăng tin** thành công rồi ạ! 🗑️\n\n"
-                                 . "Bất cứ lúc nào {$userName} có nhu cầu đăng bài mới, tìm kiếm phòng trọ hay cần giải đáp thắc mắc (FAQ), cứ nhắn cho mình biết nhé!",
-                        'cards' => [],
-                    ];
-                }
-            }
-        }
-
-        // 2. Kiểm tra ý định XÁC NHẬN ĐĂNG BÀI
-        $confirmKeywords = ['đăng bài ngay', 'xác nhận đăng', 'đồng ý đăng', 'đăng luôn', 'tôi muốn đăng bài này', 'ok đăng đi', 'duyệt đăng'];
-        $isConfirm = false;
-        if ($draft !== null) {
-            foreach ($confirmKeywords as $ck) {
-                if ($q === $ck || str_contains($q, $ck)) {
-                    $isConfirm = true;
-                    break;
-                }
-            }
-        }
-
-        if ($isConfirm && $draft !== null) {
-            return $this->finalizeAndCreatePost($draft, $currentUser, $uploadedImageIds, $userName);
-        }
-
-        // 3. Kiểm tra ý định bắt đầu đăng bài: "Tôi cần đăng bài", "Tạo cho tôi bài đăng", "Đăng tin cho thuê"...
-        $startPostingKeywords = [
-            'đăng bài', 'dang bai', 'tôi muốn đăng bài', 'muốn đăng bài', 'cần đăng bài',
-            'hãy giúp tôi đăng bài', 'giúp tôi đăng bài', 'tạo bài đăng', 'đăng tin',
-            'tôi muốn đăng tin', 'muốn đăng tin', 'cần đăng tin', 'tôi cần đăng bài',
-            'đăng phòng', 'tôi có phòng cho thuê', 'có phòng muốn cho thuê', 'bắt đầu đăng bài',
-            'hỗ trợ tôi đăng bài', 'đăng bài giúp tôi', 'tạo cho tôi bài đăng',
-            'đăng tin cho thuê', 'đăng giúp tôi', 'lên bài giúp tôi', 'tạo tin đăng',
-            'bắt đầu đăng tin'
-        ];
-        $isStartPosting = false;
-        if ($q === 'đăng bài' || $q === 'dang bai') {
-            $isStartPosting = true;
-        } else {
-            foreach ($startPostingKeywords as $spk) {
-                if ($q === $spk || str_contains($q, $spk)) {
-                    $isStartPosting = true;
-                    break;
-                }
-            }
-        }
-
-        // 4. Kiểm tra xem tin nhắn có thông số bài đăng cụ thể hay không (giá và diện tích)
-        $hasPostingInfo = $this->containsPostingDetails($q);
-        $hasBothPriceAndArea = (bool) preg_match('/(?:giá|thuê|\b)(\d+(?:[.,]\d+)?)\s*(?:triệu|tr|nghìn|k|đ|vnd|đồng)/ui', $q) 
-                            && (bool) preg_match('/(\d+(?:[.,]\d+)?)\s*(?:m2|m²|mét vuông)/ui', $q);
-
-        // Trường hợp người dùng có draft nhưng lại nhắn tìm phòng hoặc hỏi câu khác không liên quan đến phòng
-        if ($draft !== null && !$hasPostingInfo && !$isStartPosting) {
-            // Nếu draft chỉ mới khởi tạo rỗng, hủy draft để người dùng thoải mái tìm phòng / hỏi đáp
-            if (empty($draft['price']) && empty($draft['area'])) {
-                session()->forget('ai_auto_posting_draft');
-                $draft = null;
-            }
-        }
-
-        // Nếu câu chat là yêu cầu bắt đầu đăng bài mà CHƯA có thông số phòng cụ thể:
-        // BẤT KỂ trước đó có $draft hay không, HÃY RESET HOÀN TOÀN:
-        if ($isStartPosting && !$hasBothPriceAndArea && !$hasPostingInfo) {
-            session()->forget('ai_auto_posting_draft');
-            session()->put('ai_auto_posting_draft', [
-                'property_type' => 'phong_tro',
-                'property_type_name' => 'Phòng trọ',
-                'ready_to_publish' => false,
-                'images' => $uploadedImageIds,
-            ]);
-
-            return [
-                'reply' => "Dạ tuyệt vời quá! Em rất sẵn lòng hỗ trợ **{$userName}** soạn và đăng bài tự động lên RentHome hoàn toàn miễn phí ạ! 📝✨\n\n"
-                         . "Để bài đăng đầy đủ, thu hút và được duyệt nhanh nhất trong 15 - 30 phút, {$userName} vui lòng gửi cho em các thông tin sau nhé:\n"
-                         . "1. 📍 **Địa chỉ phòng:** (Số nhà, ngõ/đường, Phường/Xã, Quận/Huyện, Tỉnh/Thành phố)\n"
-                         . "2. 💰 **Giá thuê:** (Ví dụ: 3.5 triệu/tháng hoặc 3tr5/tháng)\n"
-                         . "3. 📐 **Diện tích:** (Ví dụ: 25m2, 30m2...)\n"
-                         . "4. 🛋️ **Tiện ích:** (Điều hòa, nóng lạnh, máy giặt, ban công, giờ tự do...)\n"
-                         . "5. 📸 **Hình ảnh:** (Bạn bấm vào nút Kẹp ghim / Máy ảnh bên dưới để gửi từ 1 - 5 ảnh thực tế của phòng)\n\n"
-                         . "👉 {$userName} cứ nhắn một câu đầy đủ hoặc gửi ảnh kèm mô tả, em sẽ tự động gom lại thành bài đăng hoàn chỉnh ngay ạ!\n\n"
-                         . "<div style=\"display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;\">\n"
-                         . "  <button type=\"button\" onclick=\"sendQuickPrompt('Loại hình: Căn hộ / Chung cư')\" style=\"background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; padding: 6px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer;\">🏢 Căn hộ / Chung cư</button>\n"
-                         . "  <button type=\"button\" onclick=\"sendQuickPrompt('Loại hình: Nhà nguyên căn')\" style=\"background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 6px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer;\">🏡 Nhà nguyên căn</button>\n"
-                         . "  <button type=\"button\" onclick=\"sendQuickPrompt('Loại hình: Phòng trọ')\" style=\"background: #fefce8; border: 1px solid #fef08a; color: #854d0e; padding: 6px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer;\">🏠 Phòng trọ</button>\n"
-                         . "  <button type=\"button\" onclick=\"sendQuickPrompt('Loại hình: Mặt bằng / Đất nền')\" style=\"background: #faf5ff; border: 1px solid #e9d5ff; color: #6b21a8; padding: 6px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer;\">🏬 Mặt bằng kinh doanh</button>\n"
-                         . "</div>",
-                'cards' => [],
-            ];
-        }
-
-        // Nếu người dùng cung cấp thông tin phòng hoặc đang sửa bản nháp hiện tại
-        if ($hasPostingInfo || ($draft !== null && (count($uploadedImageIds) > 0 || str_contains($q, 'sửa') || str_contains($q, 'thay đổi')))) {
-            $updatedDraft = $this->extractPostingDetails($message, $q, $draft ?? []);
-            if (!empty($uploadedImageIds)) {
-                $existingImages = $updatedDraft['images'] ?? [];
-                $updatedDraft['images'] = array_values(array_unique(array_merge($existingImages, $uploadedImageIds)));
-            }
-
-            session()->put('ai_auto_posting_draft', $updatedDraft);
-
-            return [
-                'reply' => $this->generatePostSummaryHtml($updatedDraft, $userName),
-                'cards' => [],
-            ];
-        }
-
-        return null;
-    }
-
-    /**
-     * Nhận diện xem tin nhắn có chứa các thông số của bài đăng phòng trọ hay không
-     */
-    protected function containsPostingDetails(string $q): bool
-    {
-        // 1. Nếu có từ khóa tìm kiếm -> BẮT BUỘC trả về false để nhường quyền cho luồng Tìm phòng
-        if (preg_match('/\b(tìm|tim|kiếm|kiem|cần thuê|can thue|muốn thuê|muon thue|gợi ý phòng|cho thuê không)\b/ui', $q)) {
-            return false;
-        }
-
-        // 2. LOẠI TRỪ CÁC CÂU HỎI HƯỚNG DẪN / CÁCH THỨC / LÀM SAO / THỦ TỤC ĐĂNG BÀI
-        // Nếu $q chứa các từ khóa: hướng dẫn, cách, làm sao, như thế nào, ở đâu, thủ tục, quy trình... đi cùng với đăng bài/đăng tin
-        if (preg_match('/\b(hướng dẫn|cách|làm sao|như thế nào|thế nào|như nào|ở đâu|thủ tục|quy trình)\b/ui', $q) &&
-            preg_match('/\b(đăng bài|đăng tin|tạo bài|tạo tin|lên bài)\b/ui', $q)) {
-            return false;
-        }
-
-        // 3. LOẠI TRỪ CÁC CÂU CHỌN KHU VỰC KÈM MỨC GIÁ TÌM PHÒNG (Ví dụ: "Quận 1, TP.HCM tầm 5 - 8 triệu", "Cầu Giấy tầm 4 triệu", "tìm phòng 3tr")
-        $hasBudgetSearch = (bool) preg_match('/\b(tầm|khoảng|khoang|dưới|duoi|từ|tu)\s*\d+/ui', $q);
-        $hasArea = (bool) preg_match('/(\d+(?:[.,]\d+)?)\s*(?:m2|m²|mét vuông)/ui', $q);
-
-        if ($hasBudgetSearch && !$hasArea) {
-            return false;
-        }
-
-        // 4. Nhận diện các thông số thực tế của bài đăng
-        $hasPrice = (bool) preg_match('/(?:giá|thuê)\s*(\d+(?:[.,]\d+)?)\s*(?:triệu|tr|nghìn|k|đ|vnd|đồng)/ui', $q)
-                 || (bool) preg_match('/(\d+(?:[.,]\d+)?)\s*(?:triệu|tr|k)\b/ui', $q);
-
-        $hasEdit = (bool) preg_match('/(?:sửa|đổi|thay|chỉnh)\s*(?:thành|lại|từ|diện tích|giá|địa chỉ|mô tả|loại hình)/ui', $q);
-        
-        $hasExplicitPost = (
-            str_contains($q, 'tôi có phòng cho thuê') ||
-            str_contains($q, 'có phòng cho thuê') ||
-            str_contains($q, 'chính chủ cho thuê') ||
-            str_contains($q, 'đăng bài này giúp tôi') ||
-            str_contains($q, 'đăng tin này giúp tôi') ||
-            str_contains($q, 'thông tin phòng:') ||
-            str_contains($q, 'thông tin phòng')
-        );
-
-        $hasTypeSelection = str_starts_with($q, 'loại hình:');
-
-        // BẮT BUỘC có cả GIÁ TIỀN VÀ DIỆN TÍCH đi cùng nhau (ví dụ: "phòng 4tr 25m2"), hoặc từ chỉ định sửa đổi, hoặc câu khẳng định cho thuê
-        if ($hasPrice && $hasArea) {
-            return true;
-        }
-
-        if ($hasEdit || $hasExplicitPost || $hasTypeSelection) {
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * Trích xuất các trường thông tin bài đăng từ tin nhắn của người dùng
-     */
-    protected function extractPostingDetails(string $rawMessage, string $q, array $draft): array
-    {
-        // 1. Loại hình bất động sản (chỉ gán khi người dùng nêu rõ hoặc chọn, không gán mặc định)
-        if (preg_match('/\b(căn hộ|chung cư|chung cu|ccmn|studio|condo|apartment)\b/ui', $q)) {
-            $draft['property_type'] = 'ch';
-            $draft['property_type_name'] = 'Căn hộ / Chung cư';
-        } elseif (preg_match('/\b(nhà nguyên căn|nguyên căn|nha nguyen can|nhà riêng|nha rieng|nhà phố|nha pho)\b/ui', $q)) {
-            $draft['property_type'] = 'nnc';
-            $draft['property_type_name'] = 'Nhà nguyên căn';
-        } elseif (preg_match('/\b(mặt bằng|mat bang|đất nền|dat nen|đất phân lô|dat phan lo|đất|dat|cửa hàng|kiot|văn phòng|van phong)\b/ui', $q)) {
-            $draft['property_type'] = 'dat_nen';
-            $draft['property_type_name'] = 'Mặt bằng / Đất nền';
-        } elseif (preg_match('/\b(phòng trọ|phong tro|nhà trọ|nha tro|phòng khép kín|phong khep kin|phòng cho thuê|phong cho thue)\b/ui', $q)) {
-            $draft['property_type'] = 'phong_tro';
-            $draft['property_type_name'] = 'Phòng trọ';
-        }
-
-        // 2. Trích xuất mức giá (VND) - Hỗ trợ cả sửa: "sửa giá từ 4tr thành 3.5tr"
-        if (preg_match('/(?:sửa|thay|đổi)\s*(?:giá|mức giá)?\s*(?:từ\s*\d+(?:[.,]\d+)?\s*(?:triệu|tr)?\s*)?thành\s*(\d+(?:[.,]\d+)?)\s*(?:triệu|tr|k|nghìn|đ|vnd|đồng)?/ui', $q, $m)) {
-            $val = (float) str_replace(',', '.', $m[1]);
-            if (str_contains($m[0], 'k') || str_contains($m[0], 'nghìn') || $val >= 500) {
-                $draft['price'] = (int) ($val * 1000);
-            } else {
-                $draft['price'] = (int) ($val * 1000000);
-            }
-        } elseif (preg_match('/(?:giá|thuê|khoảng|tầm)?\s*(\d+(?:[.,]\d+)?)\s*(?:triệu|tr)(?!\s*m2)/ui', $q, $m)) {
-            $val = (float) str_replace(',', '.', $m[1]);
-            $draft['price'] = (int) ($val * 1000000);
-        } elseif (preg_match('/(?:giá|thuê)?\s*(\d+(?:[.,]\d+)?)\s*(?:k|nghìn)\s*(?:đ|vnd|đồng)?/ui', $q, $m)) {
-            $val = (float) str_replace(',', '.', $m[1]);
-            $draft['price'] = (int) ($val * 1000);
-        }
-
-        // 3. Trích xuất diện tích (m2) - Hỗ trợ cả sửa: "sửa diện tích từ 80m2 thành 70m2"
-        if (preg_match('/(?:sửa|thay|đổi)\s*(?:diện tích|dt)?\s*(?:từ\s*\d+(?:[.,]\d+)?\s*(?:m2|m²)?\s*)?thành\s*(\d+(?:[.,]\d+)?)\s*(?:m2|m²|mét vuông)?/ui', $q, $m)) {
-            $draft['area'] = (float) str_replace(',', '.', $m[1]);
-        } elseif (preg_match('/(\d+(?:[.,]\d+)?)\s*(?:m2|m²|mét vuông)/ui', $q, $m)) {
-            $draft['area'] = (float) str_replace(',', '.', $m[1]);
-        }
-
-        // 4. Trích xuất Quận/Huyện & Tỉnh/Thành phố (Không hardcode Hà Nội/HCM, xác định theo thông tin người dùng)
-        $districtMap = [
-            // Hà Nội
-            'cầu giấy' => ['district' => 'Cầu Giấy', 'province' => 'Hà Nội'],
-            'đống đa' => ['district' => 'Đống Đa', 'province' => 'Hà Nội'],
-            'ba đình' => ['district' => 'Ba Đình', 'province' => 'Hà Nội'],
-            'hai bà trưng' => ['district' => 'Hai Bà Trưng', 'province' => 'Hà Nội'],
-            'thanh xuân' => ['district' => 'Thanh Xuân', 'province' => 'Hà Nội'],
-            'hoàng mai' => ['district' => 'Hoàng Mai', 'province' => 'Hà Nội'],
-            'hà đông' => ['district' => 'Hà Đông', 'province' => 'Hà Nội'],
-            'nam từ liêm' => ['district' => 'Nam Từ Liêm', 'province' => 'Hà Nội'],
-            'bắc từ liêm' => ['district' => 'Bắc Từ Liêm', 'province' => 'Hà Nội'],
-            'tây hồ' => ['district' => 'Tây Hồ', 'province' => 'Hà Nội'],
-            'long biên' => ['district' => 'Long Biên', 'province' => 'Hà Nội'],
-            'gia lâm' => ['district' => 'Gia Lâm', 'province' => 'Hà Nội'],
-            'hoài đức' => ['district' => 'Hoài Đức', 'province' => 'Hà Nội'],
-            'thanh trì' => ['district' => 'Thanh Trì', 'province' => 'Hà Nội'],
-            'đông anh' => ['district' => 'Đông Anh', 'province' => 'Hà Nội'],
-            'sơn tây' => ['district' => 'Sơn Tây', 'province' => 'Hà Nội'],
-
-            // TP. Hồ Chí Minh
-            'quận 1' => ['district' => 'Quận 1', 'province' => 'Hồ Chí Minh'],
-            'quận 2' => ['district' => 'Quận 2', 'province' => 'Hồ Chí Minh'],
-            'quận 3' => ['district' => 'Quận 3', 'province' => 'Hồ Chí Minh'],
-            'quận 4' => ['district' => 'Quận 4', 'province' => 'Hồ Chí Minh'],
-            'quận 5' => ['district' => 'Quận 5', 'province' => 'Hồ Chí Minh'],
-            'quận 6' => ['district' => 'Quận 6', 'province' => 'Hồ Chí Minh'],
-            'quận 7' => ['district' => 'Quận 7', 'province' => 'Hồ Chí Minh'],
-            'quận 8' => ['district' => 'Quận 8', 'province' => 'Hồ Chí Minh'],
-            'quận 9' => ['district' => 'Quận 9', 'province' => 'Hồ Chí Minh'],
-            'quận 10' => ['district' => 'Quận 10', 'province' => 'Hồ Chí Minh'],
-            'quận 11' => ['district' => 'Quận 11', 'province' => 'Hồ Chí Minh'],
-            'quận 12' => ['district' => 'Quận 12', 'province' => 'Hồ Chí Minh'],
-            'bình thạnh' => ['district' => 'Bình Thạnh', 'province' => 'Hồ Chí Minh'],
-            'gò vấp' => ['district' => 'Gò Vấp', 'province' => 'Hồ Chí Minh'],
-            'tân bình' => ['district' => 'Tân Bình', 'province' => 'Hồ Chí Minh'],
-            'tân phú' => ['district' => 'Tân Phú', 'province' => 'Hồ Chí Minh'],
-            'phú nhuận' => ['district' => 'Phú Nhuận', 'province' => 'Hồ Chí Minh'],
-            'thủ đức' => ['district' => 'Thủ Đức', 'province' => 'Hồ Chí Minh'],
-            'bình tân' => ['district' => 'Bình Tân', 'province' => 'Hồ Chí Minh'],
-
-            // Đà Nẵng
-            'hải châu' => ['district' => 'Hải Châu', 'province' => 'Đà Nẵng'],
-            'thanh khê' => ['district' => 'Thanh Khê', 'province' => 'Đà Nẵng'],
-            'sơn trà' => ['district' => 'Sơn Trà', 'province' => 'Đà Nẵng'],
-            'ngũ hành sơn' => ['district' => 'Ngũ Hành Sơn', 'province' => 'Đà Nẵng'],
-            'liên chiểu' => ['district' => 'Liên Chiểu', 'province' => 'Đà Nẵng'],
-            'cẩm lệ' => ['district' => 'Cẩm Lệ', 'province' => 'Đà Nẵng'],
-
-            // Bình Dương
-            'thủ dầu một' => ['district' => 'Thủ Dầu Một', 'province' => 'Bình Dương'],
-            'dĩ an' => ['district' => 'Dĩ An', 'province' => 'Bình Dương'],
-            'thuận an' => ['district' => 'Thuận An', 'province' => 'Bình Dương'],
-            'bến cát' => ['district' => 'Bến Cát', 'province' => 'Bình Dương'],
-            'tân uyên' => ['district' => 'Tân Uyên', 'province' => 'Bình Dương'],
-        ];
-
-        $foundProvince = null;
-        $commonProvinces = [
-            'Hồ Chí Minh' => '/\b(hcm|tp\.?\s*hcm|tphcm|sài\s*gòn|sai\s*gon|hồ\s*chí\s*minh|ho\s*chi\s*minh)\b/ui',
-            'Hà Nội' => '/\b(hà\s*nội|ha\s*noi|hn|thủ\s*đô)\b/ui',
-            'Đà Nẵng' => '/\b(đà\s*nẵng|da\s*nang)\b/ui',
-            'Hải Phòng' => '/\b(hải\s*phòng|hai\s*phong)\b/ui',
-            'Cần Thơ' => '/\b(cần\s*thơ|can\s*tho)\b/ui',
-            'Bình Dương' => '/\b(bình\s*dương|binh\s*duong)\b/ui',
-            'Đồng Nai' => '/\b(đồng\s*nai|dong\s*nai|biên\s*hòa)\b/ui',
-            'Bà Rịa - Vũng Tàu' => '/\b(vũng\s*tàu|bà\s*rịa)\b/ui',
-            'Quảng Ninh' => '/\b(quảng\s*ninh|hạ\s*long)\b/ui',
-            'Bắc Ninh' => '/\b(bắc\s*ninh)\b/ui',
-            'Bắc Giang' => '/\b(bắc\s*giang)\b/ui',
-            'Thừa Thiên Huế' => '/\b(thừa\s*thiên\s*huế|huế)\b/ui',
-            'Khánh Hòa' => '/\b(khánh\s*hòa|nha\s*trang)\b/ui',
-            'Lâm Đồng' => '/\b(lâm\s*đồng|đà\s*lạt)\b/ui',
-        ];
-
-        foreach ($commonProvinces as $pName => $pattern) {
-            if (preg_match($pattern, $q)) {
-                $foundProvince = $pName;
-                break;
-            }
-        }
-
-        foreach ($districtMap as $kw => $info) {
-            if (str_contains($q, $kw)) {
-                $draft['district'] = $info['district'];
-                if (!$foundProvince) {
-                    $foundProvince = $info['province'];
-                }
-                break;
-            }
-        }
-
-        if ($foundProvince) {
-            $draft['province'] = $foundProvince;
-        }
-
-        // Địa chỉ chi tiết nếu có nhắc tên đường/phố/ngõ
-        if (preg_match('/(?:ở|tại|địa chỉ|ngõ|đường|phố)\s+([^,.\n]+)/ui', $rawMessage, $m)) {
-            $potentialAddr = trim($m[1]);
-            // Làm sạch nếu dính các từ khóa giá hoặc diện tích
-            $cleanedAddr = preg_replace('/(?:giá|diện tích|\d+\s*(?:tr|triệu|m2|m²)).*/ui', '', $potentialAddr);
-            $cleanedAddr = trim($cleanedAddr);
-            if (mb_strlen($cleanedAddr, 'UTF-8') >= 3 && !in_array(mb_strtolower($cleanedAddr, 'UTF-8'), ['hà nội', 'hồ chí minh', 'phòng trọ', 'căn hộ'])) {
-                $draft['address'] = $cleanedAddr;
-            }
-        }
-
-        if (empty($draft['address']) && !empty($draft['district'])) {
-            $draft['address'] = $draft['district'] . (!empty($draft['province']) ? (', ' . $draft['province']) : '');
-        }
-
-        // 5. Số phòng ngủ & phòng tắm
-        if (preg_match('/(\d+)\s*(?:pn|phòng ngủ)/ui', $q, $m)) {
-            $draft['bedrooms'] = (int) $m[1];
-        }
-        if (preg_match('/(\d+)\s*(?:wc|vệ sinh|phòng tắm)/ui', $q, $m)) {
-            $draft['bathrooms'] = (int) $m[1];
-        }
-
-        // 6. Tiện ích
-        $amenityMap = [
-            'dieu_hoa' => ['điều hòa', 'máy lạnh', 'máy điều hòa'],
-            'nong_lanh' => ['nóng lạnh', 'bình nóng lạnh', 'máy nước nóng'],
-            'may_giat' => ['máy giặt'],
-            'tu_lanh' => ['tủ lạnh'],
-            'giuong_tu' => ['giường', 'tủ', 'full đồ', 'đầy đủ đồ', 'nội thất'],
-            'wifi' => ['wifi', 'mạng', 'internet'],
-            'ban_cong' => ['ban công', 'cửa sổ thoáng', 'thoáng mát'],
-            'thang_may' => ['thang máy'],
-            'cho_de_xe' => ['chỗ để xe', 'để xe', 'nhà xe'],
-            'khong_chung_chu' => ['không chung chủ', 'giờ tự do', 'tự do'],
-            've_sinh_khep_kin' => ['khép kín', 'vệ sinh riêng'],
-        ];
-
-        $existingAmenities = $draft['amenities'] ?? [];
-        foreach ($amenityMap as $code => $keywords) {
-            foreach ($keywords as $kw) {
-                if (str_contains($q, $kw) && !in_array($code, $existingAmenities)) {
-                    $existingAmenities[] = $code;
-                    break;
-                }
-            }
-        }
-        $draft['amenities'] = $existingAmenities;
-
-        // 7. Mô tả phòng chi tiết
-        if (preg_match('/(?:mô tả|chi tiết|ghi chú|nội dung)\s*:\s*([^.\n]+)/ui', $rawMessage, $m)) {
-            $draft['description'] = trim($m[1]);
-        } elseif (empty($draft['description'])) {
-            $draft['description'] = $this->generatePostDescription($draft);
-        }
-
-        return $draft;
-    }
-
-    /**
-     * Tự động sinh nội dung mô tả phòng chuyên nghiệp, hấp dẫn chuẩn SEO
-     */
-    protected function generatePostDescription(array $draft): string
-    {
-        $typeName = $draft['property_type_name'] ?? 'Phòng trọ';
-        $district = $draft['district'] ?? 'trung tâm';
-        $area = isset($draft['area']) ? $draft['area'] . 'm²' : 'rộng rãi';
-        $amenities = $draft['amenities'] ?? [];
-
-        $amenityLabels = [
-            'dieu_hoa' => 'Điều hòa mát lạnh',
-            'nong_lanh' => 'Bình nóng lạnh',
-            'may_giat' => 'Máy giặt tiện lợi',
-            'tu_lanh' => 'Tủ lạnh',
-            'giuong_tu' => 'Giường tủ đầy đủ',
-            'wifi' => 'Wifi tốc độ cao',
-            'ban_cong' => 'Ban công thoáng mát',
-            'thang_may' => 'Thang máy di chuyển',
-            'cho_de_xe' => 'Khu để xe an ninh',
-            'khong_chung_chu' => 'Giờ giấc tự do, không chung chủ',
-            've_sinh_khep_kin' => 'Vệ sinh khép kín sạch sẽ',
-        ];
-
-        $amenityTexts = [];
-        foreach ($amenities as $am) {
-            if (isset($amenityLabels[$am])) {
-                $amenityTexts[] = '• ' . $amenityLabels[$am];
-            }
-        }
-        $amenityBlock = !empty($amenityTexts) ? implode("\n", $amenityTexts) : "• Đầy đủ trang thiết bị cơ bản, sạch sẽ dọn vào ở ngay";
-
-        return "Cho thuê {$typeName} chất lượng cao tại {$district}. Diện tích {$area} thoáng mát, thiết kế hiện đại.\n\n"
-             . "🌟 **Trang bị tiện nghi nổi bật:**\n"
-             . "{$amenityBlock}\n\n"
-             . "An ninh cực tốt, camera giám sát 24/7, khu dân trí cao, di chuyển thuận tiện tới các tuyến đường lớn, trường học và chợ.";
-    }
-
-    /**
-     * Tạo bảng tóm tắt nội dung bài đăng kèm 3 nút: [Đăng bài ngay], [Sửa thông tin], [Hủy đăng bài]
-     */
-    protected function generatePostSummaryHtml(array $draft, string $userName): string
-    {
-        $typeName = $draft['property_type_name'] ?? 'Phòng trọ';
-        $priceStr = isset($draft['price']) ? number_format($draft['price'], 0, ',', '.') . ' VNĐ/tháng' : '<span style="color: #ef4444;">Chưa có (cần bổ sung)</span>';
-        $areaStr = isset($draft['area']) ? $draft['area'] . ' m²' : '<span style="color: #ef4444;">Chưa có (cần bổ sung)</span>';
-        $districtStr = $draft['district'] ?? ($draft['province'] ?? '<span style="color: #ef4444;">Chưa rõ (cần bổ sung)</span>');
-        $addressStr = $draft['address'] ?? $districtStr;
-
-        $amenityLabels = [
-            'dieu_hoa' => 'Điều hòa', 'nong_lanh' => 'Nóng lạnh', 'may_giat' => 'Máy giặt',
-            'tu_lanh' => 'Tủ lạnh', 'giuong_tu' => 'Giường tủ', 'wifi' => 'Wifi',
-            'ban_cong' => 'Ban công', 'thang_may' => 'Thang máy', 'cho_de_xe' => 'Chỗ để xe',
-            'khong_chung_chu' => 'Giờ tự do', 've_sinh_khep_kin' => 'Khép kín',
-        ];
-        $amenities = $draft['amenities'] ?? [];
-        $amenityNames = [];
-        foreach ($amenities as $am) {
-            $amenityNames[] = $amenityLabels[$am] ?? $am;
-        }
-        $amenityStr = !empty($amenityNames) ? implode(', ', $amenityNames) : 'Cơ bản';
-
-        $imgCount = isset($draft['images']) ? count($draft['images']) : 0;
-        $imgStr = $imgCount > 0 ? "<b>{$imgCount} ảnh đã đính kèm 📸</b>" : "<i>Chưa có ảnh (sẽ dùng ảnh minh họa)</i>";
-
-        $desc = $draft['description'] ?? $this->generatePostDescription($draft);
-        $shortDesc = mb_strlen($desc, 'UTF-8') > 120 ? mb_substr($desc, 0, 117, 'UTF-8') . '...' : $desc;
-
-        // Kiểm tra xem đã đủ điều kiện đăng chưa
-        $hasType = !empty($draft['property_type']) && !empty($draft['property_type_name']);
-        $typeName = $hasType ? $draft['property_type_name'] : '<span style="color: #ef4444; font-weight: 700;">Chưa chọn (bấm chọn bên dưới)</span>';
-        $priceStr = isset($draft['price']) ? number_format($draft['price'], 0, ',', '.') . ' VNĐ/tháng' : '<span style="color: #ef4444; font-weight: 700;">Chưa có (cần bổ sung)</span>';
-        $areaStr = isset($draft['area']) ? $draft['area'] . ' m²' : '<span style="color: #ef4444; font-weight: 700;">Chưa có (cần bổ sung)</span>';
-        $hasLocation = !empty($draft['district']) || !empty($draft['province']) || !empty($draft['address']);
-        $districtStr = $draft['district'] ?? ($draft['province'] ?? '<span style="color: #ef4444; font-weight: 700;">Chưa rõ (cần bổ sung)</span>');
-        $addressStr = $draft['address'] ?? $districtStr;
-
-        $missingFields = [];
-        if (!$hasType) $missingFields[] = 'Loại hình BĐS';
-        if (empty($draft['price'])) $missingFields[] = 'Giá thuê';
-        if (empty($draft['area'])) $missingFields[] = 'Diện tích';
-        if (!$hasLocation) $missingFields[] = 'Khu vực / Địa chỉ';
-
-        $isReady = empty($missingFields);
-        $draft['ready_to_publish'] = $isReady;
-
-        $notice = $isReady
-            ? "<div style=\"margin-top: 10px; color: #15803d; font-weight: 600;\">✅ Thông tin đã rất đầy đủ và chuẩn xác! Bạn có thể bấm <b>\"🚀 Đăng bài ngay\"</b> để hoàn tất.</div>"
-            : "<div style=\"margin-top: 10px; color: #b45309; font-weight: 600;\">⚠️ Vui lòng bổ sung thêm: <b>" . implode(', ', $missingFields) . "</b> để bài viết sẵn sàng đăng nhé!</div>";
-
-        $tableTitle = $hasType ? "🏠 BẢNG TỔNG HỢP: " . mb_strtoupper($draft['property_type_name'], 'UTF-8') : "🏠 BẢNG TỔNG HỢP BÀI ĐĂNG";
-
-        $typeQuickButtons = "";
-        if (!$hasType) {
-            $typeQuickButtons = "<div style=\"margin: 10px 0;\">\n"
-                              . "  <div style=\"font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 4px;\">👇 Bấm chọn nhanh loại hình BĐS:</div>\n"
-                              . "  <div style=\"display: flex; gap: 6px; flex-wrap: wrap;\">\n"
-                              . "    <button type=\"button\" onclick=\"sendQuickPrompt('Loại hình: Căn hộ / Chung cư')\" style=\"background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;\">🏢 Căn hộ / Chung cư</button>\n"
-                              . "    <button type=\"button\" onclick=\"sendQuickPrompt('Loại hình: Nhà nguyên căn')\" style=\"background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;\">🏡 Nhà nguyên căn</button>\n"
-                              . "    <button type=\"button\" onclick=\"sendQuickPrompt('Loại hình: Phòng trọ')\" style=\"background: #fefce8; border: 1px solid #fef08a; color: #854d0e; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;\">🏠 Phòng trọ</button>\n"
-                              . "    <button type=\"button\" onclick=\"sendQuickPrompt('Loại hình: Mặt bằng / Đất nền')\" style=\"background: #faf5ff; border: 1px solid #e9d5ff; color: #6b21a8; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;\">🏬 Mặt bằng kinh doanh</button>\n"
-                              . "  </div>\n"
-                              . "</div>\n";
-        }
-
-        $areaPrompt = !empty($draft['area']) ? $draft['area'] : '80';
-
-        return "Dạ em đã tổng hợp và soạn sẵn nội dung bài đăng cho **{$userName}** như sau ạ: 📋✨\n\n"
-             . "<div style=\"background: #ffffff; border: 1.5px solid #10b981; border-radius: 12px; padding: 12px 14px; box-shadow: 0 4px 12px rgba(16,185,129,0.12); margin: 6px 0;\">\n"
-             . "  <div style=\"font-size: 14.5px; font-weight: 700; color: #047857; border-bottom: 1px dashed #cbd5e1; padding-bottom: 6px; margin-bottom: 8px;\">{$tableTitle}</div>\n"
-             . "  <div style=\"display: grid; grid-template-columns: 1fr; gap: 4px; font-size: 13px; color: #334155;\">\n"
-             . "    <div>🏷️ <b>Loại hình:</b> {$typeName}</div>\n"
-             . "    <div>💰 <b>Mức giá:</b> {$priceStr}</div>\n"
-             . "    <div>📐 <b>Diện tích:</b> {$areaStr}</div>\n"
-             . "    <div>📍 <b>Khu vực:</b> {$addressStr}</div>\n"
-             . "    <div>🛋️ <b>Tiện ích:</b> {$amenityStr}</div>\n"
-             . "    <div>🖼️ <b>Hình ảnh:</b> {$imgStr}</div>\n"
-             . "    <div style=\"margin-top: 4px;\">📄 <b>Mô tả:</b> <i>{$shortDesc}</i></div>\n"
-             . "  </div>\n"
-             . "  {$notice}\n"
-             . "</div>\n\n"
-             . $typeQuickButtons
-             . "💡 *Bạn có thể nói: \"Sửa diện tích từ {$areaPrompt}m2 thành 70m2\", \"Đổi giá thành 4 triệu\" hoặc dùng các nút thao tác bên dưới:*\n\n"
-             . "<div style=\"display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;\">\n"
-             . "  <button type=\"button\" onclick=\"sendQuickPrompt('Đăng bài ngay')\" style=\"background: linear-gradient(135deg, #10b981, #059669); color: #ffffff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; box-shadow: 0 2px 6px rgba(16,185,129,0.3);\">🚀 Đăng bài ngay</button>\n"
-             . "  <button type=\"button\" onclick=\"sendQuickPrompt('Tôi muốn sửa thông tin bài đăng')\" style=\"background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 8px 14px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer;\">✏️ Sửa thông tin</button>\n"
-             . "  <button type=\"button\" onclick=\"sendQuickPrompt('Hủy đăng bài')\" style=\"background: #fff1f2; color: #e11d48; border: 1px solid #fecdd3; padding: 8px 14px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer;\">❌ Hủy đăng bài</button>\n"
-             . "</div>";
-    }
-
-    /**
-     * Tạo bài đăng chính thức vào MongoDB và gửi thông báo qua Telegram/Email cho BQT
-     */
-    protected function finalizeAndCreatePost(array $draft, $currentUser, array $uploadedImageIds = [], string $userName = 'bạn'): array
-    {
-        // Kiểm tra tính đầy đủ của bài đăng
-        $missing = [];
-        if (empty($draft['property_type'])) $missing[] = 'Loại hình BĐS';
-        if (empty($draft['price'])) $missing[] = 'Giá thuê';
-        if (empty($draft['area'])) $missing[] = 'Diện tích';
-        if (empty($draft['district']) && empty($draft['province']) && empty($draft['address'])) $missing[] = 'Khu vực / Địa chỉ';
-
-        if (!empty($missing)) {
-            $typeButtons = empty($draft['property_type']) ? "<div style=\"display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;\">\n"
-                         . "  <button type=\"button\" onclick=\"sendQuickPrompt('Loại hình: Căn hộ / Chung cư')\" style=\"background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;\">🏢 Căn hộ / Chung cư</button>\n"
-                         . "  <button type=\"button\" onclick=\"sendQuickPrompt('Loại hình: Nhà nguyên căn')\" style=\"background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;\">🏡 Nhà nguyên căn</button>\n"
-                         . "  <button type=\"button\" onclick=\"sendQuickPrompt('Loại hình: Phòng trọ')\" style=\"background: #fefce8; border: 1px solid #fef08a; color: #854d0e; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;\">🏠 Phòng trọ</button>\n"
-                         . "  <button type=\"button\" onclick=\"sendQuickPrompt('Loại hình: Mặt bằng / Đất nền')\" style=\"background: #faf5ff; border: 1px solid #e9d5ff; color: #6b21a8; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;\">🏬 Mặt bằng kinh doanh</button>\n"
-                         . "</div>" : "";
-
-            return [
-                'reply' => "Dạ bài đăng vẫn còn thiếu thông tin quan trọng: **" . implode(', ', $missing) . "**.\n\n"
-                         . "{$userName} vui lòng nhắn bổ sung (hoặc bấm chọn nút nhanh bên dưới) để em hoàn thiện và đăng bài ngay nhé ạ! 📝✨\n\n"
-                         . $typeButtons,
-                'cards' => [],
-            ];
-        }
-
-        try {
-            $title = $this->generateCatchyPostTitle($draft);
-            $desc = $draft['description'] ?? $this->generatePostDescription($draft);
-
-            // Xử lý ảnh: ưu tiên ảnh người dùng upload, nếu không có lấy ảnh mẫu có sẵn
-            $images = $draft['images'] ?? [];
-            if (!empty($uploadedImageIds)) {
-                $images = array_values(array_unique(array_merge($images, $uploadedImageIds)));
-            }
-            if (empty($images)) {
-                $sampleImg = Image::first();
-                if ($sampleImg) {
-                    $images[] = (string) $sampleImg->_id;
-                }
-            }
-
-            $authorId = $currentUser ? (string)$currentUser->_id : null;
-            if (!$authorId) {
-                $firstUser = \App\Models\User::first();
-                $authorId = $firstUser ? (string)$firstUser->_id : '60c72b2f9b1d8b2bad6e8a10';
-            }
-
-            $province = $draft['province'] ?? 'Toàn quốc';
-            $district = $draft['district'] ?? ($draft['province'] ?? 'Chưa cập nhật');
-            $address = $draft['address'] ?? ($draft['district'] ? ($draft['district'] . (!empty($draft['province']) ? ', ' . $draft['province'] : '')) : $province);
-
-            $post = Post::create([
-                'user_id' => $authorId,
-                'title' => $title,
-                'description' => $desc,
-                'price' => (int) $draft['price'],
-                'price_unit' => 'tháng',
-                'area' => (float) $draft['area'],
-                'province' => $province,
-                'district' => $district,
-                'ward' => $draft['ward'] ?? '',
-                'address' => $address,
-                'property_type' => $draft['property_type'] ?? 'phong_tro',
-                'bedrooms' => $draft['bedrooms'] ?? 1,
-                'bathrooms' => $draft['bathrooms'] ?? 1,
-                'amenities' => $draft['amenities'] ?? [],
-                'images' => $images,
-                'status' => 'pending', // Chờ ban quản trị kiểm duyệt 15-30p
-            ]);
-
-            // Gửi thông báo khẩn cấp kèm ảnh tới Admin qua Telegram Bot và Email
-            try {
-                $notificationService = app(SupportNotificationService::class);
-                $notificationService->notifyNewPostCreated($post, $currentUser);
-            } catch (\Exception $e) {
-                Log::error('SupportNotificationService notifyNewPostCreated error: ' . $e->getMessage());
-            }
-
-            // Xóa session draft sau khi tạo thành công
-            session()->forget('ai_auto_posting_draft');
-
-            $postUrl = url('/baidang/' . $post->_id);
-
-            $reply = "🎉 **Chúc mừng {$userName}! Bài đăng của bạn đã được tạo thành công!** 🚀✨\n\n"
-                   . "<div style=\"background: #f0fdf4; border: 1.5px solid #22c55e; border-radius: 12px; padding: 14px; margin: 8px 0; color: #14532d;\">\n"
-                   . "  <div style=\"font-weight: 700; font-size: 14.5px; margin-bottom: 6px;\">✅ BÀI ĐĂNG ĐÃ VÀO HÀNG ĐỢI DUYỆT</div>\n"
-                   . "  <div>📝 <b>Tiêu đề:</b> {$title}</div>\n"
-                   . "  <div>💰 <b>Mức giá:</b> " . number_format($post->price, 0, ',', '.') . " VNĐ/tháng</div>\n"
-                   . "  <div>📐 <b>Diện tích:</b> {$post->area} m²</div>\n"
-                   . "  <div>📍 <b>Địa chỉ:</b> {$post->address}</div>\n"
-                   . "  <div>⏳ <b>Trạng thái:</b> <span style=\"background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 6px; font-weight: 700; font-size: 11.5px;\">Chờ duyệt (15 - 30 phút)</span></div>\n"
-                   . "</div>\n\n"
-                   . "🛡️ **Thông tin thêm cho {$userName}:**\n"
-                   . "• Bài đăng đã được gửi tới Ban Kiểm duyệt để ưu tiên duyệt trong vòng 15 - 30 phút.\n"
-                   . "• Bạn có thể xem ngay bài đăng tại đây: [Xem bài đăng vừa tạo]({$postUrl})\n\n"
-                   . "Cảm ơn {$userName} đã tin tưởng đồng hành cùng RentHome! Bạn cần mình giải đáp thêm điều gì nữa không ạ?";
-
-            return [
-                'reply' => $reply,
-                'cards' => [],
-                'post_created' => [
-                    'id' => (string) $post->_id,
-                    'title' => $title,
-                    'url' => $postUrl,
-                ],
-            ];
-        } catch (\Exception $e) {
-            Log::error('AI Create Post Error: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString(),
-                'user_id' => $currentUser ? (string)$currentUser->_id : null,
-            ]);
-            return [
-                'reply' => "Hệ thống đang bận cập nhật dữ liệu một chút, {$userName} vui lòng thử lại sau ít phút hoặc nhắn lại giúp mình nhé!",
-                'cards' => [],
-            ];
-        }
-    }
-
-    /**
-     * Sinh tiêu đề bài đăng hấp dẫn, chuẩn phong cách BĐS
-     */
-    protected function generateCatchyPostTitle(array $draft): string
-    {
-        $typeName = $draft['property_type_name'] ?? 'Phòng trọ';
-        $location = !empty($draft['district'])
-            ? ($draft['district'] . (!empty($draft['province']) ? ', ' . $draft['province'] : ''))
-            : ($draft['province'] ?? 'Việt Nam');
-        $area = isset($draft['area']) ? $draft['area'] . 'm²' : '';
-        $room = !empty($draft['bedrooms']) ? "({$draft['bedrooms']}PN)" : '';
-
-        $amenities = $draft['amenities'] ?? [];
-        $extra = '';
-        if (in_array('khong_chung_chu', $amenities)) {
-            $extra = ' - Giờ tự do, không chung chủ';
-        } elseif (in_array('giuong_tu', $amenities) || in_array('dieu_hoa', $amenities)) {
-            $extra = ' - Đầy đủ tiện nghi, sạch đẹp';
-        }
-
-        return trim("Cho thuê {$typeName} {$room} tại {$location}" . ($area ? " - {$area}" : "") . $extra);
-    }
-
-    /**
-     * Xử lý trọn vẹn luồng Khiếu nại / Báo cáo sự cố thông minh:
-     * - Tránh tạo mã #KN bừa bãi khi người dùng chỉ than phiền hoặc nhắc đến "lừa đảo", "bùng cọc".
-     * - Bổ sung bước xác nhận ý định (Confirmation Step) khi chưa có Link bài, chưa có SĐT và chưa xác nhận.
-     * - Chỉ chính thức insert vào model Complaint và gửi thông báo tới BQT khi người dùng đã xác nhận hoặc cung cấp rõ link bài/SĐT đối tượng.
-     */
-    protected function handleComplaintFlow(string $message, $currentUser, string $userName, array $uploadedImageIds = []): ?array
-    {
-        $q = mb_strtolower(trim($message), 'UTF-8');
-        $isPending = session()->get('ai_complaint_pending', false);
-        $isConfirming = session()->get('ai_complaint_confirming', false);
-
-        if (!empty($uploadedImageIds)) {
-            session()->put('ai_complaint_image', $uploadedImageIds[0]);
-        }
-
-        // Kiểm tra xem tin nhắn có chứa SĐT (9-11 số) hoặc link URL hay không
-        $hasLink = (bool) preg_match('#https?://[^\s,]+#i', $message) || (bool) preg_match('/\b[a-zA-Z0-9-]+\.(?:com|vn|net|org)(?:\/[^\s,]*)?/i', $message);
-        $hasPhone = (bool) preg_match('/(?:(?:\+?84|0)(?:[\s.-]?\d){8,10}|\b\d(?:[\s.-]?\d){8,10}\b)/', $message);
-        $hasTargetData = $hasLink || $hasPhone;
-
-        // 1. Kiểm tra ý định HỦY / TỪ CHỐI khiếu nại (Tránh False Cancel)
-        // Nếu tin nhắn có chứa SĐT hoặc link URL thì tuyệt đối KHÔNG được coi là hủy đơn (kể cả khi câu bắt đầu bằng "Không")
-        // Chỉ coi là từ chối/hủy khi câu ngắn dưới 25 ký tự và mang nghĩa từ chối thuần túy
-        $msgLen = mb_strlen(trim($q), 'UTF-8');
-        $pureDeclineKeywords = [
-            'không', 'ko', 'k', 'thôi', 'thoi', 'hủy', 'cancel', 'bỏ qua', 'không cần', 'ko cần', 'k cần',
-            'chỉ hỏi thôi', 'mình chỉ hỏi thôi', 'hỏi thôi', 'không khiếu nại', 'không muốn',
-            'thôi không cần', 'dạ thôi', 'dạ không', 'ko đâu', 'không đâu', 'thôi bạn', 'không bạn',
-            'ko bạn ơi', 'không bạn ơi', 'thôi bạn ơi', 'thôi khỏi', 'khỏi cần', 'thôi em', 'thôi ad'
-        ];
-
-        $isCancelOrDecline = false;
-        if (!$hasTargetData && $msgLen < 25) {
-            if (in_array($q, $pureDeclineKeywords) ||
-                (preg_match('/^(không|ko|thôi|dạ thôi|dạ không)\b/ui', $q) && (str_contains($q, 'cần') || str_contains($q, 'muốn') || str_contains($q, 'khiếu nại') || in_array($q, ['không', 'ko', 'thôi', 'dạ thôi', 'dạ không', 'không nha', 'không nhé', 'không ạ', 'thôi nha', 'thôi nhé', 'thôi ạ']))) ||
-                str_contains($q, 'không cần') ||
-                str_contains($q, 'hủy khiếu nại') ||
-                str_contains($q, 'chỉ hỏi thôi') ||
-                str_contains($q, 'nói vậy thôi')) {
-                $isCancelOrDecline = true;
-            }
-        }
-
-        if (($isPending || $isConfirming) && $isCancelOrDecline) {
-            session()->forget('ai_complaint_pending');
-            session()->forget('ai_complaint_confirming');
-            session()->forget('ai_complaint_draft_content');
-            session()->forget('ai_complaint_image');
-            return [
-                'reply' => "Dạ RentHome đã ghi nhận chia sẻ của **{$userName}** nha. Nếu bạn cần hỗ trợ tìm phòng an toàn, tư vấn hợp đồng, giải đáp thủ tục cọc hay bất kỳ vấn đề nào khác, cứ nhắn cho mình nhé! 💡",
-                'cards' => [],
-            ];
-        }
-
-        // 2. Kiểm tra nếu đang ở bước XÁC NHẬN Ý ĐỊNH (isConfirming)
-        if ($isConfirming) {
-            // Nhận diện ý định tìm phòng (chứa các từ tìm kiếm phòng, khu vực, giá tiền) hoặc hỏi FAQ khác
-            $hasSearchVerb = (bool) preg_match('/\b(tìm|tim|kiếm|kiem|cần thuê|can thue|muốn thuê|muon thue|gợi ý|có phòng|co phong|phòng nào|phong nao|còn phòng|con phong)\b/ui', $q);
-            $hasLocation = (bool) preg_match('/\b(cầu giấy|đống đa|ba đình|hai bà trưng|thanh xuân|hoàng mai|hà đông|nam từ liêm|bắc từ liêm|tây hồ|long biên|gia lâm|quận 1|quận 2|quận 3|quận 4|quận 5|quận 7|quận 10|bình thạnh|gò vấp|tân bình|thủ đức|hà nội|hồ chí minh|sài gòn|đà nẵng|bình dương|bắc giang)\b/ui', $q);
-            $hasPrice = (bool) preg_match('/(\d+(?:[.,]\d+)?)\s*(?:triệu|tr|k|nghìn)\b/ui', $q);
-            $hasFaqTopic = (bool) preg_match('/\b(duyệt bài|mất phí|bao lâu|điện nước|tăng giá|hợp đồng|phí môi giới|đăng tin|quản lý tòa nhà|faq|thắc mắc|tạm trú|giấy tờ|thủ tục)\b/ui', $q)
-                || $this->isGeneralFaqPrompt($message)
-                || ($this->matchSpecificFaqQuestion($message, $userName) !== null);
-
-            $isSwitchingTopic = ($hasSearchVerb || ($hasLocation && ($hasPrice || str_contains($q, 'phòng'))) || $hasFaqTopic);
-
-            $affirmativeKeywords = [
-                'có', 'co', 'có nha', 'có nhé', 'có ạ', 'có bạn', 'có em', 'có ad',
-                'đồng ý', 'dong y', 'ok', 'oke', 'okie', 'okay', 'được', 'được nha', 'được chứ',
-                'lập hồ sơ', 'lập giúp', 'lập giúp mình', 'lập giúp tôi', 'giúp mình', 'giúp tôi',
-                'tôi muốn', 'mình muốn', 'xác nhận', 'xác nhận lập', 'lập đi', 'tạo đơn', 'tạo hồ sơ'
-            ];
-
-            $isAffirmative = false;
-            if (!$isSwitchingTopic) {
-                if (in_array($q, $affirmativeKeywords) ||
-                    preg_match('/^(có|co)\s*(ạ|nhé|nha|ơi|bạn|ad|admin|anh|em|lập|tạo|muốn|giúp)?$/ui', $q) ||
-                    str_starts_with($q, 'đồng ý') ||
-                    str_contains($q, 'lập hồ sơ') ||
-                    str_contains($q, 'giúp tôi lập') ||
-                    str_contains($q, 'giúp mình lập') ||
-                    str_contains($q, 'xác nhận lập')) {
-                    $isAffirmative = true;
-                }
-            } else {
-                if (str_contains($q, 'lập hồ sơ khiếu nại') || str_contains($q, 'xác nhận khiếu nại')) {
-                    $isAffirmative = true;
-                    $isSwitchingTopic = false;
-                }
-            }
-
-            // Bóc tách xem tin nhắn này hoặc tin nhắn cũ có link / sđt không
-            $draftContent = session()->get('ai_complaint_draft_content', '');
-            $combinedText = trim($draftContent . "\n" . $message);
-            $complaintImages = !empty($uploadedImageIds) ? $uploadedImageIds : (array)session()->get('ai_complaint_image', []);
-            $parsedDetails = $this->parseComplaintDetails($combinedText, $complaintImages);
-
-            $hasTargetInfo = ($parsedDetails['link'] !== 'Chưa cung cấp link bài đăng/website')
-                          || ($parsedDetails['phone'] !== 'Chưa cung cấp SĐT đối tượng');
-
-            // XÓA TRẠNG THÁI SESSION RÒ RỈ ("Ghost" Confirmation):
-            // Nếu người dùng nhắn tin mang ý định tìm phòng hoặc hỏi FAQ khác thay vì trả lời Có/Không khiếu nại,
-            // tự động xóa session 'ai_complaint_confirming' và 'ai_complaint_draft_content' để không nhận nhầm chữ "ok" ở lượt chat sau
-            if ($isSwitchingTopic && !$isAffirmative && !$hasTargetInfo) {
-                session()->forget('ai_complaint_confirming');
-                session()->forget('ai_complaint_draft_content');
-                return null;
-            }
-
-            // Nếu người dùng đồng ý VÀ đã có link bài hoặc SĐT đối tượng -> Chính thức lập hồ sơ #KN!
-            if ($isAffirmative && $hasTargetInfo) {
-                session()->forget('ai_complaint_confirming');
-                session()->forget('ai_complaint_draft_content');
-                return $this->executeCreateComplaint($combinedText, $currentUser, $userName, $complaintImages, $parsedDetails);
-            }
-
-            // Nếu người dùng đồng ý nhưng VẪN CHƯA CÓ Link bài hoặc SĐT đối tượng -> Chuyển sang pending và yêu cầu bổ sung
-            if ($isAffirmative && !$hasTargetInfo) {
-                session()->forget('ai_complaint_confirming');
-                session()->put('ai_complaint_pending', true);
-                session()->put('ai_complaint_draft_content', $combinedText);
-
-                return [
-                    'reply' => "Dạ RentHome đã ghi nhận mong muốn lập hồ sơ của **{$userName}**! 🛡️\n\n"
-                             . "Để Ban Quản trị có đầy đủ căn cứ xác minh và can thiệp khóa bài/chủ trọ vi phạm, bạn vui lòng gửi giúp mình:\n"
-                             . "1. 🔗 **Link bài đăng** hoặc **Mã bài đăng** cần khiếu nại.\n"
-                             . "2. 📞 **Số điện thoại** của đối tượng/chủ trọ.\n"
-                             . "3. 📸 **Ảnh chụp bằng chứng (nếu có):** Tin nhắn, biên lai cọc...\n\n"
-                             . "👉 Ngay khi nhận được thông tin, mình sẽ lập tức xuất mã hồ sơ `#KN` và chuyển thẳng tới BQT xử lý trong 15 – 30 phút ạ!",
-                    'cards' => [],
-                ];
-            }
-
-            // Nếu người dùng gửi trực tiếp Link hoặc SĐT trong lúc đang confirm -> Lập hồ sơ luôn!
-            if ($hasTargetInfo) {
-                session()->forget('ai_complaint_confirming');
-                session()->forget('ai_complaint_draft_content');
-                return $this->executeCreateComplaint($combinedText, $currentUser, $userName, $complaintImages, $parsedDetails);
-            }
-        }
-
-        // 3. Các từ khóa người dùng NÊU Ý ĐỊNH KHIẾU NẠI RÕ RÀNG
-        $complaintIntentKeywords = [
-            'tôi muốn khiếu nại', 'tôi cần khiếu nại', 'muốn khiếu nại', 'cần khiếu nại',
-            'hỗ trợ khiếu nại', 'cho tôi khiếu nại', 'làm sao để khiếu nại', 'khiếu nại ở đâu',
-            'tôi muốn tố cáo', 'tôi cần tố cáo', 'tôi muốn báo cáo', 'tôi cần báo cáo',
-            'khiếu nại chủ trọ', 'khiếu nại bài đăng', 'báo cáo bài đăng', 'tố cáo chủ trọ',
-            'phản ánh chủ trọ', 'phản ánh bài đăng'
-        ];
-
-        $isIntentOnly = false;
-        foreach ($complaintIntentKeywords as $cik) {
-            if ($q === $cik || str_starts_with($q, $cik) || str_contains($q, $cik)) {
-                if (mb_strlen($q, 'UTF-8') <= 45) {
-                    $isIntentOnly = true;
-                    break;
-                }
-            }
-        }
-        if ($q === 'khiếu nại' || $q === 'tố cáo' || $q === 'báo cáo sự cố' || $q === 'phản ánh') {
-            $isIntentOnly = true;
-        }
-
-        // Nếu người dùng NÊU Ý ĐỊNH khiếu nại chủ động (chưa có nội dung sự việc)
-        if ($isIntentOnly && !$isPending) {
-            session()->put('ai_complaint_pending', true);
-            return [
-                'reply' => "Chào **{$userName}**! Ban Quản trị RentHome luôn sẵn sàng tiếp nhận và bảo vệ quyền lợi của khách thuê 24/7. 🛡️\n\n"
-                         . "Để hệ thống lập hồ sơ khiếu nại chính xác và chuyển ngay cho Ban Kiểm duyệt xử lý, {$userName} vui lòng gửi thông tin chi tiết sự cố nhé:\n"
-                         . "1. 🔗 **Link bài đăng hoặc Website** cần phản ánh.\n"
-                         . "2. 📞 **Số điện thoại hoặc Mã phòng** của đối tượng/chủ trọ.\n"
-                         . "3. ⚠️ **Nội dung sự việc cụ thể:** (Ví dụ: đòi tiền cọc sai thỏa thuận, phòng không đúng ảnh/giá thực tế, chủ trọ có thái độ xấu...).\n"
-                         . "4. 📸 **Bằng chứng kèm theo (nếu có):** Ảnh chụp tin nhắn, biên lai chuyển tiền hoặc hiện trạng phòng.\n\n"
-                         . "👉 {$userName} hãy gửi nội dung chi tiết ngay tại đây, tôi sẽ lập tức tạo mã hồ sơ `#KN` và chuyển Ban Quản trị can thiệp xử lý trong 15 – 30 phút ạ!",
-                'cards' => [],
-            ];
-        }
-
-        // 4. Nếu người dùng ĐANG TRONG TRẠNG THÁI PENDING (đã được yêu cầu gửi chi tiết)
-        if ($isPending) {
-            if (mb_strlen($q, 'UTF-8') < 8 && !preg_match('/\d+/u', $q) && empty($uploadedImageIds)) {
-                return [
-                    'reply' => "Dạ {$userName} vui lòng mô tả rõ hơn một chút về sự việc hoặc cung cấp Số điện thoại/Link bài đăng của chủ trọ để hệ thống có căn cứ lập hồ sơ khiếu nại giúp bạn nhé!",
-                    'cards' => [],
-                ];
-            }
-
-            session()->forget('ai_complaint_pending');
-            $complaintImages = !empty($uploadedImageIds) ? $uploadedImageIds : (array)session()->pull('ai_complaint_image', []);
-            $draftContent = session()->pull('ai_complaint_draft_content', '');
-            $combinedText = trim($draftContent . "\n" . $message);
-            $parsedDetails = $this->parseComplaintDetails($combinedText, $complaintImages);
-
-            return $this->executeCreateComplaint($combinedText, $currentUser, $userName, $complaintImages, $parsedDetails);
-        }
-
-        // 5. NẾU TIN NHẮN TỰ NHIÊN CÓ CHỨA CÁC TỪ KHÓA VỀ SỰ CỐ / LỪA ĐẢO / BÙNG CỌC...
-        $hasComplaintSubstance = str_contains($q, 'lừa') || str_contains($q, 'lừa đảo') || str_contains($q, 'bùng cọc') || 
-                                 str_contains($q, 'treo đầu dê') || str_contains($q, 'ảnh ảo') ||
-                                 str_contains($q, 'chửi bới') || str_contains($q, 'đánh đập') ||
-                                 str_contains($q, 'sai địa chỉ') || str_contains($q, 'chủ trọ dọa') ||
-                                 str_contains($q, 'giả mạo') || str_contains($q, 'quịt tiền') ||
-                                 str_contains($q, 'gian lận') || str_contains($q, 'chiếm đoạt') ||
-                                 (str_contains($q, 'khiếu nại') && mb_strlen($q, 'UTF-8') > 45);
-
-        if ($hasComplaintSubstance) {
-            // Kiểm tra xem tin nhắn có chứa Link hoặc SĐT rõ ràng không
-            $complaintImages = !empty($uploadedImageIds) ? $uploadedImageIds : (array)session()->get('ai_complaint_image', []);
-            $parsedDetails = $this->parseComplaintDetails($message, $complaintImages);
-
-            $hasLinkOrPhone = ($parsedDetails['link'] !== 'Chưa cung cấp link bài đăng/website')
-                           || ($parsedDetails['phone'] !== 'Chưa cung cấp SĐT đối tượng');
-
-            // TRƯỜNG HỢP A: ĐÃ CÓ RÕ LINK BÀI HOẶC SĐT ĐỐI TƯỢNG CẦN XỬ LÝ -> Lập hồ sơ khiếu nại ngay
-            if ($hasLinkOrPhone) {
-                return $this->executeCreateComplaint($message, $currentUser, $userName, $complaintImages, $parsedDetails);
-            }
-
-            // TRƯỜNG HỢP B: CHƯA CÓ LINK BÀI, CHƯA CÓ SĐT VÀ CHƯA XÁC NHẬN Ý ĐỊNH
-            // -> Đồng cảm trước và hỏi xác nhận, TUYỆT ĐỐI KHÔNG TẠO MÃ #KN BỪA BÃI
-            session()->put('ai_complaint_confirming', true);
-            session()->put('ai_complaint_draft_content', $message);
-
-            return [
-                'reply' => "Nghe có vẻ **{$userName}** đang gặp trải nghiệm không tốt/lo ngại về vấn đề này. Bạn có muốn RentHome lập hồ sơ khiếu nại chính thức để BQT xác minh và can thiệp khóa bài vi phạm không ạ?\n\n"
-                         . "👉 Nếu có, {$userName} vui lòng gửi cho mình **Link bài đăng** hoặc **Số điện thoại** của đối tượng/chủ trọ kèm nội dung cụ thể, mình sẽ tạo mã hồ sơ `#KN` và chuyển Ban Quản trị xử lý ngay nhé!",
-                'cards' => [],
-            ];
-        }
-
-        return null;
-    }
-
-    /**
-     * Tạo hồ sơ khiếu nại chính thức vào MongoDB và bắn thông báo tới BQT
-     */
-    protected function executeCreateComplaint(string $content, $currentUser, string $userName, array $complaintImages, array $parsedDetails): array
-    {
-        $firstImageId = !empty($complaintImages) ? (is_array($complaintImages) ? reset($complaintImages) : $complaintImages) : null;
-        $complaintCode = 'KN-' . strtoupper(substr(md5(uniqid(mt_rand(), true)), 0, 6));
-        $authorId = $currentUser ? (string)($currentUser->_id ?? ($currentUser->id ?? null)) : null;
-
-        try {
-            $complaint = Complaint::create([
-                'user_id' => $authorId,
-                'complaint_code' => $complaintCode,
-                'content' => $content,
-                'image' => $firstImageId,
-                'status' => 'pending',
-                'created_at' => now(),
-            ]);
-
-            try {
-                $notificationService = app(SupportNotificationService::class);
-                $notificationService->notifyComplaintCreated($complaint, $currentUser, $firstImageId, $parsedDetails);
-            } catch (\Exception $e) {
-                Log::error('SupportNotificationService notifyComplaintCreated error: ' . $e->getMessage());
-            }
-        } catch (\Exception $e) {
-            Log::error('Create Complaint Error: ' . $e->getMessage());
-        }
-
-        return [
-            'reply' => $this->generateComplaintReply($complaintCode, $userName, $parsedDetails),
-            'cards' => [],
-        ];
-    }
-
-    /**
-     * Bóc tách thông tin khiếu nại của người dùng thành các phần riêng biệt:
-     * 1. Link bài đăng / Website
-     * 2. Số điện thoại / Mã phòng bị phản ánh (ở trên, riêng biệt không gộp chung với link)
-     * 3. Nội dung sự việc cụ thể
-     * 4. Bằng chứng kèm theo (kèm ảnh thumbnail nhỏ hiển thị trực tiếp bên dưới nếu có)
-     */
-    protected function parseComplaintDetails(string $message, $imageInput = null): array
-    {
-        $raw = trim($message);
-
-        // 1. Trích xuất liên kết URL (YouTube, Facebook, Website, Link bài viết...)
-        $links = [];
-        if (preg_match_all('#https?://[^\s,]+#i', $raw, $matches)) {
-            $links = array_values(array_unique($matches[0]));
-        }
-
-        // 2. Trích xuất số điện thoại (hỗ trợ mọi định dạng: 01..., 03..., 05..., 07..., 08..., 09..., +84...)
-        $phones = [];
-        if (preg_match_all('/(?:sđt|sdt|đt|dt|phone|tel|số\s*điện\s*thoại|zalo|số)?[:\s]*(?:là\s*)?((?:\+?84|0)(?:[\s.-]?\d){8,10})\b/ui', $raw, $matches)) {
-            foreach ($matches[1] as $p) {
-                $cleanP = preg_replace('/\D/', '', $p);
-                if (strlen($cleanP) >= 9 && strlen($cleanP) <= 11) {
-                    $phones[] = $cleanP;
-                }
-            }
-        }
-        if (empty($phones)) {
-            if (preg_match_all('/(?:\b|\D)((?:0|\+84)(?:[\s.-]?\d){8,10})\b/', $raw, $matches)) {
-                foreach ($matches[1] as $p) {
-                    $cleanP = preg_replace('/\D/', '', $p);
-                    if (strlen($cleanP) >= 9 && strlen($cleanP) <= 11) {
-                        $phones[] = $cleanP;
-                    }
-                }
-            }
-        }
-        $phones = array_values(array_unique($phones));
-
-        // 3. Trích xuất mã bài đăng hoặc mã phòng (nếu có)
-        $postCodes = [];
-        if (preg_match_all('/(?:mã\s*(?:phòng|bài|tin|post)?[:\s]*#?|#)([a-zA-Z0-9]{4,})/ui', $raw, $matches)) {
-            foreach ($matches[1] as $c) {
-                if (!in_array($c, $links) && !in_array($c, $phones)) {
-                    $postCodes[] = $c;
-                }
-            }
-        }
-        $postCodes = array_values(array_unique($postCodes));
-
-        // 4. Làm sạch để lấy nội dung sự việc cụ thể (loại bỏ link, sđt, mã phòng đã bóc tách)
-        $cleanDesc = $raw;
-        foreach ($links as $l) {
-            $cleanDesc = str_replace($l, '', $cleanDesc);
-        }
-        $cleanDesc = preg_replace('/(?:sđt|sdt|đt|dt|phone|tel|số\s*điện\s*thoại|zalo|số)?[:\s]*(?:là\s*)?(?:\+?84|0)(?:[\s.-]?\d){8,10}\b/ui', '', $cleanDesc);
-        foreach ($phones as $p) {
-            $cleanDesc = str_replace($p, '', $cleanDesc);
-        }
-        foreach ($postCodes as $c) {
-            $cleanDesc = preg_replace('/(?:mã\s*(?:phòng|bài|tin|post)?[:\s]*#?|#)' . preg_quote($c, '/') . '/ui', '', $cleanDesc);
-        }
-
-        $cleanDesc = trim(preg_replace('/^[\s,\.\-–—:;]+|[\s,\.\-–—:;]+$/u', '', trim($cleanDesc)));
-        $cleanDesc = preg_replace('/\s{2,}/u', ' ', $cleanDesc);
-
-        // Chuẩn hóa kết quả theo từng phần riêng biệt (link riêng, sdt riêng không trùng)
-        $linkStr = !empty($links) ? implode("\n", $links) : 'Chưa cung cấp link bài đăng/website';
-
-        $phoneParts = [];
-        if (!empty($phones)) {
-            $phoneParts = array_merge($phoneParts, $phones);
-        }
-        if (!empty($postCodes)) {
-            $phoneParts = array_merge($phoneParts, array_map(fn($c) => "Mã phòng/bài: #{$c}", $postCodes));
-        }
-        $phoneStr = !empty($phoneParts) ? implode(', ', $phoneParts) : 'Chưa cung cấp SĐT đối tượng';
-
-        $issueDesc = !empty($cleanDesc) ? $cleanDesc : 'Người dùng báo cáo vi phạm qua liên kết/bằng chứng đính kèm';
-
-        // 5. Xử lý ảnh bằng chứng hiển thị nhỏ trực tiếp dưới mục 4
-        $imageIds = [];
-        if (is_array($imageInput)) {
-            $imageIds = array_values(array_filter($imageInput));
-        } elseif (!empty($imageInput)) {
-            $imageIds = [(string)$imageInput];
-        }
-
-        $imageHtml = '';
-        $hasImage = !empty($imageIds);
-        $evidence = $hasImage ? 'Đã đính kèm ảnh bằng chứng xác minh' : 'Không có ảnh đính kèm (cung cấp qua liên kết/nội dung)';
-
-        if ($hasImage) {
-            $thumbImgs = [];
-            foreach ($imageIds as $imgId) {
-                try {
-                    $imgStr = (string)$imgId;
-                    if (strlen($imgStr) === 24 && ctype_xdigit($imgStr) && class_exists(\App\Models\Image::class)) {
-                        $imgDoc = \App\Models\Image::find($imgStr);
-                        if ($imgDoc && !empty($imgDoc->base64_data)) {
-                            $mime = $imgDoc->mime_type ?: 'image/jpeg';
-                            $thumbImgs[] = "data:{$mime};base64,{$imgDoc->base64_data}";
-                        }
-                    } elseif (str_starts_with($imgStr, 'data:image') || str_starts_with($imgStr, 'http')) {
-                        $thumbImgs[] = $imgStr;
-                    }
-                } catch (\Exception $e) {
-                    \Illuminate\Support\Facades\Log::warning("Complaint thumb error: " . $e->getMessage());
-                }
-            }
-
-            if (!empty($thumbImgs)) {
-                $imageHtml = '<div style="display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap;">';
-                foreach ($thumbImgs as $src) {
-                    $imageHtml .= '<img src="' . $src . '" alt="Ảnh bằng chứng" style="width: 68px; height: 68px; object-fit: cover; border-radius: 8px; border: 1.5px solid #10b981; box-shadow: 0 2px 6px rgba(0,0,0,0.12); cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform=\'scale(1.06)\'" onmouseout="this.style.transform=\'scale(1)\'" onclick="window.open(this.src, \'_blank\')" title="Bấm để xem ảnh phóng to">';
-                }
-                $imageHtml .= '</div>';
-            }
-        }
-
-        return [
-            'link' => $linkStr,
-            'phone' => $phoneStr,
-            'issue_desc' => $issueDesc,
-            'evidence' => $evidence,
-            'image_html' => $imageHtml,
-            'has_image' => $hasImage,
-        ];
-    }
-
-    protected function generateComplaintReply(string $code, string $userName, array $parsedDetails = []): string
-    {
-        $link = $parsedDetails['link'] ?? 'Chưa cung cấp link bài đăng/website';
-        $phone = $parsedDetails['phone'] ?? 'Chưa cung cấp SĐT đối tượng';
-        $issue = $parsedDetails['issue_desc'] ?? 'Đang xác minh';
-        $evidence = $parsedDetails['evidence'] ?? 'Không có ảnh đính kèm';
-        $imageHtml = $parsedDetails['image_html'] ?? '';
-
-        $evidenceSection = $evidence . ($imageHtml ? "\n" . $imageHtml : "");
-
-        return "Chào **{$userName}**! Mình thành thật xin lỗi bạn vì trải nghiệm không mong muốn này ạ! \n\n"
-             . "🛡️ **RentHome đã tiếp nhận và lập hồ sơ khiếu nại khẩn cấp `#{$code}`:**\n\n"
-             . "<div style=\"background: #ffffff; border: 1.5px solid #ef4444; border-radius: 12px; padding: 12px 14px; margin: 8px 0; box-shadow: 0 2px 8px rgba(239, 68, 68, 0.08); font-size: 13px; color: #1e293b;\">\n"
-             . "  <div style=\"font-weight: 700; color: #b91c1c; margin-bottom: 8px; font-size: 13.5px; border-bottom: 1px dashed #fca5a5; padding-bottom: 6px;\">📋 CHI TIẾT HỒ SƠ KHIẾU NẠI</div>\n"
-             . "  <div style=\"margin-bottom: 6px;\">🔗 <b>Link bài đăng:</b> <span style=\"word-break: break-all;\">{$link}</span></div>\n"
-             . "  <div style=\"margin-bottom: 6px;\">📞 <b>Số điện thoại:</b> {$phone}</div>\n"
-             . "  <div style=\"margin-bottom: 6px;\">⚠️ <b>Nội dung sự việc:</b> {$issue}</div>\n"
-             . "  <div>📸 <b>Bằng chứng:</b> {$evidenceSection}</div>\n"
-             . "</div>\n\n"
-             . "• Toàn bộ hồ sơ đã được chuyển thẳng tới **Ban Kiểm duyệt & Quản trị viên** xử lý khẩn cấp.\n"
-             . "• Bộ phận kiểm duyệt sẽ tiến hành xác minh, đối chất chủ bài đăng và xử lý tạm khóa/gỡ bỏ vi phạm trong vòng 15 – 30 phút.\n\n"
-             . "{$userName} hoàn toàn yên tâm nhé ạ, quyền lợi và sự an toàn của khách thuê luôn là ưu tiên số 1 của RentHome!\n"
-             . "Hotline hỗ trợ trực tiếp 24/7: `1900 8888`.";
-    }
-
-    /**
      * Tìm kiếm phòng trong Database: Khớp chính xác hoặc tìm các căn phù hợp với túi tiền
      * CHỈ KÍCH HOẠT KHI NGƯỜI DÙNG THỰC SỰ CÓ Ý ĐỊNH TÌM KIẾM PHÒNG (KHÔNG PHẢI HỎI ĐÁP / FAQ)
      */
@@ -1716,6 +662,9 @@ class RentHomeAiService
             'property_type_requested' => null,
             'target_price' => null,
             'price_label' => '',
+            'price_operator' => null,
+            'price_min' => null,
+            'price_max' => null,
             'has_alternatives' => false,
             'is_nationwide' => false,
             'needs_clarification' => false,
@@ -1905,54 +854,228 @@ class RentHomeAiService
             $meta['location_requested'] = $matchedProvinces[0];
         }
 
-        // 3. NHẬN DIỆN MỨC GIÁ
+        // 3. NHẬN DIỆN MỨC GIÁ VÀ TOÁN TỬ GIÁ (DƯỚI / TRÊN / KHOẢNG / TẦM)
         $targetPrice = null;
-        if (preg_match('/(\d+(?:[.,]\d+)?)\s*(?:triệu|tr)(?!\s*m2)/ui', $qLower, $matches)) {
-            $num = (float) str_replace(',', '.', $matches[1]);
-            $targetPrice = (int) ($num * 1000000);
-            $meta['target_price'] = $targetPrice;
-            $meta['price_label'] = $matches[1] . ' triệu';
-        } elseif (preg_match('/(\d+(?:[.,]\d+)?)\s*(?:k|nghìn)\s*(?:đ|vnd|đồng)?/ui', $qLower, $matches)) {
-            $num = (float) str_replace(',', '.', $matches[1]);
-            $targetPrice = (int) ($num * 1000);
-            $meta['target_price'] = $targetPrice;
-            $meta['price_label'] = $matches[1] . 'k';
+        $priceMin = null;
+        $priceMax = null;
+        $priceOperator = null; // 'under', 'over', 'range', 'around'
+
+        // 3.1. Khoảng giá: "từ 3 đến 5 triệu", "3 - 5 triệu", "3-5tr", "500k - 1 triệu", "500k - 1tr"
+        if (preg_match('/(?:từ\s*)?(\d+(?:[.,]\d+)?)\s*(k|nghìn|triệu|tr|tỷ)?\s*(?:-|đến|tới|\.\.\.)\s*(\d+(?:[.,]\d+)?)\s*(triệu|tr|tỷ|k|nghìn)/ui', $qLower, $mPrice)) {
+            $unit2 = mb_strtolower($mPrice[4], 'UTF-8');
+            $unit1 = !empty($mPrice[2]) ? mb_strtolower($mPrice[2], 'UTF-8') : $unit2;
+
+            $multiplier1 = (in_array($unit1, ['triệu', 'tr'])) ? 1000000 : ((in_array($unit1, ['tỷ'])) ? 1000000000 : 1000);
+            $multiplier2 = (in_array($unit2, ['triệu', 'tr'])) ? 1000000 : ((in_array($unit2, ['tỷ'])) ? 1000000000 : 1000);
+
+            $val1 = (float) str_replace(',', '.', $mPrice[1]) * $multiplier1;
+            $val2 = (float) str_replace(',', '.', $mPrice[3]) * $multiplier2;
+
+            $priceMin = (int) min($val1, $val2);
+            $priceMax = (int) max($val1, $val2);
+            $priceOperator = 'range';
+            $unit1Display = in_array($unit1, ['tr', 'triệu']) ? 'triệu' : $unit1;
+            $unit2Display = in_array($unit2, ['tr', 'triệu']) ? 'triệu' : $unit2;
+            $meta['price_label'] = ($unit1 !== $unit2) ? "{$mPrice[1]} {$unit1Display} - {$mPrice[3]} {$unit2Display}" : "{$mPrice[1]} - {$mPrice[3]} {$unit2Display}";
+            $targetPrice = (int) (($priceMin + $priceMax) / 2);
         }
+        // 3.2. Dưới / Tối đa / Đổ lại / Trở xuống / Quay đầu: "dưới 400 triệu", "tối đa 400tr", "400 triệu trở xuống", "<= 4 triệu"
+        elseif (
+            preg_match('/(?:dưới|nhỏ hơn|bé hơn|thấp hơn|tối đa|không quá|không vượt quá|dưới mức|ít hơn|<=|<)\s*(\d+(?:[.,]\d+)?)\s*(triệu|tr|tỷ|k|nghìn)/ui', $qLower, $mPrice) ||
+            preg_match('/(\d+(?:[.,]\d+)?)\s*(triệu|tr|tỷ|k|nghìn)\s*(?:trở xuống|đổ lại|quay đầu|trở lại)/ui', $qLower, $mPrice)
+        ) {
+            $unit = mb_strtolower($mPrice[2], 'UTF-8');
+            $multiplier = (in_array($unit, ['triệu', 'tr'])) ? 1000000 : ((in_array($unit, ['tỷ'])) ? 1000000000 : 1000);
+            $val = (int) ((float) str_replace(',', '.', $mPrice[1]) * $multiplier);
+
+            $priceMin = 0;
+            $priceMax = $val;
+            $targetPrice = $val;
+            $priceOperator = 'under';
+            $unitDisplay = in_array($unit, ['tr', 'triệu']) ? 'triệu' : $unit;
+            $meta['price_label'] = 'dưới ' . $mPrice[1] . ' ' . $unitDisplay;
+        }
+        // 3.3. Trên / Tối thiểu / Trở lên: "trên 50 triệu", "từ 50 triệu trở lên", "tối thiểu 5 triệu", ">= 5 triệu"
+        elseif (
+            preg_match('/(?:trên|lớn hơn|cao hơn|tối thiểu|ít nhất|>=|>)\s*(\d+(?:[.,]\d+)?)\s*(triệu|tr|tỷ|k|nghìn)/ui', $qLower, $mPrice) ||
+            preg_match('/(?:từ\s*)?(\d+(?:[.,]\d+)?)\s*(triệu|tr|tỷ|k|nghìn)\s*(?:trở lên|đổ lên)/ui', $qLower, $mPrice)
+        ) {
+            $unit = mb_strtolower($mPrice[2], 'UTF-8');
+            $multiplier = (in_array($unit, ['triệu', 'tr'])) ? 1000000 : ((in_array($unit, ['tỷ'])) ? 1000000000 : 1000);
+            $val = (int) ((float) str_replace(',', '.', $mPrice[1]) * $multiplier);
+
+            $priceMin = $val;
+            $priceMax = PHP_INT_MAX;
+            $targetPrice = $val;
+            $priceOperator = 'over';
+            $unitDisplay = in_array($unit, ['tr', 'triệu']) ? 'triệu' : $unit;
+            $meta['price_label'] = 'trên ' . $mPrice[1] . ' ' . $unitDisplay;
+        }
+        // 3.4. Giá cụ thể / Khoảng tầm thông thường: "400 triệu", "tầm 5 triệu", "khoảng 3 triệu"
+        elseif (
+            preg_match('/(?:tầm|khoảng|cỡ|xấp xỉ|quanh)?\s*(\d+(?:[.,]\d+)?)\s*(triệu|tr|tỷ)(?!\s*m2)/ui', $qLower, $mPrice)
+        ) {
+            $unit = mb_strtolower($mPrice[2], 'UTF-8');
+            $multiplier = (in_array($unit, ['triệu', 'tr'])) ? 1000000 : 1000000000;
+            $val = (int) ((float) str_replace(',', '.', $mPrice[1]) * $multiplier);
+
+            $priceMin = (int) ($val * 0.85);
+            $priceMax = (int) ($val * 1.15);
+            $targetPrice = $val;
+            $priceOperator = 'around';
+            $unitDisplay = in_array($unit, ['tr', 'triệu']) ? 'triệu' : $unit;
+            $meta['price_label'] = $mPrice[1] . ' ' . $unitDisplay;
+        }
+        elseif (
+            preg_match('/(?:tầm|khoảng|cỡ|xấp xỉ|quanh)?\s*(\d+(?:[.,]\d+)?)\s*(?:k|nghìn)\s*(?:đ|vnd|đồng)?/ui', $qLower, $mPrice)
+        ) {
+            $val = (int) ((float) str_replace(',', '.', $mPrice[1]) * 1000);
+
+            $priceMin = (int) ($val * 0.85);
+            $priceMax = (int) ($val * 1.15);
+            $targetPrice = $val;
+            $priceOperator = 'around';
+            $meta['price_label'] = $mPrice[1] . 'k';
+        }
+
+        $meta['target_price'] = $targetPrice;
+        $meta['price_min'] = $priceMin;
+        $meta['price_max'] = $priceMax;
+        $meta['price_operator'] = $priceOperator;
 
         // 4. NHẬN DIỆN DIỆN TÍCH (m2)
         $targetArea = null;
-        if (preg_match('/(\d+(?:[.,]\d+)?)\s*(?:m2|m²|mét vuông)/ui', $qLower, $mArea)) {
-            $targetArea = (float) str_replace(',', '.', $mArea[1]);
-            $meta['target_area'] = $targetArea;
-            $meta['area_label'] = $mArea[1] . ' m²';
+        $areaMin = null;
+        $areaMax = null;
+        $areaOperator = null; // 'range', 'under', 'over', 'around'
+
+        // 4.1. Khoảng diện tích: "từ 30 đến 45 m2", "30 - 45 m2", "diện tích 30 - 45", "30 đến 45 mét vuông"
+        if (
+            preg_match('/(?:diện\s*tích|rộng|dt)\s*(?:từ\s*)?(\d+(?:[.,]\d+)?)\s*(?:m2|m²|mét\s*vuông|met\s*vuong)?\s*(?:-|đến|tới|\.\.\.)\s*(\d+(?:[.,]\d+)?)\s*(?:m2|m²|mét\s*vuông|met\s*vuong)?/ui', $qLower, $mArea) ||
+            preg_match('/(?:từ\s*)?(\d+(?:[.,]\d+)?)\s*(?:m2|m²|mét\s*vuông|met\s*vuong)?\s*(?:-|đến|tới|\.\.\.)\s*(\d+(?:[.,]\d+)?)\s*(?:m2|m²|mét\s*vuông|met\s*vuong)/ui', $qLower, $mArea)
+        ) {
+            $val1 = (float) str_replace(',', '.', $mArea[1]);
+            $val2 = (float) str_replace(',', '.', $mArea[2]);
+            $areaMin = min($val1, $val2);
+            $areaMax = max($val1, $val2);
+            $targetArea = ($areaMin + $areaMax) / 2;
+            $areaOperator = 'range';
+            $meta['area_label'] = "{$areaMin} - {$areaMax} m²";
         }
+        // 4.2. Dưới diện tích / Tối đa / Đổ lại / Trở xuống: "dưới 35 m2", "tối đa 40m2", "diện tích dưới 40", "35m2 trở xuống", "<= 35 m2"
+        elseif (
+            preg_match('/(?:diện\s*tích|rộng|dt)\s*(?:dưới|nhỏ hơn|bé hơn|thấp hơn|tối đa|không quá|không vượt quá|dưới mức|ít hơn|<=|<)\s*(\d+(?:[.,]\d+)?)\s*(?:m2|m²|mét\s*vuông|met\s*vuong)?/ui', $qLower, $mArea) ||
+            preg_match('/(?:dưới|nhỏ hơn|bé hơn|thấp hơn|tối đa|không quá|không vượt quá|dưới mức|ít hơn|<=|<)\s*(\d+(?:[.,]\d+)?)\s*(?:m2|m²|mét\s*vuông|met\s*vuong)/ui', $qLower, $mArea) ||
+            preg_match('/(\d+(?:[.,]\d+)?)\s*(?:m2|m²|mét\s*vuông|met\s*vuong)\s*(?:trở xuống|đổ lại|quay đầu|trở lại)/ui', $qLower, $mArea)
+        ) {
+            $val = (float) str_replace(',', '.', $mArea[1]);
+            $areaMin = 0;
+            $areaMax = $val;
+            $targetArea = $val;
+            $areaOperator = 'under';
+            $meta['area_label'] = "dưới {$val} m²";
+        }
+        // 4.3. Trên diện tích / Tối thiểu / Trở lên: "trên 35 m2", "lớn hơn 40m2", "diện tích trên 40", "từ 35 m2 trở lên", ">= 35 m2"
+        elseif (
+            preg_match('/(?:diện\s*tích|rộng|dt)\s*(?:trên|lớn hơn|rộng hơn|cao hơn|tối thiểu|ít nhất|>=|>)\s*(\d+(?:[.,]\d+)?)\s*(?:m2|m²|mét\s*vuông|met\s*vuong)?/ui', $qLower, $mArea) ||
+            preg_match('/(?:trên|lớn hơn|rộng hơn|cao hơn|tối thiểu|ít nhất|>=|>)\s*(\d+(?:[.,]\d+)?)\s*(?:m2|m²|mét\s*vuông|met\s*vuong)/ui', $qLower, $mArea) ||
+            preg_match('/(?:từ\s*)?(\d+(?:[.,]\d+)?)\s*(?:m2|m²|mét\s*vuông|met\s*vuong)\s*(?:trở lên|đổ lên)/ui', $qLower, $mArea)
+        ) {
+            $val = (float) str_replace(',', '.', $mArea[1]);
+            $areaMin = $val;
+            $areaMax = PHP_INT_MAX;
+            $targetArea = $val;
+            $areaOperator = 'over';
+            $meta['area_label'] = "trên {$val} m²";
+        }
+        // 4.4. Diện tích cụ thể / Khoảng tầm thông thường: "với diện tích 35 m2", "diện tích 35 m2", "tầm 35m2", "khoảng 35 m2", "35 m2", "35 mét vuông", "diện tích 35"
+        elseif (
+            preg_match('/(?:diện\s*tích|rộng|dt)\s*(?:là|với|tầm|khoảng|cỡ|xấp xỉ)?\s*(\d+(?:[.,]\d+)?)\s*(?:m2|m²|mét\s*vuông|met\s*vuong)?/ui', $qLower, $mArea) ||
+            preg_match('/(?:tầm|khoảng|cỡ|xấp xỉ|quanh)?\s*(\d+(?:[.,]\d+)?)\s*(?:m2|m²|mét\s*vuông|met\s*vuong)/ui', $qLower, $mArea)
+        ) {
+            $val = (float) str_replace(',', '.', $mArea[1]);
+            $targetArea = $val;
+            $areaMin = max(0, $val - max(3, $val * 0.15));
+            $areaMax = $val + max(3, $val * 0.15);
+            $areaOperator = 'around';
+            $meta['area_label'] = "{$val} m²";
+        }
+
+        $meta['target_area'] = $targetArea;
+        $meta['area_min'] = $areaMin;
+        $meta['area_max'] = $areaMax;
+        $meta['area_operator'] = $areaOperator;
 
         // 5. NHẬN DIỆN ĐỘNG TỪ TÌM KIẾM
         $hasSearchVerb = (bool) preg_match('/\b(tìm|tim|kiếm|kiem|cần thuê|can thue|muốn thuê|muon thue|thuê ở|thuê tại|gợi ý|cho tôi|những căn|các căn|có phòng|co phong|phòng nào|phong nao|còn phòng|con phong)\b/ui', $qLower);
 
-        // 6. NHẬN DIỆN LOẠI HÌNH BẤT ĐỘNG SẢN
-        $propertyType = null;
-        if (preg_match('/\b(căn hộ|chung cư|chung cu|ccmn|apartment|condo|studio)\b/ui', $qLower)) {
-            $propertyType = 'căn hộ';
-            $meta['property_type_requested'] = 'căn hộ / chung cư';
-        } elseif (preg_match('/\b(phòng trọ|phong tro|phòng|phong|nhà trọ|nha tro)\b/ui', $qLower)) {
-            $propertyType = 'phòng';
-            $meta['property_type_requested'] = 'phòng trọ';
-        } elseif (preg_match('/\b(biệt thự|villa)\b/ui', $qLower)) {
-            $propertyType = 'biệt thự';
-            $meta['property_type_requested'] = 'biệt thự';
-        } elseif (preg_match('/\b(nhà nguyên căn|nhà ở|nha o|nhà|căn nhà)\b/ui', $qLower)) {
-            $propertyType = 'nhà';
-            $meta['property_type_requested'] = 'nhà nguyên căn';
-        } elseif (preg_match('/\b(đất|mặt bằng|mat bang|đất nền|thổ cư)\b/ui', $qLower)) {
-            $propertyType = 'đất';
-            $meta['property_type_requested'] = 'mặt bằng / đất';
+        // 6. NHẬN DIỆN LOẠI HÌNH BẤT ĐỘNG SẢN (7 LOẠI HÌNH CHUẨN CỦA RENTHOME)
+        $typeDefinitions = [
+            'can_ho' => [
+                'name' => 'Chung cư mini / Căn hộ dịch vụ',
+                'pattern' => '/\b(tòa\s*nhà|toa\s*nha|chung\s*cư\s*mini|chung\s*cu\s*mini|chung\s*cư|chung\s*cu|căn\s*hộ\s*dịch\s*vụ|can\s*ho\s*dich\s*vu|căn\s*hộ|can\s*ho|ccmn|studio|condo|apartment)\b/ui',
+                'db_keys' => ['can_ho', 'can_ho_dich_vu', 'chung_cu', 'chung_cu_mini', 'ch'],
+                'keywords' => ['chung cư', 'căn hộ', 'ccmn', 'tòa nhà', 'chdv', 'apartment', 'studio', 'condo'],
+            ],
+            'nha_tro' => [
+                'name' => 'Nhà trọ / Khu trọ',
+                'pattern' => '/\b(nhà\s*trọ|nha\s*tro|khu\s*trọ|khu\s*tro|phòng\s*trọ|phong\s*tro|dãy\s*trọ|day\s*tro|xóm\s*trọ|xom\s*tro|phòng\s*cho\s*thuê|phong\s*cho\s*thue|phòng\s*khép\s*kín|phong\s*khep\s*kin)\b/ui',
+                'db_keys' => ['nha_tro', 'phong_tro', 'pt', 'khu_tro'],
+                'keywords' => ['nhà trọ', 'khu trọ', 'phòng trọ', 'dãy trọ', 'xóm trọ', 'phòng cho thuê'],
+            ],
+            'ky_tuc_xa' => [
+                'name' => 'Ký túc xá / Sleepbox',
+                'pattern' => '/\b(ký\s*túc\s*xá|ky\s*tuc\s*xa|sleepbox|sleep\s*box|ktx|hộp\s*ngủ|hop\s*ngu|giường\s*tầng|giuong\s*tang|dorm)\b/ui',
+                'db_keys' => ['ky_tuc_xa', 'sleepbox', 'ktx', 'box'],
+                'keywords' => ['ký túc xá', 'sleepbox', 'ktx', 'hộp ngủ', 'giường tầng', 'dorm'],
+            ],
+            'dat_phan_lo' => [
+                'name' => 'Đất phân lô / Đất nền',
+                'pattern' => '/\b(đất\s*phân\s*lô|dat\s*phan\s*lo|lô\s*đất|lo\s*dat|thửa\s*đất|thua\s*dat|đất\s*thổ\s*cư|dat\s*tho\s*cu|thổ\s*cư|tho\s*cu|đất\s*dự\s*án|dat\s*du\s*an)\b/ui',
+                'db_keys' => ['dat_phan_lo', 'dat_phanlo', 'dat_nen_du_an'],
+                'keywords' => ['đất phân lô', 'lô đất', 'thửa đất', 'thổ cư', 'đất dự án'],
+            ],
+            'nha_rieng' => [
+                'name' => 'Nhà ở / Nhà riêng lẻ',
+                'pattern' => '/\b(nhà\s*riêng\s*lẻ|nha\s*rieng\s*le|nhà\s*riêng|nha\s*rieng|nhà\s*nguyên\s*căn|nha\s*nguyen\s*can|nguyên\s*căn|nguyen\s*can|nhà\s*phố|nha\s*pho|nhà\s*mặt\s*phố|nha\s*mat\s*pho|nhà\s*ngõ|nha\s*ngo|nhà\s*cấp\s*4|nha\s*cap\s*4|nhà\s*ở\s*riêng\s*lẻ|nhà\s*liền\s*thổ)\b/ui',
+                'db_keys' => ['nha_rieng', 'nha_nguyen_can', 'nha_o', 'nnc'],
+                'keywords' => ['nhà riêng', 'nhà riêng lẻ', 'nhà nguyên căn', 'nhà phố', 'nhà mặt phố'],
+            ],
+            'cum_nha_lien_ke' => [
+                'name' => 'Cụm nhà liền kề / Dự án',
+                'pattern' => '/\b(cụm\s*nhà\s*liền\s*kề|cum\s*nha\s*lien\s*ke|nhà\s*liền\s*kề|nha\s*lien\s*ke|liền\s*kề|lien\s*ke|biệt\s*thự|biet\s*thu|villa|shophouse|nhà\s*dự\s*án)\b/ui',
+                'db_keys' => ['cum_nha_lien_ke', 'lien_ke', 'nha_lien_ke', 'biet_thu', 'villa', 'shophouse'],
+                'keywords' => ['cụm nhà liền kề', 'nhà liền kề', 'liền kề', 'dự án', 'biệt thự', 'villa', 'shophouse'],
+            ],
+            'dat_nen' => [
+                'name' => 'Mặt bằng kinh doanh',
+                'pattern' => '/\b(mặt\s*bằng\s*kinh\s*doanh|mat\s*bang\s*kinh\s*doanh|mặt\s*bằng|mat\s*bang|cửa\s*hàng|cua\s*hang|shop|kiot|kiosk|quán\s*ăn|văn\s*phòng|van\s*phong|mặt\s*sàn|mat\s*san|đất\s*kinh\s*doanh)\b/ui',
+                'db_keys' => ['dat_nen', 'mat_bang', 'mat_bang_kinh_doanh', 'van_phong', 'cua_hang'],
+                'keywords' => ['mặt bằng kinh doanh', 'mặt bằng', 'cửa hàng', 'shop', 'kiot', 'kiosk', 'văn phòng', 'kinh doanh', 'đất kinh doanh'],
+            ],
+        ];
+
+        $matchedTypes = [];
+        foreach ($typeDefinitions as $key => $def) {
+            if (preg_match($def['pattern'], $qLower)) {
+                $matchedTypes[$key] = $def;
+            }
+        }
+
+        // Hỗ trợ trường hợp người dùng chỉ nói "tìm phòng" hoặc "tìm nhà", "căn nhà" chung chung (không nêu loại hình cụ thể)
+        $isGenericRoomSearch = empty($matchedTypes) && (bool) preg_match('/\b(phòng|phong|nhà|nha|căn\s*nhà|can\s*nha|ngôi\s*nhà|ngoi\s*nha|căn|can)\b/ui', $qLower);
+
+        if (!empty($matchedTypes)) {
+            $typeNames = array_map(fn($d) => $d['name'], $matchedTypes);
+            $meta['property_type_requested'] = implode(', ', $typeNames);
+        } elseif ($isGenericRoomSearch) {
+            $meta['property_type_requested'] = null;
         }
 
         // 7. BỔ SUNG CƠ CHẾ HỎI LẠI (CLARIFICATION) KHI THÔNG TIN QUÁ CHUNG CHUNG
-        // Nếu phát hiện người dùng có ý định tìm kiếm (có động từ tìm kiếm hoặc có loại hình bất động sản)
-        // nhưng HOÀN TOÀN THIẾU ĐỊA ĐIỂM (chưa có tỉnh/thành hay quận/huyện, không phải toàn quốc) VÀ THIẾU MỨC GIÁ / DIỆN TÍCH:
-        if (($hasSearchVerb || $propertyType) && empty($matchedProvinces) && empty($matchedDistricts) && !$isNationwide && empty($targetPrice) && empty($targetArea)) {
+        // Chỉ hỏi lại khi người dùng tìm kiếm chung chung mà KHÔNG CÓ loại hình cụ thể,
+        // HOÀN TOÀN THIẾU ĐỊA ĐIỂM (chưa có tỉnh/thành hay quận/huyện, không phải toàn quốc) VÀ THIẾU MỨC GIÁ / DIỆN TÍCH
+        if ($hasSearchVerb && empty($matchedTypes) && empty($matchedProvinces) && empty($matchedDistricts) && !$isNationwide && empty($targetPrice) && empty($targetArea) && empty($areaOperator)) {
             $meta['is_search'] = true;
             $meta['needs_clarification'] = true;
             session()->put('ai_search_waiting_criteria', true);
@@ -1961,7 +1084,7 @@ class RentHomeAiService
         }
 
         // 8. KIỂM TRA TỪ KHÓA CÂU HỎI THẮC MẮC VS THÔNG TIN TÌM KIẾM
-        $hasValidSearchCriteria = (!empty($matchedProvinces) || !empty($matchedDistricts) || !empty($targetPrice) || !empty($targetArea) || $isNationwide);
+        $hasValidSearchCriteria = (!empty($matchedProvinces) || !empty($matchedDistricts) || !empty($targetPrice) || !empty($targetArea) || !empty($areaOperator) || $isNationwide);
 
         $questionKeywords = [
             'cọc', 'tiền cọc', 'đặt cọc', 'môi giới', 'duyệt bài', 'mất phí', 'tăng giá',
@@ -1983,14 +1106,14 @@ class RentHomeAiService
         }
 
         // Chỉ coi là tìm kiếm nếu: có động từ tìm kiếm RÕ RÀNG HOẶC (có địa điểm / mức giá / diện tích / loại hình / toàn quốc)
-        if (!$hasSearchVerb && empty($matchedProvinces) && empty($matchedDistricts) && !$isNationwide && !$targetPrice && !$targetArea && !$propertyType) {
+        if (!$hasSearchVerb && empty($matchedProvinces) && empty($matchedDistricts) && !$isNationwide && !$targetPrice && !$targetArea && empty($areaOperator) && empty($matchedTypes) && !$isGenericRoomSearch) {
             return ['cards' => [], 'meta' => $meta];
         }
 
         $meta['is_search'] = true;
 
         // 9. TRUY VẤN CƠ SỞ DỮ LIỆU
-        $baseQuery = Post::query()->where('status', 'approved');
+        $baseQuery = Post::with('building')->where('status', 'approved');
 
         // Lọc địa điểm: Toàn quốc vs Đa tỉnh thành vs Đơn tỉnh thành
         if (!$isNationwide) {
@@ -2028,17 +1151,146 @@ class RentHomeAiService
         // 10. PHÂN LOẠI THEO LOẠI HÌNH BẤT ĐỘNG SẢN (NẾU CÓ)
         $candidates = $posts;
         $isExactType = true;
-        if ($propertyType) {
-            $filteredByType = $posts->filter(function ($p) use ($propertyType) {
+        if (!empty($matchedTypes)) {
+            $allowedDbKeys = [];
+            $allTextKeywords = [];
+            foreach ($matchedTypes as $def) {
+                $allowedDbKeys = array_merge($allowedDbKeys, $def['db_keys']);
+                $allTextKeywords = array_merge($allTextKeywords, $def['keywords']);
+            }
+            $allowedDbKeys = array_unique($allowedDbKeys);
+
+            $filteredByType = $posts->filter(function ($p) use ($allowedDbKeys, $allTextKeywords) {
+                // 1. Kiểm tra raw property_type hoặc accessor property_type của Post
+                $propType = $p->property_type ?? ($p->getAttributes()['property_type'] ?? null);
+                if ($propType && in_array(strtolower(trim($propType)), $allowedDbKeys, true)) {
+                    return true;
+                }
+
+                // 2. Kiểm tra type và business_type của Tòa nhà (nếu có liên kết)
+                if ($p->building) {
+                    $bType = $p->building->type ?? null;
+                    if ($bType && in_array(strtolower(trim($bType)), $allowedDbKeys, true)) {
+                        return true;
+                    }
+                    $bBiz = mb_strtolower($p->building->business_type ?? '', 'UTF-8');
+                    foreach ($allTextKeywords as $kw) {
+                        if (str_contains($bBiz, mb_strtolower($kw, 'UTF-8'))) {
+                            return true;
+                        }
+                    }
+                    $bName = mb_strtolower($p->building->name ?? '', 'UTF-8');
+                    foreach ($allTextKeywords as $kw) {
+                        if (str_contains($bName, mb_strtolower($kw, 'UTF-8'))) {
+                            return true;
+                        }
+                    }
+                }
+
+                // 3. Kiểm tra title và description của bài đăng
                 $text = mb_strtolower(($p->title ?? '') . ' ' . ($p->description ?? ''), 'UTF-8');
-                return str_contains($text, $propertyType);
+                foreach ($allTextKeywords as $kw) {
+                    if (str_contains($text, mb_strtolower($kw, 'UTF-8'))) {
+                        return true;
+                    }
+                }
+
+                return false;
             });
+
             if ($filteredByType->count() > 0) {
                 $candidates = $filteredByType;
             } else {
                 $isExactType = false;
             }
         }
+
+        $matchesPrice = function ($postPrice) use ($priceMin, $priceMax) {
+            if ($priceMin === null && $priceMax === null) {
+                return true;
+            }
+            if ($postPrice <= 0) {
+                return false;
+            }
+            if ($priceMin !== null && $postPrice < $priceMin) {
+                return false;
+            }
+            if ($priceMax !== null && $postPrice > $priceMax) {
+                return false;
+            }
+            return true;
+        };
+
+        $matchesArea = function ($postArea) use ($areaOperator, $targetArea, $areaMin, $areaMax) {
+            if ($areaOperator === null && $targetArea === null) {
+                return true;
+            }
+            $pArea = (float) $postArea;
+            if ($pArea <= 0) {
+                return false;
+            }
+            if ($areaOperator === 'under') {
+                return $pArea <= $areaMax;
+            }
+            if ($areaOperator === 'over') {
+                return $pArea >= $areaMin;
+            }
+            if ($areaOperator === 'range') {
+                return $pArea >= $areaMin && $pArea <= $areaMax;
+            }
+            // 'around' hoặc số diện tích cụ thể:
+            // Khớp chính xác hoặc chênh lệch rất nhỏ (<= 1.5m2 hoặc 5%)
+            return abs($pArea - $targetArea) <= max(1.5, $targetArea * 0.05);
+        };
+
+        $sortMatches = function ($collection) use ($priceOperator, $targetPrice, $areaOperator, $targetArea) {
+            if ($targetArea && $targetPrice) {
+                return $collection->sortBy(function ($p) use ($targetArea, $targetPrice) {
+                    $areaDiff = abs((float)$p->area - $targetArea) / max(1, $targetArea);
+                    $priceDiff = abs((float)$p->price - $targetPrice) / max(1, $targetPrice);
+                    return $areaDiff + $priceDiff;
+                });
+            }
+            if ($targetArea !== null || $areaOperator !== null) {
+                if ($areaOperator === 'under') {
+                    return $collection->sortByDesc(fn($p) => (float)$p->area);
+                }
+                if ($areaOperator === 'over') {
+                    return $collection->sortBy(fn($p) => (float)$p->area);
+                }
+                return $collection->sortBy(fn($p) => abs((float)$p->area - $targetArea));
+            }
+            if ($priceOperator === 'under') {
+                return $collection->sortByDesc('price');
+            }
+            if ($priceOperator === 'over') {
+                return $collection->sortBy('price');
+            }
+            if ($targetPrice) {
+                return $collection->sortBy(function ($p) use ($targetPrice) {
+                    return abs($p->price - $targetPrice);
+                });
+            }
+            return $collection;
+        };
+
+        $sortAlternatives = function ($collection) use ($priceOperator, $targetPrice, $areaOperator, $targetArea) {
+            if ($targetArea) {
+                return $collection->sortBy(fn($p) => abs((float)$p->area - $targetArea));
+            }
+            if ($priceOperator === 'under') {
+                return $collection->sortBy('price');
+            }
+            if ($priceOperator === 'over') {
+                return $collection->sortByDesc('price');
+            }
+            if ($targetPrice) {
+                return $collection->sortBy(function ($p) use ($targetPrice) {
+                    return abs($p->price - $targetPrice);
+                });
+            }
+            return $collection;
+        };
 
         // 11. XỬ LÝ TRƯỜNG HỢP TÌM NHIỀU TỈNH THÀNH (ĐA ĐỊA ĐIỂM)
         if (count($matchedProvinces) >= 2) {
@@ -2050,11 +1302,13 @@ class RentHomeAiService
                     return str_contains($provText, $provCheck);
                 });
 
-                if ($targetPrice) {
-                    $provMatches = $provPosts->filter(function ($p) use ($targetPrice) {
-                        return $p->price >= $targetPrice * 0.75 && $p->price <= $targetPrice * 1.25;
+                if ($targetArea !== null || $areaOperator !== null || $priceOperator !== null) {
+                    $provMatches = $provPosts->filter(function ($p) use ($matchesArea, $matchesPrice, $priceOperator, $targetArea, $areaOperator) {
+                        $areaOk = ($targetArea !== null || $areaOperator !== null) ? $matchesArea($p->area) : true;
+                        $priceOk = ($priceOperator !== null) ? $matchesPrice($p->price) : true;
+                        return $areaOk && $priceOk;
                     });
-                    $chosen = ($provMatches->count() > 0 ? $provMatches : $provPosts)->take($cardsPerProvince);
+                    $chosen = ($provMatches->count() > 0 ? $sortMatches($provMatches) : $sortAlternatives($provPosts))->take($cardsPerProvince);
                 } else {
                     $chosen = $provPosts->take($cardsPerProvince);
                 }
@@ -2072,88 +1326,127 @@ class RentHomeAiService
 
         // 12. XỬ LÝ TRƯỜNG HỢP TOÀN QUỐC
         if ($isNationwide) {
-            if ($targetPrice) {
-                $exactMatches = $candidates->filter(function ($p) use ($targetPrice) {
-                    return $p->price >= $targetPrice * 0.80 && $p->price <= $targetPrice * 1.20;
+            $maxCards = 4;
+            $hasFilter = ($targetArea !== null || $areaOperator !== null || $priceOperator !== null);
+
+            if ($hasFilter) {
+                $exactMatches = $candidates->filter(function ($p) use ($matchesArea, $matchesPrice, $priceOperator, $targetArea, $areaOperator) {
+                    $areaOk = ($targetArea !== null || $areaOperator !== null) ? $matchesArea($p->area) : true;
+                    $priceOk = ($priceOperator !== null) ? $matchesPrice($p->price) : true;
+                    return $areaOk && $priceOk;
                 });
-                $chosen = ($exactMatches->count() > 0 ? $exactMatches : $candidates)->take(4);
+                $chosenExact = ($exactMatches->count() > 0 ? $sortMatches($exactMatches) : $sortAlternatives($candidates))->take($maxCards);
             } else {
-                $chosen = $candidates->take(4);
+                $chosenExact = $candidates->take($maxCards);
             }
-            foreach ($chosen as $p) {
-                $cards[] = $this->transformPostToCard($p, true);
+
+            $chosenIds = [];
+            foreach ($chosenExact as $p) {
+                $isPostMatch = ($targetArea !== null || $areaOperator !== null) ? $matchesArea($p->area) : true;
+                if ($priceOperator !== null && !$matchesPrice($p->price)) {
+                    $isPostMatch = false;
+                }
+                $badge = null;
+                if (!$isPostMatch && $targetArea) {
+                    $badge = $p->area ? '📐 Gần ' . $targetArea . ' m²' : '💡 Gợi ý tham khảo';
+                }
+                $cards[] = $this->transformPostToCard($p, $isPostMatch, $badge);
+                $chosenIds[] = (string) $p->_id;
             }
+
+            // Nếu số bài khớp đúng loại hình ít hơn 4 bài (ví dụ loại hình đó chỉ mới có 1 bài trên hệ thống),
+            // bổ sung thêm các bài đăng nổi bật khác trên Toàn quốc để người dùng luôn có đủ 3 - 4 lựa chọn phong phú:
+            if (count($cards) < $maxCards) {
+                $needed = $maxCards - count($cards);
+                $remainingPosts = $posts->filter(function ($p) use ($chosenIds) {
+                    return !in_array((string)$p->_id, $chosenIds, true);
+                })->take($needed);
+
+                if ($remainingPosts->count() > 0) {
+                    $meta['has_alternatives'] = true;
+                    foreach ($remainingPosts as $p) {
+                        $cards[] = $this->transformPostToCard($p, false);
+                    }
+                }
+            }
+
             $meta['is_exact_match'] = true;
             return ['cards' => $cards, 'meta' => $meta];
         }
 
-        // 14. LỌC THEO DIỆN TÍCH VÀ / HOẶC GIÁ TIỀN (TRƯỜNG HỢP ĐƠN ĐỊA ĐIỂM)
-        if ($targetArea && $targetPrice) {
-            $exactMatches = $candidates->filter(function ($p) use ($targetArea, $targetPrice) {
-                $areaMatch = abs($p->area - $targetArea) <= ($targetArea * 0.20);
-                $priceMatch = ($p->price >= $targetPrice * 0.80) && ($p->price <= $targetPrice * 1.20);
-                return $areaMatch && $priceMatch;
+        // 14. LỌC THEO DIỆN TÍCH VÀ / HOẶC GIÁ TIỀN (TRƯỜNG HỢP ĐƠN ĐỊA ĐIỂM HOẶC CHUNG)
+        if ($targetArea !== null || $areaOperator !== null) {
+            // Lọc các căn khớp diện tích (và giá nếu có)
+            $exactMatches = $candidates->filter(function ($p) use ($matchesArea, $matchesPrice, $priceOperator) {
+                $areaOk = $matchesArea($p->area);
+                $priceOk = ($priceOperator !== null) ? $matchesPrice($p->price) : true;
+                return $areaOk && $priceOk;
+            });
+
+            $maxCards = 3;
+            $chosenIds = [];
+
+            if ($exactMatches->count() > 0) {
+                $meta['is_exact_match'] = $isExactType;
+                $sortedExact = $sortMatches($exactMatches);
+
+                foreach ($sortedExact->take($maxCards) as $p) {
+                    $cards[] = $this->transformPostToCard($p, $isExactType);
+                    $chosenIds[] = (string) $p->_id;
+                }
+
+                // Nếu số căn khớp đúng diện tích ít hơn 3 (ví dụ chỉ có 1 căn đúng 35m2),
+                // lấy thêm các căn có diện tích gần nhất theo yêu cầu để người dùng có đủ lựa chọn:
+                if (count($cards) < $maxCards) {
+                    $needed = $maxCards - count($cards);
+                    $remaining = $candidates->filter(function ($p) use ($chosenIds, $matchesPrice, $priceOperator) {
+                        if (in_array((string)$p->_id, $chosenIds, true)) return false;
+                        if ($priceOperator !== null && !$matchesPrice($p->price)) return false;
+                        return true;
+                    })->sortBy(function ($p) use ($targetArea) {
+                        return abs((float)$p->area - $targetArea);
+                    })->take($needed);
+
+                    if ($remaining->count() > 0) {
+                        $meta['has_alternatives'] = true;
+                        foreach ($remaining as $p) {
+                            $nearBadge = $p->area ? '📐 Gần ' . $targetArea . ' m²' : '💡 Gợi ý tham khảo';
+                            $cards[] = $this->transformPostToCard($p, false, $nearBadge);
+                        }
+                    }
+                }
+            } else {
+                // Không có căn nào đúng số m2 yêu cầu -> Lấy các căn có diện tích gần nhất
+                $meta['is_exact_match'] = false;
+                $meta['has_alternatives'] = true;
+
+                $sortedNearby = $candidates->filter(function ($p) use ($matchesPrice, $priceOperator) {
+                    if ($priceOperator !== null && !$matchesPrice($p->price)) return false;
+                    return true;
+                })->sortBy(function ($p) use ($targetArea) {
+                    return abs((float)$p->area - $targetArea);
+                })->take($maxCards);
+
+                foreach ($sortedNearby as $p) {
+                    $nearBadge = $p->area ? '📐 Gần ' . $targetArea . ' m²' : '💡 Gợi ý tham khảo';
+                    $cards[] = $this->transformPostToCard($p, false, $nearBadge);
+                }
+            }
+        } elseif ($priceOperator !== null) {
+            $exactMatches = $candidates->filter(function ($p) use ($matchesPrice) {
+                return $matchesPrice($p->price);
             });
 
             if ($exactMatches->count() > 0) {
                 $meta['is_exact_match'] = $isExactType;
-                $sorted = $exactMatches->sortBy(function ($p) use ($targetArea, $targetPrice) {
-                    return abs($p->area - $targetArea) + (abs($p->price - $targetPrice) / 1000000);
-                });
+                $sorted = $sortMatches($exactMatches);
                 foreach ($sorted->take(3) as $p) {
                     $cards[] = $this->transformPostToCard($p, $isExactType);
                 }
             } else {
                 $meta['is_exact_match'] = false;
                 $meta['has_alternatives'] = true;
-                $sorted = $candidates->sortBy(function ($p) use ($targetArea) {
-                    return abs($p->area - $targetArea);
-                });
-                foreach ($sorted->take(2) as $p) {
-                    $cards[] = $this->transformPostToCard($p, false);
-                }
-            }
-        } elseif ($targetArea) {
-            $exactMatches = $candidates->filter(function ($p) use ($targetArea) {
-                return abs($p->area - $targetArea) <= max(3, $targetArea * 0.15);
-            });
-
-            if ($exactMatches->count() > 0) {
-                $meta['is_exact_match'] = $isExactType;
-                $sorted = $exactMatches->sortBy(function ($p) use ($targetArea) {
-                    return abs($p->area - $targetArea);
-                });
-                foreach ($sorted->take(3) as $p) {
-                    $cards[] = $this->transformPostToCard($p, $isExactType);
-                }
-            } else {
-                $meta['is_exact_match'] = false;
-                $meta['has_alternatives'] = true;
-                $sorted = $candidates->sortBy(function ($p) use ($targetArea) {
-                    return abs($p->area - $targetArea);
-                });
-                foreach ($sorted->take(2) as $p) {
-                    $cards[] = $this->transformPostToCard($p, false);
-                }
-            }
-        } elseif ($targetPrice) {
-            $minPrice = $targetPrice * 0.85;
-            $maxPrice = $targetPrice * 1.15;
-            $exactMatches = $candidates->filter(function ($p) use ($minPrice, $maxPrice) {
-                return $p->price >= $minPrice && $p->price <= $maxPrice;
-            });
-
-            if ($exactMatches->count() > 0) {
-                $meta['is_exact_match'] = $isExactType;
-                foreach ($exactMatches->take(3) as $p) {
-                    $cards[] = $this->transformPostToCard($p, $isExactType);
-                }
-            } else {
-                $meta['is_exact_match'] = false;
-                $meta['has_alternatives'] = true;
-                $sorted = $candidates->sortBy(function ($p) use ($targetPrice) {
-                    return abs($p->price - $targetPrice);
-                });
+                $sorted = $sortAlternatives($candidates);
                 foreach ($sorted->take(2) as $p) {
                     $cards[] = $this->transformPostToCard($p, false);
                 }
@@ -2162,14 +1455,29 @@ class RentHomeAiService
             // Không yêu cầu giá lẫn diện tích
             $meta['is_exact_match'] = $isExactType;
             if ($isExactType) {
-                // Chỉ lấy các bài khớp đúng loại hình
+                $chosenIds = [];
+                // Lấy các bài khớp đúng loại hình
                 foreach ($candidates->take(3) as $p) {
                     $cards[] = $this->transformPostToCard($p, true);
+                    $chosenIds[] = (string) $p->_id;
+                }
+                // Nếu ít hơn 3 bài, bổ sung thêm các bài đăng khác cùng khu vực hoặc nổi bật để người dùng có thêm lựa chọn
+                if (count($cards) < 3) {
+                    $needed = 3 - count($cards);
+                    $remaining = $posts->filter(function ($p) use ($chosenIds) {
+                        return !in_array((string)$p->_id, $chosenIds, true);
+                    })->take($needed);
+                    if ($remaining->count() > 0) {
+                        $meta['has_alternatives'] = true;
+                        foreach ($remaining as $p) {
+                            $cards[] = $this->transformPostToCard($p, false);
+                        }
+                    }
                 }
             } else {
                 // Không có bài khớp đúng loại hình, gợi ý các bài cùng khu vực
                 $meta['has_alternatives'] = true;
-                foreach ($candidates->take(2) as $p) {
+                foreach ($candidates->take(3) as $p) {
                     $cards[] = $this->transformPostToCard($p, false);
                 }
             }
@@ -2181,7 +1489,7 @@ class RentHomeAiService
     /**
      * Chuyển đổi Post Model sang Card UI đẹp mắt
      */
-    protected function transformPostToCard($post, bool $isMatch): array
+    protected function transformPostToCard($post, bool $isMatch, ?string $customBadge = null): array
     {
         $areaStr = $post->area ? $post->area . ' m²' : 'Đang cập nhật';
         $priceStr = $this->formatCurrency($post->price);
@@ -2199,7 +1507,7 @@ class RentHomeAiService
             'image' => $img,
             'url' => url('/baidang/' . $post->_id),
             'is_match' => $isMatch,
-            'badge' => $isMatch ? '⭐ Khớp nhu cầu' : '💡 Gợi ý tham khảo',
+            'badge' => $customBadge ?? ($isMatch ? '⭐ Khớp nhu cầu' : '💡 Gợi ý tham khảo'),
         ];
     }
 
@@ -2235,7 +1543,11 @@ class RentHomeAiService
             return null;
         }
 
-        $systemInstruction = "Bạn là Trợ lý AI của Nền tảng Bất động sản Cho thuê RentHome. Bạn đồng hành hỗ trợ người thuê tìm phòng, chủ nhà đăng tin và tư vấn mọi thủ tục liên quan đến thuê nhà tại Việt Nam.\n\n"
+        $systemInstruction = "Bạn là Trợ lý AI của Nền tảng Bất động sản Cho thuê RentHome. Bạn đồng hành hỗ trợ người thuê tìm phòng và tư vấn mọi thủ tục liên quan đến thuê nhà tại Việt Nam.\n\n"
+                           . "### QUY TẮC BẮT BUỘC VỀ PHÂN QUYỀN TÀI KHOẢN TRÊN RENTHOME:\n"
+                           . "- **Tài khoản cá nhân (Khách thuê):** CHỈ ĐƯỢC tìm kiếm phòng, hỏi đáp thủ tục, ký hợp đồng và thuê nhà. TUYỆT ĐỐI KHÔNG ĐƯỢC đăng bài hay đăng tin cho thuê phòng/nhà.\n"
+                           . "- **Tài khoản Doanh nghiệp & Quản lý tòa nhà (Chủ nhà / Chủ cơ sở):** Mới có quyền tạo tòa nhà, quản lý phòng và đăng tin cho thuê (miễn phí 100%, kiểm duyệt 15 - 30 phút).\n"
+                           . "- Khi người dùng hỏi: 'tài khoản cá nhân có được đăng bài không?', hoặc người dùng tài khoản cá nhân yêu cầu đăng bài: BẮT BUỘC phải khẳng định rõ ràng là TÀI KHOẢN CÁ NHÂN KHÔNG ĐƯỢC ĐĂNG BÀI HAY ĐĂNG TIN, chỉ được tìm và thuê nhà. Để đăng bài cần tài khoản Doanh nghiệp hoặc Quản lý tòa nhà.\n\n"
                            . "### 1. Giọng văn & Phong thái (Tone of Voice)\n"
                            . "- Điềm tĩnh, nhạy bén, đồng cảm và am hiểu sâu sắc thị trường bất động sản cho thuê tại Việt Nam.\n"
                            . "- Xưng hô tự nhiên là \"mình\" hoặc \"RentHome\", gọi người dùng là \"{$userName}\". Tránh giọng điệu hành chính, răn đe, giáo điều hay máy móc.\n\n"
@@ -2256,8 +1568,8 @@ class RentHomeAiService
                            . "- **Hỏi lại khi thiếu dữ liệu:** Nếu người dùng yêu cầu tìm phòng/nhà một cách chung chung mà chưa đưa ra địa điểm hay mức giá mong muốn, AI phải hỏi lại một cách lịch thiệp, chu đáo về khu vực và tầm giá trước khi gợi ý phòng.\n"
                            . "- **Tìm nhiều khu vực cùng lúc:** Nếu người dùng tìm kiếm cùng lúc nhiều tỉnh thành (ví dụ: \"Hà Nội và HCM\"), hãy phân tích, so sánh và tư vấn các lựa chọn ở cả hai khu vực một cách cân đối, rành mạch và rõ ràng.\n\n"
                            . "### 5. Cơ sở tri thức chuẩn của RentHome\n"
-                           . "- Người thuê: Miễn phí 100% (0 VNĐ phí môi giới, kết nối trực tiếp chính chủ).\n"
-                           . "- Chủ nhà: Đăng tin miễn phí 100%, thời gian kiểm duyệt bài 15 - 30 phút.\n"
+                           . "- Người thuê (Tài khoản cá nhân): Miễn phí 100% (0 VNĐ phí môi giới, kết nối trực tiếp chính chủ). Chỉ có quyền tìm và thuê nhà, KHÔNG ĐƯỢC đăng bài.\n"
+                           . "- Chủ nhà (Tài khoản Doanh nghiệp / Quản lý tòa nhà): Đăng tin miễn phí 100%, thời gian kiểm duyệt bài 15 - 30 phút.\n"
                            . "- Tiền cọc: Phổ biến là 1 tháng tiền phòng; hoàn trả 100% khi hết hợp đồng và bàn giao đủ tài sản (Điều 328 BLDS 2015).\n"
                            . "- Giá điện nước: Thực hiện đúng quy định của Nhà nước, xử phạt 7 - 10 triệu đồng nếu chủ trọ thu sai giá theo Nghị định 17/2022/NĐ-CP.\n"
                            . "- Khiếu nại / Phản ánh vi phạm: Hỗ trợ tiếp nhận xác minh và can thiệp qua Hotline 1900 8888 hoặc chat.";
@@ -2316,13 +1628,13 @@ class RentHomeAiService
         // Khách chào hỏi thông thường
         if (preg_match('/^(xin chào|chào|hello|hi|alo|chào em|em ơi|bạn ơi)/u', trim($q))) {
             return $greeting
-                . "Tôi là **Chuyên gia Tư vấn Cấp cao RentHome**. Tôi có thể hỗ trợ gì cho bạn hôm nay ạ? 💡\n\n"
-                . "Bạn có thể lựa chọn nhanh:\n"
-                . "🔍 **Tìm phòng trọ, căn hộ**: Nhắn khu vực & tầm giá (VD: *Tìm phòng Cầu Giấy tầm 4 triệu*).\n"
-                . "📝 **Đăng tin cho thuê**: Gửi ảnh và thông tin phòng để AI đăng tự động hoàn toàn miễn phí.\n"
-                . "💡 **Giải đáp thắc mắc (FAQ)**: Gõ 'FAQ' hoặc hỏi trực tiếp về cọc, hợp đồng, chi phí...\n"
-                . "🏢 **Quản lý vận hành**: Hướng dẫn tạo tòa nhà, chốt số điện nước và tự động xuất hóa đơn.\n\n"
-                . "{$userName} hãy nhắn trực tiếp nhu cầu để tôi hỗ trợ ngay nhé!";
+                . "Tôi là **Chuyên gia Tư vấn Cấp cao RentHome**. Tôi sẵn sàng hỗ trợ bạn về các chức năng cốt lõi: 💡\n\n"
+                . "• 🏢 **Lọc tòa nhà & loại hình:** Chung cư mini, căn hộ dịch vụ, phòng trọ, KTX, nhà riêng, biệt thự liền kề, mặt bằng kinh doanh...\n"
+                . "• 💰 **Lọc mức giá:** Dưới mức giá, trên mức giá hoặc khoảng giá phù hợp với ngân sách.\n"
+                . "• 📐 **Lọc diện tích (m²):** Tìm kiếm căn đúng số m² mong muốn hoặc các căn có diện tích gần tương đương.\n"
+                . "• 🔍 **Tìm bài đăng:** Tra cứu các phòng/nhà đang còn trống tại 63 tỉnh thành trên Toàn quốc.\n"
+                . "• 📖 **Hướng dẫn thuê nhà:** Tư vấn các bước liên hệ, xem phòng, hợp đồng điện tử và nhận hóa đơn.\n\n"
+                . "👉 {$userName} hãy nhắn trực tiếp khu vực, mức giá hoặc diện tích mong muốn để tôi hỗ trợ ngay nhé!";
         }
 
         // 1. Trường hợp người dùng tìm kiếm chung chung cần hỏi lại khu vực & mức giá (Clarification)
@@ -2331,13 +1643,13 @@ class RentHomeAiService
             return "Chào **{$userName}**! Mình rất sẵn lòng hỗ trợ bạn tìm {$loaiHinh} ưng ý ạ. 🏠✨\n\n"
                  . "Để mình lọc chính xác nhất các căn phù hợp và tránh mất thời gian của bạn, bạn cho mình biết thêm nhé:\n"
                  . "1. 📍 **Bạn muốn tìm ở khu vực nào?** (Ví dụ: Hà Nội, TP.HCM, Đà Nẵng hay quận/huyện, tỉnh thành cụ thể nào?)\n"
-                 . "2. 💰 **Khoảng mức giá bạn dự định thuê là bao nhiêu triệu/tháng?**\n\n"
-                 . "👉 Bạn cứ nhắn trực tiếp khu vực và tầm giá, mình sẽ lọc danh sách các căn tốt nhất gửi bạn ngay nhé!\n\n"
+                 . "2. 💰 **Khoảng mức giá bạn dự định thuê là bao nhiêu triệu/tháng?** (Hoặc diện tích khoảng bao nhiêu m²?)\n\n"
+                 . "👉 Bạn cứ nhắn trực tiếp khu vực, tầm giá hoặc diện tích, mình sẽ lọc danh sách các căn tốt nhất gửi bạn ngay nhé!\n\n"
                  . "<div style=\"display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px;\">\n"
                  . "  <button type=\"button\" onclick=\"sendQuickPrompt('Cầu Giấy, Hà Nội tầm 3 - 5 triệu')\" style=\"background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;\">📍 Cầu Giấy, Hà Nội tầm 3 - 5 triệu</button>\n"
                  . "  <button type=\"button\" onclick=\"sendQuickPrompt('Quận 1, TP.HCM tầm 5 - 8 triệu')\" style=\"background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;\">📍 Quận 1, TP.HCM tầm 5 - 8 triệu</button>\n"
                  . "  <button type=\"button\" onclick=\"sendQuickPrompt('Hải Châu, Đà Nẵng tầm 3 - 5 triệu')\" style=\"background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;\">📍 Hải Châu, Đà Nẵng tầm 3 - 5 triệu</button>\n"
-                 . "  <button type=\"button\" onclick=\"sendQuickPrompt('Tìm căn hộ trên Toàn quốc')\" style=\"background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;\">🌐 Tìm căn hộ trên Toàn quốc</button>\n"
+                 . "  <button type=\"button\" onclick=\"sendQuickPrompt('Tìm phòng / nhà trên Toàn quốc')\" style=\"background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;\">🌐 Tìm phòng / nhà trên Toàn quốc</button>\n"
                  . "</div>";
         }
 
@@ -2346,19 +1658,43 @@ class RentHomeAiService
             $isNationwide = !empty($meta['is_nationwide']) || ($meta['location_requested'] === 'Toàn quốc');
             $loc = $meta['location_requested'] ? "tại khu vực **{$meta['location_requested']}**" : "";
             $type = !empty($meta['property_type_requested']) ? "loại hình **{$meta['property_type_requested']}**" : "";
-            $price = $meta['price_label'] ? "trong tầm giá **{$meta['price_label']}**" : "";
-            $area = !empty($meta['area_label']) ? "diện tích khoảng **{$meta['area_label']}**" : "";
+            $priceText = '';
+            if (!empty($meta['price_label'])) {
+                $op = $meta['price_operator'] ?? 'around';
+                if ($op === 'under' || $op === 'over') {
+                    $priceText = "mức giá **{$meta['price_label']}**";
+                } elseif ($op === 'range') {
+                    $priceText = "khoảng giá **{$meta['price_label']}**";
+                } else {
+                    $priceText = "tầm giá **{$meta['price_label']}**";
+                }
+            }
+            $areaText = '';
+            if (!empty($meta['area_label'])) {
+                $opArea = $meta['area_operator'] ?? 'around';
+                if ($opArea === 'under' || $opArea === 'over') {
+                    $areaText = "diện tích **{$meta['area_label']}**";
+                } elseif ($opArea === 'range') {
+                    $areaText = "khoảng diện tích **{$meta['area_label']}**";
+                } else {
+                    $areaText = "diện tích khoảng **{$meta['area_label']}**";
+                }
+            }
 
-            $criteriaList = array_filter([$loc, $type, $price, $area]);
+            $criteriaList = array_filter([$loc, $type, $priceText, $areaText]);
             $criteriaStr = !empty($criteriaList) ? ' (' . implode(', ', $criteriaList) . ')' : '';
 
             $reply = $greeting
                 . "Hiện tại trong cơ sở dữ liệu của RentHome tạm thời chưa có căn nào khớp hoàn toàn tiêu chí{$criteriaStr} đang trống ạ.\n\n";
 
             if ($meta['has_alternatives'] && count($cards) > 0) {
-                $leadText = $isNationwide
-                    ? "Hệ thống đã chọn lọc các căn nổi bật trên **Toàn quốc** phù hợp với nhu cầu của {$userName} ở ngay bên dưới: 🏠✨\n\n"
-                    : "Tuy nhiên, để {$userName} không mất thời gian chờ đợi, **tôi xin phép gửi bạn một số lựa chọn khác đang có sẵn ở bên dưới** để tham khảo trước nhé ạ:\n\n";
+                if (!empty($meta['target_area'])) {
+                    $leadText = "Hiện tại trong cơ sở dữ liệu chưa có căn đúng chính xác **{$meta['area_label']}**, nhưng mình đã chọn lọc các căn có diện tích gần số m² này nhất ở ngay bên dưới để {$userName} tham khảo nhé: 🏠✨\n\n";
+                } elseif ($isNationwide) {
+                    $leadText = "Hệ thống đã chọn lọc các căn nổi bật trên **Toàn quốc** phù hợp với nhu cầu của {$userName} ở ngay bên dưới: 🏠✨\n\n";
+                } else {
+                    $leadText = "Tuy nhiên, để {$userName} không mất thời gian chờ đợi, **tôi xin phép gửi bạn một số lựa chọn khác đang có sẵn ở bên dưới** để tham khảo trước nhé ạ:\n\n";
+                }
 
                 $reply = $greeting . $leadText
                        . "💡 *Gợi ý*: Bạn có thể mở rộng tìm kiếm sang các loại hình hoặc quận/huyện lân cận để có thêm nhiều lựa chọn đẹp hơn nhé.\n\n"
@@ -2375,14 +1711,38 @@ class RentHomeAiService
             $isNationwide = !empty($meta['is_nationwide']) || ($meta['location_requested'] === 'Toàn quốc');
             $loc = $meta['location_requested'] ? "tại khu vực **{$meta['location_requested']}**" : '';
             $type = !empty($meta['property_type_requested']) ? "loại hình **{$meta['property_type_requested']}**" : '';
-            $price = $meta['price_label'] ? "tầm giá **{$meta['price_label']}**" : '';
-            $area = !empty($meta['area_label']) ? "diện tích **{$meta['area_label']}**" : '';
-            $criteriaList = array_filter([$loc, $type, $price, $area]);
+            $priceText = '';
+            if (!empty($meta['price_label'])) {
+                $op = $meta['price_operator'] ?? 'around';
+                if ($op === 'under' || $op === 'over') {
+                    $priceText = "mức giá **{$meta['price_label']}**";
+                } elseif ($op === 'range') {
+                    $priceText = "khoảng giá **{$meta['price_label']}**";
+                } else {
+                    $priceText = "tầm giá **{$meta['price_label']}**";
+                }
+            }
+            $areaText = '';
+            if (!empty($meta['area_label'])) {
+                $opArea = $meta['area_operator'] ?? 'around';
+                if ($opArea === 'under' || $opArea === 'over') {
+                    $areaText = "diện tích **{$meta['area_label']}**";
+                } elseif ($opArea === 'range') {
+                    $areaText = "khoảng diện tích **{$meta['area_label']}**";
+                } else {
+                    $areaText = "diện tích khoảng **{$meta['area_label']}**";
+                }
+            }
+            $criteriaList = array_filter([$loc, $type, $priceText, $areaText]);
             $criteriaStr = !empty($criteriaList) ? ' (' . implode(', ', $criteriaList) . ')' : '';
 
-            $introHeading = $isNationwide
-                ? "Mình đã chọn lọc các căn nổi bật trên **Toàn quốc** phù hợp với nhu cầu của {$userName} ở ngay bên dưới: 🏠✨"
-                : "Mình đã chọn lọc được các căn rất phù hợp với đúng tiêu chí của {$userName}{$criteriaStr} ở ngay bên dưới: 🏠✨";
+            if (!empty($meta['has_alternatives']) && !empty($meta['target_area'])) {
+                $introHeading = "Mình đã chọn lọc được căn có diện tích đúng **{$meta['area_label']}** và một số căn có diện tích gần tương đương ở ngay bên dưới cho {$userName}: 🏠✨";
+            } elseif ($isNationwide) {
+                $introHeading = "Mình đã chọn lọc các căn nổi bật trên **Toàn quốc** phù hợp với nhu cầu của {$userName} ở ngay bên dưới: 🏠✨";
+            } else {
+                $introHeading = "Mình đã chọn lọc được các căn rất phù hợp với đúng tiêu chí của {$userName}{$criteriaStr} ở ngay bên dưới: 🏠✨";
+            }
 
             return $greeting
                 . $introHeading . "\n\n"
@@ -2396,6 +1756,6 @@ class RentHomeAiService
         // Mặc định
         return $greeting
             . "Tôi là **Chuyên gia Tư vấn Cấp cao RentHome**, luôn túc trực hỗ trợ bạn 24/7.\n\n"
-            . "{$userName} đang cần **tìm kiếm phòng trọ**, **đăng tin cho thuê** hay cần **giải đáp thắc mắc (FAQ)** về hợp đồng, tiền cọc, điện nước? Hãy nhắn ngay cho tôi nhé!";
+            . "{$userName} đang cần **tìm kiếm phòng trọ**, **hỏi đáp thủ tục thuê nhà (FAQ)** về hợp đồng, tiền cọc, điện nước? Hãy nhắn ngay cho tôi nhé!";
     }
 }

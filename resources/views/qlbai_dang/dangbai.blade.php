@@ -135,9 +135,6 @@
                                     $bFullAddr = implode(', ', array_filter([$b->address_detail, $b->ward, $b->district, $b->province]));
                                     $bAmenities = is_array($b->amenities) ? $b->amenities : (is_string($b->amenities) ? json_decode($b->amenities, true) : []);
                                     $bAmenities = is_array($bAmenities) ? array_values(array_filter($bAmenities)) : [];
-                                    if (empty($bAmenities)) {
-                                        $bAmenities = ['Thang máy', 'Bảo vệ 24/7', 'Hầm để xe', 'Camera an ninh'];
-                                    }
                                     $bTotalRooms = max((int)($b->total_rooms ?? 1), 1);
                                     $bCurrentPosts = isset($b->current_posts_count) ? (int)$b->current_posts_count : null;
                                     if ($bCurrentPosts === null) {

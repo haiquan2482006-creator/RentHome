@@ -221,10 +221,10 @@
                     <div style="margin-top: 8px; color: #475569;">Đây là trợ lý tư vấn của <b>RentHome</b>. 🌸</div>
                     <div style="margin-top: 10px; font-weight: 600; color: #334155;">Hệ thống sẵn sàng hỗ trợ {{ $currentUserSalutation }}:</div>
                     <ul style="margin: 6px 0 0 0; padding-left: 18px; color: #475569; font-size: 12.5px; list-style-type: disc;">
-                        <li><b>Tra cứu phòng trọ:</b> Theo quận, tầm giá, tiện ích.</li>
-                        <li><b>✨ Tự động đăng tin:</b> Gửi thông tin & ảnh phòng qua chat để AI tạo bài.</li>
-                        <li><b>Hướng dẫn hệ thống:</b> Đăng tin, tạo tòa nhà, quản lý phòng.</li>
-                        <li><b>Tư vấn & Hẹn xem:</b> Đặt lịch hẹn xem phòng trực tiếp tại các tòa nhà RentHome.</li>
+                        <li><b>Lọc tòa nhà & loại hình:</b> Chung cư mini, căn hộ, phòng trọ, KTX, nhà riêng...</li>
+                        <li><b>Lọc giá thông minh:</b> Tìm phòng theo tầm giá, giá tối đa, tối thiểu hoặc khoảng ngân sách.</li>
+                        <li><b>Tìm kiếm bài đăng:</b> Tra cứu danh sách các phòng còn trống tại 63 tỉnh thành.</li>
+                        <li><b>Hướng dẫn thuê nhà:</b> Tư vấn thủ tục hợp đồng, tiền cọc, giá điện nước và lưu ý xem phòng.</li>
                     </ul>
                     <div style="margin-top: 10px; font-weight: 500; color: #047857;">{{ $currentUserSalutation }} cần hỗ trợ việc gì lúc này?</div>
                 </div>
@@ -244,32 +244,13 @@
             </div>
         </div>
 
-        <!-- Khung xem trước ảnh phòng đính kèm -->
-        <div id="ai-attached-images-preview" style="display: none; padding: 8px 14px; background: #f8fafc; border-top: 1px dashed #cbd5e1; gap: 8px; align-items: center; overflow-x: auto;">
-        </div>
-
-        <!-- Ô nhập câu hỏi & nút đính kèm ảnh -->
+        <!-- Ô nhập câu hỏi -->
         <form id="ai-chat-form" onsubmit="handleSendAiMessage(event)" style="padding: 10px 14px; background: #ffffff; border-top: 1px solid #e2e8f0; display: flex; gap: 8px; align-items: center;">
-            <input type="file" id="ai-image-file-input" accept="image/*" multiple style="display: none;" onchange="handleAiFileSelect(event)">
-            
-            <button type="button" 
-                    id="ai-attach-btn" 
-                    onclick="document.getElementById('ai-image-file-input').click()" 
-                    title="Đính kèm ảnh phòng để đăng tin"
-                    style="width: 38px; height: 38px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 50%; color: #475569; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s ease;"
-                    onmouseover="this.style.background='#e2e8f0'; this.style.color='#059669'"
-                    onmouseout="this.style.background='#f1f5f9'; this.style.color='#475569'">
-                <svg style="width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2;" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                </svg>
-            </button>
-
             <input type="text" 
                    id="ai-user-input" 
-                   placeholder="Nhập yêu cầu tư vấn hoặc thông tin phòng..." 
+                   placeholder="Nhập yêu cầu tìm phòng, lọc giá hoặc hỏi đáp thuê nhà..." 
                    autocomplete="off"
-                   style="flex: 1; padding: 10px 14px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 24px; font-size: 13.5px; outline: none; transition: all 0.2s ease;">
+                   style="flex: 1; padding: 10px 16px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 24px; font-size: 13.5px; outline: none; transition: all 0.2s ease;">
             
             <button type="submit" 
                     id="ai-send-btn" 
