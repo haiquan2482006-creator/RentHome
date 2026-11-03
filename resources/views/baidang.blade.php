@@ -116,26 +116,17 @@
             </div>
 
             <!-- Filter Inputs Grid -->
-            <form id="filter-form" onsubmit="event.preventDefault(); fetchAllPosts();" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3.5 items-end">
-                <!-- 1. Khu vực / Tỉnh thành (Nhập chữ tự do, không số, không ký tự đặc biệt) -->
-                <div class="relative lg:col-span-3">
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Khu vực / Tỉnh thành</label>
-                    <div class="relative">
-                        <i class="fa-solid fa-location-dot absolute left-3.5 top-1/2 -translate-y-1/2 text-brand-600 pointer-events-none"></i>
-                        <input type="text" id="selected-location-input" name="location"
-                            placeholder="Nhập tỉnh, thành phố, quận..."
-                            class="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold text-slate-700 text-sm transition-all placeholder:text-slate-400 placeholder:font-normal"
-                            autocomplete="off">
-                    </div>
-                </div>
+            <form id="filter-form" onsubmit="event.preventDefault(); fetchAllPosts();" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_215px_auto] gap-3.5 items-end">
+                <!-- 1. Khu vực / Tỉnh thành (Dạng danh sách kèm tìm kiếm - mở rộng bằng Loại BĐS) -->
+                @include('partials.location-select-picker')
 
                 <!-- 2. Property Type -->
-                <div class="relative lg:col-span-4">
+                <div class="relative w-full">
                     <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Loại Bất Động Sản</label>
                     <div class="relative">
                         <i class="fa-solid fa-layer-group absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
                         <select id="search-property-type" name="type" onchange="syncTabWithType(this.value); fetchAllPosts();"
-                            class="w-full pl-10 pr-8 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold text-slate-700 text-sm cursor-pointer appearance-none">
+                            class="w-full h-11.5 pl-10 pr-8 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold text-slate-700 text-sm cursor-pointer appearance-none">
                             <option value="">Tất cả loại hình</option>
                             <option value="can_ho">Chung cư mini / Căn hộ dịch vụ</option>
                             <option value="nha_tro">Nhà trọ / Khu trọ</option>
@@ -150,12 +141,12 @@
                 </div>
 
                 <!-- 3. Price Range -->
-                <div class="relative lg:col-span-3">
+                <div class="relative w-full">
                     <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Mức Giá Mẫu</label>
                     <div class="relative">
                         <i class="fa-solid fa-money-bill-wave absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
                         <select id="search-price-range" name="price_range" onchange="fetchAllPosts();"
-                            class="w-full pl-10 pr-8 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold text-slate-700 text-sm cursor-pointer appearance-none">
+                            class="w-full h-11.5 pl-10 pr-8 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold text-slate-700 text-sm cursor-pointer appearance-none">
                             <option value="">Tất cả mức giá</option>
                             <option value="1">Dưới 3 triệu / tháng</option>
                             <option value="2">3 - 7 triệu / tháng</option>
@@ -167,14 +158,15 @@
                 </div>
 
                 <!-- 4. Submit & Reset Actions -->
-                <div class="flex items-center gap-2 lg:col-span-2">
+                <div class="flex items-center gap-2.5 w-full sm:w-auto shrink-0">
                     <button type="submit" id="search-submit-btn"
-                        class="flex-1 py-3 px-3 rounded-xl bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-700 hover:to-emerald-600 text-white font-bold text-sm shadow-md hover:shadow-brand-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95">
-                        <i class="fa-solid fa-magnifying-glass"></i> <span>Tìm kiếm</span>
+                        class="group flex-1 sm:flex-initial h-11.5 px-6 sm:px-7 min-w-[135px] rounded-xl bg-gradient-to-r from-emerald-600 via-brand-600 to-teal-500 hover:from-emerald-700 hover:via-brand-700 hover:to-teal-600 text-white font-bold text-sm shadow-md shadow-brand-500/25 hover:shadow-lg hover:shadow-brand-500/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2.5 cursor-pointer whitespace-nowrap shrink-0 border border-white/10">
+                        <i class="fa-solid fa-magnifying-glass text-sm text-emerald-100 group-hover:text-white group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
+                        <span class="tracking-wide whitespace-nowrap">Tìm kiếm</span>
                     </button>
                     <button type="button" onclick="resetAllFilters()" title="Đặt lại bộ lọc"
-                        class="w-11 h-11.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold flex items-center justify-center transition-all cursor-pointer shrink-0">
-                        <i class="fa-solid fa-rotate-left"></i>
+                        class="group h-11.5 w-11.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-slate-300 text-slate-500 hover:text-slate-800 shadow-xs hover:shadow transition-all duration-200 flex items-center justify-center cursor-pointer shrink-0 active:scale-95">
+                        <i class="fa-solid fa-rotate-left text-sm group-hover:-rotate-90 transition-transform duration-300"></i>
                     </button>
                 </div>
             </form>
@@ -202,33 +194,12 @@
         </template>
     </main>
 
+    <script src="{{ asset('js/province-picker.js') }}"></script>
     <script>
-        // Khởi tạo bộ lọc cho ô nhập Khu vực / Tỉnh thành: chỉ cho phép chữ cái tiếng Việt/tiếng Anh và khoảng trắng, chặn số và ký tự đặc biệt
-        function initLocationInputFilter() {
-            const locInput = document.getElementById('selected-location-input');
-            if (!locInput) return;
-
-            // 1. Chặn gõ trực tiếp các phím số hoặc ký tự đặc biệt
-            locInput.addEventListener('keydown', function(e) {
-                // Cho phép các phím chức năng/điều khiển: Backspace, Tab, Enter, Delete, phím mũi tên, Ctrl+A/C/V/Z...
-                if (e.ctrlKey || e.altKey || e.metaKey || e.key.length > 1) {
-                    return;
-                }
-                // Nếu không phải chữ cái (\p{L}) và không phải khoảng trắng (\s) thì chặn
-                if (!e.isComposing && !/^[\p{L}\s]$/u.test(e.key)) {
-                    e.preventDefault();
-                }
-            });
-
-            // 2. Tự động loại bỏ số và ký tự đặc biệt khi dán (paste) hoặc nhập văn bản
-            locInput.addEventListener('input', function() {
-                const originalVal = this.value;
-                const sanitizedVal = originalVal.replace(/[^\p{L}\s]/gu, '');
-                if (originalVal !== sanitizedVal) {
-                    this.value = sanitizedVal;
-                }
-            });
-        }
+        // Callback khi chọn tỉnh thành từ dropdown
+        window.onLocationChange = function(provinceName) {
+            fetchAllPosts();
+        };
 
         // Xử lý chuyển Tabs loại hình & đồng bộ với select
         function selectSearchTab(type, btn) {
@@ -287,8 +258,6 @@
                 }, { passive: false });
             }
 
-            initLocationInputFilter();
-
             // Đọc params từ URL nếu được chuyển tiếp từ Trang Chủ
             const urlParams = new URLSearchParams(window.location.search);
             const kw = urlParams.get('keyword');
@@ -304,9 +273,10 @@
                 if (typeSelect) typeSelect.value = type;
                 syncTabWithType(type);
             }
-            if (loc && loc !== 'Tất cả địa điểm') {
-                const locInput = document.getElementById('selected-location-input');
-                if (locInput) locInput.value = loc.replace(/[^\p{L}\s]/gu, '');
+            if (loc && loc !== 'Tất cả địa điểm' && loc !== 'Tất cả tỉnh thành') {
+                if (typeof setSelectedLocation === 'function') {
+                    setSelectedLocation(loc);
+                }
             }
             if (price && document.getElementById('search-price-range')) {
                 document.getElementById('search-price-range').value = price;
@@ -572,11 +542,14 @@
         }
 
         function resetAllFilters() {
-            const loc = document.getElementById('selected-location-input');
+            if (typeof setSelectedLocation === 'function') {
+                setSelectedLocation('');
+            } else {
+                const loc = document.getElementById('selected-location-input');
+                if (loc) loc.value = '';
+            }
             const type = document.getElementById('search-property-type');
             const price = document.getElementById('search-price-range');
-
-            if (loc) loc.value = '';
             if (type) type.value = '';
             if (price) price.value = '';
 
