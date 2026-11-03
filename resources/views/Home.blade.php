@@ -158,76 +158,73 @@
         <div class="w-full max-w-5xl mx-auto mt-6 relative z-30">
             <div class="glass-panel p-4 sm:p-5 rounded-3xl shadow-2xl border border-white/40">
                 <!-- Search Tabs -->
-                <div class="flex items-center gap-3 mb-4 overflow-x-auto pb-2 border-b border-slate-200/60 no-scrollbar select-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" id="search-tabs">
+                <div class="flex items-center gap-2 sm:gap-3 mb-5 overflow-x-auto pb-2 border-b border-slate-200/60 select-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" id="search-tabs">
                     <button type="button" onclick="selectSearchTab('', this)" data-type=""
-                        class="tab-btn active px-5 py-2.5 rounded-xl font-bold text-sm bg-brand-600 text-white shadow-sm flex items-center gap-2 cursor-pointer transition-all shrink-0">
-                        <i class="fa-solid fa-building"></i> Tất cả loại hình
+                        class="tab-btn active px-4 sm:px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-brand-600 text-white shadow-sm flex items-center gap-2 cursor-pointer transition-all shrink-0">
+                        <i class="fa-solid fa-layer-group"></i> Tất cả loại hình
                     </button>
                     <button type="button" onclick="selectSearchTab('can_ho', this)" data-type="can_ho"
-                        class="tab-btn px-5 py-2.5 rounded-xl font-semibold text-sm text-slate-600 hover:bg-slate-100 flex items-center gap-2 transition-all cursor-pointer shrink-0">
-                        <i class="fa-solid fa-city"></i> Căn hộ / Chung cư
+                        class="tab-btn px-4 sm:px-5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm text-slate-600 hover:bg-slate-100 flex items-center gap-2 transition-all cursor-pointer shrink-0">
+                        <i class="fa-solid fa-city"></i> Chung cư mini / Căn hộ dịch vụ
                     </button>
-                    <button type="button" onclick="selectSearchTab('nha_nguyen_can', this)" data-type="nha_nguyen_can"
-                        class="tab-btn px-5 py-2.5 rounded-xl font-semibold text-sm text-slate-600 hover:bg-slate-100 flex items-center gap-2 transition-all cursor-pointer shrink-0">
-                        <i class="fa-solid fa-house"></i> Nhà nguyên căn
+                    <button type="button" onclick="selectSearchTab('nha_tro', this)" data-type="nha_tro"
+                        class="tab-btn px-4 sm:px-5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm text-slate-600 hover:bg-slate-100 flex items-center gap-2 transition-all cursor-pointer shrink-0">
+                        <i class="fa-solid fa-door-open"></i> Nhà trọ / Khu trọ
                     </button>
-                    <button type="button" onclick="selectSearchTab('phong_tro', this)" data-type="phong_tro"
-                        class="tab-btn px-5 py-2.5 rounded-xl font-semibold text-sm text-slate-600 hover:bg-slate-100 flex items-center gap-2 transition-all cursor-pointer shrink-0">
-                        <i class="fa-solid fa-bed"></i> Phòng trọ
+                    <button type="button" onclick="selectSearchTab('ky_tuc_xa', this)" data-type="ky_tuc_xa"
+                        class="tab-btn px-4 sm:px-5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm text-slate-600 hover:bg-slate-100 flex items-center gap-2 transition-all cursor-pointer shrink-0">
+                        <i class="fa-solid fa-bed"></i> Ký túc xá / Sleepbox
+                    </button>
+                    <button type="button" onclick="selectSearchTab('dat_phan_lo', this)" data-type="dat_phan_lo"
+                        class="tab-btn px-4 sm:px-5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm text-slate-600 hover:bg-slate-100 flex items-center gap-2 transition-all cursor-pointer shrink-0">
+                        <i class="fa-solid fa-map-location-dot"></i> Đất phân lô / Đất nền
+                    </button>
+                    <button type="button" onclick="selectSearchTab('nha_rieng', this)" data-type="nha_rieng"
+                        class="tab-btn px-4 sm:px-5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm text-slate-600 hover:bg-slate-100 flex items-center gap-2 transition-all cursor-pointer shrink-0">
+                        <i class="fa-solid fa-house"></i> Nhà ở / Nhà riêng lẻ
                     </button>
                     <button type="button" onclick="selectSearchTab('cum_nha_lien_ke', this)" data-type="cum_nha_lien_ke"
-                        class="tab-btn px-5 py-2.5 rounded-xl font-semibold text-sm text-slate-600 hover:bg-slate-100 flex items-center gap-2 transition-all cursor-pointer shrink-0">
-                        <i class="fa-solid fa-landmark"></i> Biệt thự / Nhà liền kề
+                        class="tab-btn px-4 sm:px-5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm text-slate-600 hover:bg-slate-100 flex items-center gap-2 transition-all cursor-pointer shrink-0">
+                        <i class="fa-solid fa-cubes"></i> Cụm nhà liền kề / Dự án
                     </button>
-                    <button type="button" onclick="selectSearchTab('mat_bang', this)" data-type="mat_bang"
-                        class="tab-btn px-5 py-2.5 rounded-xl font-semibold text-sm text-slate-600 hover:bg-slate-100 flex items-center gap-2 transition-all cursor-pointer shrink-0">
+                    <button type="button" onclick="selectSearchTab('dat_nen', this)" data-type="dat_nen"
+                        class="tab-btn px-4 sm:px-5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm text-slate-600 hover:bg-slate-100 flex items-center gap-2 transition-all cursor-pointer shrink-0">
                         <i class="fa-solid fa-shop"></i> Mặt bằng kinh doanh
                     </button>
                 </div>
 
                 <!-- Search Inputs Grid -->
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <!-- Khu vực / Tỉnh thành (Điền địa chỉ thủ công, không cho nhập số và ký hiệu đặc biệt) -->
-                    <div class="relative">
-                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Khu vực / Tỉnh thành</label>
-                        <div class="relative">
-                            <i class="fa-solid fa-location-dot absolute left-3.5 top-1/2 -translate-y-1/2 text-brand-600 pointer-events-none"></i>
-                            <input type="text" id="selected-location-input" name="location"
-                                placeholder="Nhập tỉnh, thành phố, quận..."
-                                class="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold text-slate-700 text-sm transition-all placeholder:text-slate-400 placeholder:font-normal"
-                                autocomplete="off">
-                        </div>
-                    </div>
+                <form id="home-search-form" onsubmit="event.preventDefault(); handleSearch();" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_215px_auto] gap-3.5 items-end">
+                    <!-- 1. Khu vực / Tỉnh thành (Dạng danh sách kèm tìm kiếm - mở rộng bằng Loại BĐS) -->
+                    @include('partials.location-select-picker')
 
-                    <!-- Property Type -->
-                    <div class="relative">
-                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Loại Bất
-                            Động Sản</label>
+                    <!-- 2. Loại Bất Động Sản -->
+                    <div class="relative w-full">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Loại Bất Động Sản</label>
                         <div class="relative">
-                            <i
-                                class="fa-solid fa-layer-group absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                            <select id="search-property-type" onchange="syncTabWithType(this.value)"
-                                class="w-full pl-10 pr-8 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold text-slate-700 text-sm cursor-pointer appearance-none">
+                            <i class="fa-solid fa-layer-group absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <select id="search-property-type" name="type" onchange="syncTabWithType(this.value)"
+                                class="w-full h-11.5 pl-10 pr-8 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold text-slate-700 text-sm cursor-pointer appearance-none">
                                 <option value="">Tất cả loại hình</option>
-                                <option value="can_ho">Căn hộ / Chung cư</option>
-                                <option value="nha_nguyen_can">Nhà nguyên căn</option>
-                                <option value="phong_tro">Phòng trọ / Nhà trọ</option>
-                                <option value="cum_nha_lien_ke">Biệt thự / Nhà liền kề</option>
-                                <option value="mat_bang">Mặt bằng kinh doanh</option>
+                                <option value="can_ho">Chung cư mini / Căn hộ dịch vụ</option>
+                                <option value="nha_tro">Nhà trọ / Khu trọ</option>
+                                <option value="ky_tuc_xa">Ký túc xá / Sleepbox</option>
+                                <option value="dat_phan_lo">Đất phân lô / Đất nền</option>
+                                <option value="nha_rieng">Nhà ở / Nhà riêng lẻ</option>
+                                <option value="cum_nha_lien_ke">Cụm nhà liền kề / Dự án</option>
+                                <option value="dat_nen">Mặt bằng kinh doanh</option>
                             </select>
                             <i class="fa-solid fa-chevron-down absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none"></i>
                         </div>
                     </div>
 
-                    <!-- Price Range -->
-                    <div class="relative">
-                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Mức Giá
-                            Mẫu</label>
+                    <!-- 3. Mức Giá Mẫu -->
+                    <div class="relative w-full">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Mức Giá Mẫu</label>
                         <div class="relative">
-                            <i
-                                class="fa-solid fa-money-bill-wave absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                            <select id="search-price-range"
-                                class="w-full pl-10 pr-8 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold text-slate-700 text-sm cursor-pointer appearance-none">
+                            <i class="fa-solid fa-money-bill-wave absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <select id="search-price-range" name="price_range"
+                                class="w-full h-11.5 pl-10 pr-8 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold text-slate-700 text-sm cursor-pointer appearance-none">
                                 <option value="">Tất cả mức giá</option>
                                 <option value="1">Dưới 3 triệu / tháng</option>
                                 <option value="2">3 - 7 triệu / tháng</option>
@@ -238,14 +235,19 @@
                         </div>
                     </div>
 
-                    <!-- Submit Button -->
-                    <div class="flex items-end">
-                        <button type="button" id="search-submit-btn" onclick="handleSearch()"
-                            class="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-700 hover:to-emerald-600 text-white font-bold text-sm shadow-lg hover:shadow-glow transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]">
-                            <i class="fa-solid fa-magnifying-glass"></i> <span id="search-btn-text">Tìm kiếm ngay</span>
+                    <!-- 4. Submit & Reset Actions -->
+                    <div class="flex items-center gap-2.5 w-full sm:w-auto shrink-0">
+                        <button type="submit" id="search-submit-btn"
+                            class="group flex-1 sm:flex-initial h-11.5 px-6 sm:px-7 min-w-[135px] rounded-xl bg-gradient-to-r from-emerald-600 via-brand-600 to-teal-500 hover:from-emerald-700 hover:via-brand-700 hover:to-teal-600 text-white font-bold text-sm shadow-md shadow-brand-500/25 hover:shadow-lg hover:shadow-brand-500/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2.5 cursor-pointer whitespace-nowrap shrink-0 border border-white/10">
+                            <i class="fa-solid fa-magnifying-glass text-sm text-emerald-100 group-hover:text-white group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
+                            <span id="search-btn-text" class="tracking-wide whitespace-nowrap">Tìm kiếm</span>
+                        </button>
+                        <button type="button" onclick="resetSearchFilters()" title="Đặt lại bộ lọc"
+                            class="group h-11.5 w-11.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-slate-300 text-slate-500 hover:text-slate-800 shadow-xs hover:shadow transition-all duration-200 flex items-center justify-center cursor-pointer shrink-0 active:scale-95">
+                            <i class="fa-solid fa-rotate-left text-sm group-hover:-rotate-90 transition-transform duration-300"></i>
                         </button>
                     </div>
-                </div>
+                </form>
             </div>
         </div>
 
@@ -1072,6 +1074,7 @@
     </div>
 
     <!-- Scripts -->
+    <script src="{{ asset('js/province-picker.js') }}"></script>
     <script>
         // Dynamic Management for Featured Posts Section (Dành cho Ban Quản Lý)
         // Đã xóa bỏ mảng tĩnh DEFAULT_FEATURED_POSTS
@@ -1170,7 +1173,7 @@
                 container.innerHTML = '<p class="col-span-full text-center text-rose-500 py-10 font-bold">Không thể kết nối đến máy chủ!</p>';
             } finally {
                 const searchBtnText = document.getElementById('search-btn-text');
-                if (searchBtnText) searchBtnText.innerText = 'Tìm kiếm ngay';
+                if (searchBtnText) searchBtnText.innerText = 'Tìm kiếm';
             }
         }
 
@@ -1738,11 +1741,8 @@
 
         function resetSearchButtonState() {
             const searchBtn = document.getElementById('search-submit-btn');
-            const searchBtnText = document.getElementById('search-btn-text');
-            if (searchBtnText) {
-                searchBtnText.textContent = 'Tìm kiếm ngay';
-            }
             if (searchBtn) {
+                searchBtn.innerHTML = '<i class="fa-solid fa-magnifying-glass text-sm text-emerald-100 group-hover:text-white group-hover:scale-110 transition-transform duration-200 shrink-0"></i> <span id="search-btn-text" class="tracking-wide whitespace-nowrap">Tìm kiếm</span>';
                 searchBtn.removeAttribute('disabled');
                 searchBtn.classList.remove('opacity-75', 'cursor-not-allowed', 'pointer-events-none');
             }
@@ -1766,21 +1766,18 @@
             const typeSelect = document.getElementById('search-property-type');
             const priceSelect = document.getElementById('search-price-range');
             const searchBtn = document.getElementById('search-submit-btn');
-            const searchBtnText = document.getElementById('search-btn-text');
 
             const location = locationInput ? locationInput.value.trim() : '';
             const type = typeSelect ? typeSelect.value.trim() : '';
             const price_range = priceSelect ? priceSelect.value.trim() : '';
 
-            if (searchBtnText) {
-                searchBtnText.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Đang chuyển trang...';
-            }
             if (searchBtn) {
-                searchBtn.classList.add('opacity-75', 'cursor-not-allowed');
+                searchBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-sm shrink-0"></i> <span id="search-btn-text" class="whitespace-nowrap">Đang tìm...</span>';
+                searchBtn.classList.add('opacity-75', 'cursor-not-allowed', 'pointer-events-none');
             }
 
             const params = new URLSearchParams();
-            if (location && location !== 'Tất cả địa điểm') {
+            if (location && location !== 'Tất cả địa điểm' && location !== 'Tất cả tỉnh thành') {
                 params.append('location', location);
             }
             if (type) {
@@ -1796,8 +1793,12 @@
 
         function resetSearchFilters() {
             resetSearchButtonState();
-            const locationInput = document.getElementById('selected-location-input');
-            if (locationInput) locationInput.value = '';
+            if (typeof setSelectedLocation === 'function') {
+                setSelectedLocation('');
+            } else {
+                const locationInput = document.getElementById('selected-location-input');
+                if (locationInput) locationInput.value = '';
+            }
 
             const typeSelect = document.getElementById('search-property-type');
             if (typeSelect) typeSelect.value = '';
@@ -1885,36 +1886,6 @@
             closeAuthModal();
         }
 
-
-        // Khởi tạo bộ lọc cho ô nhập Khu vực / Tỉnh thành: chỉ cho phép chữ cái tiếng Việt/tiếng Anh và khoảng trắng, chặn số và ký hiệu đặc biệt
-        function initLocationInputFilter() {
-            const locInput = document.getElementById('selected-location-input');
-            if (!locInput) return;
-
-            // 1. Chặn gõ trực tiếp các phím số hoặc ký hiệu đặc biệt
-            locInput.addEventListener('keydown', function(e) {
-                // Cho phép các phím chức năng/điều khiển: Backspace, Tab, Enter, Delete, phím mũi tên, Ctrl+A/C/V/Z...
-                if (e.ctrlKey || e.altKey || e.metaKey || e.key.length > 1) {
-                    if (e.key === 'Enter') {
-                        handleSearch();
-                    }
-                    return;
-                }
-                // Nếu không phải chữ cái (\p{L}) và không phải khoảng trắng (\s) thì chặn
-                if (!e.isComposing && !/^[\p{L}\s]$/u.test(e.key)) {
-                    e.preventDefault();
-                }
-            });
-
-            // 2. Tự động loại bỏ số và ký hiệu đặc biệt khi dán (paste) hoặc nhập văn bản
-            locInput.addEventListener('input', function() {
-                const originalVal = this.value;
-                const sanitizedVal = originalVal.replace(/[^\p{L}\s]/gu, '');
-                if (originalVal !== sanitizedVal) {
-                    this.value = sanitizedVal;
-                }
-            });
-        }
 
         // ==================== FETCH APPROVED NEWS CHO TRANG CHỦ ====================
         function formatNewsTimeAgo(dateStr) {
@@ -2051,7 +2022,24 @@
 
         // Initialize Featured Posts & News on load
         document.addEventListener('DOMContentLoaded', function() {
-            initLocationInputFilter();
+            // Đọc params nếu có
+            const urlParams = new URLSearchParams(window.location.search);
+            const initialLoc = urlParams.get('location');
+            if (initialLoc && initialLoc !== 'Tất cả địa điểm' && initialLoc !== 'Tất cả tỉnh thành') {
+                if (typeof setSelectedLocation === 'function') {
+                    setSelectedLocation(initialLoc);
+                }
+            }
+            const initialType = urlParams.get('type');
+            if (initialType) {
+                const typeSelect = document.getElementById('search-property-type');
+                if (typeSelect) typeSelect.value = initialType;
+                syncTabWithType(initialType);
+            }
+            const initialPrice = urlParams.get('price_range') || urlParams.get('price');
+            if (initialPrice && document.getElementById('search-price-range')) {
+                document.getElementById('search-price-range').value = initialPrice;
+            }
 
             // Cuộn ngang thanh tabs khi di chuột vào và lăn con lăn chuột
             const searchTabs = document.getElementById('search-tabs');
