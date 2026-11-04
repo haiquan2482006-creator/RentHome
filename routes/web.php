@@ -556,15 +556,21 @@ $handleTaoHopDong = function (\Illuminate\Http\Request $request) {
     $contactId = $request->query('contact_id');
     $roomId = $request->query('room_id') ?? $request->query('post_id') ?? $request->query('room');
 
-    $selectedContact = null;
-    if ($contactId) {
-        $selectedContact = \App\Models\Contact::find($contactId);
-        if ($selectedContact && !$contacts->contains(fn($c) => (string)($c->_id ?? $c->id) === (string)$contactId)) {
-            $contacts->prepend($selectedContact);
-        }
-        if (!$roomId && $selectedContact && !empty($selectedContact->post_id)) {
-            $roomId = $selectedContact->post_id;
-        }
+    // Bắt buộc hợp đồng phải được tạo từ yêu cầu liên hệ của khách hàng (Bỏ luồng tạo thủ công vãng lai)
+    if (empty($contactId)) {
+        return redirect('/thong-bao-lien-he')->with('error', 'Vui lòng chọn khách hàng từ danh sách yêu cầu liên hệ để tạo hợp đồng.');
+    }
+
+    $selectedContact = \App\Models\Contact::find($contactId);
+    if (!$selectedContact) {
+        return redirect('/thong-bao-lien-he')->with('error', 'Không tìm thấy yêu cầu liên hệ hợp lệ để tạo hợp đồng.');
+    }
+
+    if (!$contacts->contains(fn($c) => (string)($c->_id ?? $c->id) === (string)$contactId)) {
+        $contacts->prepend($selectedContact);
+    }
+    if (!$roomId && !empty($selectedContact->post_id)) {
+        $roomId = $selectedContact->post_id;
     }
 
     $selectedRoom = null;

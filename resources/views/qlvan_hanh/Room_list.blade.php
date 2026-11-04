@@ -146,13 +146,6 @@
                     <span>Quay lại</span>
                 </a>
 
-                <!-- NÚT TẠO HỢP ĐỒNG (TRUY CẬP TRANG TẠO HỢP ĐỒNG CHUYÊN BIỆT) -->
-                <a href="{{ url('qlvan_hanh/tao_hop_dong') }}" 
-                   class="py-2.5 px-4 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5">
-                    <i class="fa-solid fa-file-circle-plus text-base"></i>
-                    <span>+ Tạo Hợp Đồng</span>
-                </a>
-
                 <!-- Nút Tài Khoản Mở Menu Ẩn -->
                 <button type="button" onclick="toggleGlobalSidebar()" 
                    class="py-2 px-3 sm:px-4 rounded-xl {{ (Auth::user()->isEnterprise() || (Auth::user()->role ?? '') === 'doanhnghiep') ? 'bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200' }} font-bold text-xs sm:text-sm flex items-center gap-2 border shadow-sm hover:shadow transition-all">

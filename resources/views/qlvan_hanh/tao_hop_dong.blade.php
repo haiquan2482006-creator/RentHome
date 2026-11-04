@@ -347,9 +347,9 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <!-- 1. Dropdown chọn người liên hệ -->
                         <div>
-                            <label class="block font-bold text-slate-800 mb-1.5">Bên thuê (Người gửi yêu cầu liên hệ nếu có)</label>
-                            <select id="fTenant" name="contact_select" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none shadow-xs">
-                                <option value="">-- Khách vãng lai / Trực tiếp (hoặc chọn từ danh sách liên hệ) --</option>
+                            <label class="block font-bold text-slate-800 mb-1.5">Bên thuê (Người gửi yêu cầu liên hệ) <span class="text-rose-500">*</span></label>
+                            <select id="fTenant" name="contact_select" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none shadow-xs">
+                                <option value="">-- Chọn yêu cầu liên hệ của khách hàng --</option>
                                 @foreach($contacts as $c)
                                     @php
                                         $cId = (string)($c->id ?? $c->_id);
