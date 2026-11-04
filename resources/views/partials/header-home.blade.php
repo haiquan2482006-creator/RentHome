@@ -501,6 +501,13 @@
     document.addEventListener('DOMContentLoaded', function() {
         const navLinks = document.querySelectorAll('#desktop-nav .nav-link');
         
+        // Chỉ chạy Scrollspy khi trang hiện tại chứa các section neo tương ứng (Trang chủ)
+        const anchorSections = ['hero', 'featured-posts-section', 'features'];
+        const hasAnchorSections = anchorSections.some(id => document.getElementById(id) !== null);
+        if (!hasAnchorSections) {
+            return;
+        }
+
         window.addEventListener('scroll', function() {
             let currentId = '';
             
@@ -519,9 +526,14 @@
                 }
             });
 
-            // Nếu cuộn chạm đáy trang, luôn chọn phần tử cuối (Liên hệ)
+            // Nếu cuộn chạm đáy trang, luôn chọn phần tử cuối có tồn tại trong DOM
             if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 10) {
-                const lastLink = Array.from(navLinks).filter(link => link.getAttribute('href').includes('#')).pop();
+                const lastLink = Array.from(navLinks).filter(link => {
+                    const href = link.getAttribute('href');
+                    if (!href || !href.includes('#')) return false;
+                    const id = href.split('#')[1];
+                    return document.getElementById(id) !== null;
+                }).pop();
                 if (lastLink) {
                     currentId = lastLink.getAttribute('href').split('#')[1];
                 }
