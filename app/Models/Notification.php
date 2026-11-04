@@ -18,6 +18,7 @@ class Notification extends Model
         'target_id',
         'post_id',
         'building_id',
+        'contract_id',
         'action_url',
         'title',
         'message',

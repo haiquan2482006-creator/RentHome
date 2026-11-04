@@ -167,7 +167,12 @@
                     $badgeBg = 'bg-teal-50 text-teal-700 border border-teal-200';
                     $badgeText = 'Hệ thống';
 
-                    if (str_contains($category, 'building') || str_contains($type, 'building') || str_contains(strtolower($n->title), 'tòa nhà')) {
+                    if (str_contains($category, 'expir') || str_contains(strtolower($n->title), 'hết hạn')) {
+                        $iconClass = 'fa-solid fa-hourglass-end';
+                        $iconBg = 'bg-amber-100 text-amber-700 border border-amber-300';
+                        $badgeBg = 'bg-amber-50 text-amber-800 border border-amber-300 font-extrabold';
+                        $badgeText = 'Sắp hết hạn';
+                    } elseif (str_contains($category, 'building') || str_contains($type, 'building') || str_contains(strtolower($n->title), 'tòa nhà')) {
                         $iconClass = 'fa-solid fa-city';
                         $iconBg = 'bg-purple-100 text-purple-700 border border-purple-200';
                         $badgeBg = 'bg-purple-50 text-purple-700 border border-purple-200';
@@ -330,7 +335,17 @@
                                     if ($actionUrl && str_contains($actionUrl, 'Overview')) {
                                         $actionUrl = null;
                                     }
-                                    if ($attachedPost) {
+
+                                    if (!empty($n->action_url) && !in_array($n->action_url, [url('/thong-bao'), url('/thong-bao-ca-nhan'), url('/')])) {
+                                        $actionUrl = $n->action_url;
+                                        if (str_contains($category, 'expir') || str_contains(strtolower($n->title), 'hết hạn')) {
+                                            $actionLabel = 'Xem tại Nhà đang thuê';
+                                        } elseif (str_contains($category, 'building') || !empty($n->building_id)) {
+                                            $actionLabel = 'Quản lý tòa nhà';
+                                        } else {
+                                            $actionLabel = 'Xem chi tiết';
+                                        }
+                                    } elseif ($attachedPost) {
                                         $actionUrl = url('/chitietbaidang/' . ($attachedPost->_id ?? $attachedPost->id));
                                         $actionLabel = 'Xem bài đăng';
                                     } elseif (!$actionUrl || $actionUrl === url('/thong-bao') || $actionUrl === url('/thong-bao-ca-nhan')) {

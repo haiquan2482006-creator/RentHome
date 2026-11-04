@@ -19,6 +19,8 @@ class NotificationController extends Controller
             return redirect()->route('login');
         }
 
+        $this->triggerContractExpirationCheck();
+
         $userId = (string)($user->_id ?? $user->id);
 
         $baseQuery = Notification::where(function ($q) use ($userId, $user) {
@@ -60,6 +62,8 @@ class NotificationController extends Controller
         if (!$user) {
             return response()->json(['success' => false], 401);
         }
+
+        $this->triggerContractExpirationCheck();
 
         $userId = (string)($user->_id ?? $user->id);
 
@@ -207,5 +211,20 @@ class NotificationController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(20);
         return view('thongbao.index', compact('notifications'));
+    }
+
+    /**
+     * Tự động kích hoạt kiểm tra hợp đồng sắp hết hạn khi có người dùng truy cập (giới hạn 30 phút một lần)
+     */
+    protected function triggerContractExpirationCheck()
+    {
+        try {
+            if (!\Illuminate\Support\Facades\Cache::has('last_contract_expiration_check')) {
+                \Illuminate\Support\Facades\Cache::put('last_contract_expiration_check', true, now()->addMinutes(30));
+                \App\Console\Commands\CheckContractExpirationCommand::runCheck();
+            }
+        } catch (\Throwable $e) {
+            // Silently ignore to avoid interrupting user request
+        }
     }
 }

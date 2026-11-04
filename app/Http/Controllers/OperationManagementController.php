@@ -651,9 +651,36 @@ class OperationManagementController extends Controller
             // Cập nhật thuật toán tính Tiền Phòng (Room Rent) theo chu kỳ thanh toán
             $current_billing_date = $now;
             $calculatedRoomRent = \App\Services\InvoiceService::calculateRoomRentFee($contract, $current_billing_date);
+            $contractPrice = (float)($contract->price ?: ($contract->rent_price ?? ($post->price ?? 0)));
             $paymentCycle = (int)($contract->payment_cycle ?: 1);
             $isRentDue = ($calculatedRoomRent > 0);
             $nextRentDateStr = !empty($contract->next_rent_date) ? Carbon::parse($contract->next_rent_date)->format('d/m/Y') : '';
+
+            // Kiểm tra cấu hình tòa nhà / hợp đồng có thu phí dịch vụ điện nước không (tự đóng cho nhà nước)
+            $building = $post ? ($post->building ?: \App\Models\Building::find($post->building_id ?? '')) : null;
+            $hasServiceExplicit = ($building && isset($building->has_service_pricing) && $building->has_service_pricing !== null)
+                ? (bool)$building->has_service_pricing
+                : (($building && isset($building->has_service_fee) && $building->has_service_fee !== null) ? (bool)$building->has_service_fee : null);
+
+            $bElec = $building ? (float)($building->electricity_price ?? 0) : 0;
+            $bWater = $building ? (float)($building->water_price ?? 0) : 0;
+            $bService = $building ? (float)($building->service_fee ?? 0) : 0;
+
+            $cElec = (float)($contract->electricity_price ?? 0);
+            $cWater = (float)($contract->water_price_block ?? ($contract->water_price ?? ($contract->water_price_person ?? 0)));
+            $cInternet = (float)($contract->internet_price ?? 0);
+            $cGarbage = (float)($contract->garbage_price ?? 0);
+
+            $isNoServiceFee = false;
+            if ($hasServiceExplicit === false) {
+                $isNoServiceFee = true;
+            } elseif ($cElec <= 0 && $cWater <= 0 && $cInternet <= 0 && $cGarbage <= 0) {
+                $isNoServiceFee = true;
+            } elseif ($cElec <= 0 && $cWater <= 0) {
+                $isNoServiceFee = true;
+            } elseif ($building && ($bElec <= 0 && $bWater <= 0 && $bService <= 0)) {
+                $isNoServiceFee = true;
+            }
 
             $item = [
                 'contractId'      => $contractId,
@@ -664,10 +691,11 @@ class OperationManagementController extends Controller
                 'tenantRawName'   => $contract->tenant_name ?: 'Khách thuê',
                 'tenantPhone'     => $contract->tenant_phone ?: '',
                 'rent'            => $calculatedRoomRent,
-                'contractPrice'   => (float)($contract->price ?: ($contract->rent_price ?? ($post->price ?? 0))),
+                'contractPrice'   => $contractPrice,
                 'paymentCycle'    => $paymentCycle,
                 'isRentDue'       => $isRentDue,
                 'nextRentDate'    => $nextRentDateStr,
+                'isNoServiceFee'  => $isNoServiceFee,
                 'contractDeposit' => $contractDeposit,
                 'deposit'         => $defaultDeposit,
                 'isFirstMonth'    => $isFirstMonth,
@@ -777,6 +805,29 @@ class OperationManagementController extends Controller
         $enterpriseUser = \App\Models\User::getEnterpriseUser();
         $ownerId = $contract->owner_id ?: ($enterpriseUser ? (string)($enterpriseUser->_id ?? $enterpriseUser->id) : (string)Auth::id());
 
+        // Xử lý lưu ảnh mã QR riêng do người tạo hóa đơn tải lên (nếu có)
+        $qrCodeImage = $request->input('qr_code_image');
+        $qrPath = null;
+        if (!empty($qrCodeImage)) {
+            if (preg_match('/^data:image\/(\w+);base64,/', $qrCodeImage, $type)) {
+                $data = substr($qrCodeImage, strpos($qrCodeImage, ',') + 1);
+                $ext = strtolower($type[1]);
+                if ($ext === 'jpeg') $ext = 'jpg';
+                $data = base64_decode($data);
+                if ($data !== false) {
+                    $dir = public_path('uploads/invoices/qrcodes');
+                    if (!file_exists($dir)) {
+                        mkdir($dir, 0755, true);
+                    }
+                    $filename = 'qr_' . $invoiceCode . '_' . time() . '.' . $ext;
+                    file_put_contents($dir . '/' . $filename, $data);
+                    $qrPath = 'uploads/invoices/qrcodes/' . $filename;
+                }
+            } else {
+                $qrPath = $qrCodeImage;
+            }
+        }
+
         $invoice = Invoice::create([
             'contract_id'        => $contractIdStr,
             'room_id'            => (string)($contract->room_id ?? $contract->post_id ?? ''),
@@ -805,6 +856,7 @@ class OperationManagementController extends Controller
             'payment_status'     => $request->input('payment_status', 'unpaid'),
             'payment_date'       => $request->input('payment_status') === 'paid' ? $now->toDateTimeString() : null,
             'note'               => $request->input('note', ''),
+            'qr_code_image'      => $qrPath,
         ]);
 
         if ($request->input('payment_status') === 'paid') {
@@ -1072,7 +1124,12 @@ class OperationManagementController extends Controller
 
         $memo = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $invoice->invoice_code));
         $totalAmount = (float)($invoice->total_amount ?? 0);
-        $qrUrl = "https://img.vietqr.io/image/{$bankName}-{$bankAccount}-compact2.png?amount={$totalAmount}&addInfo=" . urlencode($memo) . "&accountName=" . urlencode($bankHolder);
+        
+        if (!empty($invoice->qr_code_image)) {
+            $qrUrl = str_starts_with($invoice->qr_code_image, 'http') ? $invoice->qr_code_image : asset($invoice->qr_code_image);
+        } else {
+            $qrUrl = "https://img.vietqr.io/image/{$bankName}-{$bankAccount}-compact2.png?amount={$totalAmount}&addInfo=" . urlencode($memo) . "&accountName=" . urlencode($bankHolder);
+        }
 
         // Kiểm tra xem đây có phải là Hóa đơn #1 (Kỳ đầu tiên - Cọc & Nhận nhà) hay không
         $isFirstInvoice = (float)($invoice->deposit ?? 0) > 0 || str_contains($invoice->billing_period ?? '', 'Kỳ đầu') || str_contains($invoice->note ?? '', 'lần đầu');

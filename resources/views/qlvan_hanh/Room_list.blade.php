@@ -1623,7 +1623,11 @@
             const cleanBankCode = bankName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'vietbank';
             const qrImg = document.getElementById('viQrCodeImg');
             if (qrImg) {
-                qrImg.src = `https://img.vietqr.io/image/${cleanBankCode}-${bankAccount}-compact2.png?amount=${Math.round(totalNum)}&addInfo=${encodeURIComponent(memo)}&accountName=${encodeURIComponent(bankHolder)}`;
+                if (data.qr_code_image) {
+                    qrImg.src = data.qr_code_image.startsWith('http') ? data.qr_code_image : ('/' + data.qr_code_image.replace(/^\//, ''));
+                } else {
+                    qrImg.src = `https://img.vietqr.io/image/${cleanBankCode}-${bankAccount}-compact2.png?amount=${Math.round(totalNum)}&addInfo=${encodeURIComponent(memo)}&accountName=${encodeURIComponent(bankHolder)}`;
+                }
             }
 
             document.getElementById('viewInvoiceModal').classList.remove('hidden');

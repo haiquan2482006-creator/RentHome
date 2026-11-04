@@ -365,8 +365,25 @@
                         </div>
                     </div>
 
+                    <!-- THÔNG BÁO TÒA NHÀ / CĂN HỘ TỰ ĐÓNG ĐIỆN NƯỚC CHO NHÀ NƯỚC -->
+                    <div id="no_service_fee_box" class="p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-200/90 text-emerald-900 space-y-2 {{ !empty($selectedData['isNoServiceFee']) ? '' : 'hidden' }}">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
+                                <i class="fa-solid fa-house-chimney-user"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-extrabold text-xs uppercase tracking-wider text-emerald-800">
+                                    Không thu tiền dịch vụ điện nước (Khách tự đóng cho Nhà nước)
+                                </h4>
+                                <p class="text-[11px] text-emerald-700 mt-0.5">
+                                    Cơ sở này đã thỏa thuận khách thuê tự đóng tiền điện, nước trực tiếp cho đơn vị cấp điện/nước theo công tơ riêng. Hệ thống tự động ẩn phần dịch vụ điện và nước trên hóa đơn.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- MỤC B: TIỀN ĐIỆN HÀNG THÁNG (CHỐT ĐIỆN) -->
-                    <div class="p-4 rounded-2xl bg-amber-50/50 border border-amber-200/80 space-y-3">
+                    <div id="sec_electricity" class="p-4 rounded-2xl bg-amber-50/50 border border-amber-200/80 space-y-3 {{ !empty($selectedData['isNoServiceFee']) ? 'hidden' : '' }}">
                         <div class="flex items-center justify-between">
                             <h3 class="font-extrabold text-slate-800 text-xs flex items-center gap-2">
                                 <i class="fa-solid fa-bolt text-amber-500"></i> B. Tiền Điện Hàng Tháng (Chốt Chỉ Số Cũ & Mới)
@@ -417,7 +434,7 @@
                     </div>
 
                     <!-- MỤC C: TIỀN NƯỚC HÀNG THÁNG (CHỐT NƯỚC) -->
-                    <div class="p-4 rounded-2xl bg-skybrand-50/50 border border-skybrand-200/80 space-y-3">
+                    <div id="sec_water" class="p-4 rounded-2xl bg-skybrand-50/50 border border-skybrand-200/80 space-y-3 {{ !empty($selectedData['isNoServiceFee']) ? 'hidden' : '' }}">
                         <div class="flex items-center justify-between">
                             <h3 class="font-extrabold text-slate-800 text-xs flex items-center gap-2">
                                 <i class="fa-solid fa-droplet text-skybrand-500"></i> C. Tiền Nước Hàng Tháng (Chốt Chỉ Số Cũ & Mới)
@@ -555,16 +572,36 @@
                         </div>
 
                         <!-- LIVE QR CODE PREVIEW -->
-                        <div class="bg-slate-50 rounded-2xl border border-slate-200 p-4 flex flex-col items-center justify-center text-center space-y-2">
-                            <div class="w-32 h-32 bg-white p-2 rounded-xl border border-slate-200 shadow-sm flex items-center justify-center relative group">
+                        <div class="bg-slate-50 rounded-2xl border border-slate-200 p-4 flex flex-col items-center justify-center text-center space-y-2.5">
+                            <div class="w-36 h-36 bg-white p-2 rounded-xl border border-slate-200 shadow-sm flex items-center justify-center relative group overflow-hidden">
                                 <img id="qr_code_img" 
                                      src="https://img.vietqr.io/image/vietbank-{{ $selectedData['bankAccount'] ?? '00939399884747' }}-compact2.png?amount={{ $selectedData['rent'] ?? 0 }}&addInfo={{ urlencode($selectedData['memo'] ?? '') }}&accountName={{ urlencode($selectedData['bankHolder'] ?? 'NGUYEN THI VAN ANH') }}" 
                                      onerror="this.src='https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + encodeURIComponent('{{ $selectedData['memo'] ?? '' }}')" 
-                                     alt="VietQR Code" class="w-full h-full object-contain">
+                                     alt="VietQR Code" class="w-full h-full object-contain transition-all">
                             </div>
-                            <span class="text-[11px] font-bold text-slate-600 flex items-center gap-1">
+
+                            <!-- Nhãn trạng thái mã QR -->
+                            <div id="qr_badge_auto" class="flex items-center gap-1 text-[11px] font-bold text-slate-600">
                                 <i class="fa-solid fa-shield-halved text-emerald-500"></i> Quét mã VietQR chuyển khoản tự động
-                            </span>
+                            </div>
+                            <div id="qr_badge_custom" class="hidden flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-full border border-emerald-300">
+                                <i class="fa-solid fa-circle-check text-emerald-600"></i> Đang dùng ảnh QR riêng đã tải lên
+                            </div>
+
+                            <!-- Nút tải ảnh mã QR riêng / Khôi phục VietQR -->
+                            <div class="flex items-center gap-2 pt-1">
+                                <label for="custom_qr_input" class="cursor-pointer px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-skybrand-700 border border-skybrand-300 font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all hover:scale-105 active:scale-95">
+                                    <i class="fa-solid fa-cloud-arrow-up text-skybrand-600"></i>
+                                    <span>Tải ảnh QR riêng</span>
+                                </label>
+                                <input type="file" id="custom_qr_input" accept="image/*" class="hidden" onchange="handleCustomQRUpload(event)">
+
+                                <button type="button" id="btn_remove_custom_qr" onclick="removeCustomQR()" class="hidden px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 font-bold text-xs flex items-center gap-1 shadow-xs transition-all active:scale-95" title="Khôi phục mã VietQR tự động">
+                                    <i class="fa-solid fa-rotate-left"></i>
+                                    <span>Dùng VietQR</span>
+                                </button>
+                            </div>
+                            <p class="text-[10px] text-slate-400 italic">Khách thuê sẽ thấy và quét mã này khi nhận hóa đơn</p>
                         </div>
                     </div>
                 </div>
@@ -596,12 +633,12 @@
                             <strong class="text-emerald-700 font-extrabold" id="summary_deposit">0 VNĐ</strong>
                         </div>
 
-                        <div class="flex items-center justify-between text-slate-600">
+                        <div class="flex items-center justify-between text-slate-600" id="summary_elec_row" style="{{ !empty($selectedData['isNoServiceFee']) ? 'display: none;' : '' }}">
                             <span>+ Tiền điện (<span id="summary_elec_kwh">80</span> kWh):</span>
                             <strong class="text-amber-700" id="summary_elec">280,000 VNĐ</strong>
                         </div>
 
-                        <div class="flex items-center justify-between text-slate-600">
+                        <div class="flex items-center justify-between text-slate-600" id="summary_water_row" style="{{ !empty($selectedData['isNoServiceFee']) ? 'display: none;' : '' }}">
                             <span>+ Tiền nước (<span id="summary_water_m3">10</span> m³):</span>
                             <strong class="text-skybrand-700" id="summary_water">150,000 VNĐ</strong>
                         </div>
@@ -641,8 +678,8 @@
 
                         <button type="button" onclick="sendZaloNotification()"
                                 class="w-full py-2.5 px-4 rounded-xl bg-skybrand-500 hover:bg-skybrand-600 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all">
-                            <i class="fa-solid fa-comment-sms"></i>
-                            <span>Gửi Zalo / Thông Báo Cho Khách</span>
+                            <i class="fa-solid fa-paper-plane"></i>
+                            <span>Gửi Hóa Đơn</span>
                         </button>
                     </div>
 
@@ -711,7 +748,7 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                     <button onclick="sendZaloNotification()" class="py-2.5 px-3 rounded-xl bg-skybrand-600 hover:bg-skybrand-700 text-white font-bold flex items-center justify-center gap-2 transition-all">
                         <i class="fa-solid fa-paper-plane"></i>
-                        <span>Gửi Zalo Cho Khách</span>
+                        <span>Gửi Hóa Đơn</span>
                     </button>
 
                     <button onclick="window.print()" class="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold flex items-center justify-center gap-2 transition-all">
@@ -733,6 +770,40 @@
     <script>
         // DATA DICTIONARY CHO CÁC PHÒNG TỪ DỮ LIỆU THỰC TẾ
         const roomData = @json($roomsDataMap ?? []);
+
+        // BIẾN LƯU ẢNH MÃ QR RIÊNG KHI TẢI LÊN
+        let customQrBase64 = null;
+
+        function handleCustomQRUpload(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            if (!file.type.startsWith('image/')) {
+                alert('Vui lòng chọn một file hình ảnh (PNG, JPG, JPEG, WEBP)!');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                customQrBase64 = e.target.result;
+                const qrImg = document.getElementById('qr_code_img');
+                if (qrImg) qrImg.src = customQrBase64;
+                document.getElementById('qr_badge_auto')?.classList.add('hidden');
+                document.getElementById('qr_badge_custom')?.classList.remove('hidden');
+                document.getElementById('btn_remove_custom_qr')?.classList.remove('hidden');
+                showToast('Đã tải ảnh mã QR riêng thành công!', 'success');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function removeCustomQR() {
+            customQrBase64 = null;
+            const fileInput = document.getElementById('custom_qr_input');
+            if (fileInput) fileInput.value = '';
+            document.getElementById('qr_badge_auto')?.classList.remove('hidden');
+            document.getElementById('qr_badge_custom')?.classList.add('hidden');
+            document.getElementById('btn_remove_custom_qr')?.classList.add('hidden');
+            calculateInvoice();
+            showToast('Đã chuyển về mã VietQR tự động!', 'info');
+        }
 
         // HELPER FORMAT TIỀN TỆ VNĐ
         function formatVND(amount) {
@@ -810,24 +881,40 @@
                     if (depositNote) depositNote.innerText = '* Từ tháng thứ 2 trở đi: Tiền cọc đã thu ở kỳ đầu nên tự động không tính cọc.';
                 }
             }
-            if (document.getElementById('elec_old')) {
-                document.getElementById('elec_old').value = data.elecOld || 0;
+            // Cấu hình không thu tiền dịch vụ (tự đóng tiền cho nhà nước)
+            const isNoServiceFee = Boolean(data.isNoServiceFee);
+            const secElec = document.getElementById('sec_electricity');
+            const secWater = document.getElementById('sec_water');
+            const noServiceBox = document.getElementById('no_service_fee_box');
+            const sumElecRow = document.getElementById('summary_elec_row');
+            const sumWaterRow = document.getElementById('summary_water_row');
+
+            if (isNoServiceFee) {
+                if (secElec) secElec.classList.add('hidden');
+                if (secWater) secWater.classList.add('hidden');
+                if (noServiceBox) noServiceBox.classList.remove('hidden');
+                if (sumElecRow) sumElecRow.style.display = 'none';
+                if (sumWaterRow) sumWaterRow.style.display = 'none';
+                if (document.getElementById('elec_old')) document.getElementById('elec_old').value = 0;
+                if (document.getElementById('elec_new')) document.getElementById('elec_new').value = 0;
+                if (document.getElementById('elec_rate')) document.getElementById('elec_rate').value = 0;
+                if (document.getElementById('water_old')) document.getElementById('water_old').value = 0;
+                if (document.getElementById('water_new')) document.getElementById('water_new').value = 0;
+                if (document.getElementById('water_rate')) document.getElementById('water_rate').value = 0;
+            } else {
+                if (secElec) secElec.classList.remove('hidden');
+                if (secWater) secWater.classList.remove('hidden');
+                if (noServiceBox) noServiceBox.classList.add('hidden');
+                if (sumElecRow) sumElecRow.style.display = 'flex';
+                if (sumWaterRow) sumWaterRow.style.display = 'flex';
+                if (document.getElementById('elec_old')) document.getElementById('elec_old').value = data.elecOld || 0;
+                if (document.getElementById('elec_new')) document.getElementById('elec_new').value = data.elecNew || 0;
+                if (document.getElementById('elec_rate')) document.getElementById('elec_rate').value = data.elecRate || 3500;
+                if (document.getElementById('water_old')) document.getElementById('water_old').value = data.waterOld || 0;
+                if (document.getElementById('water_new')) document.getElementById('water_new').value = data.waterNew || 0;
+                if (document.getElementById('water_rate')) document.getElementById('water_rate').value = data.waterRate || 15000;
             }
-            if (document.getElementById('elec_new')) {
-                document.getElementById('elec_new').value = data.elecNew || 0;
-            }
-            if (document.getElementById('elec_rate')) {
-                document.getElementById('elec_rate').value = data.elecRate || 3500;
-            }
-            if (document.getElementById('water_old')) {
-                document.getElementById('water_old').value = data.waterOld || 0;
-            }
-            if (document.getElementById('water_new')) {
-                document.getElementById('water_new').value = data.waterNew || 0;
-            }
-            if (document.getElementById('water_rate')) {
-                document.getElementById('water_rate').value = data.waterRate || 15000;
-            }
+
             if (document.getElementById('fee_wifi')) {
                 document.getElementById('fee_wifi').value = data.wifi || 0;
             }
@@ -907,28 +994,61 @@
             }
 
             // 2. Tiền điện
-            const elecOld = parseFloat(document.getElementById('elec_old').value) || 0;
-            const elecNew = parseFloat(document.getElementById('elec_new').value) || 0;
-            const elecRate = parseFloat(document.getElementById('elec_rate').value) || 0;
-            const elecUsage = Math.max(0, elecNew - elecOld);
-            const elecTotal = elecUsage * elecRate;
+            const isNoServiceFee = currentRoomData ? Boolean(currentRoomData.isNoServiceFee) : (document.getElementById('no_service_fee_box') && !document.getElementById('no_service_fee_box').classList.contains('hidden'));
+            let elecOld = 0;
+            let elecNew = 0;
+            let elecRate = 0;
+            let elecTotal = 0;
+            let elecUsage = 0;
 
-            document.getElementById('elec_usage_badge').innerText = `Tiêu thụ: ${elecUsage} kWh`;
-            document.getElementById('elec_total_display').innerText = formatVND(elecTotal);
-            document.getElementById('summary_elec_kwh').innerText = elecUsage;
-            document.getElementById('summary_elec').innerText = formatVND(elecTotal);
+            if (!isNoServiceFee) {
+                elecOld = parseFloat(document.getElementById('elec_old')?.value || 0) || 0;
+                elecNew = parseFloat(document.getElementById('elec_new')?.value || 0) || 0;
+                elecRate = parseFloat(document.getElementById('elec_rate')?.value || 0) || 0;
+                elecUsage = Math.max(0, elecNew - elecOld);
+                elecTotal = elecUsage * elecRate;
+            }
+
+            if (document.getElementById('elec_usage_badge')) {
+                document.getElementById('elec_usage_badge').innerText = `Tiêu thụ: ${elecUsage} kWh`;
+            }
+            if (document.getElementById('elec_total_display')) {
+                document.getElementById('elec_total_display').innerText = formatVND(elecTotal);
+            }
+            if (document.getElementById('summary_elec_kwh')) {
+                document.getElementById('summary_elec_kwh').innerText = elecUsage;
+            }
+            if (document.getElementById('summary_elec')) {
+                document.getElementById('summary_elec').innerText = formatVND(elecTotal);
+            }
 
             // 3. Tiền nước
-            const waterOld = parseFloat(document.getElementById('water_old').value) || 0;
-            const waterNew = parseFloat(document.getElementById('water_new').value) || 0;
-            const waterRate = parseFloat(document.getElementById('water_rate').value) || 0;
-            const waterUsage = Math.max(0, waterNew - waterOld);
-            const waterTotal = waterUsage * waterRate;
+            let waterOld = 0;
+            let waterNew = 0;
+            let waterRate = 0;
+            let waterTotal = 0;
+            let waterUsage = 0;
 
-            document.getElementById('water_usage_badge').innerText = `Tiêu thụ: ${waterUsage} m³`;
-            document.getElementById('water_total_display').innerText = formatVND(waterTotal);
-            document.getElementById('summary_water_m3').innerText = waterUsage;
-            document.getElementById('summary_water').innerText = formatVND(waterTotal);
+            if (!isNoServiceFee) {
+                waterOld = parseFloat(document.getElementById('water_old')?.value || 0) || 0;
+                waterNew = parseFloat(document.getElementById('water_new')?.value || 0) || 0;
+                waterRate = parseFloat(document.getElementById('water_rate')?.value || 0) || 0;
+                waterUsage = Math.max(0, waterNew - waterOld);
+                waterTotal = waterUsage * waterRate;
+            }
+
+            if (document.getElementById('water_usage_badge')) {
+                document.getElementById('water_usage_badge').innerText = `Tiêu thụ: ${waterUsage} m³`;
+            }
+            if (document.getElementById('water_total_display')) {
+                document.getElementById('water_total_display').innerText = formatVND(waterTotal);
+            }
+            if (document.getElementById('summary_water_m3')) {
+                document.getElementById('summary_water_m3').innerText = waterUsage;
+            }
+            if (document.getElementById('summary_water')) {
+                document.getElementById('summary_water').innerText = formatVND(waterTotal);
+            }
 
             // 4. Các phí dịch vụ
             const wifi = parseFloat(document.getElementById('fee_wifi').value) || 0;
@@ -974,7 +1094,7 @@
                 document.getElementById('discount_amount_text').innerText = formatVND(discount);
             }
 
-            // Cập nhật mã VietQR Preview động
+            // Cập nhật mã VietQR Preview động (nếu không dùng ảnh QR riêng)
             const memo = document.getElementById('transfer_memo') ? document.getElementById('transfer_memo').value : '';
             const roomCode = document.getElementById('room_select') ? document.getElementById('room_select').value : '';
             const curData = roomData[roomCode] || {};
@@ -983,10 +1103,14 @@
             const qrUrl = `https://img.vietqr.io/image/vietbank-${curBankAcc}-compact2.png?amount=${grandTotal}&addInfo=${encodeURIComponent(memo)}&accountName=${encodeURIComponent(curBankHolder)}`;
             const qrImg = document.getElementById('qr_code_img');
             if (qrImg) {
-                qrImg.src = qrUrl;
-                qrImg.onerror = function() {
-                    this.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(memo + ' ' + grandTotal)}`;
-                };
+                if (customQrBase64) {
+                    qrImg.src = customQrBase64;
+                } else {
+                    qrImg.src = qrUrl;
+                    qrImg.onerror = function() {
+                        this.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(memo + ' ' + grandTotal)}`;
+                    };
+                }
             }
 
             return {
@@ -1064,7 +1188,8 @@
                 water_amount: calc.waterTotal,
                 service_amount: calc.serviceTotal,
                 total_amount: calc.grandTotal,
-                payment_status: statusVal
+                payment_status: statusVal,
+                qr_code_image: customQrBase64 || null
             };
 
             const csrfToken = document.getElementById('csrf_token') ? document.getElementById('csrf_token').value : '';
@@ -1115,10 +1240,10 @@
             const msg = `[RentHome] Kính gửi anh/chị ${tenant},\nRentHome xin gửi thông báo hóa đơn ${period} cho ${roomText}.\n- Tổng tiền thanh toán: ${total}.\n- Nội dung CK: ${document.getElementById('transfer_memo').value}.\nXin cảm ơn!`;
             
             navigator.clipboard.writeText(msg).then(() => {
-                showToast('Đã sao chép nội dung tin nhắn Zalo gửi khách thuê!', 'success');
+                showToast('Đã sao chép nội dung gửi hóa đơn cho khách thuê!', 'success');
             }).catch(() => {
                 Swal.fire({
-                    title: 'Nội dung tin nhắn Zalo',
+                    title: 'Nội dung gửi hóa đơn',
                     html: `<div style="text-align: left; font-size: 13.5px; line-height: 1.5; color: #334155; white-space: pre-line; background: #f8fafc; padding: 12px; border-radius: 12px;">${msg}</div>`,
                     icon: 'info',
                     confirmButtonColor: '#0284c7',

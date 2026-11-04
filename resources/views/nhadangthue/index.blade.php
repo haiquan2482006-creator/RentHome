@@ -541,6 +541,7 @@
                                     'isPendingApproval' => $isHousePendingApproval,
                                     'status' => $activeInv ? $activeInv->status : ($isHousePaid ? 'paid' : 'unpaid'),
                                     'proofImage' => !empty($activeInv?->proof_image) ? (str_starts_with($activeInv->proof_image, 'http') ? $activeInv->proof_image : asset(ltrim($activeInv->proof_image, '/'))) : null,
+                                    'customQr' => !empty($activeInv?->qr_code_image) ? (str_starts_with($activeInv->qr_code_image, 'http') ? $activeInv->qr_code_image : asset(ltrim($activeInv->qr_code_image, '/'))) : null,
                                 ];
                                 $invoiceDataJsonMap[$contractId] = $invoiceItem;
                                 $invoiceDataJsonMap[$firstMonthInvoiceCode] = $invoiceItem;
@@ -1032,6 +1033,7 @@
                                         'isPaid' => $isPaid,
                                         'isPendingApproval' => $isPendingApproval,
                                         'proofImage' => !empty($inv->proof_image) ? (str_starts_with($inv->proof_image, 'http') ? $inv->proof_image : asset($inv->proof_image)) : null,
+                                        'customQr' => !empty($inv->qr_code_image) ? (str_starts_with($inv->qr_code_image, 'http') ? $inv->qr_code_image : asset(ltrim($inv->qr_code_image, '/'))) : null,
                                         'status' => $inv->status ?? 'unpaid',
                                         'paymentMethod' => $paymentMethod,
                                         'paymentDate' => $inv->payment_date ?? date('d/m/Y'),
@@ -1560,6 +1562,14 @@
                                 <p class="flex justify-between"><span class="text-slate-500">Số tài khoản:</span> <strong id="detailBankAccount" class="text-emerald-700 font-mono font-black text-sm">0912 987 654 888</strong></p>
                                 <p class="flex justify-between"><span class="text-slate-500">Chủ tài khoản:</span> <strong id="detailBankOwner" class="text-slate-900 font-bold uppercase">LÊ THỊ MAI</strong></p>
                                 <p class="flex justify-between"><span class="text-slate-500">Cú pháp CK:</span> <strong id="detailTransferSyntax" class="text-skybrand-600 font-mono font-bold">HD-092026</strong></p>
+                            </div>
+
+                            <!-- Hiển thị ảnh mã QR riêng nếu có -->
+                            <div id="detailCustomQrWrapper" class="hidden p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-center space-y-1.5">
+                                <img id="detailCustomQrImg" src="" alt="Mã QR Chuyển Khoản" class="w-36 h-36 mx-auto object-contain rounded-lg shadow-xs bg-white p-1 border border-slate-200">
+                                <span class="text-[11px] text-emerald-700 font-bold flex items-center justify-center gap-1">
+                                    <i class="fa-solid fa-qrcode text-emerald-600"></i> Mã QR Thanh Toán
+                                </span>
                             </div>
                         </div>
 
@@ -2358,9 +2368,20 @@
                 if (transferPendingMsg) transferPendingMsg.classList.add('hidden');
             }
 
+            const detailCustomQrWrapper = document.getElementById('detailCustomQrWrapper');
+            const detailCustomQrImg = document.getElementById('detailCustomQrImg');
+            if (detailCustomQrWrapper && detailCustomQrImg) {
+                if (data.customQr) {
+                    detailCustomQrImg.src = data.customQr;
+                    detailCustomQrWrapper.classList.remove('hidden');
+                } else {
+                    detailCustomQrWrapper.classList.add('hidden');
+                }
+            }
+
             document.getElementById('btnTriggerVietQR').onclick = function() {
                 closeInvoiceDetailModal();
-                openPayQRModal(data.code, data.totalRaw, data.landlordName, data.bankAccount, data.bankShort, data.houseName);
+                openPayQRModal(data.code, data.totalRaw, data.landlordName, data.bankAccount, data.bankShort, data.houseName, data.customQr);
             };
 
             document.getElementById('invoiceDetailModal').classList.remove('hidden');
@@ -2752,7 +2773,7 @@
         }
 
         // Pay QR Modal Logic
-        function openPayQRModal(code, amount, landlordName, bankAccount, bankName, houseName) {
+        function openPayQRModal(code, amount, landlordName, bankAccount, bankName, houseName, customQr) {
             document.getElementById('qrContentText').innerText = code;
             document.getElementById('qrAmountText').innerText = amount + ' VNĐ';
             if (landlordName) document.getElementById('qrLandlordNameText').innerText = landlordName;
@@ -2760,8 +2781,12 @@
             if (bankName) document.getElementById('qrBankNameText').innerText = bankName;
             if (houseName) document.getElementById('qrHouseNameText').innerText = houseName;
 
-            const qrData = encodeURIComponent('RentHome_' + code + '_' + amount.replace(/,/g, ''));
-            document.getElementById('qrImage').src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + qrData;
+            if (customQr) {
+                document.getElementById('qrImage').src = customQr;
+            } else {
+                const qrData = encodeURIComponent('RentHome_' + code + '_' + amount.replace(/,/g, ''));
+                document.getElementById('qrImage').src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + qrData;
+            }
 
             document.getElementById('payQRModal').classList.remove('hidden');
         }

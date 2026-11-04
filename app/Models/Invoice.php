@@ -41,6 +41,7 @@ class Invoice extends Model
         'payment_status', // 'paid', 'unpaid'
         'payment_date',
         'note',
+        'qr_code_image',         // URL hoặc path ảnh mã QR riêng do người tạo hóa đơn tải lên
         'payment_method',        // 'bank_transfer', 'cash'
         'proof_image',           // URL hoặc path ảnh bill khách chuyển khoản
         'collected_by',          // staff_id (user_id của nhân sự thu tiền mặt)
