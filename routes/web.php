@@ -1739,10 +1739,15 @@ Route::middleware(['auth'])->group(function () {
             $roomCode = $p->room_number ?? ('#' . strtoupper(substr($pId, -5)));
             $roomArea = (float)($p->area ?? 0);
 
-            $roomAmenities = is_array($p->amenities ?? null) 
+            $allAmenities = is_array($p->amenities ?? null) 
                 ? $p->amenities 
                 : (is_string($p->amenities ?? null) ? json_decode($p->amenities, true) : []);
-            $roomAmenities = is_array($roomAmenities) ? array_values(array_filter($roomAmenities)) : [];
+            $allAmenities = is_array($allAmenities) ? array_values(array_filter($allAmenities)) : [];
+            
+            $bAmenitiesList = array_map('mb_strtolower', array_map('trim', $bAmenities));
+            $roomAmenities = array_values(array_filter($allAmenities, function($am) use ($bAmenitiesList) {
+                return !in_array(mb_strtolower(trim($am)), $bAmenitiesList);
+            }));
 
             $modalPayload = [
                 'id' => $pId,

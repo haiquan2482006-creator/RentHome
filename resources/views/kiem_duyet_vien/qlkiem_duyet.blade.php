@@ -1966,11 +1966,16 @@
                                 };
                                 $priceFormatted = !empty($post->price) ? (number_format($post->price, 0, ',', '.') . ' đ ' . $unitLabel) : 'Thỏa thuận';
 
-                                // Tiện ích phòng
-                                $roomAmenities = is_array($post->amenities ?? null) 
+                                // Tiện ích phòng (chỉ lấy tiện ích riêng của phòng, loại bỏ tiện ích dùng chung kế thừa từ Tòa nhà)
+                                $allAmenities = is_array($post->amenities ?? null) 
                                     ? $post->amenities 
                                     : (is_string($post->amenities ?? null) ? json_decode($post->amenities, true) : []);
-                                $roomAmenities = is_array($roomAmenities) ? array_values(array_filter($roomAmenities)) : [];
+                                $allAmenities = is_array($allAmenities) ? array_values(array_filter($allAmenities)) : [];
+                                
+                                $bAmenitiesList = array_map('mb_strtolower', array_map('trim', $bAmenities));
+                                $roomAmenities = array_values(array_filter($allAmenities, function($am) use ($bAmenitiesList) {
+                                    return !in_array(mb_strtolower(trim($am)), $bAmenitiesList);
+                                }));
 
                                 $isLand = in_array($rawBType, ['dat_phan_lo', 'dat_nen']);
 
