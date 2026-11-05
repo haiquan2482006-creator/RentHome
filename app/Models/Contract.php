@@ -60,6 +60,7 @@ class Contract extends Model
         'terminated_at',
         'terminated_by',
         'liquidation_scenario',
+        'hidden_from_tenant',
     ];
 
     protected $casts = [

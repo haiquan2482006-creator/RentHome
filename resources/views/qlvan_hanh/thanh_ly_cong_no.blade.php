@@ -847,13 +847,6 @@
                     Hệ thống tự động hóa 4 bước đối soát công nợ cuối kỳ: Tính tiền phòng lẻ ngày, chốt chỉ số điện nước, phạt bồi thường tài sản cấn trừ tiền cọc; rẽ nhánh Kịch bản A (Khách nợ thêm -> tạo Hóa đơn cuối) hoặc Kịch bản B (Hoàn cọc -> đẩy Kế toán), tự động giải phóng phòng trống (available) khi hoàn tất.
                 </p>
             </div>
-
-            <div class="hero-actions no-print">
-                <button type="button" class="btn-hero btn-hero-checkout" onclick="openRequestCheckoutModal()">
-                    <i class="fa-solid fa-paper-plane"></i>
-                    <span>Gửi Yêu Cầu Trả Phòng (Bước 1)</span>
-                </button>
-            </div>
         </section>
 
         <!-- KPI STATS CARDS -->
@@ -1178,8 +1171,25 @@
                         </div>
                     </div>
 
+                    <!-- Hộp thông báo cho cơ sở/hợp đồng không thu phí dịch vụ & điện nước -->
+                    <div id="calc_no_service_fee_box" style="display: none; padding: 12px 14px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; margin-bottom: 14px;">
+                        <div style="display: flex; align-items: flex-start; gap: 10px;">
+                            <div style="width: 28px; height: 28px; border-radius: 8px; background: #10b981; display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; font-size: 0.85rem;">
+                                <i class="fa-solid fa-house-chimney-check"></i>
+                            </div>
+                            <div>
+                                <h4 style="margin: 0; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; color: #065f46;">
+                                    Không thu tiền dịch vụ điện nước (Khách tự đóng cho Nhà nước)
+                                </h4>
+                                <p style="margin: 2px 0 0 0; font-size: 0.75rem; color: #047857; line-height: 1.4;">
+                                    Cơ sở / bài đăng này đã thỏa thuận khách thuê tự đóng tiền điện, nước trực tiếp cho đơn vị cấp điện/nước theo công tơ riêng. Hệ thống tự động ẩn phần điện nước chốt cuối và không tính phí dịch vụ.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- 3. Điện & Nước chốt cuối -->
-                    <div class="form-section">
+                    <div class="form-section" id="calc_elec_water_section">
                         <div class="form-section-title">
                             <i class="fa-solid fa-bolt" style="color: var(--accent-amber);"></i>
                             3. Điện & Nước Chốt Cuối
@@ -1279,23 +1289,23 @@
 
                         <!-- Breakdown -->
                         <div style="display: flex; flex-direction: column; gap: 4px;">
-                            <div class="summary-line">
+                            <div class="summary-line" id="row_sum_prorated_rent">
                                 <span>Tiền phòng lẻ tháng cuối:</span>
                                 <strong id="sum_prorated_rent">+ 0 đ</strong>
                             </div>
-                            <div class="summary-line">
+                            <div class="summary-line" id="row_sum_electricity">
                                 <span>Tiền điện chốt cuối:</span>
                                 <strong id="sum_electricity">+ 0 đ</strong>
                             </div>
-                            <div class="summary-line">
+                            <div class="summary-line" id="row_sum_water">
                                 <span>Tiền nước chốt cuối:</span>
                                 <strong id="sum_water">+ 0 đ</strong>
                             </div>
-                            <div class="summary-line">
+                            <div class="summary-line" id="row_sum_services">
                                 <span>Dịch vụ cố định tháng cuối:</span>
                                 <strong id="sum_services">+ 0 đ</strong>
                             </div>
-                            <div class="summary-line">
+                            <div class="summary-line" id="row_sum_damage">
                                 <span>Phí bồi thường tài sản:</span>
                                 <strong id="sum_damage" style="color: var(--accent-red);">+ 0 đ</strong>
                             </div>
@@ -1376,74 +1386,6 @@
     </div>
 
     <!-- ========================================================================================= -->
-    <!-- MODAL BƯỚC 1: KHÁCH THUÊ GỬI YÊU CẦU TRẢ PHÒNG                                            -->
-    <!-- ========================================================================================= -->
-    <div class="modal-overlay" id="requestCheckoutModalOverlay" onclick="handleCheckoutModalBackdrop(event)">
-        <div class="modal-container" style="max-width: 600px;">
-            <div class="modal-header">
-                <div class="modal-header-meta">
-                    <h3>
-                        <i class="fa-solid fa-paper-plane" style="color: #38bdf8;"></i>
-                        <span>Gửi Yêu Cầu Trả Phòng & Thanh Lý Hợp Đồng</span>
-                    </h3>
-                    <p>Hệ thống sẽ tạo Notification thông báo ngay đến Quản lý vận hành & Admin</p>
-                </div>
-                <button type="button" class="btn-modal-close" onclick="closeRequestCheckoutModal()">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </div>
-
-            <div style="padding: 24px; overflow-y: auto;">
-                <form id="requestCheckoutForm" onsubmit="submitRequestCheckout(event)">
-                    <div class="form-group" style="margin-bottom: 14px;">
-                        <label class="form-label">Chọn Hợp đồng thuê cần trả phòng (*):</label>
-                        <select id="checkout_contract_id" class="form-input" required>
-                            <option value="">-- Chọn hợp đồng --</option>
-                            @foreach($contracts as $c)
-                                @if($c->status !== 'terminated')
-                                    <option value="{{ (string)($c->_id ?? $c->id) }}">
-                                        {{ $c->contract_code }} - {{ $c->tenant_name }} ({{ $c->post ? $c->post->title : ($c->room_id ? 'Phòng '.$c->room_id : 'Phòng') }})
-                                    </option>
-                                @endif
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <div class="form-group" style="margin-bottom: 14px;">
-                        <label class="form-label" style="color: var(--accent-rose);">Ngày dự kiến trả phòng & bàn giao chìa khóa (*):</label>
-                        <input type="date" id="checkout_expected_date" class="form-input" required value="{{ date('Y-m-d') }}">
-                    </div>
-
-                    <div class="form-group" style="margin-bottom: 14px;">
-                        <label class="form-label">Lý do trả phòng:</label>
-                        <textarea id="checkout_reason" rows="3" class="form-input" placeholder="Ví dụ: Chuyển công tác, hết nhu cầu thuê, về quê..."></textarea>
-                    </div>
-
-                    <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-bottom: 16px;">
-                        <div style="font-size: 0.775rem; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">
-                            <i class="fa-solid fa-building-columns" style="color: var(--brand-primary);"></i> Thông tin tài khoản nhận lại tiền cọc (nếu cọc dư):
-                        </div>
-                        <div class="form-group" style="margin-bottom: 8px;">
-                            <input type="text" id="checkout_bank_account" class="form-input" placeholder="Số tài khoản ngân hàng">
-                        </div>
-                        <div class="form-row" style="margin-bottom: 0;">
-                            <input type="text" id="checkout_bank_name" class="form-input" placeholder="Tên ngân hàng (VD: Vietcombank)">
-                            <input type="text" id="checkout_bank_holder" class="form-input" placeholder="Tên chủ tài khoản">
-                        </div>
-                    </div>
-
-                    <div style="display: flex; justify-content: flex-end; gap: 10px;">
-                        <button type="button" class="btn-modal btn-modal-cancel" onclick="closeRequestCheckoutModal()">Hủy</button>
-                        <button type="submit" class="btn-modal btn-modal-submit" style="background-color: #0284c7;">
-                            <i class="fa-solid fa-paper-plane"></i> Gửi Yêu Cầu Trả Phòng
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- ========================================================================================= -->
     <!-- LOGIC JAVASCRIPT & AJAX REALTIME                                                         -->
     <!-- ========================================================================================= -->
     <script>
@@ -1488,82 +1430,7 @@
         }
 
         /**
-         * BƯỚC 1: Mở Modal Gửi Yêu Cầu Trả Phòng
-         */
-        function openRequestCheckoutModal(prefillContractId = '') {
-            if (prefillContractId) {
-                document.getElementById('checkout_contract_id').value = prefillContractId;
-            }
-            document.getElementById('requestCheckoutModalOverlay').classList.add('active');
-        }
-
-        function closeRequestCheckoutModal() {
-            document.getElementById('requestCheckoutModalOverlay').classList.remove('active');
-        }
-
-        function handleCheckoutModalBackdrop(e) {
-            if (e.target.id === 'requestCheckoutModalOverlay') {
-                closeRequestCheckoutModal();
-            }
-        }
-
-        async function submitRequestCheckout(e) {
-            e.preventDefault();
-            const contractId = document.getElementById('checkout_contract_id').value;
-            if (!contractId) {
-                Swal.fire('Lỗi', 'Vui lòng chọn hợp đồng cần trả phòng!', 'warning');
-                return;
-            }
-
-            const payload = {
-                expected_checkout_date: document.getElementById('checkout_expected_date').value,
-                reason: document.getElementById('checkout_reason').value,
-                bank_account: document.getElementById('checkout_bank_account').value,
-                bank_name: document.getElementById('checkout_bank_name').value,
-                bank_holder: document.getElementById('checkout_bank_holder').value,
-            };
-
-            Swal.fire({
-                title: 'Đang gửi yêu cầu...',
-                text: 'Hệ thống đang tạo thông báo gửi đến Quản lý vận hành & Admin...',
-                allowOutsideClick: false,
-                didOpen: () => Swal.showLoading()
-            });
-
-            try {
-                const res = await fetch(`/api/contracts/${contractId}/request-checkout`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken
-                    },
-                    body: JSON.stringify(payload)
-                });
-                const data = await res.json();
-
-                if (!data.success) {
-                    throw new Error(data.message || 'Không thể gửi yêu cầu trả phòng.');
-                }
-
-                closeRequestCheckoutModal();
-
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Gửi yêu cầu thành công!',
-                    text: data.message,
-                    confirmButtonColor: '#0284c7'
-                }).then(() => {
-                    location.reload();
-                });
-
-            } catch (err) {
-                Swal.fire('Thất bại', err.message, 'error');
-            }
-        }
-
-        /**
-         * BƯỚC 2: Mở Modal Phiếu Quyết Toán (Lấy dữ liệu từ MongoDB qua AJAX)
+         * Mở Modal Phiếu Quyết Toán (Lấy dữ liệu từ MongoDB qua AJAX)
          */
         async function openLiquidationModal(contractId, viewOnly = false) {
             Swal.fire({
@@ -1634,23 +1501,50 @@
             const checkoutInput = document.getElementById('calc_checkout_date');
             checkoutInput.value = d.default_checkout_date;
 
-            // Điện
-            document.getElementById('calc_elec_old').value = d.electricity_old;
-            document.getElementById('calc_elec_new').value = Math.max(d.electricity_old, d.electricity_old + 15); // Mặc định gợi ý số mới
-            document.getElementById('calc_elec_price_label').innerText = formatMoney(d.electricity_price);
+            // Cấu hình không thu tiền dịch vụ (khách tự đóng cho Nhà nước)
+            const isNoServiceFee = Boolean(d.is_no_service_fee);
+            const secElecWater = document.getElementById('calc_elec_water_section');
+            const boxNoService = document.getElementById('calc_no_service_fee_box');
+            const rowSumElec = document.getElementById('row_sum_electricity');
+            const rowSumWater = document.getElementById('row_sum_water');
+            const rowSumServices = document.getElementById('row_sum_services');
 
-            // Nước
-            const waterMeterRow = document.getElementById('waterMeterRow');
-            if (d.water_calculation_type === 'khoi') {
-                waterMeterRow.style.display = 'grid';
-                document.getElementById('calc_water_old').value = d.water_old;
-                document.getElementById('calc_water_new').value = Math.max(d.water_old, d.water_old + 3);
-                document.getElementById('calc_water_type_label').innerText = `Đơn giá: ${formatMoney(d.water_price_block)} đ/khối`;
-            } else {
-                waterMeterRow.style.display = 'none';
+            if (isNoServiceFee) {
+                if (secElecWater) secElecWater.style.display = 'none';
+                if (boxNoService) boxNoService.style.display = 'block';
+                if (rowSumElec) rowSumElec.style.display = 'none';
+                if (rowSumWater) rowSumWater.style.display = 'none';
+                if (rowSumServices) rowSumServices.style.display = 'none';
+
+                document.getElementById('calc_elec_old').value = 0;
+                document.getElementById('calc_elec_new').value = 0;
                 document.getElementById('calc_water_old').value = 0;
                 document.getElementById('calc_water_new').value = 0;
-                document.getElementById('calc_water_type_label').innerText = `Theo người: ${d.water_people_count} người x ${formatMoney(d.water_price_person)} đ`;
+            } else {
+                if (secElecWater) secElecWater.style.display = 'block';
+                if (boxNoService) boxNoService.style.display = 'none';
+                if (rowSumElec) rowSumElec.style.display = 'flex';
+                if (rowSumWater) rowSumWater.style.display = 'flex';
+                if (rowSumServices) rowSumServices.style.display = 'flex';
+
+                // Điện
+                document.getElementById('calc_elec_old').value = d.electricity_old;
+                document.getElementById('calc_elec_new').value = Math.max(d.electricity_old, d.electricity_old + 15); // Mặc định gợi ý số mới
+                document.getElementById('calc_elec_price_label').innerText = formatMoney(d.electricity_price);
+
+                // Nước
+                const waterMeterRow = document.getElementById('waterMeterRow');
+                if (d.water_calculation_type === 'khoi') {
+                    waterMeterRow.style.display = 'grid';
+                    document.getElementById('calc_water_old').value = d.water_old;
+                    document.getElementById('calc_water_new').value = Math.max(d.water_old, d.water_old + 3);
+                    document.getElementById('calc_water_type_label').innerText = `Đơn giá: ${formatMoney(d.water_price_block)} đ/khối`;
+                } else {
+                    waterMeterRow.style.display = 'none';
+                    document.getElementById('calc_water_old').value = 0;
+                    document.getElementById('calc_water_new').value = 0;
+                    document.getElementById('calc_water_type_label').innerText = `Theo người: ${d.water_people_count} người x ${formatMoney(d.water_price_person)} đ`;
+                }
             }
 
             // Ngày ở lẻ
@@ -1744,42 +1638,67 @@
             }
             document.getElementById('calc_prorated_rent_text').innerText = formatMoney(proratedRent) + ' VNĐ';
 
-            // 2. Điện
-            const elecOld = parseFloat(document.getElementById('calc_elec_old').value) || 0;
-            const elecNew = parseFloat(document.getElementById('calc_elec_new').value) || elecOld;
-            const elecPrice = parseFloat(d.electricity_price) || 3500;
-            const elecUsage = Math.max(0, elecNew - elecOld);
-            const elecAmount = Math.round(elecUsage * elecPrice);
+            // 2. Điện & Nước & Dịch vụ cố định
+            let elecAmount = 0;
+            let elecUsage = 0;
+            let elecOld = 0;
+            let elecNew = 0;
 
-            document.getElementById('calc_elec_usage').innerText = elecUsage;
-            document.getElementById('calc_elec_amount_text').innerText = formatMoney(elecAmount) + ' VNĐ';
-
-            // 3. Nước
             let waterAmount = 0;
             let waterUsage = 0;
-            if (d.water_calculation_type === 'khoi') {
-                const waterOld = parseFloat(document.getElementById('calc_water_old').value) || 0;
-                const waterNew = parseFloat(document.getElementById('calc_water_new').value) || waterOld;
-                const waterPrice = parseFloat(d.water_price_block) || 25000;
-                waterUsage = Math.max(0, waterNew - waterOld);
-                waterAmount = Math.round(waterUsage * waterPrice);
-                document.getElementById('calc_water_usage').innerText = waterUsage;
-            } else {
-                const waterPrice = parseFloat(d.water_price_person) || 100000;
-                const count = parseInt(d.water_people_count) || 1;
-                waterUsage = count;
-                waterAmount = Math.round(waterPrice * count);
-                document.getElementById('calc_water_usage').innerText = `${count} người`;
-            }
-            document.getElementById('calc_water_amount_text').innerText = formatMoney(waterAmount) + ' VNĐ';
+            let waterOld = 0;
+            let waterNew = 0;
 
-            // 4. Dịch vụ cố định tháng cuối
-            const internet = parseFloat(d.internet_price) || 0;
-            const garbage = parseFloat(d.garbage_price) || 0;
-            const parking = parseFloat(d.parking_fee) || 0;
-            const fixedServicesTotal = internet + garbage + parking;
-            const servicesAmount = isProrated ? Math.round((fixedServicesTotal / 30) * stayDays) : fixedServicesTotal;
-            document.getElementById('calc_services_text').innerText = formatMoney(servicesAmount) + ' VNĐ';
+            let servicesAmount = 0;
+
+            if (!d.is_no_service_fee) {
+                // Điện
+                elecOld = parseFloat(document.getElementById('calc_elec_old').value) || 0;
+                elecNew = parseFloat(document.getElementById('calc_elec_new').value) || elecOld;
+                const elecPrice = (d.electricity_price !== undefined && d.electricity_price !== null && d.electricity_price !== '') 
+                    ? parseFloat(d.electricity_price) 
+                    : 3500;
+                elecUsage = Math.max(0, elecNew - elecOld);
+                elecAmount = Math.round(elecUsage * elecPrice);
+
+                document.getElementById('calc_elec_usage').innerText = elecUsage;
+                document.getElementById('calc_elec_amount_text').innerText = formatMoney(elecAmount) + ' VNĐ';
+
+                // Nước
+                if (d.water_calculation_type === 'khoi') {
+                    waterOld = parseFloat(document.getElementById('calc_water_old').value) || 0;
+                    waterNew = parseFloat(document.getElementById('calc_water_new').value) || waterOld;
+                    const waterPrice = (d.water_price_block !== undefined && d.water_price_block !== null && d.water_price_block !== '') 
+                        ? parseFloat(d.water_price_block) 
+                        : 25000;
+                    waterUsage = Math.max(0, waterNew - waterOld);
+                    waterAmount = Math.round(waterUsage * waterPrice);
+                    document.getElementById('calc_water_usage').innerText = waterUsage;
+                } else {
+                    const waterPrice = (d.water_price_person !== undefined && d.water_price_person !== null && d.water_price_person !== '') 
+                        ? parseFloat(d.water_price_person) 
+                        : 100000;
+                    const count = parseInt(d.water_people_count) || 1;
+                    waterUsage = count;
+                    waterAmount = Math.round(waterPrice * count);
+                    document.getElementById('calc_water_usage').innerText = `${count} người`;
+                }
+                document.getElementById('calc_water_amount_text').innerText = formatMoney(waterAmount) + ' VNĐ';
+
+                // Dịch vụ cố định tháng cuối
+                const internet = parseFloat(d.internet_price) || 0;
+                const garbage = parseFloat(d.garbage_price) || 0;
+                const parking = parseFloat(d.parking_fee) || 0;
+                const fixedServicesTotal = internet + garbage + parking;
+                servicesAmount = isProrated ? Math.round((fixedServicesTotal / 30) * stayDays) : fixedServicesTotal;
+                document.getElementById('calc_services_text').innerText = formatMoney(servicesAmount) + ' VNĐ';
+            } else {
+                document.getElementById('calc_elec_usage').innerText = 0;
+                document.getElementById('calc_elec_amount_text').innerText = '0 VNĐ';
+                document.getElementById('calc_water_usage').innerText = 0;
+                document.getElementById('calc_water_amount_text').innerText = '0 VNĐ';
+                document.getElementById('calc_services_text').innerText = '0 VNĐ';
+            }
 
             // 5. Phí bồi thường hư hỏng (Damage Fee)
             const damageFee = Math.max(0, parseFloat(document.getElementById('calc_damage_fee').value) || 0);
@@ -1816,6 +1735,7 @@
 
             // Lưu cache tính toán hiện tại
             currentSettlementCalculation = {
+                is_no_service_fee: Boolean(d.is_no_service_fee),
                 prorated_rent: proratedRent,
                 stay_days: stayDays,
                 is_prorated: isProrated,
@@ -1823,8 +1743,8 @@
                 electricity_new: elecNew,
                 electricity_usage: elecUsage,
                 electricity_amount: elecAmount,
-                water_old: parseFloat(document.getElementById('calc_water_old').value) || 0,
-                water_new: parseFloat(document.getElementById('calc_water_new').value) || 0,
+                water_old: waterOld,
+                water_new: waterNew,
                 water_usage: waterUsage,
                 water_amount: waterAmount,
                 fixed_services_amount: servicesAmount,

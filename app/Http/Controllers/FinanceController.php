@@ -801,6 +801,8 @@ class FinanceController extends Controller
             return redirect('/login')->withErrors(['login_error' => 'Chỉ tài khoản Ban Quản Trị / Kế toán mới có quyền thực hiện.']);
         }
 
+        $user = Auth::user();
+
         $cleanId = trim($id);
         $contract = Contract::where('_id', $cleanId)
             ->orWhere('id', $cleanId)

@@ -190,6 +190,7 @@ Route::get('/nha-dang-thue', function () {
 
         $terminatedContracts = (clone $contractsBaseQuery)
             ->whereIn('status', ['terminated', 'da_thanh_ly'])
+            ->where('hidden_from_tenant', '!=', true)
             ->latest()
             ->get();
 
@@ -211,6 +212,7 @@ Route::get('/nha-dang-thue', function () {
                 if ($terminatedContracts->isEmpty()) {
                     $terminatedContracts = \App\Models\Contract::whereIn('post_id', $contactPostIds)
                         ->whereIn('status', ['terminated', 'da_thanh_ly'])
+                        ->where('hidden_from_tenant', '!=', true)
                         ->latest()
                         ->get();
                 }
@@ -314,6 +316,63 @@ Route::get('/nha-dang-thue', function () {
 
     return view('nhadangthue.index', compact('rentedContracts', 'totalRentedCount', 'totalRentAmount', 'pendingInvoicesCount', 'pendingInvoicesTotal', 'pendingInvoices', 'paidInvoices', 'allInvoices', 'terminatedContracts'));
 })->middleware('auth')->name('nha-dang-thue');
+
+// Xóa 1 hợp đồng đã thanh lý khỏi lịch sử của khách thuê
+Route::delete('/api/tenant/contract-history/{id}', function ($id, \Illuminate\Http\Request $request) {
+    if (!\Illuminate\Support\Facades\Auth::check()) {
+        return response()->json(['success' => false, 'message' => 'Vui lòng đăng nhập.'], 401);
+    }
+    $user = \Illuminate\Support\Facades\Auth::user();
+    $userId = (string)($user->_id ?? $user->id);
+
+    $contract = \App\Models\Contract::where('_id', $id)->orWhere('id', $id)->orWhere('contract_code', $id)->first();
+    if (!$contract) {
+        return response()->json(['success' => false, 'message' => 'Không tìm thấy hợp đồng.'], 404);
+    }
+
+    $isTenant = ($contract->tenant_id === $userId) 
+        || (!empty($user->phone) && $contract->tenant_phone === $user->phone)
+        || (!empty($user->email) && $contract->tenant_email === $user->email)
+        || (!empty($user->username) && $contract->tenant_account === $user->username);
+
+    if (!$isTenant && !$user->isAdmin()) {
+        return response()->json(['success' => false, 'message' => 'Bạn không có quyền xóa lịch sử hợp đồng này.'], 403);
+    }
+
+    $contract->hidden_from_tenant = true;
+    $contract->save();
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Đã xóa hợp đồng khỏi lịch sử thuê thành công!'
+    ]);
+})->middleware('auth');
+
+// Xóa tất cả hợp đồng đã thanh lý khỏi lịch sử của khách thuê
+Route::delete('/api/tenant/contract-history', function (\Illuminate\Http\Request $request) {
+    if (!\Illuminate\Support\Facades\Auth::check()) {
+        return response()->json(['success' => false, 'message' => 'Vui lòng đăng nhập.'], 401);
+    }
+    $user = \Illuminate\Support\Facades\Auth::user();
+    $userId = (string)($user->_id ?? $user->id);
+
+    $contracts = \App\Models\Contract::where(function ($q) use ($user, $userId) {
+        $q->where('tenant_id', $userId);
+        if (!empty($user->username)) $q->orWhere('tenant_account', $user->username);
+        if (!empty($user->phone)) $q->orWhere('tenant_phone', $user->phone);
+        if (!empty($user->email)) $q->orWhere('tenant_email', $user->email);
+    })->whereIn('status', ['terminated', 'da_thanh_ly'])->get();
+
+    foreach ($contracts as $contract) {
+        $contract->hidden_from_tenant = true;
+        $contract->save();
+    }
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Đã xóa toàn bộ lịch sử thuê đã thanh lý!'
+    ]);
+})->middleware('auth');
 
 Route::post('/api/invoices/{code}/pay', function ($code, \Illuminate\Http\Request $request) {
     $cleanCode = trim($code);

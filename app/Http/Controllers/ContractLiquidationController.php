@@ -7,6 +7,7 @@ use App\Models\Contract;
 use App\Models\Invoice;
 use App\Models\Room;
 use App\Models\Post;
+use App\Models\Building;
 use App\Models\User;
 use App\Models\Notification;
 use App\Models\RefundRequest;
@@ -267,6 +268,9 @@ class ContractLiquidationController extends Controller
         $post = Post::find($contract->post_id ?? $contract->room_id);
         $room = Room::where('_id', $contract->room_id)->orWhere('id', $contract->room_id)->first();
 
+        // Kiểm tra cơ sở / hợp đồng có được miễn thu điện nước & phí dịch vụ (khách tự đóng nhà nước)
+        $isNoServiceFee = $this->checkIsNoServiceFee($contract, $post);
+
         // Lấy hóa đơn gần đây nhất để lấy chỉ số điện nước kỳ trước
         $contractIdStr = (string)($contract->_id ?? $contract->id);
         $lastInvoice = Invoice::where('contract_id', $contractIdStr)
@@ -275,9 +279,9 @@ class ContractLiquidationController extends Controller
             ->first();
 
         // Chỉ số điện cũ
-        $elecOld = $lastInvoice ? (float)($lastInvoice->electricity_new ?? $contract->electricity_start) : (float)($contract->electricity_start ?? 0);
+        $elecOld = $isNoServiceFee ? 0 : ($lastInvoice ? (float)($lastInvoice->electricity_new ?? $contract->electricity_start) : (float)($contract->electricity_start ?? 0));
         // Chỉ số nước cũ
-        $waterOld = $lastInvoice ? (float)($lastInvoice->water_new ?? $contract->water_start) : (float)($contract->water_start ?? 0);
+        $waterOld = $isNoServiceFee ? 0 : ($lastInvoice ? (float)($lastInvoice->water_new ?? $contract->water_start) : (float)($contract->water_start ?? 0));
 
         // Số tiền cọc: chuẩn hóa an toàn từ deposit hoặc deposit_amount
         $depositAmount = $contract->deposit_safe;
@@ -303,16 +307,17 @@ class ContractLiquidationController extends Controller
             'default_checkout_date'  => $defaultCheckoutDate,
             'rent_price'             => (float)($contract->rent_price ?? 0),
             'deposit_amount'         => $depositAmount, // Tiền cọc đối trọng từ contracts
-            'electricity_price'      => (float)($contract->electricity_price ?? 3500),
+            'is_no_service_fee'      => $isNoServiceFee,
+            'electricity_price'      => $isNoServiceFee ? 0 : (float)($contract->electricity_price ?? 3500),
             'electricity_old'        => $elecOld,
             'water_calculation_type' => $contract->water_calculation_type ?? 'khoi',
-            'water_price_block'      => (float)($contract->water_price_block ?? 25000),
-            'water_price_person'     => (float)($contract->water_price_person ?? 100000),
+            'water_price_block'      => $isNoServiceFee ? 0 : (float)($contract->water_price_block ?? 25000),
+            'water_price_person'     => $isNoServiceFee ? 0 : (float)($contract->water_price_person ?? 100000),
             'water_people_count'     => (int)($contract->water_people_count ?? 1),
             'water_old'              => $waterOld,
-            'internet_price'         => (float)($contract->internet_price ?? 0),
-            'garbage_price'          => (float)($contract->garbage_price ?? ($contract->service_fee ?? 0)),
-            'parking_fee'            => (float)($contract->parking_fee ?? 0),
+            'internet_price'         => $isNoServiceFee ? 0 : (float)($contract->internet_price ?? 0),
+            'garbage_price'          => $isNoServiceFee ? 0 : (float)($contract->garbage_price ?? ($contract->service_fee ?? 0)),
+            'parking_fee'            => $isNoServiceFee ? 0 : (float)($contract->parking_fee ?? 0),
             'payment_cycle'          => (int)($contract->payment_cycle ?: 1),
             'next_rent_date'         => !empty($contract->next_rent_date) ? Carbon::parse($contract->next_rent_date)->format('Y-m-d') : null,
             'status'                 => $contract->status,
@@ -393,6 +398,7 @@ class ContractLiquidationController extends Controller
 
             // Lưu chi tiết quyết toán vào contract
             $liquidationDetails = [
+                'is_no_service_fee'      => $calc['is_no_service_fee'] ?? false,
                 'checkout_date'          => $checkoutDate,
                 'stay_days'              => $calc['stay_days'],
                 'is_prorated'            => $calc['is_prorated'],
@@ -887,41 +893,65 @@ class ContractLiquidationController extends Controller
             }
         }
 
-        // 2. Điện nước:
-        // Đơn giá
-        $elecPrice = (float)($contract->electricity_price ?? 3500);
-        $elecOld   = isset($input['electricity_old']) ? (float)$input['electricity_old'] : (float)($contract->electricity_start ?? 0);
-        $elecNew   = isset($input['electricity_new']) ? (float)$input['electricity_new'] : $elecOld;
-        $elecUsage = max(0, $elecNew - $elecOld);
-        $elecCost  = (float)round($elecUsage * $elecPrice);
+        // Kiểm tra cơ sở / hợp đồng có được miễn thu điện nước & phí dịch vụ (khách tự đóng nhà nước)
+        $isNoServiceFee = $this->checkIsNoServiceFee($contract);
 
-        // Nước
-        $waterCalcType = $contract->water_calculation_type ?? 'khoi';
-        $waterOld      = isset($input['water_old']) ? (float)$input['water_old'] : (float)($contract->water_start ?? 0);
-        $waterNew      = isset($input['water_new']) ? (float)$input['water_new'] : $waterOld;
-        $waterUsage    = 0;
-        $waterCost     = 0;
+        // 2. Điện nước & Dịch vụ:
+        if ($isNoServiceFee) {
+            $elecPrice = 0;
+            $elecOld   = 0;
+            $elecNew   = 0;
+            $elecUsage = 0;
+            $elecCost  = 0;
 
-        if ($waterCalcType === 'khoi') {
-            $waterPrice = (float)($contract->water_price_block ?? 25000);
-            $waterUsage = max(0, $waterNew - $waterOld);
-            $waterCost  = (float)round($waterUsage * $waterPrice);
+            $waterCalcType = $contract->water_calculation_type ?? 'khoi';
+            $waterPrice = 0;
+            $waterOld   = 0;
+            $waterNew   = 0;
+            $waterUsage = 0;
+            $waterCost  = 0;
+
+            $internet = 0;
+            $garbage  = 0;
+            $parking  = 0;
+            $fixedServicesTotal = 0;
+            $servicesCost = 0;
         } else {
-            // Theo người
-            $waterPrice = (float)($contract->water_price_person ?? 100000);
-            $peopleCount = (int)($contract->water_people_count ?? 1);
-            $waterUsage = $peopleCount;
-            $waterCost = (float)round($waterPrice * $peopleCount);
+            // Đơn giá
+            $elecPrice = (float)($contract->electricity_price ?? 3500);
+            $elecOld   = isset($input['electricity_old']) ? (float)$input['electricity_old'] : (float)($contract->electricity_start ?? 0);
+            $elecNew   = isset($input['electricity_new']) ? (float)$input['electricity_new'] : $elecOld;
+            $elecUsage = max(0, $elecNew - $elecOld);
+            $elecCost  = (float)round($elecUsage * $elecPrice);
+
+            // Nước
+            $waterCalcType = $contract->water_calculation_type ?? 'khoi';
+            $waterOld      = isset($input['water_old']) ? (float)$input['water_old'] : (float)($contract->water_start ?? 0);
+            $waterNew      = isset($input['water_new']) ? (float)$input['water_new'] : $waterOld;
+            $waterUsage    = 0;
+            $waterCost     = 0;
+
+            if ($waterCalcType === 'khoi') {
+                $waterPrice = (float)($contract->water_price_block ?? 25000);
+                $waterUsage = max(0, $waterNew - $waterOld);
+                $waterCost  = (float)round($waterUsage * $waterPrice);
+            } else {
+                // Theo người
+                $waterPrice = (float)($contract->water_price_person ?? 100000);
+                $peopleCount = (int)($contract->water_people_count ?? 1);
+                $waterUsage = $peopleCount;
+                $waterCost = (float)round($waterPrice * $peopleCount);
+            }
+
+            // Dịch vụ cố định tháng cuối (mạng, rác, xe...)
+            $internet = (float)($contract->internet_price ?? 0);
+            $garbage  = (float)($contract->garbage_price ?? ($contract->service_fee ?? 0));
+            $parking  = (float)($contract->parking_fee ?? 0);
+            $fixedServicesTotal = $internet + $garbage + $parking;
+
+            // Nếu tính lẻ ngày, có thể nhân theo tỉ lệ lẻ ngày
+            $servicesCost = $isProrated ? (float)round(($fixedServicesTotal / 30) * $stayDays) : $fixedServicesTotal;
         }
-
-        // Dịch vụ cố định tháng cuối (mạng, rác, xe...)
-        $internet = (float)($contract->internet_price ?? 0);
-        $garbage  = (float)($contract->garbage_price ?? ($contract->service_fee ?? 0));
-        $parking  = (float)($contract->parking_fee ?? 0);
-        $fixedServicesTotal = $internet + $garbage + $parking;
-
-        // Nếu tính lẻ ngày, có thể nhân theo tỉ lệ lẻ ngày
-        $servicesCost = $isProrated ? (float)round(($fixedServicesTotal / 30) * $stayDays) : $fixedServicesTotal;
 
         // 3. Phí bồi thường hư hỏng (Damage Fee)
         $damageFee = isset($input['damage_fee']) ? max(0, (float)$input['damage_fee']) : 0;
@@ -948,6 +978,7 @@ class ContractLiquidationController extends Controller
         }
 
         return [
+            'is_no_service_fee'      => $isNoServiceFee,
             'checkout_date'         => $checkoutDate->format('Y-m-d'),
             'stay_days'             => $stayDays,
             'is_prorated'           => $isProrated,
@@ -977,5 +1008,42 @@ class ContractLiquidationController extends Controller
             'refund_amount'         => ($netAmount < 0) ? abs($netAmount) : 0,
             'scenario'              => $scenario,
         ];
+    }
+
+    /**
+     * Kiểm tra hợp đồng / cơ sở này có được miễn thu tiền điện nước & dịch vụ không (khách tự đóng cho nhà nước)
+     */
+    protected function checkIsNoServiceFee(Contract $contract, ?Post $post = null): bool
+    {
+        if (!$post) {
+            $post = Post::find($contract->post_id ?? $contract->room_id);
+        }
+
+        $building = $post ? ($post->building ?: (class_exists(Building::class) ? Building::find($post->building_id ?? '') : null)) : null;
+
+        $hasServiceExplicit = ($building && isset($building->has_service_pricing) && $building->has_service_pricing !== null)
+            ? (bool)$building->has_service_pricing
+            : (($building && isset($building->has_service_fee) && $building->has_service_fee !== null) ? (bool)$building->has_service_fee : null);
+
+        $bElec = $building ? (float)($building->electricity_price ?? 0) : 0;
+        $bWater = $building ? (float)($building->water_price ?? 0) : 0;
+        $bService = $building ? (float)($building->service_fee ?? 0) : 0;
+
+        $cElec = (float)($contract->electricity_price ?? 0);
+        $cWater = (float)($contract->water_price_block ?? ($contract->water_price ?? ($contract->water_price_person ?? 0)));
+        $cInternet = (float)($contract->internet_price ?? 0);
+        $cGarbage = (float)($contract->garbage_price ?? 0);
+
+        if ($hasServiceExplicit === false) {
+            return true;
+        } elseif ($cElec <= 0 && $cWater <= 0 && $cInternet <= 0 && $cGarbage <= 0) {
+            return true;
+        } elseif ($cElec <= 0 && $cWater <= 0) {
+            return true;
+        } elseif ($building && ($bElec <= 0 && $bWater <= 0 && $bService <= 0)) {
+            return true;
+        }
+
+        return false;
     }
 }

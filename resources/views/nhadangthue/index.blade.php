@@ -676,20 +676,29 @@
 
                     @if(isset($terminatedContracts) && $terminatedContracts->isNotEmpty())
                         <!-- DANH SÁCH CÁC CĂN ĐÃ THANH LÝ & BÀN GIAO PHÒNG TRỐNG -->
-                        <div class="mt-8 pt-8 border-t border-slate-200">
+                        <div id="terminated-contracts-section" class="mt-8 pt-8 border-t border-slate-200">
                             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
                                 <div class="flex items-center gap-2.5">
                                     <div class="w-8 h-8 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-sm">
                                         <i class="fa-solid fa-clock-rotate-left"></i>
                                     </div>
                                     <div>
-                                        <h3 class="text-base font-extrabold text-slate-800">Lịch Sử Thuê & Hợp Đồng Đã Thanh Lý ({{ $terminatedContracts->count() }})</h3>
+                                        <h3 class="text-base font-extrabold text-slate-800">Lịch Sử Thuê & Hợp Đồng Đã Thanh Lý <span id="terminated-contracts-count">({{ $terminatedContracts->count() }})</span></h3>
                                         <p class="text-xs text-slate-500">Các căn nhà đã hoàn tất trả phòng, đối soát công nợ và chuyển trạng thái phòng trống</p>
                                     </div>
                                 </div>
-                                <span class="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200 flex items-center gap-1.5 self-start sm:self-auto">
-                                    <i class="fa-solid fa-circle-check text-emerald-500"></i> Phòng đã bàn giao (Còn trống)
-                                </span>
+                                <div class="flex items-center gap-2 self-start sm:self-auto">
+                                    <span class="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200 flex items-center gap-1.5">
+                                        <i class="fa-solid fa-circle-check text-emerald-500"></i> Phòng đã bàn giao (Còn trống)
+                                    </span>
+                                    @if($terminatedContracts->count() > 1)
+                                        <button type="button" onclick="clearAllContractHistory()" 
+                                            class="px-3 py-1 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold border border-rose-200 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-xs"
+                                            title="Xóa toàn bộ lịch sử thuê đã thanh lý">
+                                            <i class="fa-regular fa-trash-can"></i> Xóa tất cả
+                                        </button>
+                                    @endif
+                                </div>
                             </div>
 
                             <div class="flex flex-col gap-5">
@@ -726,7 +735,7 @@
                                             'status' => 'terminated',
                                         ];
                                     @endphp
-                                    <div class="bg-slate-50/90 rounded-3xl border border-slate-200 overflow-hidden shadow-sm flex flex-col md:flex-row relative hover:shadow transition-all">
+                                    <div id="terminated-contract-card-{{ $tContractId }}" class="bg-slate-50/90 rounded-3xl border border-slate-200 overflow-hidden shadow-sm flex flex-col md:flex-row relative hover:shadow transition-all">
                                         <div class="relative w-full md:w-72 lg:w-80 shrink-0 min-h-[190px] bg-slate-200 overflow-hidden">
                                             <img src="{{ $tImgUrl }}" alt="{{ $tHouseTitle }}" class="w-full h-full object-cover">
                                             <div class="absolute inset-0 bg-slate-900/30"></div>
@@ -779,14 +788,21 @@
                                                 </div>
                                             </div>
 
-                                            <div class="flex flex-wrap sm:flex-nowrap gap-2.5 pt-2 border-t border-slate-200/80">
-                                                <button type="button" onclick="openTenantContractModal('{{ $tContractId }}')"
-                                                    class="w-full sm:w-auto px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition-all">
-                                                    <i class="fa-solid fa-file-contract"></i> Xem lại hợp đồng
-                                                </button>
-                                                <button type="button" onclick="openSettlementReceipt('{{ $tContractId }}', '{{ addslashes($tHouseTitle) }}', '{{ $tRoomCode }}', {{ json_encode($tLiquidation) }})"
-                                                    class="w-full sm:w-auto px-4 py-2 rounded-xl bg-skybrand-50 hover:bg-skybrand-100 text-skybrand-700 border border-skybrand-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-all">
-                                                    <i class="fa-solid fa-receipt"></i> Xem biên bản quyết toán thanh lý
+                                            <div class="flex flex-wrap sm:flex-nowrap gap-2.5 pt-2 border-t border-slate-200/80 items-center justify-between">
+                                                <div class="flex flex-wrap gap-2.5 w-full sm:w-auto">
+                                                    <button type="button" onclick="openTenantContractModal('{{ $tContractId }}')"
+                                                        class="w-full sm:w-auto px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition-all">
+                                                        <i class="fa-solid fa-file-contract"></i> Xem lại hợp đồng
+                                                    </button>
+                                                    <button type="button" onclick="openSettlementReceipt('{{ $tContractId }}', '{{ addslashes($tHouseTitle) }}', '{{ $tRoomCode }}', {{ json_encode($tLiquidation) }})"
+                                                        class="w-full sm:w-auto px-4 py-2 rounded-xl bg-skybrand-50 hover:bg-skybrand-100 text-skybrand-700 border border-skybrand-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-all">
+                                                        <i class="fa-solid fa-receipt"></i> Xem biên bản quyết toán thanh lý
+                                                    </button>
+                                                </div>
+                                                <button type="button" onclick="deleteContractHistory('{{ $tContractId }}', '{{ $tRoomCode }}')"
+                                                    class="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 hover:border-rose-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-xs"
+                                                    title="Xóa mục này khỏi lịch sử thuê của bạn">
+                                                    <i class="fa-regular fa-trash-can"></i> Xóa lịch sử
                                                 </button>
                                             </div>
                                         </div>
@@ -2829,9 +2845,25 @@
             const elecAmount = d.electricity_amount ? new Intl.NumberFormat('vi-VN').format(d.electricity_amount) + ' đ' : '0 đ';
             const waterAmount = d.water_amount ? new Intl.NumberFormat('vi-VN').format(d.water_amount) + ' đ' : '0 đ';
             const proratedRent = d.prorated_rent ? new Intl.NumberFormat('vi-VN').format(d.prorated_rent) + ' đ' : '0 đ';
+            const isNoServiceFee = Boolean(d.is_no_service_fee);
+
+            const utilityRowsHtml = isNoServiceFee
+                ? `<tr style="border-bottom: 1px dashed #e2e8f0;">
+                    <td colspan="2" style="padding: 6px 0; color: #059669; font-size: 11.5px; font-weight: 600;">
+                        🌿 Điện nước: Khách tự đóng cho Nhà nước theo thỏa thuận
+                    </td>
+                   </tr>`
+                : `<tr style="border-bottom: 1px dashed #e2e8f0;">
+                    <td style="padding: 6px 0; color: #64748b;">Điện chốt cuối (${d.electricity_old || 0} -> ${d.electricity_new || 0} kWh):</td>
+                    <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #0f172a;">${elecAmount}</td>
+                   </tr>
+                   <tr style="border-bottom: 1px dashed #e2e8f0;">
+                    <td style="padding: 6px 0; color: #64748b;">Nước chốt cuối:</td>
+                    <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #0f172a;">${waterAmount}</td>
+                   </tr>`;
 
             const html = `
-                <div style="text-align: left; font-size: 13px; line-height: 1.6; color: #334155;">
+                <div style="text-align: left; font-size: 13px; line-line-height: 1.6; color: #334155;">
                     <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 16px; margin-bottom: 14px;">
                         <div style="font-weight: 800; font-size: 15px; color: #0f172a;">${houseTitle}</div>
                         <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Mã hợp đồng: <strong>${roomCode}</strong> | Ngày bàn giao: <strong>${checkoutDate}</strong></div>
@@ -2846,14 +2878,7 @@
                                 <td style="padding: 6px 0; color: #64748b;">Tiền phòng tính theo ngày ở (${d.stay_days || 0} ngày):</td>
                                 <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #0f172a;">${proratedRent}</td>
                             </tr>
-                            <tr style="border-bottom: 1px dashed #e2e8f0;">
-                                <td style="padding: 6px 0; color: #64748b;">Điện chốt cuối (${d.electricity_old || 0} -> ${d.electricity_new || 0} kWh):</td>
-                                <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #0f172a;">${elecAmount}</td>
-                            </tr>
-                            <tr style="border-bottom: 1px dashed #e2e8f0;">
-                                <td style="padding: 6px 0; color: #64748b;">Nước chốt cuối:</td>
-                                <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #0f172a;">${waterAmount}</td>
-                            </tr>
+                            ${utilityRowsHtml}
                             <tr style="border-bottom: 1px dashed #e2e8f0;">
                                 <td style="padding: 6px 0; color: #64748b;">Bồi thường hư hại tài sản:</td>
                                 <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #e11d48;">${damageFee}</td>
@@ -2893,6 +2918,173 @@
             } else {
                 showToast('Biên bản quyết toán phòng ' + roomCode + ': nợ ' + totalDebt + ', cọc cấn trừ ' + depositAmount, 'info');
             }
+        }
+
+        // Xóa 1 hợp đồng khỏi lịch sử thuê của khách
+        function deleteContractHistory(contractId, contractCode) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Xóa lịch sử thuê?',
+                    text: `Bạn có chắc muốn xóa hợp đồng [${contractCode}] khỏi danh sách lịch sử thuê của bạn?`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#e11d48',
+                    cancelButtonColor: '#64748b',
+                    confirmButtonText: '<i class="fa-regular fa-trash-can mr-1"></i> Xóa lịch sử',
+                    cancelButtonText: 'Hủy',
+                    customClass: {
+                        popup: 'rounded-3xl shadow-2xl p-6',
+                        confirmButton: 'px-4 py-2.5 rounded-xl font-bold text-xs',
+                        cancelButton: 'px-4 py-2.5 rounded-xl font-bold text-xs'
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        doDeleteContractHistory(contractId);
+                    }
+                });
+            } else {
+                if (confirm(`Bạn có chắc muốn xóa hợp đồng [${contractCode}] khỏi lịch sử thuê?`)) {
+                    doDeleteContractHistory(contractId);
+                }
+            }
+        }
+
+        function doDeleteContractHistory(contractId) {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') 
+                || '{{ csrf_token() }}';
+
+            fetch('/api/tenant/contract-history/' + encodeURIComponent(contractId), {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json'
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const card = document.getElementById('terminated-contract-card-' + contractId);
+                    if (card) {
+                        card.style.transition = 'all 0.3s ease';
+                        card.style.opacity = '0';
+                        card.style.transform = 'scale(0.95)';
+                        setTimeout(() => {
+                            card.remove();
+                            const remainingCards = document.querySelectorAll('[id^="terminated-contract-card-"]');
+                            if (remainingCards.length === 0) {
+                                const section = document.getElementById('terminated-contracts-section');
+                                if (section) section.remove();
+                            } else {
+                                const countEl = document.getElementById('terminated-contracts-count');
+                                if (countEl) countEl.innerText = `(${remainingCards.length})`;
+                            }
+                        }, 300);
+                    }
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            title: 'Đã xóa!',
+                            text: data.message || 'Đã xóa hợp đồng khỏi lịch sử thành công.',
+                            icon: 'success',
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
+                    } else {
+                        showToast(data.message || 'Đã xóa thành công!');
+                    }
+                } else {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire('Lỗi', data.message || 'Không thể xóa lịch sử.', 'error');
+                    } else {
+                        alert(data.message || 'Lỗi khi xóa!');
+                    }
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire('Lỗi', 'Đã có lỗi xảy ra khi kết nối máy chủ.', 'error');
+                } else {
+                    alert('Lỗi kết nối máy chủ!');
+                }
+            });
+        }
+
+        // Xóa tất cả hợp đồng đã thanh lý khỏi lịch sử
+        function clearAllContractHistory() {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Xóa toàn bộ lịch sử?',
+                    text: 'Bạn có chắc muốn xóa tất cả các hợp đồng đã thanh lý khỏi lịch sử thuê của bạn?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#e11d48',
+                    cancelButtonColor: '#64748b',
+                    confirmButtonText: '<i class="fa-regular fa-trash-can mr-1"></i> Xóa tất cả',
+                    cancelButtonText: 'Hủy',
+                    customClass: {
+                        popup: 'rounded-3xl shadow-2xl p-6',
+                        confirmButton: 'px-4 py-2.5 rounded-xl font-bold text-xs',
+                        cancelButton: 'px-4 py-2.5 rounded-xl font-bold text-xs'
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        doClearAllContractHistory();
+                    }
+                });
+            } else {
+                if (confirm('Bạn có chắc muốn xóa tất cả các hợp đồng đã thanh lý khỏi lịch sử thuê?')) {
+                    doClearAllContractHistory();
+                }
+            }
+        }
+
+        function doClearAllContractHistory() {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') 
+                || '{{ csrf_token() }}';
+
+            fetch('/api/tenant/contract-history', {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json'
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const section = document.getElementById('terminated-contracts-section');
+                    if (section) {
+                        section.style.transition = 'all 0.3s ease';
+                        section.style.opacity = '0';
+                        setTimeout(() => section.remove(), 300);
+                    }
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            title: 'Đã xóa tất cả!',
+                            text: data.message || 'Đã xóa toàn bộ lịch sử thuê thành công.',
+                            icon: 'success',
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
+                    } else {
+                        window.location.reload();
+                    }
+                } else {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire('Lỗi', data.message || 'Không thể xóa.', 'error');
+                    } else {
+                        alert(data.message || 'Lỗi!');
+                    }
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire('Lỗi', 'Đã có lỗi xảy ra khi kết nối máy chủ.', 'error');
+                }
+            });
         }
 
         // Toast Helper
