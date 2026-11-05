@@ -808,14 +808,11 @@
                         <span>Thông báo</span>
                     </span>
                     @php
-                        $cskhUnreadCount = \App\Models\Notification::where(function ($q) {
-                            $q->where('role', 'cskh')
-                              ->orWhere('role', 'cham_soc_kh')
-                              ->orWhere('role', 'chamsockh');
-                        })->where('is_read', false)->count();
+                        $cskhCurUserId = (string)(auth()->id() ?? '');
+                        $cskhUnreadBadge = isset($unreadCount) ? (int)$unreadCount : ($cskhCurUserId ? \App\Models\Notification::where('user_id', $cskhCurUserId)->where('is_read', false)->count() : 0);
                     @endphp
-                    @if($cskhUnreadCount > 0)
-                        <span class="nav-badge badge-warning-pill" id="sidebarNotifBadge">{{ $cskhUnreadCount }}</span>
+                    @if($cskhUnreadBadge > 0)
+                        <span class="nav-badge badge-warning-pill" id="sidebarNotifBadge">{{ $cskhUnreadBadge }}</span>
                     @endif
                 </a>
             </li>
@@ -2370,6 +2367,35 @@
         function closeResolveModal() {
             closeHandleModal();
         }
+
+        // Đồng bộ số lượng thông báo chưa đọc trên Sidebar
+        async function updateSidebarNotifBadge() {
+            try {
+                const res = await fetch('/cskh/api/notifications/unread-count');
+                const data = await res.json();
+                if (data && data.success) {
+                    let badge = document.getElementById('sidebarNotifBadge');
+                    if (data.unread_notifications > 0) {
+                        if (!badge) {
+                            const notifLink = document.querySelector('a[href*="/cskh/thong-bao"]');
+                            if (notifLink) {
+                                badge = document.createElement('span');
+                                badge.className = 'nav-badge badge-warning-pill';
+                                badge.id = 'sidebarNotifBadge';
+                                notifLink.appendChild(badge);
+                            }
+                        }
+                        if (badge) {
+                            badge.textContent = data.unread_notifications;
+                            badge.style.display = 'inline-block';
+                        }
+                    } else if (badge) {
+                        badge.style.display = 'none';
+                    }
+                }
+            } catch (e) {}
+        }
+        setInterval(updateSidebarNotifBadge, 30000);
     </script>
 </body>
 </html>

@@ -1076,8 +1076,22 @@ class OperationManagementController extends Controller
         // Bắt buộc luôn tạo mã VietQR theo tài khoản ngân hàng của Quản trị viên (Admin)
         $qrUrl = "https://img.vietqr.io/image/{$bankCode}-{$cleanAcc}-compact2.png?amount={$totalAmount}&addInfo=" . urlencode($memo) . "&accountName=" . urlencode($bankHolder);
 
+        // Kiểm tra xem đây có phải là Hóa đơn thanh lý quyết toán hay không
+        $isLiquidationInvoice = (
+            ($invoice->type ?? '') === 'final_settlement' || 
+            ($invoice->type ?? '') === 'liquidation' || 
+            ($invoice->invoice_type ?? '') === 'liquidation' || 
+            str_starts_with((string)($invoice->invoice_code ?? ''), 'INV-LIQ-') ||
+            str_contains((string)($invoice->billing_period ?? ''), 'Quyết toán') ||
+            str_contains((string)($invoice->billing_period ?? ''), 'thanh lý')
+        );
+
         // Kiểm tra xem đây có phải là Hóa đơn #1 (Kỳ đầu tiên - Cọc & Nhận nhà) hay không
-        $isFirstInvoice = (float)($invoice->deposit ?? 0) > 0 || str_contains($invoice->billing_period ?? '', 'Kỳ đầu') || str_contains($invoice->note ?? '', 'lần đầu');
+        $isFirstInvoice = !$isLiquidationInvoice && (
+            (float)($invoice->deposit ?? 0) > 0 || 
+            str_contains($invoice->billing_period ?? '', 'Kỳ đầu') || 
+            str_contains($invoice->note ?? '', 'lần đầu')
+        );
 
         return view('qlvan_hanh.chi_tiet_hoa_don', compact(
             'invoice',
@@ -1088,7 +1102,8 @@ class OperationManagementController extends Controller
             'bankHolder',
             'memo',
             'qrUrl',
-            'isFirstInvoice'
+            'isFirstInvoice',
+            'isLiquidationInvoice'
         ));
     }
 

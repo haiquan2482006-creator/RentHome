@@ -397,8 +397,8 @@
                             <div>
                                 <label class="font-bold text-slate-600 block mb-1">Chỉ số điện CŨ (kWh):</label>
                                 <div class="relative">
-                                    <input type="number" id="elec_old" value="{{ $selectedData['elecOld'] ?? 0 }}" oninput="calculateInvoice()" 
-                                           class="w-full pl-3 pr-12 py-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                                    <input type="number" id="elec_old" value="{{ $selectedData['elecOld'] ?? 0 }}" readonly 
+                                           class="w-full pl-3 pr-12 py-2 rounded-xl border border-slate-200 bg-slate-100 font-bold text-slate-500 cursor-not-allowed select-none focus:outline-none">
                                     <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 pointer-events-none">kWh</span>
                                 </div>
                             </div>
@@ -448,8 +448,8 @@
                             <div>
                                 <label class="font-bold text-slate-600 block mb-1">Chỉ số nước CŨ (m³):</label>
                                 <div class="relative">
-                                    <input type="number" id="water_old" value="{{ $selectedData['waterOld'] ?? 0 }}" oninput="calculateInvoice()" 
-                                           class="w-full pl-3 pr-10 py-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:ring-2 focus:ring-skybrand-500 focus:outline-none">
+                                    <input type="number" id="water_old" value="{{ $selectedData['waterOld'] ?? 0 }}" readonly 
+                                           class="w-full pl-3 pr-10 py-2 rounded-xl border border-slate-200 bg-slate-100 font-bold text-slate-500 cursor-not-allowed select-none focus:outline-none">
                                     <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 pointer-events-none">m³</span>
                                 </div>
                             </div>

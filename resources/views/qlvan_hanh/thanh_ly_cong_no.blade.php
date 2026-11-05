@@ -1208,7 +1208,7 @@
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label" style="color: var(--accent-amber);">Chỉ số chốt cuối (*):</label>
-                                    <input type="number" id="calc_elec_new" class="form-input" oninput="recalculateSettlement()" value="0" style="border-color: #fcd34d;">
+                                    <input type="number" id="calc_elec_new" class="form-input" oninput="recalculateSettlement()" value="" placeholder="Nhập chỉ số chốt..." style="border-color: #fcd34d;">
                                 </div>
                             </div>
                             <div style="display: flex; justify-content: space-between; font-size: 0.775rem; color: var(--text-secondary); padding-top: 4px;">
@@ -1230,7 +1230,7 @@
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label" style="color: #0284c7;">Chỉ số nước mới chốt:</label>
-                                    <input type="number" id="calc_water_new" class="form-input" oninput="recalculateSettlement()" value="0" style="border-color: #7dd3fc;">
+                                    <input type="number" id="calc_water_new" class="form-input" oninput="recalculateSettlement()" value="" placeholder="Nhập chỉ số chốt..." style="border-color: #7dd3fc;">
                                 </div>
                             </div>
                             <div style="display: flex; justify-content: space-between; font-size: 0.775rem; color: var(--text-secondary); padding-top: 4px;">
@@ -1527,22 +1527,22 @@
                 if (rowSumWater) rowSumWater.style.display = 'flex';
                 if (rowSumServices) rowSumServices.style.display = 'flex';
 
-                // Điện
+                // Điện: để trống ô chỉ số chốt cuối theo yêu cầu người dùng
                 document.getElementById('calc_elec_old').value = d.electricity_old;
-                document.getElementById('calc_elec_new').value = Math.max(d.electricity_old, d.electricity_old + 15); // Mặc định gợi ý số mới
+                document.getElementById('calc_elec_new').value = '';
                 document.getElementById('calc_elec_price_label').innerText = formatMoney(d.electricity_price);
 
-                // Nước
+                // Nước: để trống ô chỉ số chốt cuối theo yêu cầu người dùng
                 const waterMeterRow = document.getElementById('waterMeterRow');
                 if (d.water_calculation_type === 'khoi') {
                     waterMeterRow.style.display = 'grid';
                     document.getElementById('calc_water_old').value = d.water_old;
-                    document.getElementById('calc_water_new').value = Math.max(d.water_old, d.water_old + 3);
+                    document.getElementById('calc_water_new').value = '';
                     document.getElementById('calc_water_type_label').innerText = `Đơn giá: ${formatMoney(d.water_price_block)} đ/khối`;
                 } else {
                     waterMeterRow.style.display = 'none';
                     document.getElementById('calc_water_old').value = 0;
-                    document.getElementById('calc_water_new').value = 0;
+                    document.getElementById('calc_water_new').value = '';
                     document.getElementById('calc_water_type_label').innerText = `Theo người: ${d.water_people_count} người x ${formatMoney(d.water_price_person)} đ`;
                 }
             }
@@ -1654,7 +1654,8 @@
             if (!d.is_no_service_fee) {
                 // Điện
                 elecOld = parseFloat(document.getElementById('calc_elec_old').value) || 0;
-                elecNew = parseFloat(document.getElementById('calc_elec_new').value) || elecOld;
+                const rawElecVal = document.getElementById('calc_elec_new').value.trim();
+                elecNew = rawElecVal !== '' ? (parseFloat(rawElecVal) || 0) : elecOld;
                 const elecPrice = (d.electricity_price !== undefined && d.electricity_price !== null && d.electricity_price !== '') 
                     ? parseFloat(d.electricity_price) 
                     : 3500;
@@ -1667,7 +1668,8 @@
                 // Nước
                 if (d.water_calculation_type === 'khoi') {
                     waterOld = parseFloat(document.getElementById('calc_water_old').value) || 0;
-                    waterNew = parseFloat(document.getElementById('calc_water_new').value) || waterOld;
+                    const rawWaterVal = document.getElementById('calc_water_new').value.trim();
+                    waterNew = rawWaterVal !== '' ? (parseFloat(rawWaterVal) || 0) : waterOld;
                     const waterPrice = (d.water_price_block !== undefined && d.water_price_block !== null && d.water_price_block !== '') 
                         ? parseFloat(d.water_price_block) 
                         : 25000;
@@ -1868,14 +1870,22 @@
             if (!isConfirmed) return;
 
             // Thu thập toàn bộ payload
+            const subElecOld = parseFloat(document.getElementById('calc_elec_old').value) || 0;
+            const subRawElec = document.getElementById('calc_elec_new').value.trim();
+            const subElecNew = subRawElec !== '' ? (parseFloat(subRawElec) || 0) : subElecOld;
+
+            const subWaterOld = parseFloat(document.getElementById('calc_water_old').value) || 0;
+            const subRawWater = document.getElementById('calc_water_new').value.trim();
+            const subWaterNew = subRawWater !== '' ? (parseFloat(subRawWater) || 0) : subWaterOld;
+
             const payload = {
                 checkout_date: checkoutDate,
                 is_prorated: document.getElementById('calc_is_prorated').checked ? 1 : 0,
                 stay_days: parseInt(document.getElementById('calc_stay_days').value) || 1,
-                electricity_old: parseFloat(document.getElementById('calc_elec_old').value) || 0,
-                electricity_new: parseFloat(document.getElementById('calc_elec_new').value) || 0,
-                water_old: parseFloat(document.getElementById('calc_water_old').value) || 0,
-                water_new: parseFloat(document.getElementById('calc_water_new').value) || 0,
+                electricity_old: subElecOld,
+                electricity_new: subElecNew,
+                water_old: subWaterOld,
+                water_new: subWaterNew,
                 damage_fee: parseFloat(document.getElementById('calc_damage_fee').value) || 0,
                 damage_reason: document.getElementById('calc_damage_reason').value,
                 note: document.getElementById('calc_general_note').value,

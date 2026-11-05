@@ -560,8 +560,12 @@
                         <i class="fa-solid fa-bell"></i>
                         <span>Thông báo</span>
                     </span>
-                    @if(isset($unreadCount) && $unreadCount > 0)
-                        <span class="nav-badge badge-warning-pill" id="sidebarNotifBadge">{{ $unreadCount }}</span>
+                    @php
+                        $cskhCurUserId = (string)(auth()->id() ?? '');
+                        $cskhUnreadBadge = isset($unreadCount) ? (int)$unreadCount : ($cskhCurUserId ? \App\Models\Notification::where('user_id', $cskhCurUserId)->where('is_read', false)->count() : 0);
+                    @endphp
+                    @if($cskhUnreadBadge > 0)
+                        <span class="nav-badge badge-warning-pill" id="sidebarNotifBadge">{{ $cskhUnreadBadge }}</span>
                     @endif
                 </a>
             </li>

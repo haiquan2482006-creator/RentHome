@@ -80,8 +80,8 @@
                 </a>
                 <div>
                     <div class="flex items-center gap-2">
-                        <span class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-400/30 uppercase tracking-wider">
-                            <i class="fa-solid fa-receipt mr-1"></i> {{ $isFirstInvoice ? 'Hóa Đơn Thanh Toán Lần Đầu #1' : 'Hóa Đơn Tiền Nhà' }}
+                        <span class="text-xs font-bold px-2.5 py-0.5 rounded-full {{ !empty($isLiquidationInvoice) ? 'bg-rose-500/20 text-rose-300 border border-rose-400/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-400/30' }} uppercase tracking-wider">
+                            <i class="fa-solid fa-receipt mr-1"></i> {{ !empty($isLiquidationInvoice) ? 'Hóa Đơn Quyết Toán Thanh Lý' : ($isFirstInvoice ? 'Hóa Đơn Thanh Toán Lần Đầu #1' : 'Hóa Đơn Tiền Nhà') }}
                         </span>
                         <span class="text-xs text-slate-400 font-mono">{{ $invoice->invoice_code }}</span>
                     </div>
@@ -134,7 +134,8 @@
             $isPaid = ($rawStatus === 'paid' || $rawPayStatus === 'paid');
             $isCash = ($invoice->payment_method === 'cash');
             $isBank = ($invoice->payment_method === 'bank_transfer');
-            $contractStatus = $contract ? ($contract->status ?? '') : '';
+            $contractStatus = strtolower($contract ? ($contract->status ?? '') : '');
+            $isTerminated = in_array($contractStatus, ['terminated', 'liquidated', 'completed']) || !empty($isLiquidationInvoice);
             $isContractActive = ($contractStatus === 'active');
         @endphp
 
@@ -180,7 +181,28 @@
                     <span>Đã Khóa – Chờ Kế Toán Duyệt</span>
                 </button>
             </div>
-        @elseif($isPaid)
+        @elseif($isPaid && (!empty($isLiquidationInvoice) || $isTerminated))
+            <div id="ruleBanner" class="p-4 sm:p-5 rounded-3xl bg-slate-100 border-2 border-slate-300 text-slate-900 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-all">
+                <div class="flex items-start gap-3.5">
+                    <div class="w-10 h-10 rounded-2xl bg-slate-800 text-white flex items-center justify-center shrink-0 shadow-md">
+                        <i class="fa-solid fa-handshake-slash text-lg"></i>
+                    </div>
+                    <div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <h3 class="font-extrabold text-sm sm:text-base text-slate-900">
+                                Hợp đồng đã Hoàn Tất Thanh Lý & Quyết Toán (Đã Đóng)
+                            </h3>
+                            <span id="badgeContractStatus" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-200 text-slate-800 border border-slate-400">
+                                Hợp đồng: Đã Thanh Lý (Terminated)
+                            </span>
+                        </div>
+                        <p class="text-xs text-slate-700 mt-1 leading-relaxed">
+                            Khách thuê đã hoàn tất thanh toán khoản tiền quyết toán công nợ cuối cùng. Hợp đồng chính thức kết thúc, phòng đã được giải phóng sang trạng thái trống sẵn sàng đón khách mới. Phương thức thanh toán: <strong>{{ $isBank ? 'Chuyển khoản ngân hàng (Admin đã duyệt)' : ($isCash ? 'Tiền mặt (Nhân sự thu)' : 'Đã thanh toán') }}</strong>.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        @elseif($isPaid && $isFirstInvoice)
             <div id="ruleBanner" class="p-4 sm:p-5 rounded-3xl bg-emerald-50 border border-emerald-200 text-emerald-950 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-all">
                 <div class="flex items-start gap-3.5">
                     <div class="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md">
@@ -196,7 +218,28 @@
                             </span>
                         </div>
                         <p class="text-xs text-emerald-800 mt-1 leading-relaxed">
-                            Khách thuê đã hoàn tất thanh toán hóa đơn. Phương thức thanh toán: <strong>{{ $isBank ? 'Chuyển khoản ngân hàng (Admin đã duyệt)' : ($isCash ? 'Tiền mặt (Nhân sự thu)' : 'Đã thanh toán') }}</strong>.
+                            Khách thuê đã hoàn tất thanh toán tiền cọc & tháng đầu. Phương thức thanh toán: <strong>{{ $isBank ? 'Chuyển khoản ngân hàng (Admin đã duyệt)' : ($isCash ? 'Tiền mặt (Nhân sự thu)' : 'Đã thanh toán') }}</strong>.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        @elseif($isPaid)
+            <div id="ruleBanner" class="p-4 sm:p-5 rounded-3xl bg-emerald-50 border border-emerald-200 text-emerald-950 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-all">
+                <div class="flex items-start gap-3.5">
+                    <div class="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md">
+                        <i class="fa-solid fa-circle-check text-lg"></i>
+                    </div>
+                    <div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <h3 class="font-extrabold text-sm sm:text-base text-emerald-950">
+                                Hóa đơn tiền nhà đã được thanh toán thành công!
+                            </h3>
+                            <span id="badgeContractStatus" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-200 text-emerald-900 border border-emerald-300">
+                                Hợp đồng: {{ $isTerminated ? 'Đã Thanh Lý (Terminated)' : 'Đang Hoạt Động (Active)' }}
+                            </span>
+                        </div>
+                        <p class="text-xs text-emerald-800 mt-1 leading-relaxed">
+                            Khách thuê đã hoàn tất thanh toán hóa đơn kỳ này. Phương thức thanh toán: <strong>{{ $isBank ? 'Chuyển khoản ngân hàng (Admin đã duyệt)' : ($isCash ? 'Tiền mặt (Nhân sự thu)' : 'Đã thanh toán') }}</strong>.
                         </p>
                     </div>
                 </div>
@@ -211,14 +254,16 @@
                     <div>
                         <div class="flex flex-wrap items-center gap-2">
                             <h3 class="font-extrabold text-sm sm:text-base">
-                                {{ $isFirstInvoice ? 'Quy tắc thanh toán lần đầu: Tiền phòng trả trước – Điện nước trả sau' : 'Hóa đơn chưa thanh toán' }}
+                                {{ !empty($isLiquidationInvoice) ? 'Quyết toán thanh lý: Thu khoản phát sinh còn thiếu' : ($isFirstInvoice ? 'Quy tắc thanh toán lần đầu: Tiền phòng trả trước – Điện nước trả sau' : 'Hóa đơn chưa thanh toán') }}
                             </h3>
                             <span id="badgeContractStatus" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-200 text-amber-900 border border-amber-300">
-                                {{ $isFirstInvoice ? 'Hợp đồng: Chờ Đóng Cọc & Nhận Phòng' : 'Chưa Thanh Toán' }}
+                                {{ !empty($isLiquidationInvoice) ? 'Chờ Khách Nộp Bổ Sung Để Đóng Hợp Đồng' : ($isFirstInvoice ? 'Hợp đồng: Chờ Đóng Cọc & Nhận Phòng' : 'Chưa Thanh Toán') }}
                             </span>
                         </div>
                         <p class="text-xs text-amber-800 mt-1 leading-relaxed">
-                            @if($isFirstInvoice)
+                            @if(!empty($isLiquidationInvoice))
+                                Sau khi bù trừ cọc và tiền thừa, khách còn thiếu khoản tiền trên để hoàn tất thanh lý. Sau khi nhân sự xác nhận thu tiền mặt, hợp đồng sẽ chính thức đóng (terminated) và giải phóng phòng về trạng thái phòng trống.
+                            @elseif($isFirstInvoice)
                                 Theo quy chuẩn cho thuê, <strong>Khách phải thanh toán xong Hóa đơn #1 này thì Hợp đồng mới được Kích hoạt (Active)</strong> và mới được bàn giao chìa khóa. Nhân sự nếu đã nhận tiền mặt trực tiếp từ khách thuê, hãy bấm nút <strong>"Xác Nhận Thu Tiền Mặt"</strong> bên cạnh.
                             @else
                                 Hóa đơn hiện đang ở trạng thái chưa thanh toán. Khách thuê có thể chuyển khoản VietQR hoặc thanh toán tiền mặt trực tiếp cho nhân viên vận hành.
@@ -410,49 +455,69 @@
                             </tr>
                             @endif
 
-                            <!-- 4. TIỀN ĐIỆN KỲ ĐẦU (0 VNĐ) -->
+                            <!-- 4. TIỀN ĐIỆN -->
                             <tr class="hover:bg-slate-50/80 transition-colors">
                                 <td class="py-3.5 text-center font-bold text-slate-400">04</td>
                                 <td class="py-3.5">
                                     <div class="font-bold text-slate-900 flex items-center gap-2">
                                         <i class="fa-solid fa-bolt text-amber-500"></i>
-                                        <span>Tiền Điện (Tháng đầu ghi nhận chỉ số bàn giao)</span>
+                                        <span>{{ !empty($isLiquidationInvoice) ? 'Tiền Điện Chốt Cuối' : ($isFirstInvoice ? 'Tiền Điện (Tháng đầu ghi nhận chỉ số bàn giao)' : 'Tiền Điện Hàng Tháng') }}</span>
                                     </div>
                                     <span class="text-xs text-slate-500 block mt-0.5">
-                                        Chỉ số công tơ bàn giao ban đầu: <strong>{{ (int)($invoice->electricity_old ?? ($contract->electricity_start ?? 0)) }}</strong> kWh (Đơn giá: {{ number_format($contract->electricity_price ?? 3500) }} đ/kWh)
+                                        @if(!empty($isLiquidationInvoice))
+                                            Chỉ số cũ: <strong>{{ (int)($invoice->electricity_old ?? 0) }}</strong> kWh → Số chốt: <strong>{{ (int)($invoice->electricity_new ?? 0) }}</strong> kWh (Đơn giá: {{ number_format($contract->electricity_price ?? 3500) }} đ/kWh)
+                                        @elseif($isFirstInvoice)
+                                            Chỉ số công tơ bàn giao ban đầu: <strong>{{ (int)($invoice->electricity_old ?? ($contract->electricity_start ?? 0)) }}</strong> kWh (Đơn giá: {{ number_format($contract->electricity_price ?? 3500) }} đ/kWh)
+                                        @else
+                                            Chỉ số cũ: <strong>{{ (int)($invoice->electricity_old ?? 0) }}</strong> kWh → Số mới: <strong>{{ (int)($invoice->electricity_new ?? 0) }}</strong> kWh (Đơn giá: {{ number_format($contract->electricity_price ?? 3500) }} đ/kWh)
+                                        @endif
                                     </span>
                                 </td>
                                 <td class="py-3.5 text-center">
-                                    <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs font-bold">Số đầu: {{ (int)($invoice->electricity_old ?? ($contract->electricity_start ?? 0)) }}</span>
+                                    @if(!empty($isLiquidationInvoice) || !$isFirstInvoice)
+                                        <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs font-bold">Tiêu thụ: {{ max(0, (int)($invoice->electricity_new ?? 0) - (int)($invoice->electricity_old ?? 0)) }} số</span>
+                                    @else
+                                        <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs font-bold">Số đầu: {{ (int)($invoice->electricity_old ?? ($contract->electricity_start ?? 0)) }}</span>
+                                    @endif
                                 </td>
                                 <td class="py-3.5 text-right font-medium text-slate-600">
                                     {{ number_format($contract->electricity_price ?? 3500) }} đ/số
                                 </td>
-                                <td class="py-3.5 text-right font-extrabold text-emerald-600 text-sm">
-                                    0 VNĐ
+                                <td class="py-3.5 text-right font-extrabold {{ (float)($invoice->electricity_amount ?? 0) > 0 ? 'text-slate-900' : 'text-emerald-600' }} text-sm">
+                                    {{ number_format($invoice->electricity_amount ?? 0) }} đ
                                 </td>
                             </tr>
 
-                            <!-- 5. TIỀN NƯỚC KỲ ĐẦU (0 VNĐ) -->
+                            <!-- 5. TIỀN NƯỚC -->
                             <tr class="hover:bg-slate-50/80 transition-colors">
                                 <td class="py-3.5 text-center font-bold text-slate-400">05</td>
                                 <td class="py-3.5">
                                     <div class="font-bold text-slate-900 flex items-center gap-2">
                                         <i class="fa-solid fa-droplet text-sky-500"></i>
-                                        <span>Tiền Nước (Tháng đầu ghi nhận chỉ số bàn giao)</span>
+                                        <span>{{ !empty($isLiquidationInvoice) ? 'Tiền Nước Chốt Cuối' : ($isFirstInvoice ? 'Tiền Nước (Tháng đầu ghi nhận chỉ số bàn giao)' : 'Tiền Nước Hàng Tháng') }}</span>
                                     </div>
                                     <span class="text-xs text-slate-500 block mt-0.5">
-                                        Chỉ số đồng hồ bàn giao ban đầu: <strong>{{ (int)($invoice->water_old ?? ($contract->water_start ?? 0)) }}</strong> m³
+                                        @if(!empty($isLiquidationInvoice))
+                                            Chỉ số cũ: <strong>{{ (int)($invoice->water_old ?? 0) }}</strong> m³ → Số chốt: <strong>{{ (int)($invoice->water_new ?? 0) }}</strong> m³ (Đơn giá: {{ number_format($contract->water_price_block ?? 15000) }} đ/khối)
+                                        @elseif($isFirstInvoice)
+                                            Chỉ số đồng hồ bàn giao ban đầu: <strong>{{ (int)($invoice->water_old ?? ($contract->water_start ?? 0)) }}</strong> m³ (Đơn giá: {{ number_format($contract->water_price_block ?? 15000) }} đ/khối)
+                                        @else
+                                            Chỉ số cũ: <strong>{{ (int)($invoice->water_old ?? 0) }}</strong> m³ → Số mới: <strong>{{ (int)($invoice->water_new ?? 0) }}</strong> m³ (Đơn giá: {{ number_format($contract->water_price_block ?? 15000) }} đ/khối)
+                                        @endif
                                     </span>
                                 </td>
                                 <td class="py-3.5 text-center">
-                                    <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs font-bold">Số đầu: {{ (int)($invoice->water_old ?? ($contract->water_start ?? 0)) }}</span>
+                                    @if(!empty($isLiquidationInvoice) || !$isFirstInvoice)
+                                        <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs font-bold">Tiêu thụ: {{ max(0, (int)($invoice->water_new ?? 0) - (int)($invoice->water_old ?? 0)) }} khối</span>
+                                    @else
+                                        <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs font-bold">Số đầu: {{ (int)($invoice->water_old ?? ($contract->water_start ?? 0)) }}</span>
+                                    @endif
                                 </td>
                                 <td class="py-3.5 text-right font-medium text-slate-600">
                                     {{ number_format($contract->water_price_block ?? 15000) }} đ/khối
                                 </td>
-                                <td class="py-3.5 text-right font-extrabold text-emerald-600 text-sm">
-                                    0 VNĐ
+                                <td class="py-3.5 text-right font-extrabold {{ (float)($invoice->water_amount ?? 0) > 0 ? 'text-slate-900' : 'text-emerald-600' }} text-sm">
+                                    {{ number_format($invoice->water_amount ?? 0) }} đ
                                 </td>
                             </tr>
                         </tbody>
@@ -464,18 +529,26 @@
                     <div class="space-y-1">
                         <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block">Ghi chú hóa đơn:</span>
                         <p class="text-xs text-slate-600 italic max-w-lg">
-                            {{ $invoice->note ?: 'Khách thanh toán xong Hóa đơn #1 sẽ chính thức nhận chìa khóa phòng và kích hoạt hợp đồng.' }}
+                            {{ $invoice->note ?: (!empty($isLiquidationInvoice) ? 'Hóa đơn quyết toán thanh lý hợp đồng và bàn giao lại phòng trọ.' : ($isFirstInvoice ? 'Khách thanh toán xong Hóa đơn #1 sẽ chính thức nhận chìa khóa phòng và kích hoạt hợp đồng.' : 'Hóa đơn tiền phòng & dịch vụ hàng tháng.')) }}
                         </p>
                     </div>
 
                     <div class="w-full sm:w-auto p-4 rounded-2xl bg-slate-50 border border-slate-200 text-left sm:text-right space-y-1">
-                        <span class="text-xs font-extrabold text-slate-500 uppercase tracking-wider block">TỔNG TIỀN THANH TOÁN KỲ ĐẦU:</span>
+                        <span class="text-xs font-extrabold text-slate-500 uppercase tracking-wider block">
+                            {{ !empty($isLiquidationInvoice) ? 'TỔNG TIỀN QUYẾT TOÁN CẦN NỘP:' : ($isFirstInvoice ? 'TỔNG TIỀN THANH TOÁN KỲ ĐẦU:' : 'TỔNG TIỀN HÓA ĐƠN:') }}
+                        </span>
                         <p class="text-2xl sm:text-3xl font-black text-rose-600">
                             {{ number_format($invoice->total_amount) }} <span class="text-sm font-extrabold text-slate-600">VNĐ</span>
                         </p>
-                        <p class="text-[11px] font-semibold text-slate-500">
-                            (Đã bao gồm tiền cọc + tiền phòng kỳ đầu + dịch vụ cố định)
-                        </p>
+                        @if(!empty($isLiquidationInvoice))
+                            <p class="text-[11px] font-semibold text-slate-500">
+                                (Đã khấu trừ toàn bộ tiền cọc, hoàn tiền phòng thừa & cộng phí điện nước, dịch vụ chốt cuối)
+                            </p>
+                        @elseif($isFirstInvoice)
+                            <p class="text-[11px] font-semibold text-slate-500">
+                                (Đã bao gồm tiền cọc + tiền phòng kỳ đầu + dịch vụ cố định)
+                            </p>
+                        @endif
                     </div>
                 </div>
 

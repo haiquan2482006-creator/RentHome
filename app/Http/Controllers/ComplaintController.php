@@ -264,6 +264,10 @@ class ComplaintController extends Controller
         $pendingCount = $totalPendingCount;
         $complaintCount = $totalPendingCount;
 
+        $currentUser = Auth::user();
+        $userId = $currentUser ? (string)($currentUser->_id ?? $currentUser->id) : null;
+        $unreadCount = $userId ? Notification::where('user_id', $userId)->where('is_read', false)->count() : 0;
+
         return view('cham_soc_kh.khieu_nai', compact(
             'tickets',
             'items',
@@ -273,7 +277,8 @@ class ComplaintController extends Controller
             'complaintCount',
             'loai',
             'status',
-            'keyword'
+            'keyword',
+            'unreadCount'
         ));
     }
 

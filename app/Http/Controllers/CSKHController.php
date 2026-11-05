@@ -418,7 +418,13 @@ class CSKHController extends ComplaintController
 
         $userId = (string)($currentUser->_id ?? $currentUser->id);
 
-        Notification::where('user_id', $userId)
+        Notification::where(function($q) use ($userId) {
+                $q->where('user_id', $userId)
+                  ->orWhere(function($sub) {
+                      $sub->whereNull('user_id')
+                          ->whereIn('role', ['cskh', 'cham_soc_kh', 'chamsockh']);
+                  });
+            })
             ->where('is_read', false)
             ->update([
                 'is_read' => true,
