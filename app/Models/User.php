@@ -250,6 +250,57 @@ class User extends Authenticatable
             ->first();
     }
 
+    /**
+     * Lấy tài khoản Quản trị viên (Admin)
+     */
+    public static function getAdminUser()
+    {
+        $admin = self::where('role', 'admin')->first();
+        if ($admin) {
+            return $admin;
+        }
+
+        $enterprise = self::where('role', 'doanhnghiep')
+            ->orWhere('role', 'enterprise')
+            ->first();
+        if ($enterprise) {
+            return $enterprise;
+        }
+
+        return self::whereNotNull('bank_account')->where('bank_account', '!=', '')->first() ?: self::first();
+    }
+
+    /**
+     * Lấy thông tin tài khoản ngân hàng của Admin để tạo mã VietQR hóa đơn
+     */
+    public static function getAdminBankDetails(): array
+    {
+        $adminUser = self::getAdminUser();
+
+        $bankName = !empty($adminUser?->bank_name) ? $adminUser->bank_name : 'MB Bank (Ngân hàng Quân Đội)';
+        $bankAccount = !empty($adminUser?->bank_account) ? $adminUser->bank_account : '0912 987 654 888';
+
+        $rawHolder = (!empty($adminUser?->bank_owner)) 
+            ? $adminUser->bank_owner 
+            : (!empty($adminUser?->bank_account_holder) 
+                ? $adminUser->bank_account_holder 
+                : (!empty($adminUser?->account_name) 
+                    ? $adminUser->account_name 
+                    : (!empty($adminUser?->name) 
+                        ? $adminUser->name 
+                        : 'ADMIN RENTHOME')));
+
+        $bankHolder = mb_strtoupper($rawHolder, 'UTF-8');
+
+        return [
+            'user'         => $adminUser,
+            'bank_name'    => $bankName,
+            'bank_account' => $bankAccount,
+            'bank_owner'   => $bankHolder,
+            'bank_holder'  => $bankHolder,
+        ];
+    }
+
     public function getHoTenAttribute()
     {
         return $this->attributes['ho_ten'] ?? ($this->attributes['account_name'] ?? ($this->attributes['name'] ?? ''));

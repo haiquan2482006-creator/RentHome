@@ -744,6 +744,15 @@ Route::get('/Admin/lich-su', function () {
 })->middleware('auth');
 
 // Quản lý Thông báo hệ thống (Admin)
+// ==================== HỒ SƠ QUẢN TRỊ VIÊN (ADMIN) ====================
+Route::get('/Admin/ho-so', [\App\Http\Controllers\AdminProfileController::class, 'index'])->middleware('auth')->name('admin.profile');
+Route::get('/admin/ho-so', [\App\Http\Controllers\AdminProfileController::class, 'index'])->middleware('auth');
+Route::post('/Admin/ho-so/update', [\App\Http\Controllers\AdminProfileController::class, 'updateProfile'])->middleware('auth')->name('admin.profile.update');
+Route::post('/admin/ho-so/update', [\App\Http\Controllers\AdminProfileController::class, 'updateProfile'])->middleware('auth');
+Route::post('/Admin/ho-so/password', [\App\Http\Controllers\AdminProfileController::class, 'updatePassword'])->middleware('auth')->name('admin.profile.password');
+Route::post('/admin/ho-so/password', [\App\Http\Controllers\AdminProfileController::class, 'updatePassword'])->middleware('auth');
+
+// Quản lý Thông báo hệ thống (Admin)
 Route::get('/thong_bao', function () {
     if (!Auth::check() || Auth::user()->role !== 'admin') {
         return redirect('/login')->with('error', 'Chỉ tài khoản Quản trị viên mới có quyền truy cập trang Thông báo.');

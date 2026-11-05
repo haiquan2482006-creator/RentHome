@@ -1619,15 +1619,35 @@
             if (elBankHolder) elBankHolder.innerText = bankHolder;
             if (elMemo) elMemo.innerText = memo;
 
-            // Mã VietQR link
-            const cleanBankCode = bankName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'vietbank';
+            // Mã VietQR link chuẩn của Quản trị viên (Admin)
+            const getVietQRBankSlug = (bName) => {
+                if (!bName) return 'mbbank';
+                const b = bName.toLowerCase();
+                if (b.includes('vietinbank') || b.includes('icb') || b.includes('công thương')) return 'vietinbank';
+                if (b.includes('vietcombank') || b.includes('vcb') || b.includes('ngoại thương')) return 'vietcombank';
+                if (b.includes('bidv') || b.includes('đầu tư')) return 'bidv';
+                if (b.includes('agribank') || b.includes('nông nghiệp')) return 'agribank';
+                if (b.includes('mbbank') || b.includes('quân đội') || b.includes('mb')) return 'mbbank';
+                if (b.includes('techcombank') || b.includes('kỹ thương') || b.includes('tcb')) return 'techcombank';
+                if (b.includes('vpbank') || b.includes('thịnh vượng')) return 'vpbank';
+                if (b.includes('tpbank') || b.includes('tiên phong')) return 'tpbank';
+                if (b.includes('acb') || b.includes('á châu')) return 'acb';
+                if (b.includes('vib') || b.includes('quốc tế')) return 'vib';
+                if (b.includes('hdbank') || b.includes('phát triển')) return 'hdbank';
+                if (b.includes('shb') || b.includes('sài gòn hà nội')) return 'shb';
+                if (b.includes('sacombank') || b.includes('sài gòn thương tín')) return 'sacombank';
+                if (b.includes('msb') || b.includes('hàng hải')) return 'msb';
+                if (b.includes('seabank') || b.includes('đông nam á')) return 'seabank';
+                if (b.includes('ocb') || b.includes('phương đông')) return 'ocb';
+                if (b.includes('bacabank') || b.includes('bắc á')) return 'bacabank';
+                if (b.includes('vietbank')) return 'vietbank';
+                return 'mbbank';
+            };
+            const cleanBankCode = getVietQRBankSlug(bankName);
             const qrImg = document.getElementById('viQrCodeImg');
             if (qrImg) {
-                if (data.qr_code_image) {
-                    qrImg.src = data.qr_code_image.startsWith('http') ? data.qr_code_image : ('/' + data.qr_code_image.replace(/^\//, ''));
-                } else {
-                    qrImg.src = `https://img.vietqr.io/image/${cleanBankCode}-${bankAccount}-compact2.png?amount=${Math.round(totalNum)}&addInfo=${encodeURIComponent(memo)}&accountName=${encodeURIComponent(bankHolder)}`;
-                }
+                const bAcc = (bankAccount || '0912987654888').replace(/\s+/g, '');
+                qrImg.src = `https://img.vietqr.io/image/${cleanBankCode}-${bAcc}-compact2.png?amount=${Math.round(totalNum)}&addInfo=${encodeURIComponent(memo)}&accountName=${encodeURIComponent(bankHolder)}`;
             }
 
             document.getElementById('viewInvoiceModal').classList.remove('hidden');

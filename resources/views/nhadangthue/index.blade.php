@@ -458,18 +458,11 @@
                                     </tr>
                                 ';
 
-                                // Lấy thông tin tài khoản ngân hàng chuẩn VietQR
-                                $enterpriseUser = \App\Models\User::getEnterpriseUser();
-                                $bUser = ($enterpriseUser && !empty($enterpriseUser->bank_account)) 
-                                    ? $enterpriseUser 
-                                    : (($landlord ?? $owner) ?: \Illuminate\Support\Facades\Auth::user());
-                                if (!$bUser || empty($bUser->bank_account)) {
-                                    $fallbackB = \App\Models\User::whereNotNull('bank_account')->where('bank_account', '!=', '')->first();
-                                    if ($fallbackB) $bUser = $fallbackB;
-                                }
-                                $bName = !empty($bUser->bank_name) ? $bUser->bank_name : 'VietBank';
-                                $bAccount = !empty($bUser->bank_account) ? $bUser->bank_account : '00939399884747';
-                                $bHolder = mb_strtoupper((!empty($bUser->bank_owner)) ? $bUser->bank_owner : ((!empty($bUser->bank_account_holder)) ? $bUser->bank_account_holder : 'NGUYEN THI VAN ANH'), 'UTF-8');
+                                // Lấy thông tin tài khoản ngân hàng của Quản trị viên (Admin) RentHome để tạo mã VietQR
+                                $adminBank = \App\Models\User::getAdminBankDetails();
+                                $bName = $adminBank['bank_name'];
+                                $bAccount = $adminBank['bank_account'];
+                                $bHolder = $adminBank['bank_holder'];
 
                                 // Lấy thông tin nhân sự phụ trách
                                 $staffUser = null;
@@ -541,7 +534,7 @@
                                     'isPendingApproval' => $isHousePendingApproval,
                                     'status' => $activeInv ? $activeInv->status : ($isHousePaid ? 'paid' : 'unpaid'),
                                     'proofImage' => !empty($activeInv?->proof_image) ? (str_starts_with($activeInv->proof_image, 'http') ? $activeInv->proof_image : asset(ltrim($activeInv->proof_image, '/'))) : null,
-                                    'customQr' => !empty($activeInv?->qr_code_image) ? (str_starts_with($activeInv->qr_code_image, 'http') ? $activeInv->qr_code_image : asset(ltrim($activeInv->qr_code_image, '/'))) : null,
+                                    'customQr' => null, // Luôn ưu tiên sinh mã VietQR tự động của Admin
                                 ];
                                 $invoiceDataJsonMap[$contractId] = $invoiceItem;
                                 $invoiceDataJsonMap[$firstMonthInvoiceCode] = $invoiceItem;
@@ -1022,10 +1015,12 @@
                                     $staffName = $invStaff->account_name ?? ($invStaff->name ?? ($invStaff->username ?? $invLandlordName));
                                     $staffPhone = $invStaff->phone ?? $invLandlordPhone;
 
-                                    $invBankName = $invOwner->bank_name ?? 'MB Bank (Ngân hàng Quân Đội)';
-                                    $invBankAccount = $invOwner->bank_account ?? '0912 987 654 888';
-                                    $invBankOwner = $invOwner->bank_owner ?? mb_strtoupper($invLandlordName, 'UTF-8');
-                                    $invBankShort = !empty($invOwner->bank_name) ? explode(' ', trim($invOwner->bank_name))[0] : 'MB Bank';
+                                    // Lấy thông tin tài khoản ngân hàng của Quản trị viên (Admin) RentHome để tạo mã VietQR
+                                    $adminBank = \App\Models\User::getAdminBankDetails();
+                                    $invBankName = $adminBank['bank_name'];
+                                    $invBankAccount = $adminBank['bank_account'];
+                                    $invBankOwner = $adminBank['bank_holder'];
+                                    $invBankShort = !empty($invBankName) ? explode(' ', trim($invBankName))[0] : 'MB Bank';
                                     $isPendingApproval = ($inv->status === 'pending_approval' || $inv->payment_status === 'pending_approval');
                                     $paymentMethod = $inv->payment_method ?? ($inv->payment_type ?? '');
 
@@ -1049,7 +1044,7 @@
                                         'isPaid' => $isPaid,
                                         'isPendingApproval' => $isPendingApproval,
                                         'proofImage' => !empty($inv->proof_image) ? (str_starts_with($inv->proof_image, 'http') ? $inv->proof_image : asset($inv->proof_image)) : null,
-                                        'customQr' => !empty($inv->qr_code_image) ? (str_starts_with($inv->qr_code_image, 'http') ? $inv->qr_code_image : asset(ltrim($inv->qr_code_image, '/'))) : null,
+                                        'customQr' => null, // Luôn ưu tiên sinh mã VietQR tự động của Admin
                                         'status' => $inv->status ?? 'unpaid',
                                         'paymentMethod' => $paymentMethod,
                                         'paymentDate' => $inv->payment_date ?? date('d/m/Y'),
@@ -2788,6 +2783,39 @@
             }
         }
 
+        function getVietQRBankCode(bankName) {
+            if (!bankName) return 'vietinbank';
+            const clean = bankName.toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (clean.includes('vietin') || clean.includes('icb') || clean.includes('ctg')) return 'vietinbank';
+            if (clean.includes('vietcom') || clean.includes('vcb')) return 'vietcombank';
+            if (clean.includes('bidv')) return 'bidv';
+            if (clean.includes('mb') || clean.includes('quan-doi')) return 'mbbank';
+            if (clean.includes('techcom') || clean.includes('tcb')) return 'techcombank';
+            if (clean.includes('agri') || clean.includes('vba')) return 'agribank';
+            if (clean.includes('acb')) return 'acb';
+            if (clean.includes('vp') || clean.includes('vpb')) return 'vpbank';
+            if (clean.includes('tp') || clean.includes('tpb')) return 'tpbank';
+            if (clean.includes('sacom') || clean.includes('stb')) return 'sacombank';
+            if (clean.includes('hd') || clean.includes('hdb')) return 'hdbank';
+            if (clean.includes('vib')) return 'vib';
+            if (clean.includes('shb')) return 'shb';
+            if (clean.includes('sea') || clean.includes('ssb')) return 'seabank';
+            if (clean.includes('msb')) return 'msb';
+            if (clean.includes('ocb')) return 'ocb';
+            if (clean.includes('lp') || clean.includes('lienviet')) return 'lpbank';
+            if (clean.includes('exim') || clean.includes('eib')) return 'eximbank';
+            if (clean.includes('baca') || clean.includes('bab')) return 'bacabank';
+            if (clean.includes('nama') || clean.includes('nab')) return 'namabank';
+            if (clean.includes('pvcom') || clean.includes('pvcb')) return 'pvcombank';
+            if (clean.includes('saigon') || clean.includes('sgb')) return 'saigonbank';
+            if (clean.includes('baoviet') || clean.includes('bvb')) return 'baovietbank';
+            if (clean.includes('bvbank') || clean.includes('banviet')) return 'bvbank';
+            if (clean.includes('kienlong') || clean.includes('klb')) return 'kienlongbank';
+            if (clean.includes('pgbank') || clean.includes('pgb')) return 'pgbank';
+            if (clean.includes('vietbank') || clean.includes('vbb')) return 'vietbank';
+            return clean || 'vietinbank';
+        }
+
         // Pay QR Modal Logic
         function openPayQRModal(code, amount, landlordName, bankAccount, bankName, houseName, customQr) {
             document.getElementById('qrContentText').innerText = code;
@@ -2797,11 +2825,20 @@
             if (bankName) document.getElementById('qrBankNameText').innerText = bankName;
             if (houseName) document.getElementById('qrHouseNameText').innerText = houseName;
 
-            if (customQr) {
-                document.getElementById('qrImage').src = customQr;
-            } else {
-                const qrData = encodeURIComponent('RentHome_' + code + '_' + amount.replace(/,/g, ''));
-                document.getElementById('qrImage').src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + qrData;
+            const cleanAmt = parseInt(String(amount).replace(/[^0-9]/g, '')) || 0;
+            const bName = bankName || 'MB Bank';
+            const bCode = getVietQRBankCode(bName);
+            const bAcc = (bankAccount || '0912987654888').replace(/\s+/g, '');
+            const bHolder = encodeURIComponent(landlordName || 'ADMIN RENTHOME');
+            const bMemo = encodeURIComponent(code);
+
+            const vietQrUrl = `https://img.vietqr.io/image/${bCode}-${bAcc}-compact2.png?amount=${cleanAmt}&addInfo=${bMemo}&accountName=${bHolder}`;
+            const qrImage = document.getElementById('qrImage');
+            if (qrImage) {
+                qrImage.src = vietQrUrl;
+                qrImage.onerror = function() {
+                    this.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + bMemo;
+                };
             }
 
             document.getElementById('payQRModal').classList.remove('hidden');

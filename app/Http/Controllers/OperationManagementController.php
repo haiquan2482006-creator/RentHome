@@ -54,28 +54,11 @@ class OperationManagementController extends Controller
         $currentMonth = $now->month;
         $currentYear = $now->year;
 
-        // Lấy thông tin tài khoản ngân hàng của Công ty / Doanh nghiệp RentHome để tạo mã VietQR
-        $enterpriseUser = \App\Models\User::getEnterpriseUser();
-        $bankUser = ($enterpriseUser && !empty($enterpriseUser->bank_account)) ? $enterpriseUser : Auth::user();
-        if (!$bankUser || empty($bankUser->bank_account)) {
-            $fallbackBankUser = \App\Models\User::whereNotNull('bank_account')->where('bank_account', '!=', '')->first();
-            if ($fallbackBankUser) {
-                $bankUser = $fallbackBankUser;
-            }
-        }
-
-        $bankName = !empty($bankUser->bank_name) ? $bankUser->bank_name : 'VietBank';
-        $bankAccount = !empty($bankUser->bank_account) ? $bankUser->bank_account : '00939399884747';
-        $rawHolder = (!empty($bankUser->bank_owner)) 
-            ? $bankUser->bank_owner 
-            : (!empty($bankUser->bank_account_holder) 
-                ? $bankUser->bank_account_holder 
-                : (!empty($bankUser->account_name) 
-                    ? $bankUser->account_name 
-                    : (!empty($bankUser->name) 
-                        ? $bankUser->name 
-                        : 'NGUYEN THI VAN ANH')));
-        $bankHolder = mb_strtoupper($rawHolder, 'UTF-8');
+        // Lấy thông tin tài khoản ngân hàng của Quản trị viên (Admin) RentHome để tạo mã VietQR
+        $adminBank = \App\Models\User::getAdminBankDetails();
+        $bankName = $adminBank['bank_name'];
+        $bankAccount = $adminBank['bank_account'];
+        $bankHolder = $adminBank['bank_holder'];
 
         // 2. Duyệt qua từng hợp đồng và tính toán trạng thái thanh toán ảo theo logic thời gian
         $rooms = $contracts->map(function ($contract) use ($now, $today, $currentMonth, $currentYear, $currentMonthStr, $bankName, $bankAccount, $bankHolder) {
@@ -596,33 +579,11 @@ class OperationManagementController extends Controller
             }
             $dueDate = $now->copy()->day(min($billDateNum, $now->daysInMonth))->format('Y-m-d');
 
-            // Thông tin ngân hàng của Doanh nghiệp RentHome cố định cho mã VietQR
-            $enterpriseUser = \App\Models\User::getEnterpriseUser();
-            $bankUser = ($enterpriseUser && !empty($enterpriseUser->bank_account)) 
-                ? $enterpriseUser 
-                : (($owner && !empty($owner->bank_account)) ? $owner : Auth::user());
-            if (!$bankUser || empty($bankUser->bank_account)) {
-                $fallbackBankUser = \App\Models\User::whereNotNull('bank_account')->where('bank_account', '!=', '')->first();
-                if ($fallbackBankUser) {
-                    $bankUser = $fallbackBankUser;
-                }
-            }
-
-            $bankName = !empty($bankUser->bank_name) ? $bankUser->bank_name : 'VietBank';
-            $bankAccount = !empty($bankUser->bank_account) ? $bankUser->bank_account : '00939399884747';
-            
-            // Trường lưu tên chủ tài khoản trong hồ sơ là bank_owner
-            $rawHolder = (!empty($bankUser->bank_owner)) 
-                ? $bankUser->bank_owner 
-                : (!empty($bankUser->bank_account_holder) 
-                    ? $bankUser->bank_account_holder 
-                    : (!empty($bankUser->account_name) 
-                        ? $bankUser->account_name 
-                        : (!empty($bankUser->name) 
-                            ? $bankUser->name 
-                            : 'NGUYEN THI VAN ANH')));
-
-            $bankHolder = mb_strtoupper($rawHolder, 'UTF-8');
+            // Thông tin ngân hàng của Quản trị viên (Admin) RentHome cố định cho mã VietQR
+            $adminBank = \App\Models\User::getAdminBankDetails();
+            $bankName = $adminBank['bank_name'];
+            $bankAccount = $adminBank['bank_account'];
+            $bankHolder = $adminBank['bank_holder'];
 
             // Thông tin tiền cọc hợp đồng & kiểm tra tháng đầu tiên
             $contractDeposit = (float)($contract->deposit ?? 0);
@@ -712,7 +673,9 @@ class OperationManagementController extends Controller
                 'billingPeriod'   => $currentMonthStr,
                 'dueDate'         => $dueDate,
                 'bankName'        => $bankName,
-                'bankAccount'     => $bankAccount,
+                'bankCode'        => $this->getVietQRBankCode($bankName),
+                'bankAccount'     => preg_replace('/\s+/', '', $bankAccount),
+                'bankAccountRaw'  => $bankAccount,
                 'bankHolder'      => $bankHolder,
                 'memo'            => strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $contractCode)) . ' THANG ' . $now->format('m/Y'),
             ];
@@ -856,7 +819,7 @@ class OperationManagementController extends Controller
             'payment_status'     => $request->input('payment_status', 'unpaid'),
             'payment_date'       => $request->input('payment_status') === 'paid' ? $now->toDateTimeString() : null,
             'note'               => $request->input('note', ''),
-            'qr_code_image'      => $qrPath,
+            'qr_code_image'      => null, // Bắt buộc sinh mã VietQR theo tài khoản Admin
         ]);
 
         if ($request->input('payment_status') === 'paid') {
@@ -1099,37 +1062,19 @@ class OperationManagementController extends Controller
             $post = Post::find($contract->post_id);
         }
 
-        // Lấy thông tin tài khoản ngân hàng của Công ty / Doanh nghiệp RentHome để tạo mã VietQR
-        $enterpriseUser = \App\Models\User::getEnterpriseUser();
-        $bankUser = ($enterpriseUser && !empty($enterpriseUser->bank_account)) 
-            ? $enterpriseUser 
-            : ((!empty($contract->owner_id) ? \App\Models\User::find($contract->owner_id) : null) ?: Auth::user());
-        if (!$bankUser || empty($bankUser->bank_account)) {
-            $fallbackBankUser = \App\Models\User::whereNotNull('bank_account')->where('bank_account', '!=', '')->first();
-            if ($fallbackBankUser) $bankUser = $fallbackBankUser;
-        }
-
-        $bankName = !empty($bankUser->bank_name) ? $bankUser->bank_name : 'VietBank';
-        $bankAccount = !empty($bankUser->bank_account) ? $bankUser->bank_account : '00939399884747';
-        $rawHolder = (!empty($bankUser->bank_owner)) 
-            ? $bankUser->bank_owner 
-            : (!empty($bankUser->bank_account_holder) 
-                ? $bankUser->bank_account_holder 
-                : (!empty($bankUser->account_name) 
-                    ? $bankUser->account_name 
-                    : (!empty($bankUser->name) 
-                        ? $bankUser->name 
-                        : 'NGUYEN THI VAN ANH')));
-        $bankHolder = mb_strtoupper($rawHolder, 'UTF-8');
+        // Lấy thông tin tài khoản ngân hàng của Quản trị viên (Admin) RentHome để tạo mã VietQR
+        $adminBank = \App\Models\User::getAdminBankDetails();
+        $bankName = $adminBank['bank_name'];
+        $bankAccount = $adminBank['bank_account'];
+        $bankHolder = $adminBank['bank_holder'];
 
         $memo = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $invoice->invoice_code));
         $totalAmount = (float)($invoice->total_amount ?? 0);
+        $bankCode = $this->getVietQRBankCode($bankName);
         
-        if (!empty($invoice->qr_code_image)) {
-            $qrUrl = str_starts_with($invoice->qr_code_image, 'http') ? $invoice->qr_code_image : asset($invoice->qr_code_image);
-        } else {
-            $qrUrl = "https://img.vietqr.io/image/{$bankName}-{$bankAccount}-compact2.png?amount={$totalAmount}&addInfo=" . urlencode($memo) . "&accountName=" . urlencode($bankHolder);
-        }
+        $cleanAcc = preg_replace('/\s+/', '', $bankAccount);
+        // Bắt buộc luôn tạo mã VietQR theo tài khoản ngân hàng của Quản trị viên (Admin)
+        $qrUrl = "https://img.vietqr.io/image/{$bankCode}-{$cleanAcc}-compact2.png?amount={$totalAmount}&addInfo=" . urlencode($memo) . "&accountName=" . urlencode($bankHolder);
 
         // Kiểm tra xem đây có phải là Hóa đơn #1 (Kỳ đầu tiên - Cọc & Nhận nhà) hay không
         $isFirstInvoice = (float)($invoice->deposit ?? 0) > 0 || str_contains($invoice->billing_period ?? '', 'Kỳ đầu') || str_contains($invoice->note ?? '', 'lần đầu');
@@ -1145,5 +1090,45 @@ class OperationManagementController extends Controller
             'qrUrl',
             'isFirstInvoice'
         ));
+    }
+
+    /**
+     * Map tên ngân hàng sang mã slug / BIN chuẩn của VietQR
+     */
+    public static function getVietQRBankCode(?string $bankName): string
+    {
+        if (empty($bankName)) {
+            return 'vietinbank';
+        }
+        $clean = mb_strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $bankName), 'UTF-8');
+        if (str_contains($clean, 'vietin') || str_contains($clean, 'icb') || str_contains($clean, 'ctg')) return 'vietinbank';
+        if (str_contains($clean, 'vietcom') || str_contains($clean, 'vcb')) return 'vietcombank';
+        if (str_contains($clean, 'bidv')) return 'bidv';
+        if (str_contains($clean, 'mb') || str_contains($clean, 'quan-doi')) return 'mbbank';
+        if (str_contains($clean, 'techcom') || str_contains($clean, 'tcb')) return 'techcombank';
+        if (str_contains($clean, 'agri') || str_contains($clean, 'vba')) return 'agribank';
+        if (str_contains($clean, 'acb')) return 'acb';
+        if (str_contains($clean, 'vp') || str_contains($clean, 'vpb')) return 'vpbank';
+        if (str_contains($clean, 'tp') || str_contains($clean, 'tpb')) return 'tpbank';
+        if (str_contains($clean, 'sacom') || str_contains($clean, 'stb')) return 'sacombank';
+        if (str_contains($clean, 'hd') || str_contains($clean, 'hdb')) return 'hdbank';
+        if (str_contains($clean, 'vib')) return 'vib';
+        if (str_contains($clean, 'shb')) return 'shb';
+        if (str_contains($clean, 'sea') || str_contains($clean, 'ssb')) return 'seabank';
+        if (str_contains($clean, 'msb')) return 'msb';
+        if (str_contains($clean, 'ocb')) return 'ocb';
+        if (str_contains($clean, 'lp') || str_contains($clean, 'lienviet')) return 'lpbank';
+        if (str_contains($clean, 'exim') || str_contains($clean, 'eib')) return 'eximbank';
+        if (str_contains($clean, 'baca') || str_contains($clean, 'bab')) return 'bacabank';
+        if (str_contains($clean, 'nama') || str_contains($clean, 'nab')) return 'namabank';
+        if (str_contains($clean, 'pvcom') || str_contains($clean, 'pvcb')) return 'pvcombank';
+        if (str_contains($clean, 'saigon') || str_contains($clean, 'sgb')) return 'saigonbank';
+        if (str_contains($clean, 'baoviet') || str_contains($clean, 'bvb')) return 'baovietbank';
+        if (str_contains($clean, 'bvbank') || str_contains($clean, 'banviet')) return 'bvbank';
+        if (str_contains($clean, 'kienlong') || str_contains($clean, 'klb')) return 'kienlongbank';
+        if (str_contains($clean, 'pgbank') || str_contains($clean, 'pgb')) return 'pgbank';
+        if (str_contains($clean, 'vietbank') || str_contains($clean, 'vbb')) return 'vietbank';
+
+        return $clean ?: 'vietinbank';
     }
 }

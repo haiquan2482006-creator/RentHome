@@ -573,35 +573,18 @@
 
                         <!-- LIVE QR CODE PREVIEW -->
                         <div class="bg-slate-50 rounded-2xl border border-slate-200 p-4 flex flex-col items-center justify-center text-center space-y-2.5">
-                            <div class="w-36 h-36 bg-white p-2 rounded-xl border border-slate-200 shadow-sm flex items-center justify-center relative group overflow-hidden">
+                            <div class="w-40 h-40 bg-white p-2 rounded-xl border border-slate-200 shadow-sm flex items-center justify-center relative group overflow-hidden">
                                 <img id="qr_code_img" 
-                                     src="https://img.vietqr.io/image/vietbank-{{ $selectedData['bankAccount'] ?? '00939399884747' }}-compact2.png?amount={{ $selectedData['rent'] ?? 0 }}&addInfo={{ urlencode($selectedData['memo'] ?? '') }}&accountName={{ urlencode($selectedData['bankHolder'] ?? 'NGUYEN THI VAN ANH') }}" 
-                                     onerror="this.src='https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + encodeURIComponent('{{ $selectedData['memo'] ?? '' }}')" 
+                                     src="https://img.vietqr.io/image/{{ $selectedData['bankCode'] ?? 'mbbank' }}-{{ preg_replace('/\s+/', '', $selectedData['bankAccount'] ?? '0912987654888') }}-compact2.png?amount={{ $selectedData['rent'] ?? 0 }}&addInfo={{ urlencode($selectedData['memo'] ?? '') }}&accountName={{ urlencode($selectedData['bankHolder'] ?? 'ADMIN RENTHOME') }}" 
+                                     onerror="this.src='https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=' + encodeURIComponent('{{ $selectedData['memo'] ?? '' }}')" 
                                      alt="VietQR Code" class="w-full h-full object-contain transition-all">
                             </div>
 
-                            <!-- Nhãn trạng thái mã QR -->
-                            <div id="qr_badge_auto" class="flex items-center gap-1 text-[11px] font-bold text-slate-600">
-                                <i class="fa-solid fa-shield-halved text-emerald-500"></i> Quét mã VietQR chuyển khoản tự động
+                            <!-- Nhãn trạng thái mã VietQR -->
+                            <div class="flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+                                <i class="fa-solid fa-qrcode text-emerald-600"></i> Quét mã VietQR chuyển khoản tự động
                             </div>
-                            <div id="qr_badge_custom" class="hidden flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-full border border-emerald-300">
-                                <i class="fa-solid fa-circle-check text-emerald-600"></i> Đang dùng ảnh QR riêng đã tải lên
-                            </div>
-
-                            <!-- Nút tải ảnh mã QR riêng / Khôi phục VietQR -->
-                            <div class="flex items-center gap-2 pt-1">
-                                <label for="custom_qr_input" class="cursor-pointer px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-skybrand-700 border border-skybrand-300 font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all hover:scale-105 active:scale-95">
-                                    <i class="fa-solid fa-cloud-arrow-up text-skybrand-600"></i>
-                                    <span>Tải ảnh QR riêng</span>
-                                </label>
-                                <input type="file" id="custom_qr_input" accept="image/*" class="hidden" onchange="handleCustomQRUpload(event)">
-
-                                <button type="button" id="btn_remove_custom_qr" onclick="removeCustomQR()" class="hidden px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 font-bold text-xs flex items-center gap-1 shadow-xs transition-all active:scale-95" title="Khôi phục mã VietQR tự động">
-                                    <i class="fa-solid fa-rotate-left"></i>
-                                    <span>Dùng VietQR</span>
-                                </button>
-                            </div>
-                            <p class="text-[10px] text-slate-400 italic">Khách thuê sẽ thấy và quét mã này khi nhận hóa đơn</p>
+                            <p class="text-[10px] text-slate-500 font-medium">Tự động sinh theo đúng số tài khoản & số tiền cần thanh toán realtime</p>
                         </div>
                     </div>
                 </div>
@@ -771,38 +754,38 @@
         // DATA DICTIONARY CHO CÁC PHÒNG TỪ DỮ LIỆU THỰC TẾ
         const roomData = @json($roomsDataMap ?? []);
 
-        // BIẾN LƯU ẢNH MÃ QR RIÊNG KHI TẢI LÊN
-        let customQrBase64 = null;
-
-        function handleCustomQRUpload(event) {
-            const file = event.target.files && event.target.files[0];
-            if (!file) return;
-            if (!file.type.startsWith('image/')) {
-                alert('Vui lòng chọn một file hình ảnh (PNG, JPG, JPEG, WEBP)!');
-                return;
-            }
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                customQrBase64 = e.target.result;
-                const qrImg = document.getElementById('qr_code_img');
-                if (qrImg) qrImg.src = customQrBase64;
-                document.getElementById('qr_badge_auto')?.classList.add('hidden');
-                document.getElementById('qr_badge_custom')?.classList.remove('hidden');
-                document.getElementById('btn_remove_custom_qr')?.classList.remove('hidden');
-                showToast('Đã tải ảnh mã QR riêng thành công!', 'success');
-            };
-            reader.readAsDataURL(file);
-        }
-
-        function removeCustomQR() {
-            customQrBase64 = null;
-            const fileInput = document.getElementById('custom_qr_input');
-            if (fileInput) fileInput.value = '';
-            document.getElementById('qr_badge_auto')?.classList.remove('hidden');
-            document.getElementById('qr_badge_custom')?.classList.add('hidden');
-            document.getElementById('btn_remove_custom_qr')?.classList.add('hidden');
-            calculateInvoice();
-            showToast('Đã chuyển về mã VietQR tự động!', 'info');
+        // HELPER MAP TÊN NGÂN HÀNG THÀNH MÃ VIETQR CHUẨN
+        function getVietQRBankCode(bankName) {
+            if (!bankName) return 'vietinbank';
+            const clean = bankName.toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (clean.includes('vietin') || clean.includes('icb') || clean.includes('ctg')) return 'vietinbank';
+            if (clean.includes('vietcom') || clean.includes('vcb')) return 'vietcombank';
+            if (clean.includes('bidv')) return 'bidv';
+            if (clean.includes('mb') || clean.includes('quan-doi')) return 'mbbank';
+            if (clean.includes('techcom') || clean.includes('tcb')) return 'techcombank';
+            if (clean.includes('agri') || clean.includes('vba')) return 'agribank';
+            if (clean.includes('acb')) return 'acb';
+            if (clean.includes('vp') || clean.includes('vpb')) return 'vpbank';
+            if (clean.includes('tp') || clean.includes('tpb')) return 'tpbank';
+            if (clean.includes('sacom') || clean.includes('stb')) return 'sacombank';
+            if (clean.includes('hd') || clean.includes('hdb')) return 'hdbank';
+            if (clean.includes('vib')) return 'vib';
+            if (clean.includes('shb')) return 'shb';
+            if (clean.includes('sea') || clean.includes('ssb')) return 'seabank';
+            if (clean.includes('msb')) return 'msb';
+            if (clean.includes('ocb')) return 'ocb';
+            if (clean.includes('lp') || clean.includes('lienviet')) return 'lpbank';
+            if (clean.includes('exim') || clean.includes('eib')) return 'eximbank';
+            if (clean.includes('baca') || clean.includes('bab')) return 'bacabank';
+            if (clean.includes('nama') || clean.includes('nab')) return 'namabank';
+            if (clean.includes('pvcom') || clean.includes('pvcb')) return 'pvcombank';
+            if (clean.includes('saigon') || clean.includes('sgb')) return 'saigonbank';
+            if (clean.includes('baoviet') || clean.includes('bvb')) return 'baovietbank';
+            if (clean.includes('bvbank') || clean.includes('banviet')) return 'bvbank';
+            if (clean.includes('kienlong') || clean.includes('klb')) return 'kienlongbank';
+            if (clean.includes('pgbank') || clean.includes('pgb')) return 'pgbank';
+            if (clean.includes('vietbank') || clean.includes('vbb')) return 'vietbank';
+            return clean || 'vietinbank';
         }
 
         // HELPER FORMAT TIỀN TỆ VNĐ
@@ -1094,23 +1077,24 @@
                 document.getElementById('discount_amount_text').innerText = formatVND(discount);
             }
 
-            // Cập nhật mã VietQR Preview động (nếu không dùng ảnh QR riêng)
+            // Cập nhật mã VietQR Preview động theo đúng ngân hàng và số tiền realtime
             const memo = document.getElementById('transfer_memo') ? document.getElementById('transfer_memo').value : '';
             const roomCode = document.getElementById('room_select') ? document.getElementById('room_select').value : '';
             const curData = roomData[roomCode] || {};
-            const curBankAcc = curData.bankAccount || '00939399884747';
-            const curBankHolder = curData.bankHolder || 'NGUYEN THI VAN ANH';
-            const qrUrl = `https://img.vietqr.io/image/vietbank-${curBankAcc}-compact2.png?amount=${grandTotal}&addInfo=${encodeURIComponent(memo)}&accountName=${encodeURIComponent(curBankHolder)}`;
+            const curBankName = curData.bankName || (document.getElementById('bank_name') ? document.getElementById('bank_name').value : 'MB Bank');
+            const rawBankAcc = curData.bankAccount || (document.getElementById('bank_account_info') ? document.getElementById('bank_account_info').value.split('-')[0].trim() : '0912987654888');
+            const curBankAcc = rawBankAcc.replace(/\s+/g, '');
+            const curBankHolder = curData.bankHolder || 'ADMIN RENTHOME';
+            const curBankCode = curData.bankCode || getVietQRBankCode(curBankName);
+
+            const qrAmount = Math.max(0, Math.round(grandTotal));
+            const qrUrl = `https://img.vietqr.io/image/${curBankCode}-${curBankAcc}-compact2.png?amount=${qrAmount}&addInfo=${encodeURIComponent(memo)}&accountName=${encodeURIComponent(curBankHolder)}`;
             const qrImg = document.getElementById('qr_code_img');
             if (qrImg) {
-                if (customQrBase64) {
-                    qrImg.src = customQrBase64;
-                } else {
-                    qrImg.src = qrUrl;
-                    qrImg.onerror = function() {
-                        this.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(memo + ' ' + grandTotal)}`;
-                    };
-                }
+                qrImg.src = qrUrl;
+                qrImg.onerror = function() {
+                    this.src = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(memo + ' ' + qrAmount)}`;
+                };
             }
 
             return {
@@ -1189,7 +1173,7 @@
                 service_amount: calc.serviceTotal,
                 total_amount: calc.grandTotal,
                 payment_status: statusVal,
-                qr_code_image: customQrBase64 || null
+                qr_code_image: null
             };
 
             const csrfToken = document.getElementById('csrf_token') ? document.getElementById('csrf_token').value : '';

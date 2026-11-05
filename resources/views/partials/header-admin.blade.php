@@ -730,28 +730,41 @@
                     <i class="fa-solid fa-bell" style="color: #f59e0b;"></i>
                     <span>Thông báo</span>
                 </a>
+
+                <!-- 11. Hồ sơ Admin -->
+                <a href="{{ route('admin.profile') }}" class="nav-link {{ request()->is('Admin/ho-so*') || request()->is('admin/ho-so*') ? 'active' : '' }}" title="Hồ sơ Quản trị viên">
+                    <i class="fa-solid fa-id-badge" style="color: #0284c7;"></i>
+                    <span>Hồ sơ Admin</span>
+                </a>
             @endif
         </nav>
     </div>
 
     <!-- Thông tin User Admin / Đăng xuất -->
     <div class="sidebar-footer">
-        <div class="user-profile">
-            @php
-                $adminUser = Auth::user();
-                $adminName = $adminUser ? ($adminUser->account_name ?? $adminUser->username ?? 'Admin') : 'Admin';
-                if ($adminUser && method_exists($adminUser, 'isCskh') && $adminUser->isCskh() && empty($adminUser->account_name)) {
-                    $adminName = 'Chăm sóc khách hàng';
-                }
-                $adminEmail = $adminUser->email ?? 'admin2006@gmail.com';
-                $adminInitials = strtoupper(mb_substr($adminName, 0, 2, 'UTF-8'));
-            @endphp
-            <div class="avatar">{{ $adminInitials }}</div>
+        @php
+            $adminUser = Auth::user();
+            $adminName = $adminUser ? ($adminUser->account_name ?? $adminUser->username ?? 'Admin') : 'Admin';
+            if ($adminUser && method_exists($adminUser, 'isCskh') && $adminUser->isCskh() && empty($adminUser->account_name)) {
+                $adminName = 'Chăm sóc khách hàng';
+            }
+            $adminEmail = $adminUser->email ?? 'admin2006@gmail.com';
+            $adminInitials = strtoupper(mb_substr($adminName, 0, 2, 'UTF-8'));
+            $adminProfileUrl = ($adminUser && method_exists($adminUser, 'isCskh') && $adminUser->isCskh()) ? url('/ho-so') : route('admin.profile');
+        @endphp
+        <a href="{{ $adminProfileUrl }}" class="user-profile" style="text-decoration: none; color: inherit; flex: 1; cursor: pointer;" title="Xem & chỉnh sửa hồ sơ">
+            @if(!empty($adminUser?->avatar))
+                <div class="avatar overflow-hidden" style="padding: 0; border: 1px solid rgba(2, 132, 199, 0.3);">
+                    <img src="{{ $adminUser->display_avatar }}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+                </div>
+            @else
+                <div class="avatar">{{ $adminInitials }}</div>
+            @endif
             <div class="user-details">
                 <span class="user-name">{{ $adminName }}</span>
                 <span class="user-email">{{ $adminEmail }}</span>
             </div>
-        </div>
+        </a>
         <form action="{{ route('logout') }}" method="POST" style="margin: 0; padding: 0;">
             @csrf
             <button type="submit" title="Đăng xuất" class="btn-logout">
