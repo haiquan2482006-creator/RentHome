@@ -41,7 +41,7 @@ class ContactController extends Controller
 
         $contacts = $contactsQuery->get();
 
-        // 2. Tìm thêm các contact theo post_id và thông tin người thuê nếu có
+        // 2. Tìm thêm các contact theo post_id và thông tin người thuê nếu có (chỉ các contact đã từng duyệt/ký hợp đồng)
         if (!empty($postIds) && ($tenantId || $tenantPhone || $tenantEmail)) {
             $postContacts = Contact::where(function($q) use ($postIds) {
                 $q->whereIn('post_id', $postIds);
@@ -64,6 +64,9 @@ class ContactController extends Controller
                     if ($hasCond) $cond->orWhere('email', $tenantEmail);
                     else { $cond->where('email', $tenantEmail); $hasCond = true; }
                 }
+            })->where(function($q) use ($contractId) {
+                $q->where('contract_id', $contractId)
+                  ->orWhereIn('status', ['approved', 'đã ký hợp đồng', 'signed']);
             })->get();
 
             $contacts = $contacts->merge($postContacts)->unique(function($c) {
@@ -72,6 +75,19 @@ class ContactController extends Controller
         }
 
         foreach ($contacts as $c) {
+            // TUYỆT ĐỐI không ẩn các yêu cầu liên hệ mới đang chờ xử lý (pending/communicating) và chưa có hợp đồng
+            if (empty($c->contract_id) && in_array($c->status, ['pending', 'communicating', 'waiting'])) {
+                continue;
+            }
+            // Không ẩn contact mới được tạo sau thời điểm tạo hợp đồng cũ
+            if (!empty($contract->created_at) && !empty($c->created_at)) {
+                $contractCreatedAt = \Carbon\Carbon::parse($contract->created_at);
+                $contactCreatedAt = \Carbon\Carbon::parse($c->created_at);
+                if ($contactCreatedAt->greaterThan($contractCreatedAt)) {
+                    continue;
+                }
+            }
+
             $c->is_hidden = true;
             $c->status = 'liquidated';
             $c->save();
