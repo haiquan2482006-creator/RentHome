@@ -676,6 +676,7 @@ Route::post('/sua_giao_dien', function (\Illuminate\Http\Request $request) {
         'banner_subtitle',
         'banner_cta',
         'banner_url',
+        'banner_images',
         'brand_name',
         'brand_slogan',
         'logo_url',

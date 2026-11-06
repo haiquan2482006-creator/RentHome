@@ -47,12 +47,14 @@ class ContractController extends Controller
             'duration_months.required' => 'Vui lòng nhập thời hạn hợp đồng.',
         ]);
 
-        // Hàm tiện ích chuẩn hóa chuỗi số tiền có dấu chấm/phẩy thành số nguyên/thực
+        // Hàm tiện ích chuẩn hóa chuỗi số tiền có dấu chấm/phẩy (định dạng tiền tệ VNĐ) thành số thực
         $cleanNumber = function ($value) {
             if ($value === null || $value === '') return 0;
-            if (is_numeric($value)) return (float)$value;
+            if (is_int($value) || is_float($value)) return (float)$value;
+            // Với chuỗi định dạng tiền tệ VNĐ (VD: 20.000, 3.500, 25.000, 6.700.000):
+            // Loại bỏ toàn bộ ký tự không phải chữ số để tránh PHP hiểu nhầm dấu chấm phân cách hàng nghìn thành số thập phân
             $clean = preg_replace('/[^\d]/', '', (string)$value);
-            return $clean ? (float)$clean : 0;
+            return $clean !== '' ? (float)$clean : 0;
         };
 
         // Bắt đầu Transaction để đảm bảo tính toàn vẹn dữ liệu

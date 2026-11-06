@@ -788,10 +788,6 @@
                     <i class="fa-solid fa-arrows-rotate"></i>
                     <span>Làm mới</span>
                 </a>
-                <a href="{{ url('/qlvan_hanh/thanh_ly_cong_no') }}" class="btn-header-link" target="_blank" title="Xem Sổ Quyết Toán Nhân Sự">
-                    <i class="fa-solid fa-scale-balanced" style="color: #0284c7;"></i>
-                    <span>Sổ Thanh Lý Nhân Sự</span>
-                </a>
             </div>
         </header>
 

@@ -110,30 +110,30 @@
 
         <!-- Background Crossfade Images -->
         <div class="absolute inset-0 z-0 pointer-events-none">
-            @if (!empty($themeSettings['banner_url']))
-                <div class="hero-bg-slide absolute inset-0 bg-cover bg-center opacity-100"
-                    style="background-image: url('{{ $themeSettings['banner_url'] }}');">
+            @php
+                $customBanners = [];
+                if (!empty($themeSettings['banner_images']) && is_array($themeSettings['banner_images'])) {
+                    $customBanners = array_values(array_filter($themeSettings['banner_images']));
+                } elseif (!empty($themeSettings['banner_url'])) {
+                    $customBanners = [$themeSettings['banner_url']];
+                }
+                $defaultBanners = [
+                    'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1920&q=80',
+                    'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1920&q=80',
+                    'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1920&q=80',
+                    'https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=1920&q=80',
+                    'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1920&q=80',
+                ];
+                $activeBanners = !empty($customBanners) 
+                    ? array_merge($customBanners, array_slice($defaultBanners, count($customBanners))) 
+                    : $defaultBanners;
+            @endphp
+            @foreach($activeBanners as $bIdx => $bUrl)
+                <div class="hero-bg-slide absolute inset-0 bg-cover bg-center {{ $bIdx === 0 ? 'opacity-100' : 'opacity-0' }}"
+                    style="{{ $bIdx === 0 ? 'background-image: url(\'' . $bUrl . '\');' : '' }}"
+                    {!! $bIdx > 0 ? 'data-bg="url(\'' . $bUrl . '\')"' : '' !!}>
                 </div>
-                <div class="hero-bg-slide absolute inset-0 bg-cover bg-center opacity-0"
-                    data-bg="url('https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1920&q=80')">
-                </div>
-            @else
-                <div class="hero-bg-slide absolute inset-0 bg-cover bg-center opacity-100"
-                    style="background-image: url('https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1920&q=80');">
-                </div>
-            @endif
-            <div class="hero-bg-slide absolute inset-0 bg-cover bg-center opacity-0"
-                data-bg="url('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1920&q=80')">
-            </div>
-            <div class="hero-bg-slide absolute inset-0 bg-cover bg-center opacity-0"
-                data-bg="url('https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1920&q=80')">
-            </div>
-            <div class="hero-bg-slide absolute inset-0 bg-cover bg-center opacity-0"
-                data-bg="url('https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=1920&q=80')">
-            </div>
-            <div class="hero-bg-slide absolute inset-0 bg-cover bg-center opacity-0"
-                data-bg="url('https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1920&q=80')">
-            </div>
+            @endforeach
 
             <!-- Lớp phủ cố định giúp chữ luôn rõ nét -->
             <div class="absolute inset-0 bg-slate-950/70 pointer-events-none"></div>

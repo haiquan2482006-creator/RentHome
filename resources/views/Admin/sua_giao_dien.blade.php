@@ -47,9 +47,9 @@
                         <!-- THẺ CARD CHỨA HỆ THỐNG TABS & NỘI DUNG FORM -->
                         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
                             
-                            <!-- 1. HỆ THỐNG TABS CHUYỂN ĐỔI BANNER, THƯƠNG HIỆU, FOOTER & TIỆN ÍCH FORM -->
+                            <!-- 1. HỆ THỐNG TABS CHUYỂN ĐỔI BANNER, THƯƠNG HIỆU & FOOTER -->
                             <div class="border-b border-slate-200 pb-4">
-                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1 bg-slate-100 rounded-xl">
+                                <div class="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-xl">
                                     <!-- Tab 1: Banner trang chủ -->
                                     <button type="button" id="btn-tab-banner" onclick="openTab('banner')" class="py-2.5 px-2 rounded-lg text-xs md:text-sm font-bold transition-all flex items-center justify-center gap-1.5 bg-blue-600 text-white shadow-sm">
                                         <i class="fa-solid fa-image"></i>
@@ -66,12 +66,6 @@
                                     <button type="button" id="btn-tab-footer" onclick="openTab('footer')" class="py-2.5 px-2 rounded-lg text-xs md:text-sm font-bold transition-all flex items-center justify-center gap-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-200">
                                         <i class="fa-solid fa-bullhorn"></i>
                                         <span>Footer</span>
-                                    </button>
-
-                                    <!-- Tab 4: Tiện ích Form -->
-                                    <button type="button" id="btn-tab-tien-ich" onclick="openTab('tien-ich')" class="py-2.5 px-2 rounded-lg text-xs md:text-sm font-bold transition-all flex items-center justify-center gap-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-200">
-                                        <i class="fa-solid fa-list-check"></i>
-                                        <span>Tiện ích Form</span>
                                     </button>
                                 </div>
                             </div>
@@ -103,7 +97,35 @@
                                 <!-- Nhập URL hình ảnh trực tiếp -->
                                 <div class="space-y-1.5">
                                     <label for="input-banner-url" class="block text-xs font-bold text-slate-700">Đường dẫn URL ảnh Banner</label>
-                                    <input type="text" id="input-banner-url" oninput="updateLivePreview()" value="{{ $themeSettings['banner_url'] ?? '' }}" placeholder="https://example.com/banner.jpg" class="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all">
+                                    <div class="flex gap-2">
+                                        <div class="relative flex-1">
+                                            <input type="text" id="input-banner-url" value="{{ $themeSettings['banner_url'] ?? '' }}" placeholder="Dán URL ảnh hoặc tải ảnh ở khung trên..." class="w-full pl-3.5 pr-10 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all font-mono text-xs">
+                                            <button type="button" onclick="document.getElementById('input-banner-url').value = '';" title="Xóa ô nhập" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-600 transition-colors">
+                                                <i class="fa-solid fa-circle-xmark"></i>
+                                            </button>
+                                        </div>
+                                        <button type="button" onclick="addBannerFromInputUrl()" class="px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition-all shadow-xs whitespace-nowrap flex items-center gap-1.5">
+                                            <i class="fa-solid fa-plus"></i>
+                                            <span>Thêm</span>
+                                        </button>
+                                    </div>
+                                    <p id="banner-status-text" class="text-[11px] {{ !empty($themeSettings['banner_url']) ? 'text-emerald-600' : 'text-slate-500' }} italic mt-0.5 font-medium flex items-center gap-1">
+                                        {{ !empty($themeSettings['banner_url']) ? '✓ Đang sử dụng ảnh banner tùy chỉnh' : '• Đang sử dụng hình nền mặc định của hệ thống' }}
+                                    </p>
+                                </div>
+
+                                <!-- Danh Sách Các Ảnh Banner Đã Thêm (Bên Cột Form) -->
+                                <div id="form-custom-banners-section" class="space-y-2 pt-2 border-t border-slate-100">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                                            <i class="fa-solid fa-layer-group text-blue-500"></i>
+                                            <span>Các ảnh banner đã thêm (<span id="form-custom-banner-count">0</span>)</span>
+                                        </span>
+                                        <span class="text-[11px] text-slate-400">Tối đa 5 slide</span>
+                                    </div>
+                                    <div id="form-custom-banner-list" class="space-y-2 max-h-56 overflow-y-auto pr-1">
+                                        <!-- Danh sách render bằng JavaScript -->
+                                    </div>
                                 </div>
 
                                 <!-- Tiêu đề chính của Banner -->
@@ -116,12 +138,6 @@
                                 <div class="space-y-1.5">
                                     <label for="input-banner-subtitle" class="block text-xs font-bold text-slate-700">Phụ đề / Slogan mô tả</label>
                                     <textarea id="input-banner-subtitle" oninput="updateLivePreview()" rows="2" placeholder="Nhập câu miêu tả ngắn..." class="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all">{{ $themeSettings['banner_subtitle'] ?? 'Hàng ngàn căn hộ, phòng trọ chất lượng cao được xác thực mỗi ngày tại RentHome' }}</textarea>
-                                </div>
-
-                                <!-- Tên Nút Kêu Gọi (CTA Button) -->
-                                <div class="space-y-1.5">
-                                    <label for="input-banner-cta" class="block text-xs font-bold text-slate-700">Nút kêu gọi hành động (CTA Button)</label>
-                                    <input type="text" id="input-banner-cta" oninput="updateLivePreview()" value="{{ $themeSettings['banner_cta'] ?? 'Khám phá ngay' }}" placeholder="VD: Tìm phòng ngay" class="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all">
                                 </div>
                             </div>
 
@@ -196,36 +212,6 @@
                                 <div class="space-y-1.5">
                                     <label for="input-footer-copyright" class="block text-xs font-bold text-slate-700">Thông tin bản quyền (Copyright)</label>
                                     <input type="text" id="input-footer-copyright" oninput="updateLivePreview()" value="{{ $themeSettings['footer_copyright'] ?? '© 2026 RentHome Inc. Tất cả quyền được bảo lưu.' }}" class="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all">
-                                </div>
-                            </div>
-
-                            <!-- 5. NỘI DUNG FORM TAB 4: TIỆN ÍCH FORM -->
-                            <div id="form-tien-ich" class="tab-content space-y-5 hidden">
-                                <div class="flex items-center justify-between">
-                                    <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
-                                        <i class="fa-solid fa-list-check text-purple-600"></i> Cấu Hình Tiện Ích Phòng Trọ
-                                    </h3>
-                                    <span class="text-xs bg-purple-50 text-purple-600 font-bold px-2.5 py-1 rounded-md border border-purple-100">Form Amenities</span>
-                                </div>
-
-                                <!-- Khối Thêm Mới Tiện Ích -->
-                                <div class="space-y-2">
-                                    <label for="input-new-amenity" class="block text-xs font-bold text-slate-700">Thêm tiện ích mới</label>
-                                    <div class="flex items-center gap-2">
-                                        <input type="text" id="input-new-amenity" placeholder="Ví dụ: Máy giặt chung..." onkeydown="if(event.key === 'Enter'){ event.preventDefault(); addAmenityTag(); }" class="flex-1 px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all">
-                                        <button type="button" onclick="addAmenityTag()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm rounded-lg shadow-sm transition-all flex items-center gap-1.5 shrink-0">
-                                            <i class="fa-solid fa-plus"></i> Thêm
-                                        </button>
-                                    </div>
-                                    <p class="text-[11px] text-slate-400">Nhập tên tiện ích và nhấn "Thêm" để cập nhật vào mẫu đăng tin</p>
-                                </div>
-
-                                <!-- Danh Sách Tiện Ích Hiện Tại (Dạng Thẻ Tag Chips Bo Tròn) -->
-                                <div class="space-y-2">
-                                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600">Danh sách tiện ích hiện tại</label>
-                                    <div id="amenities-chips-list" class="flex flex-wrap gap-2.5 p-4 bg-slate-50 border border-slate-200 rounded-xl min-h-[90px] items-center">
-                                        <!-- Rendered dynamically by JS -->
-                                    </div>
                                 </div>
                             </div>
 
@@ -341,11 +327,6 @@
                                         <p class="text-xs md:text-sm text-slate-200 font-medium leading-relaxed max-w-md mx-auto" id="prev-banner-subtitle">
                                             Hàng ngàn căn hộ, phòng trọ chất lượng cao được xác thực mỗi ngày tại RentHome
                                         </p>
-                                        <div class="pt-2">
-                                            <button type="button" id="prev-banner-cta" class="px-6 py-2.5 rounded-xl font-bold text-xs md:text-sm bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/30">
-                                                Khám phá ngay
-                                            </button>
-                                        </div>
                                     </div>
 
                                     <!-- Thanh Chấm Tròn Indicator Đang Chuyển Ảnh -->
@@ -357,6 +338,40 @@
                                         <span class="prev-dot w-1.5 h-1.5 rounded-full bg-white/50 transition-all duration-300"></span>
                                     </div>
                                 </section>
+
+                                <!-- KHUNG HIỂN THỊ ĐẦY ĐỦ CÁC ẢNH BANNER ĐÃ THÊM / ĐANG DÙNG (DƯỚI KHUNG BANNER PREVIEW) -->
+                                <div id="prev-banner-gallery-container" class="p-4 sm:p-5 bg-white rounded-xl border border-slate-200/80 shadow-xs space-y-3.5 mx-3 mb-4">
+                                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                                        <div class="flex items-center gap-2.5">
+                                            <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-sm shadow-2xs">
+                                                <i class="fa-solid fa-images"></i>
+                                            </div>
+                                            <div>
+                                                <h4 class="text-xs sm:text-sm font-bold text-slate-800 flex items-center gap-2">
+                                                    <span>Toàn Bộ Ảnh Banner Đang Sử Dụng</span>
+                                                    <span id="banner-count-badge" class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-700">5 ảnh</span>
+                                                </h4>
+                                                <p class="text-[11px] text-slate-500 font-medium">Bấm vào từng ảnh để chuyển slide xem trước trực tiếp ở khung trên</p>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                                <span id="banner-custom-count-text">1 ảnh tùy chỉnh</span>
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Lưới hiển thị các thẻ thumbnail ảnh banner -->
+                                    <div id="prev-banner-gallery-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 pt-1">
+                                        <!-- Render tự động bằng JavaScript -->
+                                    </div>
+
+                                    <div class="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] text-slate-400">
+                                        <span><i class="fa-solid fa-circle-info text-blue-500 mr-1"></i> Ảnh tùy chỉnh được ưu tiên hiển thị trước và trượt tuần tự 3.5s/slide</span>
+                                        <span>Tối đa 5 slide trượt</span>
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- 2. LIVE PREVIEW CONTAINER CHO TAB THƯƠNG HIỆU (GIAO DIỆN HEADER & THƯƠNG HIỆU THỰC) -->
@@ -485,36 +500,6 @@
                                 </footer>
                             </div>
 
-                            <!-- 4. LIVE PREVIEW CONTAINER CHO TAB TIỆN ÍCH FORM (GÓC NHÌN NGƯỜI DÙNG ĐĂNG TIN) -->
-                            <div id="preview-tien-ich" class="preview-content p-6 space-y-5 hidden pointer-events-none select-none">
-                                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-5">
-                                    
-                                    <!-- Header bước Đăng Tin Mô Phỏng -->
-                                    <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-                                        <div class="flex items-center gap-2">
-                                            <span class="w-6 h-6 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center">3</span>
-                                            <h3 class="text-base font-extrabold text-slate-900">Cơ sở vật chất & Tiện ích</h3>
-                                        </div>
-                                        <span class="text-[11px] font-bold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-md">Form Đăng Tin Cho Thuê</span>
-                                    </div>
-
-                                    <p class="text-xs text-slate-500">Chọn các tiện ích sẵn có tại phòng trọ / căn hộ của bạn để thu hút người thuê:</p>
-
-                                    <!-- Danh sách các ô Checkbox Tiện ích đẹp mắt -->
-                                    <div id="preview-amenities-checkboxes" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        <!-- Rendered dynamically by JS -->
-                                    </div>
-
-                                    <div class="pt-2 text-right">
-                                        <span class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-bold text-xs rounded-xl shadow-xs opacity-75">
-                                            <span>Tiếp theo: Hình ảnh & Giá</span>
-                                            <i class="fa-solid fa-arrow-right"></i>
-                                        </span>
-                                    </div>
-
-                                </div>
-                            </div>
-
                         </div>
                     </div>
                 </div>
@@ -525,17 +510,6 @@
 
     <!-- SCRIPT XỬ LÝ CHUYỂN TAB (openTab) & LIVE PREVIEW THỜI GIAN THỰC -->
     <script>
-        // Mảng lưu danh sách các tiện ích mặc định
-        let amenityItems = {!! json_encode($themeSettings['amenities'] ?? [
-            'Wifi tốc độ cao',
-            'Điều hòa nhiệt độ',
-            'Máy giặt chung',
-            'Chỗ để xe miễn phí',
-            'An ninh 24/7',
-            'Giờ giấc tự do',
-            'Tủ lạnh riêng'
-        ]) !!};
-
         // 1. HÀM CHUYỂN TAB ĐỒNG BỘ CỘT TRÁI (FORM) VÀ CỘT PHẢI (PREVIEW)
         function openTab(tabId) {
             // Ẩn tất cả các form ở cột trái
@@ -549,7 +523,7 @@
             });
 
             // Reset tất cả các nút Tab về style thường
-            const tabButtons = ['banner', 'brand', 'footer', 'tien-ich'];
+            const tabButtons = ['banner', 'brand', 'footer'];
             tabButtons.forEach(id => {
                 const btn = document.getElementById('btn-tab-' + id);
                 if (btn) {
@@ -569,97 +543,71 @@
             }
         }
 
-        // 2. Map Icon gợi ý cho tiện ích
-        const amenityIconMap = {
-            'wifi': 'fa-wifi',
-            'máy lạnh': 'fa-snowflake',
-            'dieu hoa': 'fa-snowflake',
-            'điều hòa': 'fa-snowflake',
-            'xe': 'fa-motorcycle',
-            'ô tô': 'fa-car',
-            'ninh': 'fa-shield-halved',
-            'giặt': 'fa-soap',
-            'bếp': 'fa-utensils',
-            'tủ lạnh': 'fa-box',
-            'thang máy': 'fa-elevator',
-            'tự do': 'fa-clock'
-        };
-
-        function getAmenityIcon(name) {
-            const lower = name.toLowerCase();
-            for (let key in amenityIconMap) {
-                if (lower.includes(key)) return amenityIconMap[key];
+        // 2. QUẢN LÝ VÀ CHUYỂN SLIDE ẢNH BANNER LIVE PREVIEW (Đồng bộ với Home.blade.php)
+        @php
+            $defaultBanners = [
+                'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1920&q=80',
+                'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1920&q=80',
+                'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1920&q=80',
+                'https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=1920&q=80',
+                'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1920&q=80',
+            ];
+            $initBannerList = [];
+            if (!empty($themeSettings['banner_images']) && is_array($themeSettings['banner_images'])) {
+                $initBannerList = array_values(array_filter($themeSettings['banner_images']));
+            } elseif (!empty($themeSettings['banner_url'])) {
+                $initBannerList = array_merge([$themeSettings['banner_url']], array_slice($defaultBanners, 1));
+            } else {
+                $initBannerList = $defaultBanners;
             }
-            return 'fa-check';
-        }
+        @endphp
 
-        // 3. Hàm Thêm Tiện Ích Mới
-        function addAmenityTag() {
-            const input = document.getElementById('input-new-amenity');
-            if (!input) return;
-            const val = input.value.trim();
-            if (!val) return;
+        const systemDefaultBanners = {!! json_encode($defaultBanners) !!};
+        let currentBannerList = {!! json_encode($initBannerList) !!};
 
-            amenityItems.push(val);
-            input.value = '';
-            renderAmenities();
-        }
-
-        // 4. Hàm Xóa Tiện Ích
-        function removeAmenityTag(index) {
-            amenityItems.splice(index, 1);
-            renderAmenities();
-        }
-
-        // 5. Render danh sách Tiện ích ở Cột Trái (Tag Chips) & Cột Phải (Live Preview Checkboxes)
-        function renderAmenities() {
-            // Render Chips ở cột trái
-            const chipsContainer = document.getElementById('amenities-chips-list');
-            if (chipsContainer) {
-                if (amenityItems.length === 0) {
-                    chipsContainer.innerHTML = `<span class="text-xs text-slate-400 italic">Chưa có tiện ích nào. Nhập tên tiện ích ở trên để thêm.</span>`;
-                } else {
-                    chipsContainer.innerHTML = amenityItems.map((item, idx) => `
-                        <div class="bg-white border border-slate-200 shadow-2xs rounded-full px-3.5 py-1.5 inline-flex items-center gap-2 text-xs font-bold text-slate-700">
-                            <i class="fa-solid ${getAmenityIcon(item)} text-blue-600"></i>
-                            <span>${item}</span>
-                            <button type="button" onclick="removeAmenityTag(${idx})" class="text-slate-400 hover:text-red-500 font-black text-sm leading-none transition-colors" title="Xóa tiện ích">&times;</button>
-                        </div>
-                    `).join('');
-                }
-            }
-
-            // Render Checkboxes ở cột phải (Góc nhìn người đăng tin)
-            const previewContainer = document.getElementById('preview-amenities-checkboxes');
-            if (previewContainer) {
-                if (amenityItems.length === 0) {
-                    previewContainer.innerHTML = `<div class="col-span-2 text-xs text-slate-400 italic">Chưa có tiện ích nào được tạo.</div>`;
-                } else {
-                    previewContainer.innerHTML = amenityItems.map(item => `
-                        <div class="bg-blue-50/80 border border-blue-200/90 text-blue-900 font-semibold p-3.5 rounded-xl flex items-center gap-3 shadow-2xs">
-                            <i class="fa-solid fa-square-check text-blue-600 text-lg"></i>
-                            <div class="flex items-center gap-2">
-                                <i class="fa-solid ${getAmenityIcon(item)} text-blue-600 text-xs"></i>
-                                <span class="text-xs font-bold">${item}</span>
-                            </div>
-                        </div>
-                    `).join('');
-                }
-            }
-        }
-
-        // 6. TỰ ĐỘNG CHUYỂN SLIDE ẢNH BANNER LIVE PREVIEW (Giống hệt ngoài Trang chủ Home.blade.php)
         let prevCurrentSlide = 0;
         let prevSlideTimer = null;
 
+        // Cập nhật background và số slide trong khung preview
+        function updateBannerSlidesPreview() {
+            const slidesContainer = document.getElementById('prev-banner-slides');
+            const dotsContainer = document.getElementById('prev-banner-dots');
+            
+            if (slidesContainer) {
+                if (currentBannerList.length === 0) {
+                    slidesContainer.innerHTML = `
+                        <div class="prev-bg-slide absolute inset-0 bg-cover bg-center opacity-100" style="background-image: linear-gradient(rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.85));"></div>
+                    `;
+                } else {
+                    slidesContainer.innerHTML = currentBannerList.map((url, idx) => `
+                        <div class="prev-bg-slide absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ease-in-out ${idx === prevCurrentSlide ? 'opacity-100' : 'opacity-0'}" style="background-image: linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.75)), url('${url}');"></div>
+                    `).join('');
+                }
+            }
+
+            if (dotsContainer) {
+                if (currentBannerList.length <= 1) {
+                    dotsContainer.innerHTML = '';
+                } else {
+                    dotsContainer.innerHTML = currentBannerList.map((_, idx) => `
+                        <span class="prev-dot ${idx === prevCurrentSlide ? 'w-5 h-1.5 rounded-full bg-blue-500' : 'w-1.5 h-1.5 rounded-full bg-white/50'} transition-all duration-300"></span>
+                    `).join('');
+                }
+            }
+        }
+
+        // Tự động xoay vòng các slide sau mỗi 3.5s
         function rotatePreviewSlides() {
+            if (currentBannerList.length <= 1) return;
             const slides = document.querySelectorAll('.prev-bg-slide');
             const dots = document.querySelectorAll('#prev-banner-dots .prev-dot');
             if (!slides || slides.length === 0) return;
 
             // Fade out slide hiện tại
-            slides[prevCurrentSlide].classList.remove('opacity-100');
-            slides[prevCurrentSlide].classList.add('opacity-0');
+            if (slides[prevCurrentSlide]) {
+                slides[prevCurrentSlide].classList.remove('opacity-100');
+                slides[prevCurrentSlide].classList.add('opacity-0');
+            }
             if (dots[prevCurrentSlide]) {
                 dots[prevCurrentSlide].className = 'prev-dot w-1.5 h-1.5 rounded-full bg-white/50 transition-all duration-300';
             }
@@ -668,38 +616,203 @@
             prevCurrentSlide = (prevCurrentSlide + 1) % slides.length;
 
             // Fade in slide mới
-            slides[prevCurrentSlide].classList.remove('opacity-0');
-            slides[prevCurrentSlide].classList.add('opacity-100');
+            if (slides[prevCurrentSlide]) {
+                slides[prevCurrentSlide].classList.remove('opacity-0');
+                slides[prevCurrentSlide].classList.add('opacity-100');
+            }
             if (dots[prevCurrentSlide]) {
                 dots[prevCurrentSlide].className = 'prev-dot w-5 h-1.5 rounded-full bg-blue-500 transition-all duration-300';
             }
+
+            updateGalleryActiveHighlight();
         }
 
         function initPreviewSlider() {
             if (prevSlideTimer) clearInterval(prevSlideTimer);
-            prevSlideTimer = setInterval(rotatePreviewSlides, 3500);
+            if (currentBannerList.length > 1) {
+                prevSlideTimer = setInterval(rotatePreviewSlides, 3500);
+            }
         }
 
-        // Cập nhật ảnh tùy chỉnh do Admin nhập hoặc tải lên vào slide đầu tiên
-        function applyCustomBannerUrlToPreview(imgUrl) {
+        // Chuyển ngay đến slide được chọn khi click vào ảnh ở thư viện bên dưới
+        function switchToBannerSlide(idx) {
             const slides = document.querySelectorAll('.prev-bg-slide');
-            if (slides.length > 0 && imgUrl) {
-                slides[0].style.backgroundImage = `linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.75)), url('${imgUrl}')`;
-                slides.forEach((s, idx) => {
-                    if (idx === 0) {
-                        s.classList.remove('opacity-0');
-                        s.classList.add('opacity-100');
-                    } else {
-                        s.classList.remove('opacity-100');
-                        s.classList.add('opacity-0');
-                    }
-                });
-                prevCurrentSlide = 0;
-                const dots = document.querySelectorAll('#prev-banner-dots .prev-dot');
-                dots.forEach((d, idx) => {
-                    d.className = idx === 0 ? 'prev-dot w-5 h-1.5 rounded-full bg-blue-500 transition-all duration-300' : 'prev-dot w-1.5 h-1.5 rounded-full bg-white/50 transition-all duration-300';
-                });
+            const dots = document.querySelectorAll('#prev-banner-dots .prev-dot');
+            if (!slides || slides.length === 0 || idx < 0 || idx >= slides.length) return;
+
+            slides.forEach((s, i) => {
+                if (i === idx) {
+                    s.classList.remove('opacity-0');
+                    s.classList.add('opacity-100');
+                } else {
+                    s.classList.remove('opacity-100');
+                    s.classList.add('opacity-0');
+                }
+            });
+
+            dots.forEach((d, i) => {
+                d.className = (i === idx) 
+                    ? 'prev-dot w-5 h-1.5 rounded-full bg-blue-500 transition-all duration-300' 
+                    : 'prev-dot w-1.5 h-1.5 rounded-full bg-white/50 transition-all duration-300';
+            });
+
+            prevCurrentSlide = idx;
+            updateGalleryActiveHighlight();
+            initPreviewSlider();
+        }
+
+        // Cập nhật viền xanh và huy hiệu "Đang xem" ở các thumbnail bên dưới
+        function updateGalleryActiveHighlight() {
+            const items = document.querySelectorAll('.banner-gallery-card');
+            items.forEach((card, idx) => {
+                const badge = card.querySelector('.active-slide-badge');
+                if (idx === prevCurrentSlide) {
+                    card.classList.add('ring-2', 'ring-blue-500', 'border-blue-500', 'shadow-md');
+                    card.classList.remove('border-slate-200');
+                    if (badge) badge.classList.remove('hidden');
+                } else {
+                    card.classList.remove('ring-2', 'ring-blue-500', 'border-blue-500', 'shadow-md');
+                    card.classList.add('border-slate-200');
+                    if (badge) badge.classList.add('hidden');
+                }
+            });
+        }
+
+        // Render toàn bộ gallery ảnh banner bên dưới khung preview & danh sách ở form bên trái
+        function renderBannerGallery() {
+            const grid = document.getElementById('prev-banner-gallery-grid');
+            const formList = document.getElementById('form-custom-banner-list');
+            const countBadge = document.getElementById('banner-count-badge');
+            const formCountText = document.getElementById('form-custom-banner-count');
+            const statusText = document.getElementById('banner-status-text');
+
+            if (countBadge) countBadge.innerText = `${currentBannerList.length} ảnh`;
+            if (formCountText) formCountText.innerText = `${currentBannerList.length}/5`;
+
+            if (statusText) {
+                if (currentBannerList.length > 0) {
+                    statusText.innerText = `✓ Đang có ${currentBannerList.length} ảnh banner hoạt động`;
+                    statusText.className = 'text-[11px] text-emerald-600 italic mt-0.5 font-medium flex items-center gap-1';
+                } else {
+                    statusText.innerText = '• Chưa có ảnh banner nào. Vui lòng tải ảnh lên hoặc thêm URL.';
+                    statusText.className = 'text-[11px] text-rose-500 italic mt-0.5 font-medium flex items-center gap-1';
+                }
             }
+
+            // 1. Render Gallery Card Grid ở dưới khung Banner Preview (TẤT CẢ các ảnh nhỏ đều có nút Xóa [🗑])
+            if (grid) {
+                if (currentBannerList.length === 0) {
+                    grid.innerHTML = `
+                        <div class="col-span-full py-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
+                            <i class="fa-solid fa-images text-3xl text-slate-300 mb-2"></i>
+                            <p class="text-xs font-bold text-slate-600">Đã xóa hết ảnh banner</p>
+                            <p class="text-[11px] text-slate-400 mt-0.5">Vui lòng tải ảnh lên ở khung bên trái hoặc nhập URL ảnh mới</p>
+                        </div>
+                    `;
+                } else {
+                    grid.innerHTML = currentBannerList.map((imgUrl, idx) => {
+                        const isActive = idx === prevCurrentSlide;
+                        return `
+                            <div onclick="switchToBannerSlide(${idx})" class="banner-gallery-card group relative rounded-xl overflow-hidden border-2 transition-all cursor-pointer bg-white shadow-2xs ${isActive ? 'ring-2 ring-blue-500 border-blue-500 shadow-md' : 'border-slate-200 hover:border-blue-400'}">
+                                <!-- Ảnh thumbnail -->
+                                <div class="aspect-16/10 w-full overflow-hidden bg-slate-900 relative">
+                                    <img src="${imgUrl}" alt="Banner ${idx + 1}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                                    <div class="active-slide-badge absolute top-1.5 left-1.5 px-2 py-0.5 rounded-md bg-blue-600/90 text-white text-[9px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1 ${isActive ? '' : 'hidden'}">
+                                        <i class="fa-solid fa-eye text-[8px]"></i> Đang xem
+                                    </div>
+                                </div>
+                                <!-- Thông tin & Nút xóa hình ảnh -->
+                                <div class="p-2.5 bg-white flex items-center justify-between border-t border-slate-100">
+                                    <div class="flex flex-col text-left leading-tight">
+                                        <span class="text-xs font-bold text-slate-800">Slide #${idx + 1}</span>
+                                        <span class="text-[10px] font-semibold text-emerald-600 mt-0.5">
+                                            ● Đang dùng
+                                        </span>
+                                    </div>
+                                    <!-- NÚT XÓA HÌNH ẢNH TRÊN TỪNG THUMBNAIL NHỎ -->
+                                    <button type="button" onclick="event.stopPropagation(); deleteBannerImage(${idx})" title="Xóa hình ảnh này" class="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center text-xs transition-colors shadow-2xs border border-rose-200">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            }
+
+            // 2. Render Danh sách ở form bên trái
+            if (formList) {
+                if (currentBannerList.length === 0) {
+                    formList.innerHTML = `
+                        <div class="p-3 rounded-lg bg-slate-50 border border-slate-200/80 text-center">
+                            <p class="text-xs text-slate-500 font-medium">Chưa có ảnh banner nào.</p>
+                            <p class="text-[11px] text-slate-400 mt-0.5">Vui lòng tải ảnh lên hoặc thêm URL.</p>
+                        </div>
+                    `;
+                } else {
+                    formList.innerHTML = currentBannerList.map((imgUrl, idx) => `
+                        <div class="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-200/90 hover:bg-blue-50/40 transition-colors">
+                            <div class="flex items-center gap-2.5 overflow-hidden">
+                                <img src="${imgUrl}" alt="Thumb" class="w-12 h-9 object-cover rounded-lg border border-slate-200 shrink-0">
+                                <div class="flex flex-col overflow-hidden text-left">
+                                    <span class="text-xs font-bold text-slate-800">Ảnh Slide #${idx + 1}</span>
+                                    <span class="text-[10px] text-slate-400 truncate max-w-[190px]" title="${imgUrl}">${imgUrl.startsWith('data:') ? 'Ảnh tải lên từ máy tính' : imgUrl}</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <button type="button" onclick="switchToBannerSlide(${idx})" title="Xem trước slide này" class="px-2 py-1 rounded-md bg-white hover:bg-blue-50 text-blue-600 text-xs font-semibold border border-slate-200">
+                                    Xem
+                                </button>
+                                <button type="button" onclick="deleteBannerImage(${idx})" title="Xóa ảnh này" class="px-2 py-1 rounded-md bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-semibold border border-rose-200">
+                                    Xóa
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            }
+        }
+
+        // Xóa một ảnh banner cụ thể theo index
+        function deleteBannerImage(index) {
+            if (index >= 0 && index < currentBannerList.length) {
+                currentBannerList.splice(index, 1);
+                const inputUrl = document.getElementById('input-banner-url');
+                if (inputUrl) {
+                    inputUrl.value = currentBannerList[0] || '';
+                }
+                if (prevCurrentSlide >= currentBannerList.length) {
+                    prevCurrentSlide = Math.max(0, currentBannerList.length - 1);
+                }
+                updateBannerSlidesPreview();
+                renderBannerGallery();
+                switchToBannerSlide(prevCurrentSlide);
+                showToast('Đã xóa hình ảnh banner! Bấm "Lưu Cấu Hình Giao Diện" để áp dụng.', 'info');
+            }
+        }
+
+        // Thêm ảnh từ URL nhập tay ở ô input
+        function addBannerFromInputUrl() {
+            const inputUrl = document.getElementById('input-banner-url');
+            const val = inputUrl ? inputUrl.value.trim() : '';
+            if (!val) {
+                showToast('Vui lòng nhập đường dẫn URL ảnh banner!', 'warning');
+                return;
+            }
+            if (currentBannerList.includes(val)) {
+                showToast('Ảnh này đã có trong danh sách banner!', 'info');
+                return;
+            }
+            if (currentBannerList.length >= 5) {
+                showToast('Đã đạt giới hạn tối đa 5 ảnh banner!', 'warning');
+                return;
+            }
+            currentBannerList.push(val);
+            inputUrl.value = '';
+            updateBannerSlidesPreview();
+            renderBannerGallery();
+            switchToBannerSlide(currentBannerList.length - 1);
+            showToast('Đã thêm ảnh banner vào danh sách! Bấm "Lưu Cấu Hình Giao Diện" để áp dụng.', 'success');
         }
 
         // 7. Hàm xử lý upload ảnh Banner qua Dropzone
@@ -709,8 +822,17 @@
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     const imgUrl = e.target.result;
-                    document.getElementById('input-banner-url').value = imgUrl;
-                    applyCustomBannerUrlToPreview(imgUrl);
+                    if (currentBannerList.length >= 5) {
+                        currentBannerList[0] = imgUrl;
+                    } else {
+                        currentBannerList.push(imgUrl);
+                    }
+                    const inputUrl = document.getElementById('input-banner-url');
+                    if (inputUrl) inputUrl.value = currentBannerList[0] || '';
+                    updateBannerSlidesPreview();
+                    renderBannerGallery();
+                    switchToBannerSlide(currentBannerList.length - 1);
+                    showToast('Đã thêm ảnh banner mới! Bấm "Lưu Cấu Hình Giao Diện" để cập nhật.', 'success');
                 };
                 reader.readAsDataURL(file);
             }
@@ -720,15 +842,9 @@
         function updateLivePreview() {
             const bannerTitle = document.getElementById('input-banner-title')?.value;
             const bannerSubtitle = document.getElementById('input-banner-subtitle')?.value;
-            const bannerCta = document.getElementById('input-banner-cta')?.value;
-            const bannerUrl = document.getElementById('input-banner-url')?.value;
 
             if (bannerTitle && document.getElementById('prev-banner-title')) document.getElementById('prev-banner-title').innerText = bannerTitle;
             if (bannerSubtitle && document.getElementById('prev-banner-subtitle')) document.getElementById('prev-banner-subtitle').innerText = bannerSubtitle;
-            if (bannerCta && document.getElementById('prev-banner-cta')) document.getElementById('prev-banner-cta').innerText = bannerCta;
-            if (bannerUrl) {
-                applyCustomBannerUrlToPreview(bannerUrl);
-            }
 
             const brandName = document.getElementById('input-brand-name')?.value || 'RentHome';
             const brandSlogan = document.getElementById('input-brand-slogan')?.value;
@@ -779,7 +895,6 @@
         // 9. Đổi màu sắc chủ đạo theme (Áp dụng đồng bộ cho Header, Brand & Footer)
         function setPrimaryThemeColor(hexColor) {
             const elementsToBgColor = [
-                'prev-banner-cta',
                 'prev-logo-icon',
                 'prev-avatar-icon',
                 'prev-brand-logo-box-tab',
@@ -833,7 +948,8 @@
 
         // Khởi chạy khi DOM load xong
         document.addEventListener('DOMContentLoaded', () => {
-            renderAmenities();
+            updateBannerSlidesPreview();
+            renderBannerGallery();
             updateLivePreview();
             initPreviewSlider();
         });
@@ -843,8 +959,9 @@
             const configData = {
                 banner_title: document.getElementById('input-banner-title')?.value || '',
                 banner_subtitle: document.getElementById('input-banner-subtitle')?.value || '',
-                banner_cta: document.getElementById('input-banner-cta')?.value || '',
-                banner_url: document.getElementById('input-banner-url')?.value || '',
+                banner_cta: '',
+                banner_url: currentBannerList[0] || '',
+                banner_images: currentBannerList,
                 brand_name: document.getElementById('input-brand-name')?.value || '',
                 brand_slogan: document.getElementById('input-brand-slogan')?.value || '',
                 logo_url: document.getElementById('input-logo-url')?.value || '',
@@ -853,7 +970,7 @@
                 footer_email: document.getElementById('input-footer-email')?.value || '',
                 footer_address: document.getElementById('input-footer-address')?.value || '',
                 footer_copyright: document.getElementById('input-footer-copyright')?.value || '',
-                amenities: amenityItems
+                amenities: {!! json_encode($themeSettings['amenities'] ?? []) !!}
             };
 
             fetch('/sua_giao_dien', {

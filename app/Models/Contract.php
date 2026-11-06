@@ -116,8 +116,8 @@ class Contract extends Model
     public function getDepositSafeAttribute(): float
     {
         $dep = $this->deposit ?? ($this->deposit_amount ?? 0);
-        if (is_numeric($dep)) return (float)$dep;
+        if (is_int($dep) || is_float($dep)) return (float)$dep;
         $clean = preg_replace('/[^\d]/', '', (string)$dep);
-        return $clean ? (float)$clean : 0.0;
+        return $clean !== '' ? (float)$clean : 0.0;
     }
 }

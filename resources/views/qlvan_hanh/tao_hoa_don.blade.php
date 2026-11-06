@@ -269,11 +269,11 @@
                     <!-- MỤC A: TIỀN PHÒNG -->
                     <div class="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 space-y-3">
                         <div class="flex flex-wrap items-center justify-between gap-2">
+                            <h3 class="font-extrabold text-slate-800 text-xs flex items-center gap-2">
+                                <i class="fa-solid fa-house-user text-brand-600"></i> A. Tiền Phòng Tháng Này
+                            </h3>
                             <div class="flex items-center gap-2">
-                                <h3 class="font-extrabold text-slate-800 text-xs flex items-center gap-2">
-                                    <i class="fa-solid fa-house-user text-brand-600"></i> A. Tiền Phòng Tháng Này
-                                </h3>
-                                <span id="rent_cycle_badge" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold {{ !empty($selectedData['isRentDue']) ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-slate-100 text-slate-600 border border-slate-200' }}">
+                                <span id="rent_cycle_badge" class="px-2.5 py-1 rounded-full text-[11px] font-bold inline-flex items-center gap-1.5 {{ !empty($selectedData['isRentDue']) ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-slate-100 text-slate-600 border border-slate-200' }}">
                                     @if(!empty($selectedData['isRentDue']))
                                         <i class="fa-solid fa-bell text-amber-600"></i> Đến hạn thu tiền nhà ({{ $selectedData['paymentCycle'] ?? 1 }} tháng): {{ number_format($selectedData['rent'] ?? 0) }} VNĐ
                                     @else
@@ -281,15 +281,11 @@
                                     @endif
                                 </span>
                             </div>
-                            <label class="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-600">
-                                <input type="checkbox" id="full_month_check" checked onchange="toggleFullMonth(this.checked)" class="rounded text-brand-600 focus:ring-brand-500 w-4 h-4">
-                                <span>Tính trọn 1 tháng</span>
-                            </label>
                         </div>
 
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                             <div>
-                                <label class="font-bold text-slate-600 block mb-1">Giá thuê (VNĐ/tháng):</label>
+                                <label class="font-bold text-slate-600 block mb-1">Giá thuê quy định (VNĐ/tháng):</label>
                                 <div class="relative">
                                     <input type="number" id="room_rent_price" value="{{ $selectedData['rent'] ?? 0 }}" oninput="calculateInvoice()" 
                                            class="w-full pl-3 pr-12 py-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:ring-2 focus:ring-brand-500 focus:outline-none">
@@ -300,17 +296,8 @@
                                 </span>
                             </div>
 
-                            <div id="days_container" class="opacity-50 pointer-events-none">
-                                <label class="font-bold text-slate-600 block mb-1">Số ngày ở trong tháng:</label>
-                                <div class="relative">
-                                    <input type="number" id="days_stayed" value="30" oninput="calculateInvoice()" min="1" max="31"
-                                           class="w-full pl-3 pr-14 py-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:ring-2 focus:ring-brand-500 focus:outline-none">
-                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 pointer-events-none">ngày</span>
-                                </div>
-                            </div>
-
                             <div>
-                                <label class="font-bold text-slate-600 block mb-1">Thành tiền phòng:</label>
+                                <label class="font-bold text-slate-600 block mb-1">Thành tiền phòng tính kỳ này:</label>
                                 <div class="px-3 py-2 rounded-xl bg-brand-50 border border-brand-200 font-extrabold text-brand-700 text-right text-sm" id="room_rent_total_display">
                                     {{ number_format($selectedData['rent'] ?? 0) }} VNĐ
                                 </div>
@@ -926,28 +913,18 @@
             calculateInvoice();
         }
 
-        // BẬT / TẮT TÍNH TRỌN 1 THÁNG
-        function toggleFullMonth(isFull) {
-            const container = document.getElementById('days_container');
-            if (isFull) {
-                container.classList.add('opacity-50', 'pointer-events-none');
-                document.getElementById('days_stayed').value = 30;
-            } else {
-                container.classList.remove('opacity-50', 'pointer-events-none');
-            }
-            calculateInvoice();
-        }
-
         // TÍNH TOÁN REAL-TIME CHI TIẾT TỪNG KHOẢN
         function calculateInvoice() {
-            // 1. Tiền phòng
-            const isFullMonth = document.getElementById('full_month_check').checked;
-            const rentPrice = parseFloat(document.getElementById('room_rent_price').value) || 0;
-            const days = parseFloat(document.getElementById('days_stayed').value) || 30;
-            let roomTotal = isFullMonth ? rentPrice : Math.round((rentPrice / 30) * days);
+            // 1. Tiền phòng (Tính trọn theo chu kỳ hợp đồng)
+            const rentPrice = parseFloat(document.getElementById('room_rent_price') ? document.getElementById('room_rent_price').value : 0) || 0;
+            let roomTotal = rentPrice;
 
-            document.getElementById('room_rent_total_display').innerText = formatVND(roomTotal);
-            document.getElementById('summary_room').innerText = formatVND(roomTotal);
+            if (document.getElementById('room_rent_total_display')) {
+                document.getElementById('room_rent_total_display').innerText = formatVND(roomTotal);
+            }
+            if (document.getElementById('summary_room')) {
+                document.getElementById('summary_room').innerText = formatVND(roomTotal);
+            }
 
             // 1.1 Tiền cọc (Tự động 100%: Tháng đầu tính cọc, từ tháng thứ 2 ép bằng 0đ)
             const selectedRoomCode = document.getElementById('room_select') ? document.getElementById('room_select').value : null;
