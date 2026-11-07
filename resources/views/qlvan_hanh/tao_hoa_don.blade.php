@@ -420,18 +420,26 @@
                         </div>
                     </div>
 
-                    <!-- MỤC C: TIỀN NƯỚC HÀNG THÁNG (CHỐT NƯỚC) -->
+                    @php
+                        $isWaterNguoi = ($selectedData['waterCalcType'] ?? 'khoi') === 'nguoi';
+                        $waterRateVal = (float)($selectedData['waterRate'] ?? ($isWaterNguoi ? 25000 : 15000));
+                        $waterPeopleCountVal = max(1, (int)($selectedData['waterPeopleCount'] ?? 1));
+                        $defaultWaterAmount = $isWaterNguoi ? ($waterPeopleCountVal * $waterRateVal) : 0;
+                    @endphp
+
+                    <!-- MỤC C: TIỀN NƯỚC HÀNG THÁNG (CHỐT NƯỚC HOẶC TÍNH THEO NGƯỜI) -->
                     <div id="sec_water" class="p-4 rounded-2xl bg-skybrand-50/50 border border-skybrand-200/80 space-y-3 {{ !empty($selectedData['isNoServiceFee']) ? 'hidden' : '' }}">
                         <div class="flex items-center justify-between">
                             <h3 class="font-extrabold text-slate-800 text-xs flex items-center gap-2">
-                                <i class="fa-solid fa-droplet text-skybrand-500"></i> C. Tiền Nước Hàng Tháng (Chốt Chỉ Số Cũ & Mới)
+                                <i class="fa-solid fa-droplet text-skybrand-500"></i> <span id="sec_water_title">{{ $isWaterNguoi ? 'C. Tiền Nước Hàng Tháng (Tính Theo Đầu Người)' : 'C. Tiền Nước Hàng Tháng (Chốt Chỉ Số Cũ & Mới)' }}</span>
                             </h3>
                             <span class="px-2.5 py-0.5 rounded-full bg-skybrand-100 text-skybrand-800 text-[11px] font-bold" id="water_usage_badge">
-                                Tiêu thụ: 0 m³
+                                {{ $isWaterNguoi ? ('Số người: ' . $waterPeopleCountVal . ' người') : 'Tiêu thụ: 0 m³' }}
                             </span>
                         </div>
 
-                        <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+                        <!-- KHỐI TÍNH THEO KHỐI (m3) -->
+                        <div id="water_mode_khoi" class="{{ $isWaterNguoi ? 'hidden ' : '' }}grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
                             <div>
                                 <label class="font-bold text-slate-600 block mb-1">Chỉ số nước CŨ (m³):</label>
                                 <div class="relative">
@@ -453,19 +461,58 @@
                             <div>
                                 <label class="font-bold text-slate-600 block mb-1">Đơn giá (VNĐ/m³):</label>
                                 <div class="relative">
-                                    <input type="number" id="water_rate" value="{{ $selectedData['waterRate'] ?? 15000 }}" oninput="calculateInvoice()" 
+                                    <input type="number" id="water_rate" value="{{ $waterRateVal }}" oninput="calculateInvoice()" 
                                            class="w-full pl-3 pr-12 py-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:ring-2 focus:ring-skybrand-500 focus:outline-none">
                                     <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 pointer-events-none">đ/m³</span>
                                 </div>
                                 <span id="water_rate_text" class="text-[11px] font-bold text-skybrand-700 mt-1 block">
-                                    {{ number_format($selectedData['waterRate'] ?? 15000) }} VNĐ / m³
+                                    {{ number_format($waterRateVal) }} VNĐ / m³
                                 </span>
                             </div>
 
                             <div>
                                 <label class="font-bold text-slate-600 block mb-1">Thành tiền nước:</label>
                                 <div class="px-3 py-2 rounded-xl bg-skybrand-100/80 border border-skybrand-200 font-extrabold text-skybrand-800 text-right text-sm" id="water_total_display">
-                                    0 VNĐ
+                                    {{ number_format($defaultWaterAmount) }} VNĐ
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- KHỐI TÍNH THEO ĐẦU NGƯỜI -->
+                        <div id="water_mode_nguoi" class="{{ !$isWaterNguoi ? 'hidden ' : '' }}grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+                            <div>
+                                <label class="font-bold text-slate-600 block mb-1">Số người ở đăng ký:</label>
+                                <div class="relative">
+                                    <input type="number" id="water_people_count" value="{{ $waterPeopleCountVal }}" min="1" oninput="calculateInvoice()" 
+                                           class="w-full pl-3 pr-14 py-2 rounded-xl border border-skybrand-300 bg-skybrand-50/50 font-extrabold text-skybrand-900 focus:ring-2 focus:ring-skybrand-500 focus:outline-none">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-skybrand-600 pointer-events-none">người</span>
+                                </div>
+                                <span class="text-[10px] text-slate-500 mt-0.5 block">* Theo hợp đồng đã ký</span>
+                            </div>
+
+                            <div>
+                                <label class="font-bold text-slate-600 block mb-1">Đơn giá (VNĐ/người):</label>
+                                <div class="relative">
+                                    <input type="number" id="water_rate_person" value="{{ $waterRateVal }}" oninput="calculateInvoice()" 
+                                           class="w-full pl-3 pr-16 py-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:ring-2 focus:ring-skybrand-500 focus:outline-none">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 pointer-events-none">đ/người</span>
+                                </div>
+                                <span id="water_rate_person_text" class="text-[11px] font-bold text-skybrand-700 mt-1 block">
+                                    {{ number_format($waterRateVal) }} VNĐ / người
+                                </span>
+                            </div>
+
+                            <div>
+                                <label class="font-bold text-slate-600 block mb-1">Diễn giải cách tính:</label>
+                                <div class="px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 font-semibold text-xs flex items-center h-[38px]">
+                                    <span id="water_nguoi_formula">{{ $waterPeopleCountVal }} người × {{ number_format($waterRateVal) }} đ</span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="font-bold text-slate-600 block mb-1">Thành tiền nước:</label>
+                                <div class="px-3 py-2 rounded-xl bg-skybrand-100/80 border border-skybrand-200 font-extrabold text-skybrand-800 text-right text-sm" id="water_total_display_nguoi">
+                                    {{ number_format($defaultWaterAmount) }} VNĐ
                                 </div>
                             </div>
                         </div>
@@ -609,8 +656,8 @@
                         </div>
 
                         <div class="flex items-center justify-between text-slate-600" id="summary_water_row" style="{{ !empty($selectedData['isNoServiceFee']) ? 'display: none;' : '' }}">
-                            <span>+ Tiền nước (<span id="summary_water_m3">10</span> m³):</span>
-                            <strong class="text-skybrand-700" id="summary_water">150,000 VNĐ</strong>
+                            <span id="summary_water_label">+ Tiền nước ({{ $isWaterNguoi ? ($waterPeopleCountVal . ' người') : '0 m³' }}):</span>
+                            <strong class="text-skybrand-700" id="summary_water">{{ number_format($defaultWaterAmount) }} VNĐ</strong>
                         </div>
 
                         <div class="flex items-center justify-between text-slate-600">
@@ -880,9 +927,26 @@
                 if (document.getElementById('elec_old')) document.getElementById('elec_old').value = data.elecOld || 0;
                 if (document.getElementById('elec_new')) document.getElementById('elec_new').value = data.elecNew || 0;
                 if (document.getElementById('elec_rate')) document.getElementById('elec_rate').value = data.elecRate || 3500;
-                if (document.getElementById('water_old')) document.getElementById('water_old').value = data.waterOld || 0;
-                if (document.getElementById('water_new')) document.getElementById('water_new').value = data.waterNew || 0;
-                if (document.getElementById('water_rate')) document.getElementById('water_rate').value = data.waterRate || 15000;
+
+                const isWaterNguoi = (data.waterCalcType === 'nguoi');
+                const secWaterTitle = document.getElementById('sec_water_title');
+                const waterModeKhoi = document.getElementById('water_mode_khoi');
+                const waterModeNguoi = document.getElementById('water_mode_nguoi');
+
+                if (isWaterNguoi) {
+                    if (secWaterTitle) secWaterTitle.innerText = 'C. Tiền Nước Hàng Tháng (Tính Theo Đầu Người)';
+                    if (waterModeKhoi) waterModeKhoi.classList.add('hidden');
+                    if (waterModeNguoi) waterModeNguoi.classList.remove('hidden');
+                    if (document.getElementById('water_people_count')) document.getElementById('water_people_count').value = data.waterPeopleCount || 1;
+                    if (document.getElementById('water_rate_person')) document.getElementById('water_rate_person').value = data.waterRate || 25000;
+                } else {
+                    if (secWaterTitle) secWaterTitle.innerText = 'C. Tiền Nước Hàng Tháng (Chốt Chỉ Số Cũ & Mới)';
+                    if (waterModeKhoi) waterModeKhoi.classList.remove('hidden');
+                    if (waterModeNguoi) waterModeNguoi.classList.add('hidden');
+                    if (document.getElementById('water_old')) document.getElementById('water_old').value = data.waterOld || 0;
+                    if (document.getElementById('water_new')) document.getElementById('water_new').value = data.waterNew || 0;
+                    if (document.getElementById('water_rate')) document.getElementById('water_rate').value = data.waterRate || 25000;
+                }
             }
 
             if (document.getElementById('fee_wifi')) {
@@ -989,23 +1053,54 @@
             let waterTotal = 0;
             let waterUsage = 0;
 
+            const selectedRoomCode = document.getElementById('room_select') ? document.getElementById('room_select').value : null;
+            const currentData = (window.roomsData && selectedRoomCode) ? window.roomsData[selectedRoomCode] : null;
+            const isNguoi = currentData ? (currentData.waterCalcType === 'nguoi') : {{ $isWaterNguoi ? 'true' : 'false' }};
+
             if (!isNoServiceFee) {
-                waterOld = parseFloat(document.getElementById('water_old')?.value || 0) || 0;
-                waterNew = parseFloat(document.getElementById('water_new')?.value || 0) || 0;
-                waterRate = parseFloat(document.getElementById('water_rate')?.value || 0) || 0;
-                waterUsage = Math.max(0, waterNew - waterOld);
-                waterTotal = waterUsage * waterRate;
+                if (isNguoi) {
+                    const peopleCount = parseFloat(document.getElementById('water_people_count')?.value || 1) || 1;
+                    waterRate = parseFloat(document.getElementById('water_rate_person')?.value || 0) || 0;
+                    waterTotal = peopleCount * waterRate;
+                    waterUsage = peopleCount;
+
+                    if (document.getElementById('water_usage_badge')) {
+                        document.getElementById('water_usage_badge').innerText = `Số người: ${peopleCount} người`;
+                    }
+                    if (document.getElementById('water_rate_person_text')) {
+                        document.getElementById('water_rate_person_text').innerText = formatVND(waterRate) + ' / người';
+                    }
+                    if (document.getElementById('water_nguoi_formula')) {
+                        document.getElementById('water_nguoi_formula').innerText = `${peopleCount} người × ${formatVND(waterRate)}`;
+                    }
+                    if (document.getElementById('water_total_display_nguoi')) {
+                        document.getElementById('water_total_display_nguoi').innerText = formatVND(waterTotal);
+                    }
+                    if (document.getElementById('summary_water_label')) {
+                        document.getElementById('summary_water_label').innerText = `+ Tiền nước (${peopleCount} người):`;
+                    }
+                } else {
+                    waterOld = parseFloat(document.getElementById('water_old')?.value || 0) || 0;
+                    waterNew = parseFloat(document.getElementById('water_new')?.value || 0) || 0;
+                    waterRate = parseFloat(document.getElementById('water_rate')?.value || 0) || 0;
+                    waterUsage = Math.max(0, waterNew - waterOld);
+                    waterTotal = waterUsage * waterRate;
+
+                    if (document.getElementById('water_usage_badge')) {
+                        document.getElementById('water_usage_badge').innerText = `Tiêu thụ: ${waterUsage} m³`;
+                    }
+                    if (document.getElementById('water_rate_text')) {
+                        document.getElementById('water_rate_text').innerText = formatVND(waterRate) + ' / m³';
+                    }
+                    if (document.getElementById('water_total_display')) {
+                        document.getElementById('water_total_display').innerText = formatVND(waterTotal);
+                    }
+                    if (document.getElementById('summary_water_label')) {
+                        document.getElementById('summary_water_label').innerText = `+ Tiền nước (${waterUsage} m³):`;
+                    }
+                }
             }
 
-            if (document.getElementById('water_usage_badge')) {
-                document.getElementById('water_usage_badge').innerText = `Tiêu thụ: ${waterUsage} m³`;
-            }
-            if (document.getElementById('water_total_display')) {
-                document.getElementById('water_total_display').innerText = formatVND(waterTotal);
-            }
-            if (document.getElementById('summary_water_m3')) {
-                document.getElementById('summary_water_m3').innerText = waterUsage;
-            }
             if (document.getElementById('summary_water')) {
                 document.getElementById('summary_water').innerText = formatVND(waterTotal);
             }
@@ -1133,6 +1228,10 @@
                 modalBadge.innerText = 'Chưa Thu Tiền';
             }
 
+            const isNguoiSubmit = (window.roomsData && selectedOpt && window.roomsData[selectedOpt.value]) 
+                ? (window.roomsData[selectedOpt.value].waterCalcType === 'nguoi')
+                : {{ $isWaterNguoi ? 'true' : 'false' }};
+
             // Chuẩn bị dữ liệu gửi POST lên backend lưu thật vào MongoDB
             const payload = {
                 contract_id: document.getElementById('contract_id').value,
@@ -1144,8 +1243,8 @@
                 electricity_old: calc.elecOld,
                 electricity_new: calc.elecNew,
                 electricity_amount: calc.elecTotal,
-                water_old: calc.waterOld,
-                water_new: calc.waterNew,
+                water_old: isNguoiSubmit ? 0 : calc.waterOld,
+                water_new: isNguoiSubmit ? 0 : calc.waterNew,
                 water_amount: calc.waterTotal,
                 service_amount: calc.serviceTotal,
                 total_amount: calc.grandTotal,

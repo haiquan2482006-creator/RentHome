@@ -38,6 +38,7 @@ class Contract extends Model
         'garbage_price',
         'service_fee',
         'parking_fee',
+        'parking_price',
         'license_plates',
         'cccd_images',
         'contract_documents',

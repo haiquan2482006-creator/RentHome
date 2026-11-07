@@ -402,16 +402,24 @@
                     </div>
                 </div>
 
-                <!-- Yêu cầu thanh toán / Đặt cọc (Tùy chọn) -->
+                <!-- Yêu cầu thanh toán (Chu kỳ đóng tiền) -->
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
-                        <span>Yêu cầu thanh toán / Đặt cọc <span class="text-slate-400 font-normal">(Tùy chọn)</span></span>
-                        <i class="fa-solid fa-hand-holding-dollar text-slate-400 text-xs"></i>
+                        <span class="flex items-center gap-1.5">
+                            <i class="fa-solid fa-calendar-check text-emerald-600"></i> Yêu cầu thanh toán <span class="text-rose-500">*</span>
+                        </span>
+                        <span class="text-[11px] text-slate-400 font-normal">Bao lâu đóng tiền 1 lần</span>
                     </label>
                     <div class="relative h-11">
-                        <input type="text" id="post-payment-requirement" name="payment_requirement" placeholder="VD: Đóng tiền 3 tháng/lần, cọc 1 tháng..."
-                            class="w-full px-3.5 py-2.5 h-11 rounded-2xl bg-white border border-slate-200 text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all shadow-2xs">
+                        <select id="post-payment-cycle" name="payment_cycle"
+                            class="w-full px-3.5 py-2.5 h-11 rounded-2xl bg-white border border-slate-200 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all shadow-2xs cursor-pointer">
+                            <option value="1">Đóng tiền 1 tháng / lần (Hàng tháng)</option>
+                            <option value="3">Đóng tiền 3 tháng / lần</option>
+                            <option value="6">Đóng tiền 6 tháng / lần</option>
+                            <option value="12">Đóng tiền 1 năm / lần</option>
+                        </select>
                     </div>
+                    <input type="hidden" id="post-payment-requirement" name="payment_requirement" value="">
                 </div>
 
                 <!-- Tiện ích & Đặc điểm nổi bật -->
@@ -1447,9 +1455,13 @@
             const bathCount = document.getElementById('bathroom-count')?.innerText?.trim();
             if (bathCount) formData.append('bathroom', bathCount);
 
-            // Yêu cầu thanh toán / Đặt cọc
-            const payReqVal = document.getElementById('post-payment-requirement')?.value?.trim();
-            formData.append('payment_requirement', payReqVal || '');
+            // Yêu cầu thanh toán (Chu kỳ đóng tiền)
+            const cycleVal = document.getElementById('post-payment-cycle')?.value || '1';
+            formData.append('payment_cycle', cycleVal);
+
+            let cycleText = cycleVal === '12' ? '1 năm/lần' : (cycleVal + ' tháng/lần');
+            const fullPayReq = 'Đóng tiền ' + cycleText;
+            formData.append('payment_requirement', fullPayReq);
 
             // Địa chỉ kế thừa trực tiếp từ Tòa nhà đã chọn
             const bSelectEl = document.getElementById('select-building-id');
@@ -2032,10 +2044,19 @@
                         if (bathSpan) bathSpan.innerText = postData.bathroom;
                     }
 
-                    // Yêu cầu thanh toán / Đặt cọc
-                    if (postData.payment_requirement !== undefined && postData.payment_requirement !== null) {
-                        const payReqInput = document.getElementById('post-payment-requirement');
-                        if (payReqInput) payReqInput.value = postData.payment_requirement;
+                    // Yêu cầu thanh toán (Chu kỳ đóng tiền)
+                    if (postData.payment_cycle) {
+                        const cycleSelect = document.getElementById('post-payment-cycle');
+                        if (cycleSelect) cycleSelect.value = String(postData.payment_cycle);
+                    } else if (postData.payment_requirement) {
+                        const reqStr = String(postData.payment_requirement).toLowerCase();
+                        const cycleSelect = document.getElementById('post-payment-cycle');
+                        if (cycleSelect) {
+                            if (reqStr.includes('3 tháng')) cycleSelect.value = '3';
+                            else if (reqStr.includes('6 tháng')) cycleSelect.value = '6';
+                            else if (reqStr.includes('1 năm') || reqStr.includes('12 tháng')) cycleSelect.value = '12';
+                            else cycleSelect.value = '1';
+                        }
                     }
                     
                     // Loại hình BĐS

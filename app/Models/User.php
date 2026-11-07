@@ -189,7 +189,7 @@ class User extends Authenticatable
 
     public function isNhansu(): bool
     {
-        if ($this->isModerator()) {
+        if ($this->isModerator() || $this->isCskh()) {
             return false;
         }
         return in_array($this->role, ['nhansu', 'nhan su', 'nhan_su', 'sub_account', 'staff'], true)

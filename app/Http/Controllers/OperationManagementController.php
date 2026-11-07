@@ -156,16 +156,26 @@ class OperationManagementController extends Controller
             $elecAmount = $latestInvoice && isset($latestInvoice->electricity_amount) ? (float)$latestInvoice->electricity_amount : ($elecUsage * $elecRate);
 
             // Nước
-            $waterRate = (float)($contract->water_price_block ?? 15000);
-            $waterOld = $latestInvoice && isset($latestInvoice->water_old) ? (float)$latestInvoice->water_old : (float)($contract->water_start ?? 0);
-            $waterNew = $latestInvoice && isset($latestInvoice->water_new) ? (float)$latestInvoice->water_new : $waterOld;
-            $waterUsage = max(0, $waterNew - $waterOld);
-            $waterAmount = $latestInvoice && isset($latestInvoice->water_amount) ? (float)$latestInvoice->water_amount : ($waterUsage * $waterRate);
+            $waterCalcType = ($contract->water_calculation_type ?? 'khoi') === 'nguoi' ? 'nguoi' : 'khoi';
+            if ($waterCalcType === 'nguoi') {
+                $waterRate = (float)($contract->water_price_person ?: ($contract->water_price ?: 25000));
+                $waterPeopleCount = max(1, (int)($contract->water_people_count ?? 1));
+                $waterOld = 0;
+                $waterNew = 0;
+                $waterUsage = $waterPeopleCount;
+                $waterAmount = $latestInvoice && isset($latestInvoice->water_amount) ? (float)$latestInvoice->water_amount : ($waterPeopleCount * $waterRate);
+            } else {
+                $waterRate = (float)($contract->water_price_block ?: ($contract->water_price ?: 25000));
+                $waterOld = $latestInvoice && isset($latestInvoice->water_old) ? (float)$latestInvoice->water_old : (float)($contract->water_start ?? 0);
+                $waterNew = $latestInvoice && isset($latestInvoice->water_new) ? (float)$latestInvoice->water_new : $waterOld;
+                $waterUsage = max(0, $waterNew - $waterOld);
+                $waterAmount = $latestInvoice && isset($latestInvoice->water_amount) ? (float)$latestInvoice->water_amount : ($waterUsage * $waterRate);
+            }
 
             // Dịch vụ cố định (Wifi, rác, xe...)
             $wifiPrice = (float)($contract->internet_price ?? 0);
             $garbagePrice = (float)($contract->garbage_price ?? 0);
-            $parkingPrice = (float)($contract->parking_price ?? 0);
+            $parkingPrice = (float)($contract->parking_fee ?? ($contract->parking_price ?? 0));
             $defaultService = $wifiPrice + $garbagePrice + $parkingPrice;
             $serviceAmount = $latestInvoice && isset($latestInvoice->service_amount) ? (float)$latestInvoice->service_amount : $defaultService;
 
@@ -217,6 +227,7 @@ class OperationManagementController extends Controller
                 'wifi_price'      => $wifiPrice,
                 'garbage_price'   => $garbagePrice,
                 'parking_price'   => $parkingPrice,
+                'parking_fee'     => $parkingPrice,
                 'service_amount'  => $serviceAmount,
                 'total_amount'    => $invTotal,
                 'bank_name'       => $bankName,
@@ -246,6 +257,8 @@ class OperationManagementController extends Controller
                 'water_people_count'     => (int)($contract->water_people_count ?? 1),
                 'internet_price'         => (float)($contract->internet_price ?? 0),
                 'garbage_price'          => (float)($contract->garbage_price ?? 0),
+                'parking_fee'            => (float)($contract->parking_fee ?? ($contract->parking_price ?? 0)),
+                'parking_price'          => (float)($contract->parking_fee ?? ($contract->parking_price ?? 0)),
                 'no_service_fee'         => (
                     ($contract->no_service_fee ?? false) ||
                     (!empty($post) && !empty($post->building) && (
@@ -316,6 +329,8 @@ class OperationManagementController extends Controller
                 'water_people_count'     => (int)($contract->water_people_count ?? 1),
                 'internet_price'         => (float)($contract->internet_price ?? 0),
                 'garbage_price'          => (float)($contract->garbage_price ?? 0),
+                'parking_fee'            => (float)($contract->parking_fee ?? ($contract->parking_price ?? 0)),
+                'parking_price'          => (float)($contract->parking_fee ?? ($contract->parking_price ?? 0)),
                 'payment_cycle'          => is_numeric($contract->payment_cycle) ? (((int)$contract->payment_cycle === 12) ? '1 năm/lần' : ((int)$contract->payment_cycle . ' tháng/lần')) : ($contract->payment_cycle ?: '1 tháng/lần'),
                 'payment_limit_days'     => $contract->payment_limit_days ?: '5 ngày',
                 'late_penalty_fee'       => $contract->late_penalty_fee ?: '20.000 VNĐ / ngày',
@@ -569,7 +584,14 @@ class OperationManagementController extends Controller
 
             // Đơn giá điện & nước
             $elecRate = (float)($contract->electricity_price ?? 3500);
-            $waterRate = (float)($contract->water_price_block ?? $contract->water_price_person ?? 15000);
+            
+            $waterCalcType = ($contract->water_calculation_type ?? 'khoi') === 'nguoi' ? 'nguoi' : 'khoi';
+            if ($waterCalcType === 'nguoi') {
+                $waterRate = (float)($contract->water_price_person ?: ($contract->water_price ?: 25000));
+            } else {
+                $waterRate = (float)($contract->water_price_block ?: ($contract->water_price ?: 25000));
+            }
+            $waterPeopleCount = max(1, (int)($contract->water_people_count ?? 1));
 
             // Ngày chốt & Hạn thanh toán
             $rawBillDate = $contract->bill_date ?? $contract->billing_date ?? 5;
@@ -628,7 +650,9 @@ class OperationManagementController extends Controller
             $bService = $building ? (float)($building->service_fee ?? 0) : 0;
 
             $cElec = (float)($contract->electricity_price ?? 0);
-            $cWater = (float)($contract->water_price_block ?? ($contract->water_price ?? ($contract->water_price_person ?? 0)));
+            $cWater = $waterCalcType === 'nguoi'
+                ? (float)($contract->water_price_person ?: ($contract->water_price ?: 0))
+                : (float)($contract->water_price_block ?: ($contract->water_price ?: 0));
             $cInternet = (float)($contract->internet_price ?? 0);
             $cGarbage = (float)($contract->garbage_price ?? 0);
 
@@ -663,13 +687,15 @@ class OperationManagementController extends Controller
                 'startMonth'      => $startMonthYear,
                 'elecOld'         => $elecOld,
                 'elecNew'         => $elecOld, // Khởi tạo bằng số cũ
-                'elecRate'        => $elecRate,
-                'waterOld'        => $waterOld,
-                'waterNew'        => $waterOld, // Khởi tạo bằng số cũ
-                'waterRate'       => $waterRate,
-                'wifi'            => (float)($contract->internet_price ?? 0),
+                'elecRate'         => $elecRate,
+                'waterOld'         => $waterOld,
+                'waterNew'         => $waterOld, // Khởi tạo bằng số cũ
+                'waterRate'        => $waterRate,
+                'waterCalcType'    => $waterCalcType,
+                'waterPeopleCount' => $waterPeopleCount,
+                'wifi'             => (float)($contract->internet_price ?? 0),
                 'garbage'         => (float)($contract->garbage_price ?? 0),
-                'parking'         => (float)($contract->parking_price ?? 0),
+                'parking'         => (float)($contract->parking_fee ?? ($contract->parking_price ?? 0)),
                 'billingPeriod'   => $currentMonthStr,
                 'dueDate'         => $dueDate,
                 'bankName'        => $bankName,

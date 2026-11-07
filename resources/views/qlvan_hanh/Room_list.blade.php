@@ -477,6 +477,8 @@
                                     'water_people_count'     => (int)($room->water_people_count ?? 1),
                                     'internet_price'         => (float)($room->internet_price ?? 0),
                                     'garbage_price'          => (float)($room->garbage_price ?? 0),
+                                    'parking_fee'            => (float)($room->parking_fee ?? ($room->parking_price ?? 0)),
+                                    'parking_price'          => (float)($room->parking_fee ?? ($room->parking_price ?? 0)),
                                     'no_service_fee'         => $room->contract_details['no_service_fee'] ?? false,
                                     'payment_cycle'          => is_numeric($room->payment_cycle) ? (((int)$room->payment_cycle === 12) ? '1 năm/lần' : ((int)$room->payment_cycle . ' tháng/lần')) : ($room->payment_cycle ?? '1 tháng/lần'),
                                     'bill_date'              => $room->bill_date ?? 5,
@@ -1020,6 +1022,10 @@
                                         <strong>Phí Internet và Rác sinh hoạt:</strong> 
                                         <strong id="vcInternetGarbagePrice" class="font-semibold text-slate-950">--</strong> 
                                         (Internet/Wifi: <span id="vcInternetPrice">--</span>, Rác sinh hoạt: <span id="vcGarbagePrice">--</span>).
+                                    </li>
+                                    <li>
+                                        <strong>Phí gửi xe:</strong> 
+                                        <strong id="vcParkingFee" class="font-semibold text-slate-950">--</strong>
                                     </li>
                                 </ul>
                             </div>
@@ -1893,12 +1899,13 @@
             const waterPersonNum = parseFloat(String(info.water_price_person || 0).replace(/[^\d.]/g, '')) || 0;
             const internetNum = parseFloat(String(info.internet_price || 0).replace(/[^\d.]/g, '')) || 0;
             const garbageNum = parseFloat(String(info.garbage_price || 0).replace(/[^\d.]/g, '')) || 0;
+            const parkingNum = parseFloat(String(info.parking_fee || info.parking_price || 0).replace(/[^\d.]/g, '')) || 0;
 
             const isNoServiceFee = Boolean(
                 info.no_service_fee === true || 
                 info.no_service_fee === 'true' ||
                 info.no_service_fee === 1 ||
-                (elecPriceNum <= 0 && waterBlockNum <= 0 && waterPersonNum <= 0 && internetNum <= 0 && garbageNum <= 0)
+                (elecPriceNum <= 0 && waterBlockNum <= 0 && waterPersonNum <= 0 && internetNum <= 0 && garbageNum <= 0 && parkingNum <= 0)
             );
 
             const titleEl = document.getElementById('vcServiceTitle');
@@ -1961,6 +1968,9 @@
                 if (document.getElementById('vcInternetGarbagePrice')) {
                     const totalService = internetNum + garbageNum;
                     document.getElementById('vcInternetGarbagePrice').innerText = totalService > 0 ? (formatContractVnd(totalService) + '/tháng') : (internetVal + ' + Rác: ' + garbageVal);
+                }
+                if (document.getElementById('vcParkingFee')) {
+                    document.getElementById('vcParkingFee').innerText = parkingNum > 0 ? (formatContractVnd(parkingNum) + '/xe/tháng') : 'Miễn phí (0đ/xe)';
                 }
             }
 

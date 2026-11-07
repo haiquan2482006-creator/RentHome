@@ -363,10 +363,13 @@
                                 $tenantAddress = $contract->tenant_address ?? ($currentUser->address ?? 'Theo CCCD / Hồ sơ đăng ký thuê');
 
                                 $elecPrice = (float)($contract->electricity_price ?? 3500);
-                                $waterPrice = ($contract->water_calculation_type ?? 'khoi') === 'nguoi' 
-                                    ? ((float)($contract->water_price_person ?? 100000) * (int)($contract->water_people_count ?? 1))
-                                    : (float)($contract->water_price_block ?? 25000);
-                                $servicePrice = (float)($contract->internet_price ?? 0) + (float)($contract->garbage_price ?? 0);
+                                $isWaterByPerson = ($contract->water_calculation_type ?? 'khoi') === 'nguoi';
+                                $waterPeopleCount = max(1, (int)($contract->water_people_count ?? 1));
+                                $waterUnitRate = $isWaterByPerson 
+                                    ? (float)($contract->water_price_person ?: ($contract->water_price ?: 25000))
+                                    : (float)($contract->water_price_block ?: ($contract->water_price ?: 25000));
+                                $waterPrice = $isWaterByPerson ? ($waterUnitRate * $waterPeopleCount) : $waterUnitRate;
+                                $servicePrice = (float)($contract->internet_price ?? 0) + (float)($contract->garbage_price ?? 0) + (float)($contract->parking_fee ?? ($contract->parking_price ?? 0));
                                 // Tháng đầu tiên: Tiền điện và tiền nước bằng 0 VNĐ (chỉ ghi nhận chỉ số đầu)
                                 $totalFirstMonthCalc = $deposit + $price + 0 + 0 + $servicePrice;
                                 $realInvoice = \App\Models\Invoice::where('contract_id', $contractId)->first();
@@ -404,6 +407,8 @@
                                     'water_people_count' => $contract->water_people_count ?? 1,
                                     'internet_price' => $contract->internet_price ?? 0,
                                     'garbage_price' => $contract->garbage_price ?? 0,
+                                    'parking_fee' => (float)($contract->parking_fee ?? ($contract->parking_price ?? 0)),
+                                    'parking_price' => (float)($contract->parking_fee ?? ($contract->parking_price ?? 0)),
                                     'payment_cycle' => is_numeric($contract->payment_cycle) ? (((int)$contract->payment_cycle === 12) ? '1 năm/lần' : ((int)$contract->payment_cycle . ' tháng/lần')) : ($contract->payment_cycle ?? '1 tháng/lần'),
                                     'bill_date' => $contract->bill_date ?? ($contract->billing_date ? preg_replace('/[^\d]/', '', $contract->billing_date) : '10'),
                                     'payment_limit_days' => $contract->payment_limit_days ?? 5,
@@ -441,15 +446,23 @@
                                         <td class="py-2.5 px-3.5 text-right font-extrabold text-emerald-600">0 VNĐ</td>
                                     </tr>
                                     <tr>
+                                        ' . ($isWaterByPerson ? '
+                                        <td class="py-2.5 px-3.5 font-bold text-slate-900"><i class="fa-solid fa-faucet-drip text-sky-500 mr-1.5"></i> Tiền nước sinh hoạt tháng đầu (Tính theo người: ' . $waterPeopleCount . ' người)</td>
+                                        <td class="py-2.5 px-3.5 text-center text-slate-400">-</td>
+                                        <td class="py-2.5 px-3.5 text-center text-slate-400">-</td>
+                                        <td class="py-2.5 px-3.5 text-center font-semibold text-slate-500">0 (Khởi điểm)</td>
+                                        <td class="py-2.5 px-3.5 text-right font-semibold">' . number_format($waterUnitRate) . ' VNĐ/người</td>
+                                        ' : '
                                         <td class="py-2.5 px-3.5 font-bold text-slate-900"><i class="fa-solid fa-faucet-drip text-sky-500 mr-1.5"></i> Tiền nước sinh hoạt tháng đầu (Ghi nhận chỉ số đầu)</td>
                                         <td class="py-2.5 px-3.5 text-center font-mono">' . ($contract->water_start ?? 0) . ' m³</td>
                                         <td class="py-2.5 px-3.5 text-center font-mono">' . ($contract->water_start ?? 0) . ' m³</td>
                                         <td class="py-2.5 px-3.5 text-center font-semibold text-slate-500">0 (Khởi điểm)</td>
-                                        <td class="py-2.5 px-3.5 text-right font-semibold">' . number_format($waterPrice) . ' VNĐ' . (($contract->water_calculation_type ?? 'khoi') === 'nguoi' ? '/người' : '/m³') . '</td>
+                                        <td class="py-2.5 px-3.5 text-right font-semibold">' . number_format($waterUnitRate) . ' VNĐ/m³</td>
+                                        ') . '
                                         <td class="py-2.5 px-3.5 text-right font-extrabold text-emerald-600">0 VNĐ</td>
                                     </tr>
                                     <tr>
-                                        <td class="py-2.5 px-3.5 font-bold text-slate-900"><i class="fa-solid fa-wifi text-purple-600 mr-1.5"></i> Phí mạng Internet & Rác vệ sinh</td>
+                                        <td class="py-2.5 px-3.5 font-bold text-slate-900"><i class="fa-solid fa-wifi text-purple-600 mr-1.5"></i> Phí dịch vụ cố định (Internet, Rác, Gửi xe)</td>
                                         <td class="py-2.5 px-3.5 text-center text-slate-400">-</td>
                                         <td class="py-2.5 px-3.5 text-center text-slate-400">-</td>
                                         <td class="py-2.5 px-3.5 text-center font-semibold">1 tháng</td>
@@ -928,15 +941,23 @@
                                                 <td class="py-2.5 px-3.5 text-right font-extrabold text-emerald-600">0 VNĐ</td>
                                             </tr>
                                             <tr>
+                                                ' . (($invContract && ($invContract->water_calculation_type ?? 'khoi') === 'nguoi') ? '
+                                                <td class="py-2.5 px-3.5 font-bold text-slate-900"><i class="fa-solid fa-faucet-drip text-sky-500 mr-1.5"></i> Tiền nước sinh hoạt tháng đầu (Tính theo người: ' . ($invContract->water_people_count ?? 1) . ' người)</td>
+                                                <td class="py-2.5 px-3.5 text-center text-slate-400">-</td>
+                                                <td class="py-2.5 px-3.5 text-center text-slate-400">-</td>
+                                                <td class="py-2.5 px-3.5 text-center font-semibold text-slate-500">0 (Khởi điểm)</td>
+                                                <td class="py-2.5 px-3.5 text-right font-semibold">' . number_format($invContract->water_price_person ?: ($invContract->water_price ?: 25000)) . ' VNĐ/người</td>
+                                                ' : '
                                                 <td class="py-2.5 px-3.5 font-bold text-slate-900"><i class="fa-solid fa-faucet-drip text-sky-500 mr-1.5"></i> Tiền nước sinh hoạt tháng đầu (Ghi nhận chỉ số đầu)</td>
                                                 <td class="py-2.5 px-3.5 text-center font-mono">' . ($inv->water_old ?? ($invContract->water_start ?? 0)) . ' m³</td>
                                                 <td class="py-2.5 px-3.5 text-center font-mono">' . ($inv->water_new ?? ($invContract->water_start ?? 0)) . ' m³</td>
                                                 <td class="py-2.5 px-3.5 text-center font-semibold text-slate-500">0 (Khởi điểm)</td>
-                                                <td class="py-2.5 px-3.5 text-right font-semibold">' . number_format($invContract->water_price_block ?? 25000) . ' VNĐ</td>
+                                                <td class="py-2.5 px-3.5 text-right font-semibold">' . number_format($invContract->water_price_block ?? 25000) . ' VNĐ/m³</td>
+                                                ') . '
                                                 <td class="py-2.5 px-3.5 text-right font-extrabold text-emerald-600">0 VNĐ</td>
                                             </tr>
                                             <tr>
-                                                <td class="py-2.5 px-3.5 font-bold text-slate-900"><i class="fa-solid fa-wifi text-purple-600 mr-1.5"></i> Phí mạng Internet & Rác vệ sinh</td>
+                                                <td class="py-2.5 px-3.5 font-bold text-slate-900"><i class="fa-solid fa-wifi text-purple-600 mr-1.5"></i> Phí dịch vụ cố định (Internet, Rác, Gửi xe)</td>
                                                 <td class="py-2.5 px-3.5 text-center text-slate-400">-</td>
                                                 <td class="py-2.5 px-3.5 text-center text-slate-400">-</td>
                                                 <td class="py-2.5 px-3.5 text-center font-semibold">1 tháng</td>
@@ -976,15 +997,23 @@
                                                 <td class="py-2.5 px-3.5 text-right font-extrabold text-amber-600">' . number_format($elecAmount) . ' VNĐ</td>
                                             </tr>
                                             <tr>
+                                                ' . (($invContract && ($invContract->water_calculation_type ?? 'khoi') === 'nguoi') ? '
+                                                <td class="py-2.5 px-3.5 font-bold text-slate-900"><i class="fa-solid fa-faucet-drip text-sky-500 mr-1.5"></i> Tiền nước sinh hoạt kỳ này (Tính theo đầu người)</td>
+                                                <td class="py-2.5 px-3.5 text-center text-slate-400">-</td>
+                                                <td class="py-2.5 px-3.5 text-center text-slate-400">-</td>
+                                                <td class="py-2.5 px-3.5 text-center font-semibold text-sky-600">' . ($invContract->water_people_count ?? 1) . ' người</td>
+                                                <td class="py-2.5 px-3.5 text-right font-semibold">' . number_format($invContract->water_price_person ?: ($invContract->water_price ?: 25000)) . ' VNĐ/người</td>
+                                                ' : '
                                                 <td class="py-2.5 px-3.5 font-bold text-slate-900"><i class="fa-solid fa-faucet-drip text-sky-500 mr-1.5"></i> Tiền nước sinh hoạt kỳ này</td>
                                                 <td class="py-2.5 px-3.5 text-center font-mono">' . $waterOld . ' m³</td>
                                                 <td class="py-2.5 px-3.5 text-center font-mono">' . $waterNew . ' m³</td>
                                                 <td class="py-2.5 px-3.5 text-center font-semibold text-sky-600">' . $waterUsage . ' m³</td>
-                                                <td class="py-2.5 px-3.5 text-right font-semibold">' . ($waterUsage > 0 ? number_format(round($waterAmount / $waterUsage)) : number_format($invContract->water_price_block ?? 25000)) . ' VNĐ</td>
+                                                <td class="py-2.5 px-3.5 text-right font-semibold">' . ($waterUsage > 0 ? number_format(round($waterAmount / $waterUsage)) : number_format($invContract->water_price_block ?? 25000)) . ' VNĐ/m³</td>
+                                                ') . '
                                                 <td class="py-2.5 px-3.5 text-right font-extrabold text-sky-600">' . number_format($waterAmount) . ' VNĐ</td>
                                             </tr>
                                             <tr>
-                                                <td class="py-2.5 px-3.5 font-bold text-slate-900"><i class="fa-solid fa-wifi text-purple-600 mr-1.5"></i> Phí mạng Internet & Rác vệ sinh</td>
+                                                <td class="py-2.5 px-3.5 font-bold text-slate-900"><i class="fa-solid fa-wifi text-purple-600 mr-1.5"></i> Phí dịch vụ cố định (Internet, Rác, Gửi xe)</td>
                                                 <td class="py-2.5 px-3.5 text-center text-slate-400">-</td>
                                                 <td class="py-2.5 px-3.5 text-center text-slate-400">-</td>
                                                 <td class="py-2.5 px-3.5 text-center font-semibold">1 tháng</td>
@@ -1951,6 +1980,10 @@
                                         <strong id="tcInternetGarbagePrice" class="font-semibold text-slate-950">--</strong> 
                                         (Internet/Wifi: <span id="tcInternetPrice">--</span>, Rác sinh hoạt: <span id="tcGarbagePrice">--</span>).
                                     </li>
+                                    <li>
+                                        <strong>Phí gửi xe:</strong> 
+                                        <strong id="tcParkingFee" class="font-semibold text-slate-950">--</strong>
+                                    </li>
                                 </ul>
                             </div>
                         </div>
@@ -2165,12 +2198,13 @@
             const waterPersonNum = parseFloat(String(data.water_price_person || 0).replace(/[^\d.]/g, '')) || 0;
             const internetNum = parseFloat(String(data.internet_price || 0).replace(/[^\d.]/g, '')) || 0;
             const garbageNum = parseFloat(String(data.garbage_price || 0).replace(/[^\d.]/g, '')) || 0;
+            const parkingNum = parseFloat(String(data.parking_fee || data.parking_price || 0).replace(/[^\d.]/g, '')) || 0;
 
             const isNoServiceFee = Boolean(
                 data.no_service_fee === true || 
                 data.no_service_fee === 'true' || 
                 data.no_service_fee === 1 ||
-                (elecPriceNum <= 0 && waterBlockNum <= 0 && waterPersonNum <= 0 && internetNum <= 0 && garbageNum <= 0)
+                (elecPriceNum <= 0 && waterBlockNum <= 0 && waterPersonNum <= 0 && internetNum <= 0 && garbageNum <= 0 && parkingNum <= 0)
             );
 
             const tcTitle = document.getElementById('tcServiceTitle');
@@ -2206,6 +2240,9 @@
                 if (document.getElementById('tcInternetGarbagePrice')) {
                     const totalNetGarbage = (parseFloat(data.internet_price || 0) + parseFloat(data.garbage_price || 0));
                     document.getElementById('tcInternetGarbagePrice').innerText = totalNetGarbage > 0 ? (formatVnd(totalNetGarbage) + ' / tháng') : `${netPrice} + Rác: ${garbagePrice}`;
+                }
+                if (document.getElementById('tcParkingFee')) {
+                    document.getElementById('tcParkingFee').innerText = parkingNum > 0 ? (formatVnd(parkingNum) + ' / xe / tháng') : 'Miễn phí (0đ/xe)';
                 }
             }
 

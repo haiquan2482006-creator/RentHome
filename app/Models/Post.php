@@ -14,7 +14,7 @@ class Post extends Model
         'floor', 'floor_number', 'bedroom', 'bathroom',
         'province', 'district', 'ward', 'address', 'building_id', 'display_image',
         'property_type', 'account_role', 'amenities', 'images', 'status',
-        'payment_requirement',
+        'payment_requirement', 'payment_cycle', 'deposit_months', 'deposit',
         'approved_at', 'approved_by', 'rejected_at', 'rejected_by', 'reject_reason', 'admin_directive',
         'views', 'view_count', 'favorites_count', 'likes',
         'is_featured', 'featured_at',

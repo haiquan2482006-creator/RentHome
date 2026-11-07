@@ -1535,10 +1535,11 @@
                                 <input type="number" id="b_total_rooms" class="form-input" placeholder="VD: 15" min="1">
                             </div>
                             <div class="form-group" id="group_manager_staff">
-                                <label class="form-label" for="b_manager_id">Nhân viên phụ trách (Sale/Staff)</label>
+                                <label class="form-label" for="b_manager_id">Nhân viên phụ trách (Nhân sự)</label>
                                 <select name="manager_id" id="b_manager_id" class="form-select">
                                     <option value="">-- Chọn nhân viên phụ trách --</option>
                                     @forelse($staffs ?? $staffList ?? [] as $st)
+                                        @if((method_exists($st, 'isCskh') && $st->isCskh()) || (method_exists($st, 'isModerator') && $st->isModerator())) @continue @endif
                                         @php $sId = (string)($st->_id ?? $st->id); @endphp
                                         <option value="{{ $sId }}">
                                             👤 {{ $st->account_name ?: $st->username }} ({{ $st->phone ?: $st->email }})

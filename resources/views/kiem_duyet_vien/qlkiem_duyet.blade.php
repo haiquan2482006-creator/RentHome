@@ -2121,18 +2121,18 @@
                                                 <span>🔒 Đang xem xét bởi: {{ $lockerName }}</span>
                                             </span>
                                         @elseif(!$hasViewed && $statusKey === 'pending')
-                                            {{-- NẾU chưa xem ($hasViewed == false): Chỉ hiển thị 1 nút duy nhất: "👁️ Xem chi tiết" --}}
+                                            {{-- NẾU chưa xem ($hasViewed == false): Chỉ hiển thị 1 nút duy nhất: "Xem chi tiết" --}}
                                             <button type="button" class="btn-act btn-act-view"
                                                 onclick='openInspectModal(@json($modalPayload))'
                                                 title="Xem chi tiết & Đối chiếu Lớp Vỏ - Lớp Ruột">
-                                                <i class="fa-solid fa-eye"></i> <span>👁️ Xem chi tiết</span>
+                                                <i class="fa-solid fa-eye"></i> <span>Xem chi tiết</span>
                                             </button>
                                         @else
                                             {{-- Đã xem: Nút xem lại chi tiết --}}
                                             <button type="button" class="btn-act btn-act-view"
                                                 onclick='openInspectModal(@json($modalPayload))'
                                                 title="Xem lại chi tiết bài đăng">
-                                                <i class="fa-solid fa-eye"></i> <span>👁️ Xem lại</span>
+                                                <i class="fa-solid fa-eye"></i> <span>Xem lại</span>
                                             </button>
                                         @endif
                                     </div>
@@ -2524,7 +2524,7 @@
                         <button type="button" class="btn-act btn-act-view"
                             onclick='openInspectModal(window.postDataMap["${data.id}"] || ${JSON.stringify(payload)})'
                             title="Xem lại chi tiết bài đăng">
-                            <i class="fa-solid fa-eye"></i> <span>👁️ Xem lại</span>
+                            <i class="fa-solid fa-eye"></i> <span>Xem lại</span>
                         </button>
                     `;
                 }
@@ -3181,7 +3181,7 @@
                         <button type="button" class="btn-act btn-act-view"
                             onclick='openInspectModal(window.postDataMap["${p.id}"])'
                             title="Xem chi tiết & Đối chiếu Lớp Vỏ - Lớp Ruột">
-                            <i class="fa-solid fa-eye"></i> <span>👁️ Xem chi tiết</span>
+                            <i class="fa-solid fa-eye"></i> <span>Xem chi tiết</span>
                         </button>
                     </div>
                 </td>
@@ -3293,7 +3293,7 @@
                                 <button type="button" class="btn-act btn-act-view"
                                     onclick='openInspectModal(window.postDataMap["${p.id}"] || ${JSON.stringify(payload)})'
                                     title="Xem chi tiết & Đối chiếu Lớp Vỏ - Lớp Ruột">
-                                    <i class="fa-solid fa-eye"></i> <span>👁️ Xem chi tiết</span>
+                                    <i class="fa-solid fa-eye"></i> <span>Xem chi tiết</span>
                                 </button>
                             `;
                         } else {
@@ -3301,7 +3301,7 @@
                                 <button type="button" class="btn-act btn-act-view"
                                     onclick='openInspectModal(window.postDataMap["${p.id}"] || ${JSON.stringify(payload)})'
                                     title="Xem lại chi tiết bài đăng">
-                                    <i class="fa-solid fa-eye"></i> <span>👁️ Xem lại</span>
+                                    <i class="fa-solid fa-eye"></i> <span>Xem lại</span>
                                 </button>
                             `;
                         }

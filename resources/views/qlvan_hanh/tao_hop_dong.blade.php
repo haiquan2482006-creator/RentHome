@@ -76,8 +76,40 @@
     // Tiền phòng và tiền cọc từ bài đăng đã chọn
     $roomPriceRaw = $room->price ?? null;
     $defaultRentPrice = old('rent_price', ($roomPriceRaw && is_numeric($roomPriceRaw)) ? number_format($roomPriceRaw) . ' VNĐ/tháng' : ($roomPriceRaw ?? ''));
-    $roomDepositRaw = $room->deposit ?? $roomPriceRaw;
-    $defaultDeposit = old('deposit', ($roomDepositRaw && is_numeric($roomDepositRaw)) ? number_format($roomDepositRaw) . ' VNĐ' : ($roomDepositRaw ?? ''));
+
+    // Tự động nhận diện chu kỳ thanh toán từ bài đăng
+    $roomCycle = 1;
+    if ($room) {
+        if (!empty($room->payment_cycle) && is_numeric($room->payment_cycle)) {
+            $roomCycle = (int)$room->payment_cycle;
+        } elseif (!empty($room->payment_requirement)) {
+            $req = mb_strtolower((string)$room->payment_requirement);
+            if (str_contains($req, '3 tháng')) $roomCycle = 3;
+            elseif (str_contains($req, '6 tháng')) $roomCycle = 6;
+            elseif (str_contains($req, '12 tháng') || str_contains($req, '1 năm')) $roomCycle = 12;
+            elseif (str_contains($req, '1 tháng')) $roomCycle = 1;
+        }
+    }
+    $defaultCycle = (string)old('payment_cycle', $roomCycle);
+
+    // Tự động tính tiền cọc từ bài đăng
+    $roomDepositRaw = null;
+    if ($room) {
+        if (isset($room->deposit) && is_numeric($room->deposit)) {
+            $roomDepositRaw = (float)$room->deposit;
+        } elseif (isset($room->deposit_months) && is_numeric($room->deposit_months) && is_numeric($roomPriceRaw)) {
+            $roomDepositRaw = (float)$roomPriceRaw * (float)$room->deposit_months;
+        } elseif (!empty($room->payment_requirement) && is_numeric($roomPriceRaw)) {
+            $req = mb_strtolower((string)$room->payment_requirement);
+            if (str_contains($req, 'cọc 2 tháng')) $roomDepositRaw = (float)$roomPriceRaw * 2;
+            elseif (str_contains($req, 'cọc 3 tháng')) $roomDepositRaw = (float)$roomPriceRaw * 3;
+            elseif (str_contains($req, 'không') && str_contains($req, 'cọc')) $roomDepositRaw = 0;
+            else $roomDepositRaw = (float)$roomPriceRaw;
+        } else {
+            $roomDepositRaw = $roomPriceRaw;
+        }
+    }
+    $defaultDeposit = old('deposit', ($roomDepositRaw !== null && is_numeric($roomDepositRaw)) ? number_format($roomDepositRaw) . ' VNĐ' : ($roomDepositRaw ?? ''));
 
     // Lấy thông tin Tòa nhà (Lớp Vỏ) của bài đăng đã chọn để kế thừa bảng giá dịch vụ
     $building = null;
@@ -430,6 +462,10 @@
                                             data-service="{{ $b->service_fee ?? '' }}"
                                             data-internet="{{ $b->internet_fee ?? '' }}"
                                             data-parking="{{ $b->parking_fee ?? '' }}"
+                                            data-payment-cycle="{{ $post->payment_cycle ?? '' }}"
+                                            data-deposit-months="{{ $post->deposit_months ?? '' }}"
+                                            data-deposit-amount="{{ $post->deposit ?? '' }}"
+                                            data-payment-req="{{ $post->payment_requirement ?? '' }}"
                                             data-no-service-fee="{{ $optIsNoServiceFee ? '1' : '0' }}"
                                             @if($isRoomMatch) selected @endif>
                                         {{ $postTitle }} @if($priceFormatted) - {{ $priceFormatted }} @endif @if($location) ({{ $location }}) @endif
@@ -702,10 +738,10 @@
                         <div>
                             <label class="block font-bold text-slate-800 mb-1.5">Chu kỳ thu tiền nhà <span class="text-rose-500">*</span></label>
                             <select id="fCycle" name="payment_cycle" onchange="calcFirstInvoicePreview()" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none shadow-xs">
-                                <option value="1" {{ (string)old('payment_cycle', '1') === '1' ? 'selected' : '' }}>1 tháng</option>
-                                <option value="3" {{ (string)old('payment_cycle') === '3' ? 'selected' : '' }}>3 tháng</option>
-                                <option value="6" {{ (string)old('payment_cycle') === '6' ? 'selected' : '' }}>6 tháng</option>
-                                <option value="12" {{ (string)old('payment_cycle') === '12' ? 'selected' : '' }}>1 năm</option>
+                                <option value="1" {{ (string)old('payment_cycle', $defaultCycle ?? '1') === '1' ? 'selected' : '' }}>1 tháng</option>
+                                <option value="3" {{ (string)old('payment_cycle', $defaultCycle ?? '1') === '3' ? 'selected' : '' }}>3 tháng</option>
+                                <option value="6" {{ (string)old('payment_cycle', $defaultCycle ?? '1') === '6' ? 'selected' : '' }}>6 tháng</option>
+                                <option value="12" {{ (string)old('payment_cycle', $defaultCycle ?? '1') === '12' ? 'selected' : '' }}>1 năm</option>
                             </select>
                         </div>
 
@@ -1276,7 +1312,7 @@
                 const isNoFee = selectedOpt.getAttribute('data-no-service-fee') === '1';
                 applyServiceFeeMode(isNoFee);
 
-                // 1. Đồng bộ Giá thuê & Tiền cọc
+                // 1. Đồng bộ Giá thuê, Chu kỳ đóng tiền & Tiền cọc
                 if (selectedOpt.dataset.price) {
                     const price = selectedOpt.dataset.price;
                     const numPrice = parseNumberOnly(price);
@@ -1284,8 +1320,39 @@
                         rentPriceInput.value = formatThousands(numPrice);
                         updateFieldDisplay('fRentPrice', 'fRentPriceDisplay');
                     }
-                    if (depositInput && numPrice > 0 && (force || !depositInput.value || parseNumberOnly(depositInput.value) <= 0)) {
-                        depositInput.value = formatThousands(numPrice);
+
+                    // Tự động đồng bộ Chu kỳ thanh toán
+                    const cycleInput = document.getElementById('fCycle');
+                    let targetCycle = selectedOpt.dataset.paymentCycle;
+                    if (!targetCycle && selectedOpt.dataset.paymentReq) {
+                        const req = selectedOpt.dataset.paymentReq.toLowerCase();
+                        if (req.includes('3 tháng')) targetCycle = '3';
+                        else if (req.includes('6 tháng')) targetCycle = '6';
+                        else if (req.includes('12 tháng') || req.includes('1 năm')) targetCycle = '12';
+                        else if (req.includes('1 tháng')) targetCycle = '1';
+                    }
+                    if (cycleInput && targetCycle) {
+                        cycleInput.value = targetCycle;
+                    }
+
+                    // Tự động đồng bộ Tiền cọc
+                    let depMonths = selectedOpt.dataset.depositMonths;
+                    let depAmount = selectedOpt.dataset.depositAmount;
+                    if (depositInput && (force || !depositInput.value || parseNumberOnly(depositInput.value) <= 0)) {
+                        if (depAmount && parseNumberOnly(depAmount) > 0) {
+                            depositInput.value = formatThousands(parseNumberOnly(depAmount));
+                        } else if (depMonths !== undefined && depMonths !== '') {
+                            const m = parseFloat(depMonths);
+                            depositInput.value = formatThousands(numPrice * (isNaN(m) ? 1 : m));
+                        } else if (selectedOpt.dataset.paymentReq) {
+                            const req = selectedOpt.dataset.paymentReq.toLowerCase();
+                            if (req.includes('cọc 2 tháng')) depositInput.value = formatThousands(numPrice * 2);
+                            else if (req.includes('cọc 3 tháng')) depositInput.value = formatThousands(numPrice * 3);
+                            else if (req.includes('không') && req.includes('cọc')) depositInput.value = '0';
+                            else depositInput.value = formatThousands(numPrice);
+                        } else if (numPrice > 0) {
+                            depositInput.value = formatThousands(numPrice);
+                        }
                         updateFieldDisplay('fDeposit', 'fDepositDisplay');
                     }
                 }

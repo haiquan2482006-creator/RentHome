@@ -46,25 +46,38 @@ class BuildingController extends Controller
             // Lấy danh sách tất cả các tòa nhà từ MongoDB
             $buildings = Building::orderBy('created_at', 'desc')->get();
 
-            // Lấy danh sách nhân viên nội bộ phụ trách kinh doanh/vận hành (Loại bỏ admin và kiểm duyệt viên)
+            // Lấy danh sách nhân sự phụ trách kinh doanh/vận hành (Chỉ lấy nhân sự, loại bỏ Admin, Kiểm duyệt viên và Chăm sóc KH)
+            $cskhRoles = ['cskh', 'chamsockh', 'cham_soc_kh', 'chăm sóc kh', 'chăm sóc khách hàng', 'cham soc kh'];
+            $modRoles = ['admin', 'kiemduyet', 'moderator', 'kiem_duyet'];
+            $excludedRoles = array_merge($cskhRoles, $modRoles, ['canhan', 'user', 'khach']);
+
             $staffList = User::where(function($q) {
-                    $q->where('role', 'staff')
-                      ->orWhere('role', 'sub_account')
-                      ->orWhere('role', 'nhansu')
-                      ->orWhere('role', 'nhan su')
-                      ->orWhere('role', 'nhan_su')
-                      ->orWhere('role', 'doanhnghiep')
-                      ->orWhere('role', 'enterprise')
-                      ->orWhereNotNull('parent_id');
+                    $q->whereIn('role', ['nhansu', 'nhan su', 'nhan_su', 'staff', 'sub_account'])
+                      ->orWhere('staff_role', 'like', '%nhân sự%')
+                      ->orWhere('staff_role', 'like', '%nhan su%')
+                      ->orWhere(function($subQ) {
+                          $subQ->whereNotNull('parent_id')
+                               ->whereNotIn('role', ['admin', 'kiemduyet', 'moderator', 'cskh', 'chăm sóc kh']);
+                      });
                 })
-                ->whereNotIn('role', ['admin', 'kiemduyet', 'moderator', 'kiem_duyet'])
+                ->whereNotIn('role', $excludedRoles)
+                ->where(function($q) {
+                    $q->whereNull('staff_role')->orWhere(function($srQ) {
+                        $srQ->where('staff_role', 'not like', '%chăm sóc%')
+                            ->where('staff_role', 'not like', '%cskh%')
+                            ->where('staff_role', 'not like', '%kiểm duyệt%');
+                    });
+                })
                 ->where(function($q) {
                     $q->whereNull('is_deleted')->orWhere('is_deleted', false);
                 })
                 ->orderBy('account_name', 'asc')
                 ->get()
                 ->filter(function($u) {
-                    return !method_exists($u, 'isModerator') || !$u->isModerator();
+                    if (method_exists($u, 'isModerator') && $u->isModerator()) return false;
+                    if (method_exists($u, 'isCskh') && $u->isCskh()) return false;
+                    if (method_exists($u, 'isNhansu')) return $u->isNhansu();
+                    return true;
                 })
                 ->values();
 
@@ -240,6 +253,10 @@ class BuildingController extends Controller
             }
 
             if (empty($building->manager_id)) {
+                $cskhRoles = ['cskh', 'chamsockh', 'cham_soc_kh', 'chăm sóc kh', 'chăm sóc khách hàng', 'cham soc kh'];
+                $modRoles = ['admin', 'kiemduyet', 'moderator', 'kiem_duyet'];
+                $excludedRoles = array_merge($cskhRoles, $modRoles, ['canhan', 'user', 'khach']);
+
                 $assignedStaff = User::where(function($q) {
                         $q->where('role', 'staff')
                           ->orWhere('role', 'sub_account')
@@ -248,12 +265,20 @@ class BuildingController extends Controller
                           ->orWhere('role', 'nhan_su')
                           ->orWhereNotNull('parent_id');
                     })
+                    ->whereNotIn('role', $excludedRoles)
+                    ->where(function($q) {
+                        $q->whereNull('staff_role')->orWhere(function($srQ) {
+                            $srQ->where('staff_role', 'not like', '%chăm sóc%')
+                                ->where('staff_role', 'not like', '%cskh%')
+                                ->where('staff_role', 'not like', '%kiểm duyệt%');
+                        });
+                    })
                     ->where(function($q) use ($id) {
                         $q->where('assigned_buildings', $id)
                           ->orWhere('building_ids', $id);
                     })
                     ->first();
-                if ($assignedStaff) {
+                if ($assignedStaff && (!method_exists($assignedStaff, 'isCskh') || !$assignedStaff->isCskh()) && (!method_exists($assignedStaff, 'isModerator') || !$assignedStaff->isModerator())) {
                     $building->manager_id = (string)($assignedStaff->_id ?? $assignedStaff->id);
                 }
             }
@@ -431,12 +456,13 @@ class BuildingController extends Controller
                 $managerIds = [$data['manager_id']];
             }
 
-            // Nghiêm cấm gán kiểm duyệt viên làm quản lý tòa nhà
+            // Nghiêm cấm gán kiểm duyệt viên và chăm sóc khách hàng làm quản lý tòa nhà
             if (!empty($managerIds)) {
                 $validManagerIds = [];
                 foreach ($managerIds as $mId) {
                     $u = User::find($mId);
-                    if ($u && !((method_exists($u, 'isModerator') && $u->isModerator()) || in_array($u->role, ['kiemduyet', 'moderator', 'kiem_duyet']))) {
+                    if ($u && !((method_exists($u, 'isModerator') && $u->isModerator()) || in_array($u->role, ['kiemduyet', 'moderator', 'kiem_duyet']))
+                           && !((method_exists($u, 'isCskh') && $u->isCskh()) || in_array($u->role, ['chăm sóc kh', 'cskh', 'chamsockh', 'cham_soc_kh']))) {
                         $validManagerIds[] = (string)$mId;
                     }
                 }
@@ -651,7 +677,8 @@ class BuildingController extends Controller
             $newManagerId = !empty($validated['manager_id']) ? (string)$validated['manager_id'] : null;
             if ($newManagerId) {
                 $u = User::find($newManagerId);
-                if ($u && ((method_exists($u, 'isModerator') && $u->isModerator()) || in_array($u->role, ['kiemduyet', 'moderator', 'kiem_duyet']))) {
+                if ($u && (((method_exists($u, 'isModerator') && $u->isModerator()) || in_array($u->role, ['kiemduyet', 'moderator', 'kiem_duyet']))
+                       || ((method_exists($u, 'isCskh') && $u->isCskh()) || in_array($u->role, ['chăm sóc kh', 'cskh', 'chamsockh', 'cham_soc_kh'])))) {
                     $newManagerId = null;
                 }
             }
@@ -788,7 +815,8 @@ class BuildingController extends Controller
             if ($newManagerId !== $oldManagerId) {
                 if ($newManagerId) {
                     $newStaff = User::find($newManagerId);
-                    if ($newStaff && !((method_exists($newStaff, 'isModerator') && $newStaff->isModerator()) || in_array($newStaff->role, ['kiemduyet', 'moderator', 'kiem_duyet']))) {
+                    if ($newStaff && !((method_exists($newStaff, 'isModerator') && $newStaff->isModerator()) || in_array($newStaff->role, ['kiemduyet', 'moderator', 'kiem_duyet']))
+                                  && !((method_exists($newStaff, 'isCskh') && $newStaff->isCskh()) || in_array($newStaff->role, ['chăm sóc kh', 'cskh', 'chamsockh', 'cham_soc_kh']))) {
                         $assigned = (array)($newStaff->assigned_buildings ?? []);
                         $assigned = array_values(array_diff($assigned, ['all', '*']));
                         if (!in_array($bId, $assigned, true)) {

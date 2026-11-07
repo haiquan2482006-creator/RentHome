@@ -175,9 +175,13 @@ class ContractController extends Controller
                 $paymentCycle = 1;
             }
 
+            $waterNote = ($request->input('water_calculation_type', 'khoi') === 'nguoi')
+                ? ('nước tính theo người: ' . max(1, (int)$request->input('water_people_count', 1)) . ' người')
+                : ((int)$request->input('water_start', 0) . ' khối nước');
+
             $serviceNote = $isNoServiceFee
                 ? ' (Cơ sở này không thu phí dịch vụ tập trung. Khách thuê tự thanh toán điện/nước theo đồng hồ riêng).'
-                : ' (Điện nước ghi nhận chỉ số đầu: ' . (int)$request->input('electricity_start', 0) . ' số điện, ' . (int)$request->input('water_start', 0) . ' khối nước; thành tiền = 0 VNĐ).';
+                : ' (Điện nước ghi nhận ban đầu: ' . (int)$request->input('electricity_start', 0) . ' số điện, ' . $waterNote . '; thành tiền = 0 VNĐ).';
 
             // Xử lý tính toán Lẻ ngày (Pro-rated) theo chu kỳ thu tiền nhà:
             if ($startDay === 1) {
@@ -227,6 +231,7 @@ class ContractController extends Controller
                 'garbage_price'          => $garbagePrice,
                 'service_fee'            => $garbagePrice,
                 'parking_fee'            => $parkingPrice,
+                'parking_price'          => $parkingPrice,
                 'license_plates'         => $request->input('license_plates'),
                 'cccd_images'            => $cccdFiles,
                 'contract_documents'     => $docFiles,

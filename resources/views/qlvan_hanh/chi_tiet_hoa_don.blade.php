@@ -489,32 +489,46 @@
                             </tr>
 
                             <!-- 5. TIỀN NƯỚC -->
+                            @php
+                                $isWaterByPerson = ($contract->water_calculation_type ?? 'khoi') === 'nguoi';
+                                $waterPersonPrice = (float)($contract->water_price_person ?: ($contract->water_price ?: 25000));
+                                $waterPeopleCount = max(1, (int)($contract->water_people_count ?? 1));
+                                $waterBlockPrice = (float)($contract->water_price_block ?: ($contract->water_price ?: 15000));
+                            @endphp
                             <tr class="hover:bg-slate-50/80 transition-colors">
                                 <td class="py-3.5 text-center font-bold text-slate-400">05</td>
                                 <td class="py-3.5">
                                     <div class="font-bold text-slate-900 flex items-center gap-2">
                                         <i class="fa-solid fa-droplet text-sky-500"></i>
-                                        <span>{{ !empty($isLiquidationInvoice) ? 'Tiền Nước Chốt Cuối' : ($isFirstInvoice ? 'Tiền Nước (Tháng đầu ghi nhận chỉ số bàn giao)' : 'Tiền Nước Hàng Tháng') }}</span>
+                                        <span>{{ !empty($isLiquidationInvoice) ? 'Tiền Nước Chốt Cuối' : ($isFirstInvoice ? ($isWaterByPerson ? 'Tiền Nước (Tháng đầu - Theo đầu người)' : 'Tiền Nước (Tháng đầu ghi nhận chỉ số bàn giao)') : 'Tiền Nước Hàng Tháng') }}</span>
                                     </div>
                                     <span class="text-xs text-slate-500 block mt-0.5">
-                                        @if(!empty($isLiquidationInvoice))
-                                            Chỉ số cũ: <strong>{{ (int)($invoice->water_old ?? 0) }}</strong> m³ → Số chốt: <strong>{{ (int)($invoice->water_new ?? 0) }}</strong> m³ (Đơn giá: {{ number_format($contract->water_price_block ?? 15000) }} đ/khối)
+                                        @if($isWaterByPerson)
+                                            Tính theo đầu người: <strong>{{ $waterPeopleCount }}</strong> người (Đơn giá: {{ number_format($waterPersonPrice) }} đ/người/tháng)
+                                        @elseif(!empty($isLiquidationInvoice))
+                                            Chỉ số cũ: <strong>{{ (int)($invoice->water_old ?? 0) }}</strong> m³ → Số chốt: <strong>{{ (int)($invoice->water_new ?? 0) }}</strong> m³ (Đơn giá: {{ number_format($waterBlockPrice) }} đ/khối)
                                         @elseif($isFirstInvoice)
-                                            Chỉ số đồng hồ bàn giao ban đầu: <strong>{{ (int)($invoice->water_old ?? ($contract->water_start ?? 0)) }}</strong> m³ (Đơn giá: {{ number_format($contract->water_price_block ?? 15000) }} đ/khối)
+                                            Chỉ số đồng hồ bàn giao ban đầu: <strong>{{ (int)($invoice->water_old ?? ($contract->water_start ?? 0)) }}</strong> m³ (Đơn giá: {{ number_format($waterBlockPrice) }} đ/khối)
                                         @else
-                                            Chỉ số cũ: <strong>{{ (int)($invoice->water_old ?? 0) }}</strong> m³ → Số mới: <strong>{{ (int)($invoice->water_new ?? 0) }}</strong> m³ (Đơn giá: {{ number_format($contract->water_price_block ?? 15000) }} đ/khối)
+                                            Chỉ số cũ: <strong>{{ (int)($invoice->water_old ?? 0) }}</strong> m³ → Số mới: <strong>{{ (int)($invoice->water_new ?? 0) }}</strong> m³ (Đơn giá: {{ number_format($waterBlockPrice) }} đ/khối)
                                         @endif
                                     </span>
                                 </td>
                                 <td class="py-3.5 text-center">
-                                    @if(!empty($isLiquidationInvoice) || !$isFirstInvoice)
+                                    @if($isWaterByPerson)
+                                        <span class="px-2 py-0.5 rounded-md bg-sky-50 text-sky-700 text-xs font-bold">{{ $waterPeopleCount }} người</span>
+                                    @elseif(!empty($isLiquidationInvoice) || !$isFirstInvoice)
                                         <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs font-bold">Tiêu thụ: {{ max(0, (int)($invoice->water_new ?? 0) - (int)($invoice->water_old ?? 0)) }} khối</span>
                                     @else
                                         <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs font-bold">Số đầu: {{ (int)($invoice->water_old ?? ($contract->water_start ?? 0)) }}</span>
                                     @endif
                                 </td>
                                 <td class="py-3.5 text-right font-medium text-slate-600">
-                                    {{ number_format($contract->water_price_block ?? 15000) }} đ/khối
+                                    @if($isWaterByPerson)
+                                        {{ number_format($waterPersonPrice) }} đ/người
+                                    @else
+                                        {{ number_format($waterBlockPrice) }} đ/khối
+                                    @endif
                                 </td>
                                 <td class="py-3.5 text-right font-extrabold {{ (float)($invoice->water_amount ?? 0) > 0 ? 'text-slate-900' : 'text-emerald-600' }} text-sm">
                                     {{ number_format($invoice->water_amount ?? 0) }} đ
