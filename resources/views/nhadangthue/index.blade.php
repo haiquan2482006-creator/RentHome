@@ -98,6 +98,43 @@
             background: #94a3b8;
         }
 
+        /* Modal Biên bản quyết toán thanh lý - Ép chiều rộng to rõ ràng */
+        div.swal2-container div.swal2-popup.settlement-receipt-modal {
+            width: 950px !important;
+            max-width: 95vw !important;
+            min-width: min(850px, 95vw) !important;
+            padding: 24px 28px !important;
+            border-radius: 24px !important;
+            box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25) !important;
+        }
+        div.swal2-container div.swal2-popup.settlement-receipt-modal .swal2-title {
+            padding: 0 0 10px 0 !important;
+            margin: 0 !important;
+            width: 100% !important;
+        }
+        div.swal2-container div.swal2-popup.settlement-receipt-modal .swal2-html-container {
+            max-width: 100% !important;
+            width: 100% !important;
+            margin: 10px 0 0 0 !important;
+            padding: 0 !important;
+            text-align: left !important;
+            overflow-x: hidden !important;
+        }
+        @media (min-width: 768px) {
+            .settlement-grid-2cols {
+                display: grid !important;
+                grid-template-columns: 1fr 1fr !important;
+                gap: 16px !important;
+            }
+        }
+        @media (max-width: 767px) {
+            .settlement-grid-2cols {
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 14px !important;
+            }
+        }
+
         #tenantLegalContractSheet, #tenantLegalContractSheet * {
             font-family: 'Times New Roman', Times, 'Liberation Serif', serif !important;
         }
@@ -343,10 +380,28 @@
                         @forelse($rentedContracts ?? [] as $contract)
                             @php
                                 $post = $contract->post ?: \App\Models\Post::find($contract->post_id);
+
+                                // Tìm người đăng bài (nhân sự quản lý) của căn nhà / phòng này
+                                $posterUser = null;
+                                if ($post) {
+                                    $posterId = $post->staff_id ?: ($post->author_id ?: $post->user_id);
+                                    if ($posterId) {
+                                        $posterUser = \App\Models\User::find($posterId);
+                                    }
+                                }
+                                if (!$posterUser && !empty($contract->staff_id)) {
+                                    $posterUser = \App\Models\User::find($contract->staff_id);
+                                }
+                                if (!$posterUser && !empty($contract->created_by)) {
+                                    $posterUser = \App\Models\User::find($contract->created_by);
+                                }
+
                                 $owner = $contract->owner ?: ($post ? \App\Models\User::find($post->user_id) : null);
-                                $landlord = $owner;
-                                $landlordName = $owner->account_name ?? ($owner->username ?? 'Chủ nhà');
-                                $landlordPhone = $owner->phone ?? ($contract->owner_phone ?? 'Chưa cập nhật');
+                                $landlord = $posterUser ?: $owner;
+                                $landlordName = $landlord ? ($landlord->account_name ?? ($landlord->name ?? ($landlord->username ?? 'Chủ nhà'))) : 'Chủ nhà';
+                                $landlordPhone = $landlord ? ($landlord->phone ?? ($contract->owner_phone ?? 'Chưa cập nhật')) : ($contract->owner_phone ?? 'Chưa cập nhật');
+                                $landlordIdCard = $landlord ? ($landlord->id_card ?? ($landlord->cccd ?? ($owner->id_card ?? '001089012345'))) : ($owner->id_card ?? '001089012345');
+                                $landlordAddress = $landlord ? ($landlord->address ?? ($owner->address ?? ($address ?: 'Số 123 Đường Cầu Giấy, Phường Dịch Vọng, Quận Cầu Giấy, Hà Nội'))) : ($owner->address ?? ($address ?: 'Số 123 Đường Cầu Giấy, Phường Dịch Vọng, Quận Cầu Giấy, Hà Nội'));
                                 $houseTitle = $post ? ($post->title ?? 'Nhà / Phòng cho thuê') : ($contract->tenant_name ? 'Phòng ' . $contract->tenant_name : 'Phòng trọ');
                                 $roomCode = $contract->contract_code ?? ('HD-' . substr((string)($contract->_id ?? $contract->id), -4));
                                 $price = (float)($contract->rent_price ?? ($post->price ?? 0));
@@ -387,8 +442,8 @@
                                     'address' => $address,
                                     'landlord_name' => $landlordName,
                                     'landlord_phone' => $landlordPhone,
-                                    'landlord_id_card' => $owner->id_card ?? '001089012345',
-                                    'landlord_address' => $owner->address ?? ($address ?: 'Hà Nội'),
+                                    'landlord_id_card' => $landlordIdCard,
+                                    'landlord_address' => $landlordAddress,
                                     'tenant_name' => $tenantName,
                                     'tenant_phone' => $tenantPhone,
                                     'tenant_id_card' => $tenantIdCard,
@@ -559,7 +614,10 @@
                             @endphp
 
                             <!-- DẤU HIỆU 2: VIỀN THẺ NHÀ PHẢN ÁNH TRẠNG THÁI -->
-                            <div class="bg-white rounded-3xl border {{ $isHousePendingApproval ? 'border-2 border-amber-300 ring-4 ring-amber-50/70 shadow-md' : (!$isHousePaid ? 'border-2 border-rose-300 ring-4 ring-rose-50/70 shadow-md' : 'border border-slate-200/90') }} overflow-hidden shadow-card hover:shadow-lg transition-all flex flex-col md:flex-row relative">
+                            <div id="contract-card-{{ $contractId }}" 
+                                 class="contract-card bg-white rounded-3xl border {{ $isHousePendingApproval ? 'border-2 border-amber-300 ring-4 ring-amber-50/70 shadow-md' : (!$isHousePaid ? 'border-2 border-rose-300 ring-4 ring-rose-50/70 shadow-md' : 'border border-slate-200/90') }} overflow-hidden shadow-card hover:shadow-lg transition-all flex flex-col md:flex-row relative"
+                                 data-contract-id="{{ $contractId }}"
+                                 data-contract-code="{{ $roomCode }}">
                                 <div class="relative w-full md:w-80 lg:w-96 shrink-0 min-h-[220px] md:min-h-full bg-slate-100 overflow-hidden">
                                     <img src="{{ $imgUrl }}" alt="{{ $houseTitle }}" class="w-full h-full object-cover">
                                     <div class="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:to-slate-950/20"></div>
@@ -648,21 +706,31 @@
                                                 class="w-full py-2.5 px-3 rounded-xl bg-slate-100 text-slate-600 border border-slate-300 font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm opacity-90 cursor-not-allowed">
                                                 <i class="fa-solid fa-circle-check text-emerald-500"></i> Đã bàn giao phòng (Còn trống)
                                             </button>
-                                        @elseif($contract->status === 'pending_liquidation')
-                                            <button type="button" onclick="switchMainForm('thanh-toan-hoa-don')"
-                                                class="w-full py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all animate-pulse">
-                                                <i class="fa-solid fa-credit-card"></i> Thanh toán nốt nợ thanh lý
-                                            </button>
-                                        @elseif($contract->status === 'pending_refund')
-                                            <button type="button" disabled
-                                                class="w-full py-2.5 px-3 rounded-xl bg-sky-50 text-sky-700 border border-sky-300 font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm opacity-90 cursor-not-allowed">
-                                                <i class="fa-solid fa-hourglass-half animate-spin"></i> Chờ hoàn tiền cọc
-                                            </button>
+                                        @elseif(!empty($contract->liquidation_details) || in_array($contract->status, ['pending_liquidation', 'pending_refund']))
+                                            @if($contract->status === 'pending_liquidation')
+                                                <button type="button" onclick="switchMainForm('thanh-toan-hoa-don')"
+                                                    class="w-full py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all animate-pulse"
+                                                    title="Ban Quản lý đã lập bảng thanh lý chốt công nợ. Vui lòng thanh toán hóa đơn để hoàn tất.">
+                                                    <i class="fa-solid fa-credit-card"></i> Đã lập bảng thanh lý (Thanh toán nợ)
+                                                </button>
+                                            @else
+                                                <button type="button" disabled
+                                                    class="w-full py-2.5 px-3 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-300 font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm opacity-95 cursor-not-allowed"
+                                                    title="Ban Quản lý đã lập bảng thanh lý và gửi yêu cầu hoàn tiền cọc lên Kế toán">
+                                                    <i class="fa-solid fa-file-circle-check text-emerald-600"></i> Đã lập bảng thanh lý (Chờ nhận tiền)
+                                                </button>
+                                            @endif
                                         @elseif(!empty($contract->checkout_request) && ($contract->checkout_request['status'] ?? '') === 'pending')
-                                            <button type="button" disabled
-                                                class="w-full py-2.5 px-3 rounded-xl bg-amber-50 text-amber-700 border border-amber-300 font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm opacity-90 cursor-not-allowed">
-                                                <i class="fa-solid fa-clock-rotate-left text-sm animate-pulse"></i> Đã gửi yêu cầu trả phòng
-                                            </button>
+                                            <div class="flex items-center gap-1.5 w-full">
+                                                <div class="flex-1 py-2.5 px-2 rounded-xl bg-amber-50 text-amber-800 border border-amber-300 font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs truncate select-none" title="Đã gửi yêu cầu trả phòng (Đang chờ xử lý)">
+                                                    <i class="fa-solid fa-clock-rotate-left text-xs text-amber-600 animate-pulse"></i> Đã gửi yêu cầu
+                                                </div>
+                                                <button type="button" onclick="cancelCheckoutRequest('{{ $contractId }}', '{{ $roomCode }}')"
+                                                    class="py-2.5 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-700 border border-rose-300 font-extrabold text-xs flex items-center justify-center gap-1 transition-all shadow-xs shrink-0 cursor-pointer"
+                                                    title="Hủy / Thu hồi yêu cầu trả phòng này">
+                                                    <i class="fa-solid fa-rotate-left"></i> Thu hồi
+                                                </button>
+                                            </div>
                                         @else
                                             <button type="button" onclick="openReturnModal('{{ $contractId }}', '{{ addslashes($houseTitle) }}', '{{ $roomCode }}', '{{ addslashes($landlordName) }}', '{{ number_format($deposit) }}đ')"
                                                 class="w-full py-2.5 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-all hover:bg-rose-100/80 active:scale-[0.98]">
@@ -711,9 +779,25 @@
                                 @foreach($terminatedContracts as $termContract)
                                     @php
                                         $tPost = $termContract->post ?: \App\Models\Post::find($termContract->post_id);
+                                        $tPosterUser = null;
+                                        if ($tPost) {
+                                            $tPosterId = $tPost->staff_id ?: ($tPost->author_id ?: $tPost->user_id);
+                                            if ($tPosterId) {
+                                                $tPosterUser = \App\Models\User::find($tPosterId);
+                                            }
+                                        }
+                                        if (!$tPosterUser && !empty($termContract->staff_id)) {
+                                            $tPosterUser = \App\Models\User::find($termContract->staff_id);
+                                        }
+                                        if (!$tPosterUser && !empty($termContract->created_by)) {
+                                            $tPosterUser = \App\Models\User::find($termContract->created_by);
+                                        }
                                         $tOwner = $termContract->owner ?: ($tPost ? \App\Models\User::find($tPost->user_id) : null);
-                                        $tLandlordName = $tOwner->account_name ?? ($tOwner->username ?? 'Chủ nhà');
-                                        $tLandlordPhone = $tOwner->phone ?? ($termContract->owner_phone ?? 'Chưa cập nhật');
+                                        $tLandlord = $tPosterUser ?: $tOwner;
+                                        $tLandlordName = $tLandlord ? ($tLandlord->account_name ?? ($tLandlord->name ?? ($tLandlord->username ?? 'Chủ nhà'))) : 'Chủ nhà';
+                                        $tLandlordPhone = $tLandlord ? ($tLandlord->phone ?? ($termContract->owner_phone ?? 'Chưa cập nhật')) : ($termContract->owner_phone ?? 'Chưa cập nhật');
+                                        $tLandlordIdCard = $tLandlord ? ($tLandlord->id_card ?? ($tLandlord->cccd ?? ($tOwner->id_card ?? '001089012345'))) : ($tOwner->id_card ?? '001089012345');
+                                        $tLandlordAddress = $tLandlord ? ($tLandlord->address ?? ($tOwner->address ?? ($tAddress ?: 'Số 123 Đường Cầu Giấy, Phường Dịch Vọng, Quận Cầu Giấy, Hà Nội'))) : ($tOwner->address ?? ($tAddress ?: 'Số 123 Đường Cầu Giấy, Phường Dịch Vọng, Quận Cầu Giấy, Hà Nội'));
                                         $tHouseTitle = $tPost ? ($tPost->title ?? 'Nhà / Phòng cho thuê') : ($termContract->tenant_name ? 'Phòng ' . $termContract->tenant_name : 'Phòng trọ');
                                         $tRoomCode = $termContract->contract_code ?? ('HD-' . substr((string)($termContract->_id ?? $termContract->id), -4));
                                         $tPrice = (float)($termContract->rent_price ?? ($tPost->price ?? 0));
@@ -723,7 +807,18 @@
                                         $tAddress = $tPost ? ($tPost->address . ($tPost->district ? ', ' . $tPost->district : '') . ($tPost->province ? ', ' . $tPost->province : '')) : 'Địa chỉ phòng trọ';
                                         $tImgUrl = ($tPost && !empty($tPost->display_image)) ? $tPost->display_image : 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80';
                                         $tContractId = (string)($termContract->_id ?? $termContract->id);
-                                        $tLiquidation = $termContract->liquidation_details ?? [];
+                                        $tLiquidation = (array)($termContract->liquidation_details ?? []);
+                                        if (!empty($tLiquidation)) {
+                                            if (!empty($termContract->checkout_request)) {
+                                                $cReq = (array)$termContract->checkout_request;
+                                                if (empty($tLiquidation['bank_account'])) $tLiquidation['bank_account'] = $cReq['bank_account'] ?? '';
+                                                if (empty($tLiquidation['bank_name'])) $tLiquidation['bank_name'] = $cReq['bank_name'] ?? '';
+                                                if (empty($tLiquidation['bank_holder'])) $tLiquidation['bank_holder'] = $cReq['bank_holder'] ?? ($termContract->tenant_name ?? '');
+                                            }
+                                            if (empty($tLiquidation['rent_price'])) {
+                                                $tLiquidation['rent_price'] = $tPrice;
+                                            }
+                                        }
                                         $contractJsonMap[$tContractId] = [
                                             'id' => $tContractId,
                                             'contract_code' => $tRoomCode,
@@ -731,6 +826,8 @@
                                             'address' => $tAddress,
                                             'landlord_name' => $tLandlordName,
                                             'landlord_phone' => $tLandlordPhone,
+                                            'landlord_id_card' => $tLandlordIdCard,
+                                            'landlord_address' => $tLandlordAddress,
                                             'tenant_name' => $termContract->tenant_name ?? 'Khách thuê',
                                             'tenant_phone' => $termContract->tenant_phone ?? '',
                                             'rent_price' => $tPrice,
@@ -800,7 +897,8 @@
                                                         class="w-full sm:w-auto px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition-all">
                                                         <i class="fa-solid fa-file-contract"></i> Xem lại hợp đồng
                                                     </button>
-                                                    <button type="button" onclick="openSettlementReceipt('{{ $tContractId }}', '{{ addslashes($tHouseTitle) }}', '{{ $tRoomCode }}', {{ json_encode($tLiquidation) }})"
+                                                    <button type="button" onclick="openSettlementReceipt('{{ $tContractId }}', '{{ addslashes($tHouseTitle) }}', '{{ $tRoomCode }}', this)"
+                                                        data-details='@json($tLiquidation)'
                                                         class="w-full sm:w-auto px-4 py-2 rounded-xl bg-skybrand-50 hover:bg-skybrand-100 text-skybrand-700 border border-skybrand-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-all">
                                                         <i class="fa-solid fa-receipt"></i> Xem biên bản quyết toán thanh lý
                                                     </button>
@@ -899,9 +997,23 @@
                                 @php
                                     $invContract = $inv->contract ?: \App\Models\Contract::find($inv->contract_id);
                                     $invPost = $inv->post ?: ($invContract ? ($invContract->post ?: \App\Models\Post::find($invContract->post_id)) : null);
+                                    $invPosterUser = null;
+                                    if ($invPost) {
+                                        $invPosterId = $invPost->staff_id ?: ($invPost->author_id ?: $invPost->user_id);
+                                        if ($invPosterId) {
+                                            $invPosterUser = \App\Models\User::find($invPosterId);
+                                        }
+                                    }
+                                    if (!$invPosterUser && $invContract && !empty($invContract->staff_id)) {
+                                        $invPosterUser = \App\Models\User::find($invContract->staff_id);
+                                    }
+                                    if (!$invPosterUser && $invContract && !empty($invContract->created_by)) {
+                                        $invPosterUser = \App\Models\User::find($invContract->created_by);
+                                    }
                                     $invOwner = $inv->owner ?: ($invPost ? \App\Models\User::find($invPost->user_id) : null);
-                                    $invLandlordName = $invOwner->account_name ?? ($invOwner->username ?? 'Chủ nhà');
-                                    $invLandlordPhone = $invOwner->phone ?? 'Chưa cập nhật';
+                                    $invLandlord = $invPosterUser ?: $invOwner;
+                                    $invLandlordName = $invLandlord ? ($invLandlord->account_name ?? ($invLandlord->name ?? ($invLandlord->username ?? 'Chủ nhà'))) : 'Chủ nhà';
+                                    $invLandlordPhone = $invLandlord ? ($invLandlord->phone ?? 'Chưa cập nhật') : 'Chưa cập nhật';
                                     $invHouseTitle = $invPost ? ($invPost->title ?? 'Nhà / Phòng cho thuê') : ($invContract->tenant_name ? 'Phòng ' . $invContract->tenant_name : 'Phòng trọ');
                                     $invCode = $inv->invoice_code ?? ('INV-' . substr((string)($inv->_id ?? $inv->id), -4));
                                     $invContractId = (string)($inv->contract_id ?? ($invContract ? ($invContract->_id ?? $invContract->id) : ''));
@@ -1168,9 +1280,23 @@
                                 @php
                                     $invContract = $inv->contract ?: \App\Models\Contract::find($inv->contract_id);
                                     $invPost = $inv->post ?: ($invContract ? ($invContract->post ?: \App\Models\Post::find($invContract->post_id)) : null);
+                                    $invPosterUser = null;
+                                    if ($invPost) {
+                                        $invPosterId = $invPost->staff_id ?: ($invPost->author_id ?: $invPost->user_id);
+                                        if ($invPosterId) {
+                                            $invPosterUser = \App\Models\User::find($invPosterId);
+                                        }
+                                    }
+                                    if (!$invPosterUser && $invContract && !empty($invContract->staff_id)) {
+                                        $invPosterUser = \App\Models\User::find($invContract->staff_id);
+                                    }
+                                    if (!$invPosterUser && $invContract && !empty($invContract->created_by)) {
+                                        $invPosterUser = \App\Models\User::find($invContract->created_by);
+                                    }
                                     $invOwner = $inv->owner ?: ($invPost ? \App\Models\User::find($invPost->user_id) : null);
-                                    $invLandlordName = $invOwner->account_name ?? ($invOwner->username ?? 'Chủ nhà');
-                                    $invLandlordPhone = $invOwner->phone ?? 'Chưa cập nhật';
+                                    $invLandlord = $invPosterUser ?: $invOwner;
+                                    $invLandlordName = $invLandlord ? ($invLandlord->account_name ?? ($invLandlord->name ?? ($invLandlord->username ?? 'Chủ nhà'))) : 'Chủ nhà';
+                                    $invLandlordPhone = $invLandlord ? ($invLandlord->phone ?? 'Chưa cập nhật') : 'Chưa cập nhật';
                                     $invHouseTitle = $invPost ? ($invPost->title ?? 'Nhà / Phòng cho thuê') : ($invContract->tenant_name ? 'Phòng ' . $invContract->tenant_name : 'Phòng trọ');
                                     $invCode = $inv->invoice_code ?? ('INV-' . substr((string)($inv->_id ?? $inv->id), -4));
                                     $isFirstMonth = ((float)($inv->deposit ?? 0) > 0) || ($inv->billing_period && (str_contains($inv->billing_period, 'Kỳ đầu tiên') || str_contains($inv->billing_period, 'Cọc')));
@@ -1473,10 +1599,50 @@
                 <div class="space-y-2 border-t border-slate-100 pt-3">
                     <label class="font-bold text-slate-800 block">Thông tin ngân hàng nhận lại tiền cọc:</label>
                     <div class="grid grid-cols-2 gap-3">
-                        <input type="text" id="returnBankName" placeholder="Tên Ngân hàng (MB, VCB...)" required class="p-2.5 rounded-xl border border-slate-200">
-                        <input type="text" id="returnBankAccount" placeholder="Số tài khoản" required class="p-2.5 rounded-xl border border-slate-200 font-mono">
+                        <select id="returnBankName" required onchange="handleReturnBankChange(this)" class="p-2.5 rounded-xl border border-slate-200 bg-white font-medium text-xs focus:ring-2 focus:ring-skybrand-500 focus:outline-none">
+                            <option value="">-- Chọn ngân hàng --</option>
+                            <option value="MBBank">MBBank (Ngân hàng Quân Đội)</option>
+                            <option value="Vietcombank">Vietcombank (Ngoại Thương Việt Nam)</option>
+                            <option value="VietinBank">VietinBank (Công Thương Việt Nam)</option>
+                            <option value="BIDV">BIDV (Đầu tư & Phát triển Việt Nam)</option>
+                            <option value="Techcombank">Techcombank (Kỹ Thương Việt Nam)</option>
+                            <option value="VPBank">VPBank (Việt Nam Thịnh Vượng)</option>
+                            <option value="ACB">ACB (Á Châu)</option>
+                            <option value="Agribank">Agribank (Nông nghiệp & PTNT)</option>
+                            <option value="TPBank">TPBank (Tiên Phong)</option>
+                            <option value="VIB">VIB (Quốc tế Việt Nam)</option>
+                            <option value="HDBank">HDBank (Phát triển TP.HCM)</option>
+                            <option value="Sacombank">Sacombank (Sài Gòn Thương Tín)</option>
+                            <option value="SHB">SHB (Sài Gòn - Hà Nội)</option>
+                            <option value="MSB">MSB (Hàng Hải Việt Nam)</option>
+                            <option value="OCB">OCB (Phương Đông)</option>
+                            <option value="SeABank">SeABank (Đông Nam Á)</option>
+                            <option value="LPBank">LPBank (Lộc Phát Việt Nam)</option>
+                            <option value="Nam A Bank">Nam A Bank (Nam Á)</option>
+                            <option value="Bac A Bank">Bac A Bank (Bắc Á)</option>
+                            <option value="PVcomBank">PVcomBank (Đại Chúng Việt Nam)</option>
+                            <option value="VietBank">VietBank (Việt Nam Thương Tín)</option>
+                            <option value="Kienlongbank">Kienlongbank (Kiên Long)</option>
+                            <option value="Saigonbank">Saigonbank (Sài Gòn Công Thương)</option>
+                            <option value="BVBank">BVBank (Bản Việt)</option>
+                            <option value="PGBank">PGBank (Thịnh vượng & Phát triển)</option>
+                            <option value="BaoViet Bank">BaoViet Bank (Bảo Việt)</option>
+                            <option value="VietABank">VietABank (Việt Á)</option>
+                            <option value="Shinhan Bank">Shinhan Bank (Shinhan Việt Nam)</option>
+                            <option value="Woori Bank">Woori Bank (Woori Việt Nam)</option>
+                            <option value="Public Bank">Public Bank (Public Bank Việt Nam)</option>
+                            <option value="HSBC">HSBC (HSBC Việt Nam)</option>
+                            <option value="Standard Chartered">Standard Chartered (Standard Chartered VN)</option>
+                            <option value="UOB">UOB (United Overseas Bank VN)</option>
+                            <option value="CIMB">CIMB (CIMB Việt Nam)</option>
+                            <option value="Indovina Bank">Indovina Bank (Indovina)</option>
+                            <option value="VRB">VRB (Việt - Nga)</option>
+                            <option value="khac">Ngân hàng khác...</option>
+                        </select>
+                        <input type="text" id="returnBankAccount" placeholder="Số tài khoản" required class="p-2.5 rounded-xl border border-slate-200 font-mono text-xs focus:ring-2 focus:ring-skybrand-500 focus:outline-none">
                     </div>
-                    <input type="text" id="returnBankHolder" placeholder="Tên chủ tài khoản nhận tiền" required class="w-full p-2.5 rounded-xl border border-slate-200 uppercase">
+                    <input type="text" id="returnBankNameCustom" class="w-full p-2.5 rounded-xl border border-slate-200 font-medium text-xs hidden" placeholder="Nhập tên ngân hàng của bạn...">
+                    <input type="text" id="returnBankHolder" placeholder="Tên chủ tài khoản nhận tiền" required class="w-full p-2.5 rounded-xl border border-slate-200 uppercase text-xs focus:ring-2 focus:ring-skybrand-500 focus:outline-none">
                 </div>
 
                 <div>
@@ -2016,26 +2182,7 @@
                             </p>
                         </div>
 
-                        <!-- THÔNG BÁO NGHĨA VỤ THANH TOÁN ĐẦU KỲ & NÚT ĐÓNG TIỀN CỌC ĐẦU THÁNG TRONG HỢP ĐỒNG -->
-                        <div class="mt-8 p-4 sm:p-5 rounded-2xl border-2 border-emerald-400 bg-emerald-50/80 font-sans shadow-sm print:hidden">
-                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                <div class="space-y-1">
-                                    <div class="flex items-center gap-2">
-                                        <span class="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white font-black text-[11px] uppercase tracking-wide">
-                                            Hóa đơn tháng đầu tiên
-                                        </span>
-                                        <span class="text-xs font-bold text-slate-800" id="tcInvoiceCodeBadge">Mã HĐ: INV-HD...</span>
-                                    </div>
-                                    <p class="text-xs text-slate-700 font-medium leading-relaxed mt-1">
-                                        Hợp đồng tháng đầu tiên bao gồm <strong>Tiền đặt cọc giữ nhà</strong> và <strong>Tiền thuê nhà tháng đầu</strong>. Các khoản tiền điện & nước chỉ ghi nhận chỉ số đầu và bằng <strong>0 VNĐ</strong> (khách đóng trước đầu tháng, từ tháng tiếp theo sẽ tính theo lượng sử dụng thực tế). Quý khách vui lòng nhấn nút bên cạnh để xem bảng kê và đóng tiền.
-                                    </p>
-                                </div>
-                                <button type="button" onclick="payInitialInvoiceFromContract()" class="px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-md shadow-emerald-600/30 transition shrink-0 cursor-pointer">
-                                    <i class="fa-solid fa-receipt text-sm"></i>
-                                    <span>Đóng tiền cọc đầu tháng</span>
-                                </button>
-                            </div>
-                        </div>
+
 
                     </div>
 
@@ -2102,10 +2249,6 @@
 
                 <!-- Nhóm nút bấm -->
                 <div class="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-end">
-                    <button type="button" id="btnPayDepositFooter" onclick="payInitialInvoiceFromContract()" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-sans text-xs font-extrabold transition flex items-center gap-2 shadow-md shadow-emerald-600/25 cursor-pointer">
-                        <i class="fa-solid fa-receipt"></i>
-                        <span>Đóng tiền cọc đầu tháng</span>
-                    </button>
                     <button type="button" onclick="window.print()" class="px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700 font-sans text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer">
                         <i class="fa-solid fa-print"></i>
                         <span>In Hợp Đồng</span>
@@ -2716,6 +2859,13 @@
             tomorrow.setDate(tomorrow.getDate() + 15);
             document.getElementById('returnDate').value = tomorrow.toISOString().split('T')[0];
 
+            if (document.getElementById('returnBankName')) document.getElementById('returnBankName').value = '';
+            if (document.getElementById('returnBankNameCustom')) {
+                document.getElementById('returnBankNameCustom').value = '';
+                document.getElementById('returnBankNameCustom').classList.add('hidden');
+                document.getElementById('returnBankNameCustom').required = false;
+            }
+
             document.getElementById('returnModal').classList.remove('hidden');
         }
 
@@ -2732,6 +2882,20 @@
             } else {
                 customInput.classList.add('hidden');
                 customInput.required = false;
+            }
+        }
+
+        function handleReturnBankChange(selectEl) {
+            const customInput = document.getElementById('returnBankNameCustom');
+            if (!customInput) return;
+            if (selectEl.value === 'khac') {
+                customInput.classList.remove('hidden');
+                customInput.required = true;
+                customInput.focus();
+            } else {
+                customInput.classList.add('hidden');
+                customInput.required = false;
+                customInput.value = '';
             }
         }
 
@@ -2754,7 +2918,9 @@
             const reason = (reasonSelect === 'khac' ? reasonCustom : reasonSelect) || 'Khách thuê yêu cầu trả phòng.';
 
             const bankAccount = document.getElementById('returnBankAccount').value.trim();
-            const bankName = document.getElementById('returnBankName').value.trim();
+            const bankSelect = document.getElementById('returnBankName').value.trim();
+            const bankCustom = document.getElementById('returnBankNameCustom') ? document.getElementById('returnBankNameCustom').value.trim() : '';
+            const bankName = (bankSelect === 'khac' ? bankCustom : bankSelect);
             const bankHolder = document.getElementById('returnBankHolder').value.trim();
             const note = document.getElementById('returnNote').value.trim();
 
@@ -2816,6 +2982,85 @@
                 if (submitBtn) {
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = originalBtnHtml;
+                }
+            }
+        }
+
+        // Logic thu hồi (hủy) yêu cầu trả phòng của khách thuê
+        function cancelCheckoutRequest(contractId, roomCode) {
+            const confirmAction = () => {
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                fetch(`/api/contracts/${contractId}/cancel-checkout`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken
+                    }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Đã thu hồi yêu cầu!',
+                                text: data.message || 'Hợp đồng của bạn tiếp tục duy trì hiệu lực bình thường.',
+                                confirmButtonColor: '#059669',
+                                confirmButtonText: 'Đã hiểu'
+                            }).then(() => {
+                                window.location.reload();
+                            });
+                        } else {
+                            showToast(data.message || 'Đã thu hồi yêu cầu trả phòng thành công!');
+                            setTimeout(() => window.location.reload(), 1200);
+                        }
+                    } else {
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Không thể thu hồi!',
+                                text: data.message || 'Không thể thu hồi yêu cầu trả phòng.',
+                                confirmButtonColor: '#e11d48',
+                                confirmButtonText: 'Đã hiểu'
+                            }).then(() => {
+                                window.location.reload();
+                            });
+                        } else {
+                            showToast(data.message || 'Lỗi khi thu hồi!', 'error');
+                            setTimeout(() => window.location.reload(), 1500);
+                        }
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    showToast('Đã có lỗi xảy ra khi gửi yêu cầu!', 'error');
+                });
+            };
+
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Thu Hồi Yêu Cầu Trả Phòng?',
+                    text: `Bạn có chắc chắn muốn hủy yêu cầu trả phòng cho hợp đồng [${roomCode}]? Hợp đồng thuê sẽ tiếp tục có hiệu lực bình thường.`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#e11d48',
+                    cancelButtonColor: '#64748b',
+                    confirmButtonText: '<i class="fa-solid fa-rotate-left mr-1"></i> Xác nhận thu hồi',
+                    cancelButtonText: 'Đóng',
+                    customClass: {
+                        popup: 'rounded-3xl shadow-2xl p-6',
+                        confirmButton: 'px-4 py-2.5 rounded-xl font-bold text-xs',
+                        cancelButton: 'px-4 py-2.5 rounded-xl font-bold text-xs'
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        confirmAction();
+                    }
+                });
+            } else {
+                if (confirm(`Bạn có chắc muốn thu hồi yêu cầu trả phòng cho hợp đồng [${roomCode}]?`)) {
+                    confirmAction();
                 }
             }
         }
@@ -2910,87 +3155,337 @@
 
         // Xem Biên bản quyết toán thanh lý (Popup SweetAlert2)
         function openSettlementReceipt(contractId, houseTitle, roomCode, details) {
-            const d = details || {};
+            let d = {};
+            try {
+                if (details && typeof details === 'object' && details.getAttribute && details.getAttribute('data-details')) {
+                    d = JSON.parse(details.getAttribute('data-details'));
+                } else if (typeof details === 'string') {
+                    d = JSON.parse(details);
+                } else if (details && typeof details === 'object') {
+                    d = details;
+                }
+            } catch (e) {
+                console.error("Error parsing liquidation details", e);
+                d = {};
+            }
+            const formatVnd = (num) => new Intl.NumberFormat('vi-VN').format(Math.round(num || 0)) + ' đ';
+
             const checkoutDate = d.checkout_date ? new Date(d.checkout_date).toLocaleDateString('vi-VN') : 'Đã bàn giao';
-            const totalDebt = d.total_debt ? new Intl.NumberFormat('vi-VN').format(d.total_debt) + ' đ' : '0 đ';
-            const depositAmount = d.deposit_amount ? new Intl.NumberFormat('vi-VN').format(d.deposit_amount) + ' đ' : '0 đ';
-            const netAmount = d.net_amount ? new Intl.NumberFormat('vi-VN').format(Math.abs(d.net_amount)) + ' đ' : '0 đ';
-            const damageFee = d.damage_fee ? new Intl.NumberFormat('vi-VN').format(d.damage_fee) + ' đ' : '0 đ';
-            const elecAmount = d.electricity_amount ? new Intl.NumberFormat('vi-VN').format(d.electricity_amount) + ' đ' : '0 đ';
-            const waterAmount = d.water_amount ? new Intl.NumberFormat('vi-VN').format(d.water_amount) + ' đ' : '0 đ';
-            const proratedRent = d.prorated_rent ? new Intl.NumberFormat('vi-VN').format(d.prorated_rent) + ' đ' : '0 đ';
+            const settledDate = d.settled_at ? new Date(d.settled_at).toLocaleDateString('vi-VN') : checkoutDate;
+            const settledByName = d.settled_by_name || 'Ban Quản Lý';
+
+            const stayDays = Number(d.stay_days || 0);
+            const rentPrice = Number(d.rent_price || 0);
+            const proratedRent = Number(d.prorated_rent || 0);
+            const damageFee = Number(d.damage_fee || 0);
+            const damageReason = d.damage_reason || '';
+            const elecAmount = Number(d.electricity_amount || 0);
+            const waterAmount = Number(d.water_amount || 0);
+            const fixedServices = Number(d.fixed_services_amount || 0);
+            const depositAmount = Number(d.deposit_amount || 0);
+            const netAmount = Number(d.net_amount || 0);
             const isNoServiceFee = Boolean(d.is_no_service_fee);
 
-            const utilityRowsHtml = isNoServiceFee
-                ? `<tr style="border-bottom: 1px dashed #e2e8f0;">
-                    <td colspan="2" style="padding: 6px 0; color: #059669; font-size: 11.5px; font-weight: 600;">
-                        🌿 Điện nước: Khách tự đóng cho Nhà nước theo thỏa thuận
+            // Tính toán tổng nợ
+            const totalDebt = Number(d.total_debt || (proratedRent + elecAmount + waterAmount + fixedServices + damageFee));
+
+            // Xác định kịch bản
+            const scenario = d.scenario || (netAmount > 0 ? 'A' : (netAmount < 0 ? 'B' : 'C'));
+
+            // Tiền phòng trả trước hoàn lại (unused rent refund)
+            let unusedRentRefund = Number(d.unused_rent_refund || 0);
+            let unusedDays = Number(d.unused_days || 0);
+            if (!unusedRentRefund && scenario === 'B') {
+                const inferredRefund = (Math.abs(netAmount) + totalDebt) - depositAmount;
+                if (inferredRefund > 0) {
+                    unusedRentRefund = Math.round(inferredRefund);
+                }
+            }
+            if (!unusedDays && unusedRentRefund > 0 && stayDays > 0 && stayDays < 30) {
+                unusedDays = Math.max(0, 30 - stayDays);
+            }
+
+            // Tổng quyền lợi của khách (Tiền cọc + Hoàn tiền phòng trả trước chưa ở)
+            const totalCredits = depositAmount + unusedRentRefund;
+
+            // Dòng điện nước
+            let utilityRowsHtml = '';
+            if (isNoServiceFee) {
+                utilityRowsHtml = `
+                    <tr style="border-bottom: 1px dashed #e2e8f0;">
+                        <td style="padding: 7px 0; color: #64748b; vertical-align: top;">
+                            <span style="font-weight: 600; color: #1e293b;">⚡ Điện & 💧 Nước:</span>
+                            <div style="font-size: 11px; color: #059669; margin-top: 1px;">🌿 Khách tự thanh toán cho Nhà nước theo thỏa thuận</div>
+                        </td>
+                        <td style="padding: 7px 0; text-align: right; font-weight: 700; color: #0f172a; vertical-align: top;">0 đ</td>
+                    </tr>
+                `;
+            } else {
+                const elecUsageText = d.electricity_usage !== undefined ? d.electricity_usage + ' kWh' : ((d.electricity_new || 0) - (d.electricity_old || 0)) + ' kWh';
+                const waterUsageText = d.water_calc_type === 'nguoi' 
+                    ? (d.water_usage || 1) + ' người'
+                    : (d.water_usage !== undefined ? d.water_usage + ' m³' : 'Khối tiêu thụ');
+
+                utilityRowsHtml = `
+                    <tr style="border-bottom: 1px dashed #e2e8f0;">
+                        <td style="padding: 7px 0; color: #64748b; vertical-align: top;">
+                            <span style="font-weight: 600; color: #1e293b;">⚡ Điện chốt cuối:</span>
+                            <div style="font-size: 11px; color: #64748b; margin-top: 1px;">Chỉ số: ${d.electricity_old || 0} ➔ ${d.electricity_new || 0} (${elecUsageText})</div>
+                        </td>
+                        <td style="padding: 7px 0; text-align: right; font-weight: 700; color: #0f172a; vertical-align: top;">${formatVnd(elecAmount)}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px dashed #e2e8f0;">
+                        <td style="padding: 7px 0; color: #64748b; vertical-align: top;">
+                            <span style="font-weight: 600; color: #1e293b;">💧 Nước chốt cuối:</span>
+                            <div style="font-size: 11px; color: #64748b; margin-top: 1px;">Định mức/tiêu thụ: ${waterUsageText}</div>
+                        </td>
+                        <td style="padding: 7px 0; text-align: right; font-weight: 700; color: #0f172a; vertical-align: top;">${formatVnd(waterAmount)}</td>
+                    </tr>
+                `;
+            }
+
+            // Dịch vụ cố định (nếu có)
+            let fixedServicesRow = '';
+            if (fixedServices > 0) {
+                fixedServicesRow = `
+                    <tr style="border-bottom: 1px dashed #e2e8f0;">
+                        <td style="padding: 7px 0; color: #64748b; vertical-align: top;">
+                            <span style="font-weight: 600; color: #1e293b;">🌐 Dịch vụ tiện ích:</span>
+                            <div style="font-size: 11px; color: #64748b; margin-top: 1px;">Internet, rác, vệ sinh tòa nhà theo ngày ở</div>
+                        </td>
+                        <td style="padding: 7px 0; text-align: right; font-weight: 700; color: #0f172a; vertical-align: top;">${formatVnd(fixedServices)}</td>
+                    </tr>
+                `;
+            }
+
+            // Bồi thường hư hại
+            let damageRow = `
+                <tr style="border-bottom: 1px dashed #e2e8f0;">
+                    <td style="padding: 7px 0; color: #64748b; vertical-align: top;">
+                        <span style="font-weight: 600; color: #1e293b;">🔨 Bồi thường hư hại / Phạt:</span>
+                        ${damageFee > 0 && damageReason ? `<div style="font-size: 11px; color: #e11d48; margin-top: 1px;">Lý do: ${damageReason}</div>` : ''}
                     </td>
-                   </tr>`
-                : `<tr style="border-bottom: 1px dashed #e2e8f0;">
-                    <td style="padding: 6px 0; color: #64748b;">Điện chốt cuối (${d.electricity_old || 0} -> ${d.electricity_new || 0} kWh):</td>
-                    <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #0f172a;">${elecAmount}</td>
-                   </tr>
-                   <tr style="border-bottom: 1px dashed #e2e8f0;">
-                    <td style="padding: 6px 0; color: #64748b;">Nước chốt cuối:</td>
-                    <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #0f172a;">${waterAmount}</td>
-                   </tr>`;
+                    <td style="padding: 7px 0; text-align: right; font-weight: 700; color: ${damageFee > 0 ? '#e11d48' : '#0f172a'}; vertical-align: top;">${formatVnd(damageFee)}</td>
+                </tr>
+            `;
+
+            // Tiền phòng tháng cuối
+            let rentRow = '';
+            if (proratedRent === 0) {
+                rentRow = `
+                    <tr style="border-bottom: 1px dashed #e2e8f0;">
+                        <td style="padding: 7px 0; color: #64748b; vertical-align: top;">
+                            <span style="font-weight: 600; color: #1e293b;">🏠 Tiền phòng tháng cuối (${stayDays} ngày ở):</span>
+                            <div style="font-size: 11px; color: #16a34a; font-weight: 600; margin-top: 1px;">
+                                <i class="fa-solid fa-circle-check"></i> Đã đóng đủ trọn chu kỳ trước đó (Không nợ tiền phòng)
+                            </div>
+                        </td>
+                        <td style="padding: 7px 0; text-align: right; font-weight: 700; color: #16a34a; vertical-align: top;">0 đ</td>
+                    </tr>
+                `;
+            } else {
+                rentRow = `
+                    <tr style="border-bottom: 1px dashed #e2e8f0;">
+                        <td style="padding: 7px 0; color: #64748b; vertical-align: top;">
+                            <span style="font-weight: 600; color: #1e293b;">🏠 Tiền phòng tính theo ngày ở (${stayDays} ngày):</span>
+                            <div style="font-size: 11px; color: #64748b; margin-top: 1px;">${formatVnd(rentPrice)} / 30 ngày x ${stayDays} ngày ở</div>
+                        </td>
+                        <td style="padding: 7px 0; text-align: right; font-weight: 700; color: #0f172a; vertical-align: top;">${formatVnd(proratedRent)}</td>
+                    </tr>
+                `;
+            }
+
+            // Dòng hoàn tiền phòng trả trước chưa ở (nếu có)
+            let unusedRentRow = '';
+            if (unusedRentRefund > 0) {
+                unusedRentRow = `
+                    <tr style="border-bottom: 1px dashed #bbf7d0;">
+                        <td style="padding: 7px 0; color: #166534; vertical-align: top;">
+                            <span style="font-weight: 700; color: #15803d;">💰 Hoàn lại tiền phòng đóng trước chưa ở:</span>
+                            <div style="font-size: 11px; color: #166534; margin-top: 1px;">
+                                <i class="fa-solid fa-circle-check"></i> Hoàn trả ${unusedDays > 0 ? unusedDays + ' ngày thừa' : 'thời gian còn lại'} do dời đi trước hạn chu kỳ
+                            </div>
+                        </td>
+                        <td style="padding: 7px 0; text-align: right; font-weight: 800; color: #15803d; vertical-align: top;">+${formatVnd(unusedRentRefund)}</td>
+                    </tr>
+                `;
+            }
+
+            // Hộp kết quả cuối cùng
+            let resultBoxHtml = '';
+            if (scenario === 'B') {
+                resultBoxHtml = `
+                    <div style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: #ffffff; padding: 14px 18px; border-radius: 14px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.25);">
+                        <div>
+                            <div style="font-size: 11px; text-transform: uppercase; font-weight: 800; opacity: 0.95; letter-spacing: 0.5px;">
+                                <i class="fa-solid fa-circle-check mr-1"></i> KẾT QUẢ QUYẾT TOÁN THỰC NHẬN
+                            </div>
+                            <div style="font-size: 13px; font-weight: 700; margin-top: 2px;">CÔNG TY ĐÃ HOÀN TRẢ CHO BẠN:</div>
+                        </div>
+                        <div style="font-size: 22px; font-weight: 900; letter-spacing: -0.5px; text-shadow: 0 1px 2px rgba(0,0,0,0.15);">
+                            +${formatVnd(Math.abs(netAmount))}
+                        </div>
+                    </div>
+                `;
+            } else if (scenario === 'A') {
+                resultBoxHtml = `
+                    <div style="background: linear-gradient(135deg, #e11d48 0%, #f43f5e 100%); color: #ffffff; padding: 14px 18px; border-radius: 14px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 14px rgba(225, 29, 72, 0.25);">
+                        <div>
+                            <div style="font-size: 11px; text-transform: uppercase; font-weight: 800; opacity: 0.95; letter-spacing: 0.5px;">
+                                <i class="fa-solid fa-triangle-exclamation mr-1"></i> KẾT QUẢ QUYẾT TOÁN CÔNG NỢ
+                            </div>
+                            <div style="font-size: 13px; font-weight: 700; margin-top: 2px;">KHÁCH HÀNG CẦN THANH TOÁN THÊM:</div>
+                        </div>
+                        <div style="font-size: 22px; font-weight: 900; letter-spacing: -0.5px;">
+                            ${formatVnd(Math.abs(netAmount))}
+                        </div>
+                    </div>
+                `;
+            } else {
+                resultBoxHtml = `
+                    <div style="background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%); color: #ffffff; padding: 14px 18px; border-radius: 14px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 11px; text-transform: uppercase; font-weight: 800; opacity: 0.95;">
+                                <i class="fa-solid fa-scale-balanced mr-1"></i> KẾT QUẢ ĐỐI SOÁT
+                            </div>
+                            <div style="font-size: 13px; font-weight: 700; margin-top: 2px;">HÒA CÔNG NỢ (TIỀN CỌC VỪA ĐỦ BÙ TRỪ):</div>
+                        </div>
+                        <div style="font-size: 22px; font-weight: 900;">0 đ</div>
+                    </div>
+                `;
+            }
+
+            // Box thông tin ngân hàng nhận tiền hoàn
+            let bankInfoHtml = '';
+            if (d.bank_account) {
+                bankInfoHtml = `
+                    <div style="margin-top: 12px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 10px 14px; font-size: 12px; color: #334155; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-building-columns text-sky-600" style="font-size: 16px;"></i>
+                            <div>
+                                <span style="color: #64748b; font-size: 11px; display: block;">Tài khoản nhận tiền hoàn của khách:</span>
+                                <strong>STK: ${d.bank_account}</strong> - <strong>${d.bank_name || 'Ngân hàng'}</strong> (Chủ TK: <strong>${d.bank_holder || ''}</strong>)
+                            </div>
+                        </div>
+                        <span style="padding: 2px 8px; border-radius: 6px; background: #ecfdf5; color: #059669; font-weight: 700; font-size: 11px;">
+                            <i class="fa-solid fa-check"></i> Đã ghi nhận
+                        </span>
+                    </div>
+                `;
+            }
+
+            // Ghi chú của BQL
+            let noteHtml = '';
+            if (d.note) {
+                noteHtml = `
+                    <div style="margin-top: 10px; font-size: 11.5px; color: #92400e; background: #fefce8; border: 1px solid #fef08a; border-radius: 8px; padding: 8px 12px;">
+                        <strong>Ghi chú Ban Quản Lý:</strong> ${d.note}
+                    </div>
+                `;
+            }
 
             const html = `
-                <div style="text-align: left; font-size: 13px; line-line-height: 1.6; color: #334155;">
-                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 16px; margin-bottom: 14px;">
-                        <div style="font-weight: 800; font-size: 15px; color: #0f172a;">${houseTitle}</div>
-                        <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Mã hợp đồng: <strong>${roomCode}</strong> | Ngày bàn giao: <strong>${checkoutDate}</strong></div>
-                        <div style="display: inline-block; margin-top: 6px; padding: 2px 8px; border-radius: 6px; background: #ecfdf5; color: #059669; font-weight: 700; font-size: 11px;">
-                            <i class="fa-solid fa-circle-check"></i> Trạng thái phòng: Đã bàn giao (Còn trống)
+                <div style="width: 100%; min-width: min(850px, 100%); text-align: left; font-size: 13px; line-height: 1.5; color: #334155;">
+                    <!-- Thông tin căn nhà / hợp đồng -->
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px 16px; margin-bottom: 14px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+                            <div style="font-weight: 800; font-size: 15px; color: #0f172a;">${houseTitle}</div>
+                            <span style="padding: 3px 10px; border-radius: 20px; background: #ecfdf5; color: #059669; font-weight: 700; font-size: 11.5px; border: 1px solid #a7f3d0;">
+                                <i class="fa-solid fa-circle-check"></i> Đã bàn giao (Phòng trống)
+                            </span>
+                        </div>
+                        <div style="font-size: 12px; color: #64748b; margin-top: 4px; display: flex; flex-wrap: wrap; gap: 12px;">
+                            <span>Mã HĐ: <strong style="color: #0f172a;">${roomCode}</strong></span>
+                            <span>Ngày bàn giao: <strong style="color: #0f172a;">${checkoutDate}</strong></span>
+                            <span>Người lập: <strong style="color: #0f172a;">${settledByName}</strong></span>
                         </div>
                     </div>
 
-                    <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 12px;">
-                        <tbody>
-                            <tr style="border-bottom: 1px dashed #e2e8f0;">
-                                <td style="padding: 6px 0; color: #64748b;">Tiền phòng tính theo ngày ở (${d.stay_days || 0} ngày):</td>
-                                <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #0f172a;">${proratedRent}</td>
-                            </tr>
-                            ${utilityRowsHtml}
-                            <tr style="border-bottom: 1px dashed #e2e8f0;">
-                                <td style="padding: 6px 0; color: #64748b;">Bồi thường hư hại tài sản:</td>
-                                <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #e11d48;">${damageFee}</td>
-                            </tr>
-                            <tr style="border-bottom: 1px solid #cbd5e1; background: #fafafa;">
-                                <td style="padding: 8px 4px; font-weight: 700; color: #0f172a;">Tổng các khoản nợ phát sinh:</td>
-                                <td style="padding: 8px 4px; text-align: right; font-weight: 800; color: #e11d48;">${totalDebt}</td>
-                            </tr>
-                            <tr style="border-bottom: 1px solid #cbd5e1; background: #f0fdf4;">
-                                <td style="padding: 8px 4px; font-weight: 700; color: #166534;">Khấu trừ tiền cọc bảo đảm:</td>
-                                <td style="padding: 8px 4px; text-align: right; font-weight: 800; color: #16a34a;">-${depositAmount}</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <!-- LƯỚI 2 CỘT CHIỀU NGANG RỘNG (RESPONSIVE 2 COLUMNS) -->
+                    <div class="settlement-grid-2cols" style="margin-bottom: 14px;">
+                        
+                        <!-- PHẦN 1: CÁC KHOẢN CHI PHÍ & NỢ PHÁT SINH THÁNG CUỐI -->
+                        <div style="background: #ffffff; border: 1px solid #fed7aa; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                            <div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ffedd5; padding-bottom: 8px; margin-bottom: 8px;">
+                                    <span style="font-weight: 800; font-size: 13px; color: #9a3412; text-transform: uppercase;">
+                                        <i class="fa-solid fa-file-invoice-dollar mr-1"></i> 1. Chi phí & Nợ phát sinh
+                                    </span>
+                                    <span style="font-size: 11px; color: #ea580c; font-weight: 700; background: #fff7ed; padding: 2px 8px; border-radius: 6px;">(Khách phải trả)</span>
+                                </div>
+                                <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                                    <tbody>
+                                        ${rentRow}
+                                        ${utilityRowsHtml}
+                                        ${fixedServicesRow}
+                                        ${damageRow}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div style="background: #fff7ed; border-radius: 10px; padding: 10px 12px; margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-weight: 800; color: #9a3412; font-size: 12.5px;">TỔNG NỢ PHÁT SINH (A):</span>
+                                <span style="font-weight: 900; color: #ea580c; font-size: 15px;">${formatVnd(totalDebt)}</span>
+                            </div>
+                        </div>
 
-                    <div style="background: #f1f5f9; border-radius: 10px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-weight: 800; color: #1e293b; font-size: 13px;">Kết quả đối soát cuối cùng:</span>
-                        <span style="font-weight: 900; font-size: 15px; color: ${d.scenario === 'A' ? '#e11d48' : '#059669'};">
-                            ${d.scenario === 'A' ? 'Đã thu thêm ' + netAmount : (d.scenario === 'B' ? 'Đã hoàn cọc ' + netAmount : 'Hòa nợ (0 đ)')}
+                        <!-- PHẦN 2: CÁC KHOẢN CÔNG TY HOÀN TRẢ & CẤN TRỪ -->
+                        <div style="background: #ffffff; border: 1px solid #bbf7d0; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                            <div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #dcfce7; padding-bottom: 8px; margin-bottom: 8px;">
+                                    <span style="font-weight: 800; font-size: 13px; color: #166534; text-transform: uppercase;">
+                                        <i class="fa-solid fa-shield-halved mr-1"></i> 2. Tiền cọc & Quyền lợi hoàn lại
+                                    </span>
+                                    <span style="font-size: 11px; color: #16a34a; font-weight: 700; background: #f0fdf4; padding: 2px 8px; border-radius: 6px;">(Khách được nhận)</span>
+                                </div>
+                                <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                                    <tbody>
+                                        <tr style="border-bottom: 1px dashed #bbf7d0;">
+                                            <td style="padding: 7px 0; color: #166534; vertical-align: top;">
+                                                <span style="font-weight: 700; color: #15803d;">🛡️ Tiền cọc bảo đảm hợp đồng:</span>
+                                                <div style="font-size: 11px; color: #166534; margin-top: 1px;">Tiền cọc ban đầu dùng để bù trừ công nợ & hoàn trả</div>
+                                            </td>
+                                            <td style="padding: 7px 0; text-align: right; font-weight: 800; color: #15803d; vertical-align: top; white-space: nowrap;">+${formatVnd(depositAmount)}</td>
+                                        </tr>
+                                        ${unusedRentRow}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div style="background: #f0fdf4; border-radius: 10px; padding: 10px 12px; margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-weight: 800; color: #166534; font-size: 12.5px;">TỔNG TIỀN CỌC & HOÀN LẠI (B):</span>
+                                <span style="font-weight: 900; color: #16a34a; font-size: 15px;">+${formatVnd(totalCredits)}</span>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- PHẦN 3: ĐỐI SOÁT & KẾT QUẢ QUYẾT TOÁN CUỐI CÙNG -->
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 14px; margin-bottom: 12px; font-size: 12.5px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                        <span style="color: #64748b; font-weight: 600;">Phép tính đối soát công nợ cuối cùng:</span>
+                        <span style="font-weight: 700; color: #0f172a;">
+                            [Khoản được hoàn (B): <span style="color: #16a34a;">+${formatVnd(totalCredits)}</span>] &nbsp;—&nbsp; [Tổng nợ (A): <span style="color: #ea580c;">${formatVnd(totalDebt)}</span>]
                         </span>
                     </div>
+
+                    ${resultBoxHtml}
+                    ${bankInfoHtml}
+                    ${noteHtml}
                 </div>
             `;
 
             if (typeof Swal !== 'undefined') {
                 Swal.fire({
-                    title: '<span style="font-size: 18px; font-weight: 800; color: #0f172a;"><i class="fa-solid fa-receipt text-sky-600 mr-2"></i> Biên Bản Quyết Toán Thanh Lý Hợp Đồng</span>',
+                    title: '<span style="font-size: 20px; font-weight: 800; color: #0f172a;"><i class="fa-solid fa-receipt text-sky-600 mr-2"></i> Biên Bản Quyết Toán Thanh Lý Hợp Đồng</span>',
                     html: html,
-                    width: '560px',
-                    confirmButtonText: 'Đã Hiểu & Đóng',
+                    width: '920px',
+                    confirmButtonText: '<i class="fa-solid fa-check mr-1.5"></i> Đã Hiểu & Đóng Biên Bản',
                     confirmButtonColor: '#0284c7',
                     customClass: {
-                        popup: 'rounded-3xl shadow-2xl p-6',
-                        confirmButton: 'px-5 py-2.5 rounded-xl font-bold text-xs'
+                        popup: 'settlement-receipt-modal rounded-3xl shadow-2xl text-slate-800',
+                        confirmButton: 'px-7 py-3 rounded-xl font-bold text-sm shadow-md transition-all hover:scale-105 active:scale-95'
                     }
                 });
             } else {
-                showToast('Biên bản quyết toán phòng ' + roomCode + ': nợ ' + totalDebt + ', cọc cấn trừ ' + depositAmount, 'info');
+                showToast('Biên bản quyết toán phòng ' + roomCode + ': nợ ' + formatVnd(totalDebt) + ', hoàn trả ' + formatVnd(Math.abs(netAmount)), 'info');
             }
         }
 
@@ -3164,12 +3659,65 @@
         // Toast Helper
         function showToast(msg) {
             const toast = document.getElementById('toast');
-            document.getElementById('toastMessage').innerText = msg;
-            toast.classList.remove('hidden');
-            setTimeout(() => {
-                toast.classList.add('hidden');
-            }, 5000);
+            if (toast) {
+                document.getElementById('toastMessage').innerText = msg;
+                toast.classList.remove('hidden');
+                setTimeout(() => {
+                    toast.classList.add('hidden');
+                }, 5000);
+            }
         }
+
+        // Realtime Polling: Tự động loại bỏ hợp đồng đã hủy / thanh lý mà không cần load lại trang
+        async function checkTenantActiveContractsRealtime() {
+            try {
+                const res = await fetch('/api/tenant/active-contracts', { cache: 'no-store' });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.success && Array.isArray(data.active_ids)) {
+                    const cards = document.querySelectorAll('.contract-card');
+                    let removedAny = false;
+                    cards.forEach(card => {
+                        const cId = card.getAttribute('data-contract-id');
+                        const cCode = card.getAttribute('data-contract-code');
+                        const isActive = (cId && data.active_ids.includes(cId)) || 
+                                         (cCode && data.active_codes && data.active_codes.includes(cCode));
+                        if (!isActive) {
+                            removedAny = true;
+                            card.style.transition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
+                            card.style.opacity = '0';
+                            card.style.transform = 'scale(0.96) translateY(-12px)';
+                            setTimeout(() => {
+                                card.remove();
+                                const remaining = document.querySelectorAll('.contract-card');
+                                if (remaining.length === 0) {
+                                    const container = document.getElementById('rented-houses-container');
+                                    if (container) {
+                                        container.innerHTML = `
+                                            <div id="no-rented-houses-placeholder" style="text-align: center; padding: 60px 20px; background: #fff; border-radius: 20px; border: 1px dashed #cbd5e1;">
+                                                <i class="fa-solid fa-house-crack" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 16px;"></i>
+                                                <p style="font-size: 1.1rem; font-weight: 600; color: #475569;">Bạn chưa thuê nhà/phòng nào</p>
+                                            </div>
+                                        `;
+                                    }
+                                }
+                            }, 600);
+                        }
+                    });
+                    if (removedAny) {
+                        showToast('Hợp đồng đã hoàn tất thanh lý/hủy. Danh sách phòng đã được tự động cập nhật!');
+                        // Sau 2.5 giây tự động reload nhẹ để cập nhật số đếm hóa đơn & mục lịch sử
+                        setTimeout(() => window.location.reload(), 2500);
+                    }
+                }
+            } catch (e) {
+                console.debug('Realtime tenant contracts check warning:', e);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            setInterval(checkTenantActiveContractsRealtime, 6000);
+        });
     </script>
 </body>
 </html>

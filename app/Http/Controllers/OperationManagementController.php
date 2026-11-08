@@ -27,7 +27,7 @@ class OperationManagementController extends Controller
         }
 
         // 1. Truy xuất danh sách các hợp đồng đang active của doanh nghiệp chung
-        $contractsQuery = Contract::whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly']);
+        $contractsQuery = Contract::whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly', 'da_huy', 'expired', 'liquidated']);
 
         // Nếu là tài khoản con
         if ($user->isSubAccount()) {
@@ -236,10 +236,29 @@ class OperationManagementController extends Controller
                 'memo'            => strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $cleanInvCode)) . ' ' . $now->format('mY'),
             ];
 
+            $posterUser = null;
+            if ($post) {
+                $posterId = $post->staff_id ?: ($post->author_id ?: $post->user_id);
+                if ($posterId) {
+                    $posterUser = \App\Models\User::find($posterId);
+                }
+            }
+            if (!$posterUser && !empty($contract->staff_id)) {
+                $posterUser = \App\Models\User::find($contract->staff_id);
+            }
+            if (!$posterUser && !empty($contract->created_by)) {
+                $posterUser = \App\Models\User::find($contract->created_by);
+            }
+            $landlordUser = $posterUser ?: ($contract->owner ?: \App\Models\User::getEnterpriseUser());
+
             $contractDetails = [
                 'room_code'              => $roomCode,
                 'contract_code'          => $contract->contract_code ?: $roomCode,
                 'name'                   => $postTitle,
+                'landlord_name'          => $landlordUser ? ($landlordUser->account_name ?: ($landlordUser->name ?: ($landlordUser->username ?: 'Chủ nhà'))) : 'Chủ nhà',
+                'landlord_phone'         => $landlordUser ? ($landlordUser->phone ?: ($contract->owner_phone ?: 'Chưa cập nhật')) : ($contract->owner_phone ?: 'Chưa cập nhật'),
+                'landlord_id_card'       => $landlordUser ? ($landlordUser->id_card ?? ($landlordUser->cccd ?? '001089012345')) : '001089012345',
+                'landlord_address'       => $landlordUser ? ($landlordUser->address ?? 'Số 18 Trần Phú, Phường Mộ Lao, Quận Hà Đông, TP. Hà Nội') : 'Số 18 Trần Phú, Phường Mộ Lao, Quận Hà Đông, TP. Hà Nội',
                 'tenant_name'            => $contract->tenant_name ?: 'Khách thuê',
                 'tenant_phone'           => $contract->tenant_phone ?: 'Chưa cập nhật',
                 'tenant_id_card'         => $contract->tenant_id_card ?: 'Chưa cập nhật',
@@ -337,6 +356,9 @@ class OperationManagementController extends Controller
                 'contract_status'        => $contract->status ?? 'active',
                 'checkout_request'       => $checkoutReq,
                 'has_checkout_request'   => $hasCheckoutReq,
+                'is_settled'             => !empty($contract->liquidation_details) || in_array($contract->status, ['pending_liquidation', 'pending_refund']),
+                'liquidation_details'    => $contract->liquidation_details ?? null,
+                'liquidation_scenario'   => $contract->liquidation_scenario ?? null,
                 'contract'               => $contract,
                 'contract_details'       => $contractDetails,
                 'invoice_code'           => $cleanInvCode,
@@ -388,7 +410,7 @@ class OperationManagementController extends Controller
         $today = $now->day;
         $currentMonthStr = $now->format('m/Y');
 
-        $contractsQuery = Contract::whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly']);
+        $contractsQuery = Contract::whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly', 'da_huy', 'expired', 'liquidated']);
         if ($user && $user->isSubAccount()) {
             $assignedIds = array_filter(array_map('strval', (array)($user->assigned_buildings ?? [])));
             $assignedIds = array_values(array_diff($assignedIds, ['all', '*']));
@@ -440,12 +462,26 @@ class OperationManagementController extends Controller
             }
         }
 
+        $activeContractIds = $contracts->map(function ($c) {
+            return (string)($c->_id ?? $c->id);
+        })->values()->toArray();
+        $activeContractCodes = $contracts->map(function ($c) {
+            return (string)($c->contract_code ?? '');
+        })->filter()->values()->toArray();
+
+        $settledContractIds = $contracts->filter(function ($c) {
+            return !empty($c->liquidation_details) || in_array($c->status, ['pending_liquidation', 'pending_refund']);
+        })->map(fn($c) => (string)($c->_id ?? $c->id))->values()->toArray();
+
         return response()->json([
-            'success'   => true,
-            'today'     => $today,
-            'period'    => $currentMonthStr,
-            'due_count' => count($dueList),
-            'due_rooms' => $dueList,
+            'success'               => true,
+            'today'                 => $today,
+            'period'                => $currentMonthStr,
+            'due_count'             => count($dueList),
+            'due_rooms'             => $dueList,
+            'active_contract_ids'   => $activeContractIds,
+            'active_contract_codes' => $activeContractCodes,
+            'settled_contract_ids'  => $settledContractIds,
         ]);
     }
 
@@ -514,7 +550,7 @@ class OperationManagementController extends Controller
         }
 
         // 1. Lấy danh sách hợp đồng hoạt động của doanh nghiệp
-        $contractsQuery = Contract::whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly']);
+        $contractsQuery = Contract::whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly', 'da_huy', 'expired', 'liquidated']);
         if ($user->isSubAccount()) {
             $assignedIds = array_filter(array_map('strval', (array)($user->assigned_buildings ?? [])));
             $assignedIds = array_values(array_diff($assignedIds, ['all', '*']));

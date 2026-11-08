@@ -184,12 +184,12 @@ Route::get('/nha-dang-thue', function () {
         });
 
         $rentedContracts = (clone $contractsBaseQuery)
-            ->whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly'])
+            ->whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly', 'da_huy', 'expired', 'liquidated'])
             ->latest()
             ->get();
 
         $terminatedContracts = (clone $contractsBaseQuery)
-            ->whereIn('status', ['terminated', 'da_thanh_ly'])
+            ->whereIn('status', ['terminated', 'da_thanh_ly', 'da_huy', 'liquidated', 'cancelled'])
             ->where('hidden_from_tenant', '!=', true)
             ->latest()
             ->get();
@@ -205,13 +205,13 @@ Route::get('/nha-dang-thue', function () {
 
             if (!empty($contactPostIds)) {
                 $rentedContracts = \App\Models\Contract::whereIn('post_id', $contactPostIds)
-                    ->whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly'])
+                    ->whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly', 'da_huy', 'expired', 'liquidated'])
                     ->latest()
                     ->get();
 
                 if ($terminatedContracts->isEmpty()) {
                     $terminatedContracts = \App\Models\Contract::whereIn('post_id', $contactPostIds)
-                        ->whereIn('status', ['terminated', 'da_thanh_ly'])
+                        ->whereIn('status', ['terminated', 'da_thanh_ly', 'da_huy', 'liquidated', 'cancelled'])
                         ->where('hidden_from_tenant', '!=', true)
                         ->latest()
                         ->get();
@@ -373,6 +373,50 @@ Route::delete('/api/tenant/contract-history', function (\Illuminate\Http\Request
         'message' => 'Đã xóa toàn bộ lịch sử thuê đã thanh lý!'
     ]);
 })->middleware('auth');
+
+// Lấy danh sách ID hợp đồng đang còn hiệu lực của khách thuê (Realtime Polling)
+Route::get('/api/tenant/active-contracts', function () {
+    if (!\Illuminate\Support\Facades\Auth::check()) {
+        return response()->json(['success' => false, 'active_ids' => [], 'active_codes' => []]);
+    }
+    $user = \Illuminate\Support\Facades\Auth::user();
+    $userId = (string)($user->_id ?? $user->id);
+
+    $contractsBaseQuery = \App\Models\Contract::where(function ($q) use ($user, $userId) {
+        $q->where('tenant_id', $userId);
+        if (!empty($user->username)) $q->orWhere('tenant_account', $user->username);
+        if (!empty($user->phone)) $q->orWhere('tenant_phone', $user->phone);
+        if (!empty($user->email)) $q->orWhere('tenant_email', $user->email);
+    });
+
+    $activeContracts = (clone $contractsBaseQuery)
+        ->whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly', 'da_huy', 'expired', 'liquidated'])
+        ->get();
+
+    if ($activeContracts->isEmpty()) {
+        $contactPostIds = \App\Models\Contact::where('sender_id', (string)$userId)
+            ->whereIn('status', ['đã ký hợp đồng', 'completed', 'approved'])
+            ->pluck('post_id')
+            ->filter()
+            ->map(fn($id) => (string)$id)
+            ->toArray();
+
+        if (!empty($contactPostIds)) {
+            $activeContracts = \App\Models\Contract::whereIn('post_id', $contactPostIds)
+                ->whereNotIn('status', ['cancelled', 'terminated', 'da_thanh_ly', 'da_huy', 'expired', 'liquidated'])
+                ->get();
+        }
+    }
+
+    $activeIds = $activeContracts->map(fn($c) => (string)($c->_id ?? $c->id))->values()->toArray();
+    $activeCodes = $activeContracts->map(fn($c) => (string)($c->contract_code ?? ''))->filter()->values()->toArray();
+
+    return response()->json([
+        'success'      => true,
+        'active_ids'   => $activeIds,
+        'active_codes' => $activeCodes,
+    ]);
+})->middleware('auth')->name('api.tenant.active_contracts');
 
 Route::post('/api/invoices/{code}/pay', function ($code, \Illuminate\Http\Request $request) {
     $cleanCode = trim($code);
@@ -541,8 +585,9 @@ Route::get('/hoa-don/{code}', [\App\Http\Controllers\OperationManagementControll
 Route::get('/qlvan_hanh/thanh_ly_cong_no', [\App\Http\Controllers\ContractLiquidationController::class, 'index'])->middleware('auth')->name('qlvan_hanh.thanh_ly_cong_no');
 Route::get('/thanh-ly-cong-no', [\App\Http\Controllers\ContractLiquidationController::class, 'index'])->middleware('auth')->name('thanh-ly-cong-no');
 
-// Bước 1: Khách thuê gửi yêu cầu trả phòng
+// Bước 1: Khách thuê gửi yêu cầu trả phòng & Thu hồi yêu cầu
 Route::post('/api/contracts/{id}/request-checkout', [\App\Http\Controllers\ContractLiquidationController::class, 'requestCheckout'])->middleware('auth')->name('api.contracts.request_checkout');
+Route::post('/api/contracts/{id}/cancel-checkout', [\App\Http\Controllers\ContractLiquidationController::class, 'cancelCheckoutRequest'])->middleware('auth')->name('api.contracts.cancel_checkout');
 
 // Bước 2: Lấy dữ liệu hợp đồng & tính toán Realtime
 Route::get('/api/contracts/{id}/liquidation-data', [\App\Http\Controllers\ContractLiquidationController::class, 'getLiquidationData'])->middleware('auth')->name('api.contracts.liquidation_data');

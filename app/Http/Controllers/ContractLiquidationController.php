@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Contract;
+use App\Models\Contact;
 use App\Models\Invoice;
 use App\Models\Room;
 use App\Models\Post;
@@ -255,6 +256,116 @@ class ContractLiquidationController extends Controller
     }
 
     /**
+     * BƯỚC 1B: Khách thuê hoặc Nhân sự/Admin thu hồi (hủy) yêu cầu trả phòng
+     * Route: POST /api/contracts/{id}/cancel-checkout
+     */
+    public function cancelCheckoutRequest(Request $request, $id)
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Vui lòng đăng nhập để thực hiện thao tác này!'], 401);
+        }
+
+        $contract = Contract::where('_id', $id)->orWhere('id', $id)->first();
+        if (!$contract) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy hợp đồng thuê!'], 404);
+        }
+
+        $userId = (string)($user->_id ?? $user->id);
+        $isTenant = ($contract->tenant_id === $userId || $contract->tenant_account === $user->username || $contract->tenant_email === $user->email);
+        $isStaffOrAdmin = ($user->isAdmin() || $user->isEnterprise() || $user->isSubAccount() || $user->isStaff() || in_array($user->role ?? '', ['nhansu', 'staff', 'sub_account']));
+
+        if (!$isTenant && !$isStaffOrAdmin) {
+            return response()->json(['success' => false, 'message' => 'Bạn không có quyền thu hồi yêu cầu này!'], 403);
+        }
+
+        // Khóa an toàn: Nếu Ban Quản lý đã lập bảng thanh lý / quyết toán công nợ thì TUYỆT ĐỐI KHÔNG ĐƯỢC THU HỒI
+        if (!empty($contract->liquidation_details) || in_array($contract->status, ['pending_liquidation', 'pending_refund', 'terminated', 'da_thanh_ly'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ban Quản lý đã lập bảng thanh lý và chốt quyết toán công nợ cho hợp đồng này, không thể thu hồi yêu cầu trả phòng!'
+            ], 400);
+        }
+
+        // Chỉ cho phép thu hồi khi yêu cầu đang ở trạng thái pending
+        $checkoutReq = $contract->checkout_request ?? [];
+        $status = is_array($checkoutReq) ? ($checkoutReq['status'] ?? '') : ($checkoutReq->status ?? '');
+        if (empty($checkoutReq) || $status !== 'pending') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Yêu cầu trả phòng không tồn tại hoặc đã được Ban Quản lý xử lý quyết toán, không thể thu hồi!'
+            ], 400);
+        }
+
+        // Xóa yêu cầu trả phòng khỏi hợp đồng
+        $contract->checkout_request = null;
+        $contract->save();
+
+        try {
+            // Khôi phục trạng thái liên hệ hợp đồng nếu trước đó bị ẩn
+            $contractIdStr = (string)($contract->_id ?? $contract->id);
+            Contact::where('contract_id', $contractIdStr)->update([
+                'is_hidden' => false,
+                'status'    => 'đã ký hợp đồng',
+            ]);
+            if (!empty($contract->contact_id)) {
+                Contact::where('_id', $contract->contact_id)->orWhere('id', $contract->contact_id)->update([
+                    'is_hidden' => false,
+                    'status'    => 'đã ký hợp đồng',
+                ]);
+            }
+
+            // Gửi thông báo đến Quản lý / Chủ nhà và Admin
+            $post = Post::find($contract->post_id ?? $contract->room_id);
+            $roomTitle = $post ? $post->title : ($contract->room_id ? 'Phòng ' . $contract->room_id : 'Phòng trọ');
+
+            if (!empty($contract->owner_id)) {
+                Notification::create([
+                    'user_id'    => (string)$contract->owner_id,
+                    'role'       => 'enterprise',
+                    'title'      => 'Thu hồi yêu cầu trả phòng: ' . $contract->contract_code,
+                    'message'    => "Khách thuê {$contract->tenant_name} ({$roomTitle}) đã thu hồi yêu cầu trả phòng. Hợp đồng tiếp tục có hiệu lực bình thường.",
+                    'type'       => 'info',
+                    'is_read'    => false,
+                    'category'   => 'contract_liquidation',
+                    'action_url' => url('/qlvan_hanh/thanh_ly_cong_no?contract_id=' . $contractIdStr),
+                    'created_at' => now(),
+                ]);
+            }
+
+            $postBuildingId = $post ? (string)($post->building_id ?? '') : '';
+            $staffUsers = User::where(function ($q) {
+                $q->whereIn('role', ['nhansu', 'nhan su', 'nhan_su', 'sub_account', 'staff'])
+                  ->orWhere('staff_role', 'like', '%nhân sự%')
+                  ->orWhere('staff_role', 'like', '%nhan su%');
+            })->get();
+
+            foreach ($staffUsers as $staff) {
+                if ($staff->canManageBuilding($postBuildingId)) {
+                    Notification::create([
+                        'user_id'    => (string)($staff->_id ?? $staff->id),
+                        'role'       => 'staff',
+                        'title'      => 'Thu hồi yêu cầu trả phòng: ' . $contract->contract_code,
+                        'message'    => "Khách thuê {$contract->tenant_name} ({$roomTitle}) đã thu hồi yêu cầu trả phòng. Hợp đồng tiếp tục có hiệu lực bình thường.",
+                        'type'       => 'info',
+                        'is_read'    => false,
+                        'category'   => 'contract_liquidation',
+                        'action_url' => url('/qlvan_hanh/thanh_ly_cong_no?contract_id=' . $contractIdStr),
+                        'created_at' => now(),
+                    ]);
+                }
+            }
+        } catch (\Exception $e) {
+            Log::warning('Lỗi gửi thông báo/cập nhật liên hệ khi thu hồi trả phòng: ' . $e->getMessage());
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã thu hồi yêu cầu trả phòng thành công! Hợp đồng thuê tiếp tục duy trì hiệu lực bình thường.',
+        ]);
+    }
+
+    /**
      * BƯỚC 2 (API): Lấy thông tin Hợp đồng để đổ vào Form Phiếu Quyết Toán (Modal)
      * Route: GET /api/contracts/{id}/liquidation-data
      */
@@ -403,6 +514,11 @@ class ContractLiquidationController extends Controller
                 'stay_days'              => $calc['stay_days'],
                 'is_prorated'            => $calc['is_prorated'],
                 'prorated_rent'          => $calc['prorated_rent'],
+                'is_prepaid_cycle'       => $calc['is_prepaid_cycle'] ?? false,
+                'unused_rent_refund'     => $calc['unused_rent_refund'] ?? 0,
+                'unused_days'            => $calc['unused_days'] ?? 0,
+                'unused_full_months'     => $calc['unused_full_months'] ?? 0,
+                'total_credits'          => $calc['total_credits'] ?? ($depositAmount + ($calc['unused_rent_refund'] ?? 0)),
                 'electricity_old'        => $calc['electricity_old'],
                 'electricity_new'        => $calc['electricity_new'],
                 'electricity_usage'      => $calc['electricity_usage'],
@@ -418,6 +534,9 @@ class ContractLiquidationController extends Controller
                 'deposit_amount'         => $depositAmount,
                 'net_amount'             => $netAmount,
                 'scenario'               => $scenario,
+                'bank_account'           => $request->input('refund_bank_account', $contract->checkout_request['bank_account'] ?? ''),
+                'bank_name'              => $request->input('refund_bank_name', $contract->checkout_request['bank_name'] ?? ''),
+                'bank_holder'            => $request->input('refund_bank_holder', $contract->checkout_request['bank_holder'] ?? ($contract->tenant_name ?? '')),
                 'note'                   => $note,
                 'settled_at'             => now(),
                 'settled_by'             => (string)($user->_id ?? $user->id),
@@ -426,6 +545,14 @@ class ContractLiquidationController extends Controller
 
             $contract->liquidation_details = $liquidationDetails;
             $contract->liquidation_scenario = $scenario;
+
+            // Cập nhật trạng thái yêu cầu trả phòng thành settled (Đã lập bảng thanh lý)
+            if (!empty($contract->checkout_request)) {
+                $checkoutReq = (array)$contract->checkout_request;
+                $checkoutReq['status'] = 'settled';
+                $checkoutReq['settled_at'] = now()->toDateTimeString();
+                $contract->checkout_request = $checkoutReq;
+            }
 
             // =========================================================================
             // KỊCH BẢN A: Khách nợ NHIỀU HƠN Cọc (net_amount > 0)

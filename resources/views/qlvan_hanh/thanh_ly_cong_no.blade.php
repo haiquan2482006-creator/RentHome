@@ -1026,7 +1026,7 @@
                                                     onclick="openLiquidationModal('{{ $cId }}')"
                                                     title="Mở Phiếu Quyết Toán Chốt Công Nợ (Bước 2 & 3)">
                                                 <i class="fa-solid fa-calculator"></i>
-                                                <span>{{ $status === 'active' ? 'Thanh lý hợp đồng' : 'Quyết toán lại' }}</span>
+                                                <span>{{ !empty($c->liquidation_details) ? 'Đã lập bảng thanh lý' : ($status === 'active' ? 'Thanh lý hợp đồng' : 'Quyết toán lại') }}</span>
                                             </button>
                                         @endif
 
@@ -1352,7 +1352,45 @@
                             <div class="form-row" style="margin-bottom: 0;">
                                 <div class="form-group">
                                     <label style="font-size: 0.7rem; font-weight: 700; color: #047857;">Ngân hàng:</label>
-                                    <input type="text" id="calc_refund_bank_name" class="form-input" placeholder="VD: MB Bank, Vietcombank..." style="background:#ffffff;">
+                                    <input type="text" id="calc_refund_bank_name" list="liquidationBankList" class="form-input" placeholder="Chọn hoặc nhập tên ngân hàng..." style="background:#ffffff;">
+                                    <datalist id="liquidationBankList">
+                                        <option value="MBBank">MBBank (Ngân hàng Quân Đội)</option>
+                                        <option value="Vietcombank">Vietcombank (Ngoại Thương Việt Nam)</option>
+                                        <option value="VietinBank">VietinBank (Công Thương Việt Nam)</option>
+                                        <option value="BIDV">BIDV (Đầu tư & Phát triển Việt Nam)</option>
+                                        <option value="Techcombank">Techcombank (Kỹ Thương Việt Nam)</option>
+                                        <option value="VPBank">VPBank (Việt Nam Thịnh Vượng)</option>
+                                        <option value="ACB">ACB (Á Châu)</option>
+                                        <option value="Agribank">Agribank (Nông nghiệp & PTNT)</option>
+                                        <option value="TPBank">TPBank (Tiên Phong)</option>
+                                        <option value="VIB">VIB (Quốc tế Việt Nam)</option>
+                                        <option value="HDBank">HDBank (Phát triển TP.HCM)</option>
+                                        <option value="Sacombank">Sacombank (Sài Gòn Thương Tín)</option>
+                                        <option value="SHB">SHB (Sài Gòn - Hà Nội)</option>
+                                        <option value="MSB">MSB (Hàng Hải Việt Nam)</option>
+                                        <option value="OCB">OCB (Phương Đông)</option>
+                                        <option value="SeABank">SeABank (Đông Nam Á)</option>
+                                        <option value="LPBank">LPBank (Lộc Phát Việt Nam)</option>
+                                        <option value="Nam A Bank">Nam A Bank (Nam Á)</option>
+                                        <option value="Bac A Bank">Bac A Bank (Bắc Á)</option>
+                                        <option value="PVcomBank">PVcomBank (Đại Chúng Việt Nam)</option>
+                                        <option value="VietBank">VietBank (Việt Nam Thương Tín)</option>
+                                        <option value="Kienlongbank">Kienlongbank (Kiên Long)</option>
+                                        <option value="Saigonbank">Saigonbank (Sài Gòn Công Thương)</option>
+                                        <option value="BVBank">BVBank (Bản Việt)</option>
+                                        <option value="PGBank">PGBank (Thịnh vượng & Phát triển)</option>
+                                        <option value="BaoViet Bank">BaoViet Bank (Bảo Việt)</option>
+                                        <option value="VietABank">VietABank (Việt Á)</option>
+                                        <option value="Shinhan Bank">Shinhan Bank (Shinhan Việt Nam)</option>
+                                        <option value="Woori Bank">Woori Bank (Woori Việt Nam)</option>
+                                        <option value="Public Bank">Public Bank (Public Bank Việt Nam)</option>
+                                        <option value="HSBC">HSBC (HSBC Việt Nam)</option>
+                                        <option value="Standard Chartered">Standard Chartered (Standard Chartered VN)</option>
+                                        <option value="UOB">UOB (United Overseas Bank VN)</option>
+                                        <option value="CIMB">CIMB (CIMB Việt Nam)</option>
+                                        <option value="Indovina Bank">Indovina Bank (Indovina)</option>
+                                        <option value="VRB">VRB (Việt - Nga)</option>
+                                    </datalist>
                                 </div>
                                 <div class="form-group">
                                     <label style="font-size: 0.7rem; font-weight: 700; color: #047857;">Chủ tài khoản:</label>

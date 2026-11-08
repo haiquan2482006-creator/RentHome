@@ -309,7 +309,9 @@
                 @endphp
                 <div id="card-{{ $room->room_code }}" 
                      class="room-card @if($hasCheckoutReq) border-2 border-amber-400 ring-2 ring-amber-200/80 bg-gradient-to-br from-amber-50/20 via-white to-rose-50/20 shadow-md @elseif($room->status === 'unpaid') unpaid border-2 border-rose-200 @else paid border border-slate-200/90 @endif bg-white rounded-3xl overflow-hidden shadow-card hover:shadow-lg transition-all p-6 flex flex-col lg:flex-row justify-between gap-6 relative"
-                     data-status="{{ $room->status }}">
+                     data-status="{{ $room->status }}"
+                     data-contract-id="{{ (string)($room->id ?? '') }}"
+                     data-contract-code="{{ (string)($room->contract_code ?? $room->room_code ?? '') }}">
                     <div class="flex items-start gap-4">
                         @php
                             $roomImg = !empty($room->image) 
@@ -372,13 +374,21 @@
                             </div>
                             <div class="flex flex-wrap items-center gap-2.5">
                                 <h3 class="text-lg font-extrabold text-slate-900">{{ $room->name ?? $room->room_name ?? ('Phòng ' . $room->room_code) }}</h3>
-                                @if($hasCheckoutReq)
-                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 text-white font-black text-xs shadow-md animate-pulse border border-orange-200 tracking-wide"
-                                          title="Khách thuê đã gửi yêu cầu trả phòng (Dự kiến: {{ $expectedDate ? date('d/m/Y', strtotime($expectedDate)) : 'Sớm' }})">
-                                        <span class="text-xs animate-bounce inline-block">🚨</span>
-                                        <span>KHÁCH XIN TRẢ PHÒNG</span>
-                                    </span>
-                                @endif
+                                <div id="settlement-badge-container-{{ $room->id }}" class="inline-flex items-center gap-2">
+                                    @if(!empty($room->is_settled))
+                                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 font-extrabold text-xs shadow-xs"
+                                              title="Hợp đồng này đã được lập bảng quyết toán thanh lý & chốt công nợ">
+                                            <i class="fa-solid fa-file-circle-check text-emerald-600"></i>
+                                            <span>ĐÃ LẬP BẢNG THANH LÝ</span>
+                                        </span>
+                                    @elseif($hasCheckoutReq)
+                                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 text-white font-black text-xs shadow-md animate-pulse border border-orange-200 tracking-wide"
+                                              title="Khách thuê đã gửi yêu cầu trả phòng (Dự kiến: {{ $expectedDate ? date('d/m/Y', strtotime($expectedDate)) : 'Sớm' }})">
+                                            <span class="text-xs animate-bounce inline-block">🚨</span>
+                                            <span>KHÁCH XIN TRẢ PHÒNG</span>
+                                        </span>
+                                    @endif
+                                </div>
                             </div>
                             <p class="text-xs text-slate-600 font-medium">
                                 <i class="fa-solid fa-user text-slate-400"></i> Người thuê: <strong class="text-slate-800">{{ $room->tenant_name }}</strong> (SĐT: {{ $room->tenant_phone }})
@@ -428,13 +438,14 @@
                             </div>
                         @endif
 
-                        <!-- Nút Thanh Lý Hợp Đồng (Mở Form Chốt Công Nợ) -->
+                        <!-- Nút Thanh Lý Hợp Đồng / Đã Lập Bảng Thanh Lý -->
                         <a href="{{ url('qlvan_hanh/thanh_ly_cong_no') }}?contract_id={{ $room->id }}&room={{ $room->room_code }}"
-                           class="py-2.5 px-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all {{ $hasCheckoutReq ? 'ring-2 ring-rose-400 ring-offset-2 animate-pulse shadow-md shadow-rose-500/30' : '' }}"
-                           title="{{ $hasCheckoutReq ? 'Khách thuê có yêu cầu trả phòng. Nhấn để thanh lý hợp đồng & chốt công nợ' : 'Thanh lý hợp đồng' }}">
-                            <i class="fa-solid fa-file-contract"></i>
-                            <span>Thanh Lý Hợp Đồng</span>
-                            @if($hasCheckoutReq)
+                           id="btn-liquidate-{{ $room->id }}"
+                           class="py-2.5 px-3.5 rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all {{ !empty($room->is_settled) ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-rose-600 hover:bg-rose-700 text-white ' . ($hasCheckoutReq ? 'ring-2 ring-rose-400 ring-offset-2 animate-pulse shadow-md shadow-rose-500/30' : '') }}"
+                           title="{{ !empty($room->is_settled) ? 'Đã lập bảng thanh lý. Nhấn để xem lại hoặc điều chỉnh quyết toán' : ($hasCheckoutReq ? 'Khách thuê có yêu cầu trả phòng. Nhấn để thanh lý hợp đồng & chốt công nợ' : 'Thanh lý hợp đồng') }}">
+                            <i class="fa-solid {{ !empty($room->is_settled) ? 'fa-file-circle-check' : 'fa-file-contract' }}"></i>
+                            <span>{{ !empty($room->is_settled) ? 'Đã Lập Bảng Thanh Lý' : 'Thanh Lý Hợp Đồng' }}</span>
+                            @if($hasCheckoutReq && empty($room->is_settled))
                                 <span class="w-2 h-2 rounded-full bg-amber-300 animate-ping inline-block -mr-0.5" title="Có yêu cầu trả phòng"></span>
                             @endif
                         </a>
@@ -1856,6 +1867,21 @@
             if (document.getElementById('vcRoomCode')) document.getElementById('vcRoomCode').innerText = roomCode;
             if (document.getElementById('vcContractCode')) document.getElementById('vcContractCode').innerText = "Mã HĐ: " + cCode;
             if (document.getElementById('vcContractCodeHeader')) document.getElementById('vcContractCodeHeader').innerText = "Mã HĐ: " + cCode;
+
+            // Bên A (Bên Cho Thuê)
+            if (info.landlord_name) {
+                if (document.getElementById('vcPartyAName')) document.getElementById('vcPartyAName').innerText = info.landlord_name;
+                if (document.getElementById('vcSignPartyA')) document.getElementById('vcSignPartyA').innerText = info.landlord_name;
+            }
+            if (info.landlord_phone && document.getElementById('vcPartyAPhone')) {
+                document.getElementById('vcPartyAPhone').innerText = info.landlord_phone;
+            }
+            if (info.landlord_id_card && document.getElementById('vcPartyAIdCard')) {
+                document.getElementById('vcPartyAIdCard').innerText = info.landlord_id_card;
+            }
+            if (info.landlord_address && document.getElementById('vcPartyAAddress')) {
+                document.getElementById('vcPartyAAddress').innerText = info.landlord_address;
+            }
             if (document.getElementById('vcTenant')) document.getElementById('vcTenant').innerText = info.tenant_name || '--';
             if (document.getElementById('vcPhone')) document.getElementById('vcPhone').innerText = info.tenant_phone || '--';
             if (document.getElementById('vcIdCard')) {
@@ -2118,12 +2144,60 @@
             });
             update();
         }
-        // KIỂM TRA HẠN THU TIỀN THỜI GIAN THỰC (REALTIME DUE CHECK)
+        // KIỂM TRA HẠN THU TIỀN & ĐỒNG BỘ TRẠNG THÁI HỢP ĐỒNG REALTIME
         async function checkRealtimeBillingDue() {
             try {
-                const response = await fetch('/api/operation/check-billing-due');
+                const response = await fetch('/api/operation/check-billing-due', { cache: 'no-store' });
                 if (response.ok) {
                     const data = await response.json();
+
+                    // TỰ ĐỘNG LOẠI BỎ CÁC PHÒNG / HỢP ĐỒNG ĐÃ HỦY HOẶC ĐÃ HOÀN TẤT THANH LÝ
+                    if (data.active_contract_ids && Array.isArray(data.active_contract_ids)) {
+                        const cards = document.querySelectorAll('.room-card');
+                        let removedAny = false;
+                        cards.forEach(card => {
+                            const cId = card.getAttribute('data-contract-id');
+                            const cCode = card.getAttribute('data-contract-code');
+                            const isActive = (cId && data.active_contract_ids.includes(cId)) ||
+                                             (cCode && data.active_contract_codes && data.active_contract_codes.includes(cCode));
+                            if (!isActive) {
+                                removedAny = true;
+                                card.style.transition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
+                                card.style.opacity = '0';
+                                card.style.transform = 'scale(0.96) translateY(-12px)';
+                                setTimeout(() => {
+                                    card.remove();
+                                    recalculateHeaderCounts();
+                                }, 600);
+                            }
+                        });
+                        if (removedAny && typeof showToast === 'function') {
+                            showToast('Hợp đồng đã thanh lý/hủy. Danh sách phòng vận hành đã được cập nhật!', 'info');
+                        }
+                    }
+
+                    // TỰ ĐỘNG CẬP NHẬT TRẠNG THÁI "ĐÃ LẬP BẢNG THANH LÝ" REALTIME
+                    if (data.settled_contract_ids && Array.isArray(data.settled_contract_ids)) {
+                        data.settled_contract_ids.forEach(settledId => {
+                            const badgeContainer = document.getElementById(`settlement-badge-container-${settledId}`);
+                            if (badgeContainer && !badgeContainer.querySelector('.badge-settled-text')) {
+                                badgeContainer.innerHTML = `
+                                    <span class="badge-settled-text inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 font-extrabold text-xs shadow-xs"
+                                          title="Hợp đồng này đã được lập bảng quyết toán thanh lý & chốt công nợ">
+                                        <i class="fa-solid fa-file-circle-check text-emerald-600"></i>
+                                        <span>ĐÃ LẬP BẢNG THANH LÝ</span>
+                                    </span>
+                                `;
+                            }
+                            const btnLiq = document.getElementById(`btn-liquidate-${settledId}`);
+                            if (btnLiq && !btnLiq.classList.contains('bg-emerald-600')) {
+                                btnLiq.className = 'py-2.5 px-3.5 rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all bg-emerald-600 hover:bg-emerald-700 text-white';
+                                btnLiq.title = 'Đã lập bảng thanh lý. Nhấn để xem lại hoặc điều chỉnh quyết toán';
+                                btnLiq.innerHTML = '<i class="fa-solid fa-file-circle-check"></i> <span>Đã Lập Bảng Thanh Lý</span>';
+                            }
+                        });
+                    }
+
                     if (data.success && data.due_count > 0) {
                         const alertBanner = document.getElementById('realtimeDueAlertBanner');
                         if (alertBanner) {
@@ -2357,6 +2431,14 @@
                 filterUnpaidBtn.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block shadow-sm"></span><span>Chưa thu tiền (${unpaid})</span>`;
             }
 
+            const statTotal = document.getElementById('statTotalRooms');
+            if (statTotal) statTotal.innerText = `${cards.length} Phòng`;
+
+            const filterAllBtn = document.getElementById('filter-all');
+            if (filterAllBtn) {
+                filterAllBtn.innerText = `Tất cả (${cards.length})`;
+            }
+
             const alertBanner = document.getElementById('realtimeDueAlertBanner');
             if (alertBanner) {
                 if (unpaid === 0) {
@@ -2371,7 +2453,7 @@
             bindQuickPriceFormat('quickElecPrice', 'quickElecDisplay');
             bindQuickPriceFormat('quickWaterPrice', 'quickWaterDisplay');
             checkRealtimeBillingDue();
-            setInterval(checkRealtimeBillingDue, 60000);
+            setInterval(checkRealtimeBillingDue, 6000);
         });
     </script>
 </body>
