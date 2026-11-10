@@ -582,6 +582,20 @@ class BuildingController extends Controller
                 return response()->json(['success' => false, 'message' => 'Không tìm thấy tòa nhà cần cập nhật!'], 404);
             }
 
+            // Kiểm tra quyền sở hữu tòa nhà (chống IDOR)
+            if (!$user->isAdmin()) {
+                $userId = (string)($user->_id ?? $user->id);
+                $parentUserId = (string)($user->parent_id ?? '');
+                $canEdit = ((string)($building->user_id ?? '') === $userId)
+                    || ((string)($building->parent_id ?? '') === $userId)
+                    || (!empty($parentUserId) && (string)($building->parent_id ?? '') === $parentUserId)
+                    || (method_exists($user, 'canManageBuilding') && $user->canManageBuilding($id));
+
+                if (!$canEdit) {
+                    return response()->json(['success' => false, 'message' => 'Bạn không có quyền chỉnh sửa tòa nhà này!'], 403);
+                }
+            }
+
             // Chuẩn hóa tên địa chỉ text nếu form gửi qua input hidden province_name, district_name, ward_name
             if ($request->filled('province_name')) {
                 $request->merge(['province' => $request->input('province_name')]);
@@ -1042,6 +1056,19 @@ class BuildingController extends Controller
 
             if (!$building) {
                 return response()->json(['success' => false, 'message' => 'Không tìm thấy tòa nhà cần xóa!'], 404);
+            }
+
+            // Kiểm tra quyền sở hữu tòa nhà (chống IDOR): Chỉ Admin hoặc Doanh nghiệp sở hữu tòa nhà này mới có quyền xóa
+            if (!$user->isAdmin()) {
+                $userId = (string)($user->_id ?? $user->id);
+                $parentUserId = (string)($user->parent_id ?? '');
+                $isOwner = ((string)($building->user_id ?? '') === $userId)
+                    || ((string)($building->parent_id ?? '') === $userId)
+                    || (!empty($parentUserId) && (string)($building->parent_id ?? '') === $parentUserId);
+
+                if (!$isOwner) {
+                    return response()->json(['success' => false, 'message' => 'Bạn không có quyền xóa tòa nhà này!'], 403);
+                }
             }
 
             $bName = $building->name;

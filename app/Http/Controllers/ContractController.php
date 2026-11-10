@@ -30,21 +30,30 @@ class ContractController extends Controller
         }
 
         $request->validate([
-            'room_id'         => 'required',
-            'tenant_name'     => 'required|string|max:255',
-            'tenant_phone'    => 'required|string|max:20',
-            'rent_price'      => 'required',
-            'deposit'         => 'required',
-            'start_date'      => 'required',
-            'duration_months' => 'required',
+            'room_id'              => 'required',
+            'tenant_name'          => 'required|string|max:255',
+            'tenant_phone'         => 'required|string|max:20',
+            'rent_price'           => 'required',
+            'deposit'              => 'required',
+            'start_date'           => 'required',
+            'duration_months'      => 'required',
+            'cccd_images'          => 'nullable|array|max:5',
+            'cccd_images.*'        => 'nullable|file|image|mimes:jpeg,png,jpg,webp|max:5120',
+            'contract_documents'   => 'nullable|array|max:10',
+            'contract_documents.*' => 'nullable|file|mimes:pdf,jpeg,png,jpg,webp|max:10240',
         ], [
-            'room_id.required'         => 'Vui lòng chọn phòng / bài đăng cho thuê.',
-            'tenant_name.required'     => 'Vui lòng nhập họ và tên khách thuê.',
-            'tenant_phone.required'    => 'Vui lòng nhập số điện thoại khách thuê.',
-            'rent_price.required'      => 'Vui lòng nhập giá thuê phòng.',
-            'deposit.required'         => 'Vui lòng nhập số tiền cọc.',
-            'start_date.required'      => 'Vui lòng chọn ngày bắt đầu hợp đồng.',
-            'duration_months.required' => 'Vui lòng nhập thời hạn hợp đồng.',
+            'room_id.required'              => 'Vui lòng chọn phòng / bài đăng cho thuê.',
+            'tenant_name.required'          => 'Vui lòng nhập họ và tên khách thuê.',
+            'tenant_phone.required'         => 'Vui lòng nhập số điện thoại khách thuê.',
+            'rent_price.required'           => 'Vui lòng nhập giá thuê phòng.',
+            'deposit.required'              => 'Vui lòng nhập số tiền cọc.',
+            'start_date.required'           => 'Vui lòng chọn ngày bắt đầu hợp đồng.',
+            'duration_months.required'      => 'Vui lòng nhập thời hạn hợp đồng.',
+            'cccd_images.*.image'           => 'Ảnh CCCD/hộ chiếu phải là tệp hình ảnh hợp lệ.',
+            'cccd_images.*.mimes'           => 'Ảnh CCCD chỉ hỗ trợ: jpeg, png, jpg, webp.',
+            'cccd_images.*.max'             => 'Kích thước mỗi ảnh CCCD tối đa là 5MB.',
+            'contract_documents.*.mimes'    => 'Tệp tài liệu hợp đồng chỉ hỗ trợ định dạng: pdf, jpeg, png, jpg, webp.',
+            'contract_documents.*.max'      => 'Kích thước mỗi tệp hợp đồng tối đa là 10MB.',
         ]);
 
         // Hàm tiện ích chuẩn hóa chuỗi số tiền có dấu chấm/phẩy (định dạng tiền tệ VNĐ) thành số thực
@@ -101,9 +110,14 @@ class ContractController extends Controller
             // Xử lý upload hồ sơ đính kèm (CCCD & Bản Scan Hợp đồng)
             $cccdFiles = [];
             if ($request->hasFile('cccd_images')) {
+                $allowedCccdExts = ['jpeg', 'png', 'jpg', 'webp'];
                 foreach ($request->file('cccd_images') as $file) {
                     if ($file && $file->isValid()) {
-                        $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                        $ext = strtolower($file->getClientOriginalExtension());
+                        if (!in_array($ext, $allowedCccdExts)) {
+                            $ext = 'jpg';
+                        }
+                        $filename = time() . '_' . uniqid() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
                         $destinationPath = public_path('uploads/contracts/cccd');
                         if (!file_exists($destinationPath)) {
                             mkdir($destinationPath, 0755, true);
@@ -116,9 +130,14 @@ class ContractController extends Controller
 
             $docFiles = [];
             if ($request->hasFile('contract_documents')) {
+                $allowedDocExts = ['pdf', 'jpeg', 'png', 'jpg', 'webp'];
                 foreach ($request->file('contract_documents') as $file) {
                     if ($file && $file->isValid()) {
-                        $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                        $ext = strtolower($file->getClientOriginalExtension());
+                        if (!in_array($ext, $allowedDocExts)) {
+                            $ext = 'pdf';
+                        }
+                        $filename = time() . '_' . uniqid() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
                         $destinationPath = public_path('uploads/contracts/docs');
                         if (!file_exists($destinationPath)) {
                             mkdir($destinationPath, 0755, true);

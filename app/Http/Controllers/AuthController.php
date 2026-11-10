@@ -164,10 +164,21 @@ class AuthController extends Controller
 
         $validated = $request->validate($rules, $messages);
 
+        $baseUsername = strtolower(preg_replace('/[^a-zA-Z0-9_]/', '', explode('@', $validated['email'])[0]));
+        if (empty($baseUsername)) {
+            $baseUsername = 'user';
+        }
+        $username = $baseUsername;
+        $counter = 1;
+        while (User::where('username', $username)->exists()) {
+            $username = $baseUsername . $counter;
+            $counter++;
+        }
+
         $userData = [
             'account_name' => $validated['account_name'],
             'email' => $validated['email'],
-            'username' => explode('@', $validated['email'])[0],
+            'username' => $username,
             'phone' => $validated['phone'],
             'password' => Hash::make($validated['password']),
             'role' => 'canhan',

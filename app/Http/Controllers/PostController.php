@@ -95,11 +95,17 @@ class PostController extends Controller
                     return response()->json(['error' => 'Bài đăng này đang có người thuê, không thể cập nhật hoặc sửa đổi!'], 400);
                 }
 
-                if ($user->isSubAccount() && !empty($post->building_id) && !$user->canManageBuilding($post->building_id)) {
-                    return response()->json(['error' => 'Bạn không có quyền chỉnh sửa bài đăng của tòa nhà này!'], 403);
-                }
-                if (!$user->isEnterprise() && !$user->isAdmin() && $post->user_id != $user->id && !$user->canManageBuilding($post->building_id)) {
-                    return response()->json(['error' => 'Không có quyền sửa bài đăng này!'], 403);
+                if (!$user->isAdmin()) {
+                    $userId = (string)($user->_id ?? $user->id);
+                    $parentUserId = (string)($user->parent_id ?? '');
+                    $isOwner = ((string)$post->user_id === $userId)
+                        || ((string)$post->parent_id === $userId)
+                        || (!empty($parentUserId) && (string)$post->parent_id === $parentUserId)
+                        || (!empty($post->building_id) && method_exists($user, 'canManageBuilding') && $user->canManageBuilding($post->building_id));
+
+                    if (!$isOwner) {
+                        return response()->json(['error' => 'Bạn không có quyền chỉnh sửa bài đăng này!'], 403);
+                    }
                 }
             }
         }

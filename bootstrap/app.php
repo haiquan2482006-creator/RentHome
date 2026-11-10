@@ -12,16 +12,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
 
-
+        // Giữ xác thực CSRF token cho toàn bộ các thao tác trạng thái dữ liệu
         $middleware->validateCsrfTokens(except: [
-            'qlvan_hanh/update_payment_status',
-            'api/moderator/*',
-            'api/kiem-duyet/*',
-            'api/cskh/*',
-            'admin/posts/*/toggle-featured',
-            'Admin/posts/*/toggle-featured',
-            'admin/tickets/*',
-            'Admin/tickets/*',
+            // Thêm các webhook bên thứ ba tại đây nếu có trong tương lai (ví dụ: 'webhook/*')
         ]);
 
         $middleware->web(append: [

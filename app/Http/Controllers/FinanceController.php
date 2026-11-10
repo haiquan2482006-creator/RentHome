@@ -566,7 +566,16 @@ class FinanceController extends Controller
      */
     public function reportTransfer(Request $request, $code)
     {
-        $cleanCode = trim($code);
+        $request->validate([
+            'proof_image' => 'nullable|file|image|mimes:jpeg,png,jpg,webp|max:5120',
+            'proof_url'   => 'nullable|string|url|max:1000',
+        ], [
+            'proof_image.image' => 'Biên lai chuyển khoản phải là hình ảnh hợp lệ.',
+            'proof_image.mimes' => 'Hình ảnh biên lai chỉ hỗ trợ các định dạng: jpeg, png, jpg, webp.',
+            'proof_image.max'   => 'Kích thước ảnh biên lai tối đa 5MB.',
+        ]);
+
+        $cleanCode = preg_replace('/[^a-zA-Z0-9_-]/', '', trim($code));
         $invoice = Invoice::where('invoice_code', $cleanCode)
             ->orWhere('_id', $cleanCode)
             ->orWhere('id', $cleanCode)
@@ -581,7 +590,12 @@ class FinanceController extends Controller
         // Xử lý upload ảnh nếu có
         if ($request->hasFile('proof_image')) {
             $file = $request->file('proof_image');
-            $filename = 'proof_' . $cleanCode . '_' . time() . '.' . $file->getClientOriginalExtension();
+            $allowedExts = ['jpeg', 'png', 'jpg', 'webp'];
+            $ext = strtolower($file->getClientOriginalExtension());
+            if (!in_array($ext, $allowedExts)) {
+                $ext = 'jpg';
+            }
+            $filename = 'proof_' . $cleanCode . '_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
 
             // 1. Lưu trực tiếp vào public/uploads/proofs để web server luôn đọc được ngay
             $publicDir = public_path('uploads/proofs');

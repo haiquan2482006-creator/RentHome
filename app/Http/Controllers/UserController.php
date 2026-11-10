@@ -25,6 +25,22 @@ class UserController extends Controller
         $user = Auth::user();
         $uId = (string)($user->_id ?? $user->id);
 
+        $request->validate([
+            'avatar'           => 'nullable|file|image|mimes:jpeg,png,jpg,webp|max:5120',
+            'id_front'         => 'nullable|file|image|mimes:jpeg,png,jpg,webp|max:5120',
+            'id_back'          => 'nullable|file|image|mimes:jpeg,png,jpg,webp|max:5120',
+            'business_license' => 'nullable|file|mimes:jpeg,png,jpg,webp,pdf|max:10240',
+        ], [
+            'avatar.image'             => 'Ảnh đại diện phải là tệp hình ảnh hợp lệ.',
+            'avatar.max'               => 'Ảnh đại diện tối đa 5MB.',
+            'id_front.image'           => 'Ảnh mặt trước CCCD phải là hình ảnh hợp lệ.',
+            'id_front.max'             => 'Ảnh mặt trước CCCD tối đa 5MB.',
+            'id_back.image'            => 'Ảnh mặt sau CCCD phải là hình ảnh hợp lệ.',
+            'id_back.max'              => 'Ảnh mặt sau CCCD tối đa 5MB.',
+            'business_license.mimes'   => 'Giấy phép kinh doanh hỗ trợ định dạng: jpeg, png, jpg, webp, pdf.',
+            'business_license.max'     => 'Tệp giấy phép kinh doanh tối đa 10MB.',
+        ]);
+
         // BẢO MẬT (Chống Broken Access Control):
         // Lọc bỏ tuyệt đối 'ho_ten' và 'account_name' khỏi dữ liệu cập nhật từ request của người dùng/nhân sự.
         // Kể cả khi người dùng dùng F12 xóa thuộc tính 'readonly' trên trình duyệt để gửi kèm 'ho_ten' hoặc 'account_name',
