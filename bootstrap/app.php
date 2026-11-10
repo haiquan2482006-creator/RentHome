@@ -12,6 +12,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
 
+        // Tin tưởng proxy của OneShield / Reverse Proxy để nhận diện HTTPS
+        $middleware->trustProxies(at: '*');
+
         // Giữ xác thực CSRF token cho toàn bộ các thao tác trạng thái dữ liệu
         $middleware->validateCsrfTokens(except: [
             // Thêm các webhook bên thứ ba tại đây nếu có trong tương lai (ví dụ: 'webhook/*')
